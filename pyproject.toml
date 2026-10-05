@@ -25,7 +25,11 @@ dependencies = [
 dev = ["pytest>=8.0", "ruff>=0.9", "jupyterlab>=4.0"]
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.9"]
+dev = [
+    "lm-eval>=0.4.13",
+    "pytest>=8.0",
+    "ruff>=0.9",
+]
 
 # The pod's GPU is an RTX PRO 6000 Blackwell (sm_120) with CUDA 13.0; the default PyPI
 # torch wheel is built for an older CUDA runtime, so torch comes from the cu130 wheel

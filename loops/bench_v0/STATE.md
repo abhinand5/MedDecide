@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T23:20:00Z`
+Last updated (UTC): `2026-10-06T00:00:00Z`
 Iterations so far: `3`
 
 ---
@@ -29,12 +29,12 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
 | T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
 | T6 | Eval harness | yes | T2 | DONE | 2026-10-05T22:00:12Z | 2026-10-05T23:20:00Z |
-| T7 | Harness validation vs reference | yes | T3, T6 | IN_PROGRESS | 2026-10-05T23:20:00Z | | |
-| T8 | Fresh-template screen | no | T5 | PENDING | | |
+| T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
+| T8 | Fresh-template screen | no | T5 | DONE | 2026-10-05T23:22:00Z | 2026-10-06T00:00:00Z |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
 | T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
 | T10 | Teacher pipeline gate | teacher | T3, T5, T6 | PENDING | | |
-| T11 | Operator audit page + sample | no | T8 | PENDING | | |
+| T11 | Operator audit page + sample | no | T8 | IN_PROGRESS | 2026-10-06T00:00:00Z | | |
 | T12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (T10 exception in
@@ -74,15 +74,18 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: T7 (harness validation vs reference)
-Working dir:    outputs/bench_v0/T7/
+Task in flight: T11 (operator audit page + sample)
+Working dir:    outputs/bench_v0/T11/
 
-- [ ] pick a tier-1 task present in lm-evaluation-harness with a loglikelihood MC protocol
-- [ ] run lm-eval on the same model + items, zero-shot
-- [ ] run our harness on the same model + items, zero-shot
-- [ ] record both protocols exactly (which scoring variant each uses)
-- [ ] acceptance: agreement within +/-2 accuracy points on >=1 (model, task) pair
-- [ ] if no pair agrees: BLOCKED with the measured gap (never loosen the tolerance)
+- [ ] draw a seeded stratified sample of 150 fresh TEST items (50 per source, across kept templates)
+- [ ] write outputs/bench_v0/T11/audit_sample.jsonl (item_id, template_id, source_url, state, question,
+      options, gold, and the raw structured field(s) the gold came from)
+- [ ] tools/audit/audit.html: self-contained, no network, file picker, one item per screen,
+      A accept / R reject / N note, arrow navigation, progress bar, localStorage autosave,
+      Export -> audit_v0.jsonl (item_id, verdict, note, timestamp)
+- [ ] commit tools/audit/audit.html (no data); do NOT commit the sample
+- [ ] validate the page loads a sample and exports valid JSONL (headless check of the export logic)
+- [ ] mark the audit itself BLOCKED - awaiting operator, with instructions in STATE questions
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
 - [ ] STATE updated, committed, pushed
@@ -114,6 +117,22 @@ Working dir:    outputs/bench_v0/T7/
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T8 — DONE — 2026-10-06T00:00:00Z
+- What ran: `uv run python scripts/bench/screen_templates.py` (regex + TF-IDF/LogReg baselines,
+  the latter fitted on dev and scored on test).
+- Output: `src/meddecide/eval/screen.py`, `scripts/bench/screen_templates.py`,
+  `configs/template_screen_patterns.yaml`, committed `loops/bench_v0/template_screen.md`,
+  `outputs/bench_v0/T8/screen.json`, `data/bench/fresh/manifest_screened.json`.
+- Headline: 10 of 12 fresh templates kept, 2 dropped — `ct_healthy_volunteers_noul_v1` because
+  all 2,900 test items share one gold class, and `pubmed_observational_noul_v1` because the
+  bag-of-words baseline reaches 0.985 (majority 0.985, macro 0.500: no skill); the BoW macro
+  accuracy is <=0.564 on every template, so the micro numbers are not evidence of difficulty
+  (C033-C037).
+- Surprises: the screen's most useful output is not the drop list but the per-template note that
+  every BoW classifier collapsed toward the majority class; the healthy-volunteers field is
+  constant in a 25-day window, which is a window-width problem surfacing as a template problem.
+- Next: T11 (audit page + sample) is CPU-only and now unblocked; T9 still waits on T7.
 
 ### T6 — DONE — 2026-10-05T23:20:00Z
 - What ran: `uv run pytest` (65), `scripts/bench/run_eval.py` twice (0.8B + 0.8B-Base, 50
@@ -222,6 +241,20 @@ Working dir:    outputs/bench_v0/T7/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q4 (T6, added 2026-10-05T23:20:00Z) — the fixed T6 prompt is part of the baseline protocol.**
+The harness renders every model through its own chat template with a fixed system prompt and a
+fixed "respond with a single letter … the correct option is:" instruction, reads the next-token
+distribution over option-letter tokens, and detects per model whether the model emits the bare
+letter or a space-prefixed one. ADVISORY forbids tuning prompts per model to raise scores, so
+this prompt is fixed for all models and recorded in every run config. Two consequences the
+operator should know before T9: (a) base checkpoints (e.g. `Qwen3.5-0.8B-Base`) are scored with
+the same chat-template path as instruct models, which is the comparable choice but is not how a
+base model is usually evaluated; (b) the readout is a zero-shot letter choice, whereas
+lm-evaluation-harness scores option continuations — T7 runs both and reports the gap, and that
+gap is the main threat to comparability with published numbers. If the operator wants a
+second protocol (continuation scoring) for comparability, that is a T9/T7 decision, not
+something I will add unilaterally.
 
 **Q3 (T5, added 2026-10-05T21:52:30Z) — the fresh window is only 25 days wide.**
 Window start is `2026-09-10`, the Hugging Face repository creation date of the teacher
