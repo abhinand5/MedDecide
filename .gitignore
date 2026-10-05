@@ -224,3 +224,11 @@ outputs/
 data/
 tmp/
 *.parquet
+# benchmark items, predictions and teacher outputs are JSONL; the only JSONL that may be
+# committed would live under docs/, so ignore the extension everywhere else
+*.jsonl
+!docs/**/*.jsonl
+# local secrets (the pod keeps them at /workspace/.secrets.env, outside the repo)
+.env
+.secrets.env
+

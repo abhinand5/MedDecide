@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T20:50:24Z`
+Last updated (UTC): `2026-10-05T20:58:30Z`
 Iterations so far: `1`
 
 ---
@@ -24,7 +24,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
 | T0 | Environment verification | no | — | DONE | 2026-10-05T20:49:53Z | 2026-10-05T20:50:24Z |
-| T1 | Repo scaffold | smoke | T0 | PENDING | | |
+| T1 | Repo scaffold | smoke | T0 | DONE | 2026-10-05T20:53:18Z | 2026-10-05T20:58:30Z |
 | T2 | Item schema | no | T1 | PENDING | | |
 | T3 | Tier 1 loaders | no | T2 | PENDING | | |
 | T5 | Fresh-tier builders | no | T2 | PENDING | | |
@@ -71,11 +71,12 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/bench_v0/<id>/
+Task in flight: T2 (item schema)
+Working dir:    outputs/bench_v0/T2/
 
-- [ ] <step 1>
-- [ ] <step 2>
+- [ ] pydantic item model + invariants in src/meddecide/bench/schema.py
+- [ ] JSONL read/write helpers with validation and a manifest builder
+- [ ] docs/benchmark/schema.md
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -100,6 +101,20 @@ Working dir:    outputs/bench_v0/<id>/
      makes sense with full context ("done, see report") starves the summary. Write
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
+
+### T1 — DONE — 2026-10-05T20:58:30Z
+- What ran: `uv sync` (157 resolved / 154 installed), `uv run pytest`, `uv run ruff check .`,
+  `uv run python scripts/gpu_smoke.py --model Qwen/Qwen3.5-0.8B`.
+- Output: `pyproject.toml`, `uv.lock`, `src/meddecide/{bench,eval,teacher,utils}/`,
+  `tests/` (27 tests), `configs/bench_v0.yaml`, `docs/benchmark/schema.md`,
+  `outputs/bench_v0/T1/gpu_smoke.txt`, `outputs/bench_v0/T1/SELF_AUDIT.md`.
+- Headline: the full GPU stack works on this pod — `Qwen/Qwen3.5-0.8B` (752,393,024 params,
+  revision `2fc0636…`) loads in bf16 at capability sm_120 and completes a forward pass
+  (C006, C007); `uv run pytest` 27 passed and `uv run ruff check .` clean (C008).
+- Surprises: `transformers` 5.x needs `accelerate` for `device_map` (found by the smoke run,
+  added, re-ran); two of my own test expectations were arithmetically wrong and were
+  corrected with extra stricter cases (see `outputs/bench_v0/T1/SELF_AUDIT.md`).
+- Next: unblocks T2 (item schema); T3/T5/T6 all depend on T2.
 
 ### T0 — DONE — 2026-10-05T20:50:24Z
 - What ran: inline environment probe writing `outputs/bench_v0/T0/env.json` (GPU/CPU/RAM/disk,

@@ -1,0 +1,108 @@
+# MedDecide-Bench v0 configuration (loop bench_v0)
+#
+# Defaults here come from loops/bench_v0/ADVISORY.md. Every task records the config it
+# ran with in its provenance record (R7). Paths may be overridden by environment
+# variables so that nothing outside this file hardcodes a location.
+
+seed: 0
+
+paths:
+  data_root: data/bench          # gitignored: items, raw downloads
+  outputs_root: outputs/bench_v0  # gitignored: predictions, logs, summaries
+  hf_home: ${HF_HOME}
+
+caps:
+  tier1_max_test_items_per_source: 5000   # random sample with `seed` above the cap
+  tier1_max_dev_items_per_source: 2000
+  fresh_dev_fraction: 0.2                 # split by record-id hash, never by item
+  fresh_target_items_per_template: 500
+  contamination_probe_items_per_source: 500
+  teacher_dev_items: 2000                 # T10 non-thinking evaluation set
+  teacher_thinking_items: 200               # T10 thinking-mode subset
+  option_shuffle_samples: 500
+  candidate_counts: [2, 4, 8, 16]
+
+eval:
+  bootstrap_resamples: 1000
+  bootstrap_alpha: 0.05
+  ece_bins: 15
+  max_state_tokens:
+    clinicaltrials: 8192
+    openfda: 8192
+    pubmed: 16384
+  max_new_tokens_disabled: 0   # readout is prefill-only; no text is generated
+
+models:
+  # Ladder + single-GPU decision models. Revisions are pinned at run time (R7) — `null`
+  # means "resolve and record the revision when the run starts".
+  ladder:
+    - id: LiquidAI/LFM2.5-350M
+      revision: null
+      readout: verbalizer
+      max_options: 32
+    - id: Qwen/Qwen3.5-0.8B
+      revision: null
+      readout: verbalizer
+      max_options: 32
+    - id: Qwen/Qwen3.5-0.8B-Base
+      revision: null
+      readout: verbalizer
+      max_options: 32
+    - id: google/medgemma-1.5-4b-it
+      revision: null
+      readout: verbalizer
+      max_options: 32
+    - id: Qwen/Qwen3.5-4B
+      revision: null
+      readout: verbalizer
+      max_options: 32
+    - id: Qwen/Qwen3.5-9B
+      revision: null
+      readout: verbalizer
+      max_options: 32
+  decision_models:
+    - id: convaiinnovations/laya
+      revision: null
+      inference_path: package
+    - id: convaiinnovations/laya-typed-decisions
+      revision: null
+      inference_path: package
+    - id: SupersonicLabs/Julia-1
+      revision: null
+      inference_path: package
+    - id: fastino/GLiNER2.5-Decide
+      revision: null
+      inference_path: package
+    - id: rAVEUK/open-jev-deberta-v3-large
+      revision: null
+      inference_path: transformers
+    - id: autotrust/JEV-9B
+      revision: null
+      inference_path: vllm
+    - id: junma/MedJev-Qwen3.5-0.8B
+      revision: null
+      inference_path: transformers
+      note: fixed 11-variable schema; NOT APPLICABLE unless its path accepts arbitrary questions
+
+teacher:
+  model_id: deepseek-ai/DeepSeek-V4.1-Flash
+  base_url_env: TEACHER_BASE_URL
+  api_key_env: TEACHER_API_KEY
+  mode:
+    non_thinking: true
+    thinking_items: 200
+  top_logprobs: 20          # must cover every option token; record misses (T10)
+
+fresh_window:
+  # Filled by T5 once every model's documented training cutoff is recorded in
+  # docs/benchmark/fresh_window.md. Values are ISO dates.
+  start: null
+  end: null
+
+screen:
+  regex_drop_threshold: 0.95   # T8: drop a template when regex OR BoW reaches this
+  bow_drop_threshold: 0.95
+  regex_time_budget_minutes: 30
+
+harness_validation:
+  tolerance_accuracy_points: 2.0   # T7 acceptance tolerance — never loosened (R8)
