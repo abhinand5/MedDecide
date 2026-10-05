@@ -217,3 +217,80 @@ def test_summarise_groups_by_template_and_split() -> None:
     assert sizes == [2, 3]
     for key in summary["groups"]:
         assert "|test" in key or "|dev" in key
+
+
+# ---------------------------------------------------------------------------
+# batch planning (added after the fresh-tier OOM: a fixed batch size is unsafe)
+# ---------------------------------------------------------------------------
+def test_plan_batches_covers_every_item_once() -> None:
+    from meddecide.eval.harness import plan_batches
+
+    counts = [10, 5000, 20, 700, 3, 9000, 45]
+    batches = plan_batches(counts, batch_size=4, max_batch_tokens=1000)
+    flat = [i for batch in batches for i in batch]
+    assert sorted(flat) == list(range(len(counts))), "every position appears exactly once"
+    assert len(flat) == len(set(flat)), "no position appears twice"
+
+
+def test_plan_batches_respects_both_budgets() -> None:
+    from meddecide.eval.harness import plan_batches
+
+    counts = [100] * 20 + [700] * 5
+    batches = plan_batches(counts, batch_size=4, max_batch_tokens=1000)
+    for batch in batches:
+        assert len(batch) <= 4, "count budget respected"
+        assert sum(counts[i] for i in batch) <= 1000, "token budget respected"
+
+
+def test_plan_batches_oversized_item_gets_its_own_batch() -> None:
+    from meddecide.eval.harness import plan_batches
+
+    counts = [10, 50000, 10]
+    batches = plan_batches(counts, batch_size=8, max_batch_tokens=1000)
+    # the huge item cannot share a batch, but it is still scored (never dropped)
+    assert any(batch == [1] for batch in batches)
+    assert sorted(i for batch in batches for i in batch) == [0, 1, 2]
+
+
+def test_plan_batches_packs_tightly() -> None:
+    """First-fit-decreasing must not waste batches: 3 x 900 + 3 x 1 fits in the theoretical
+    minimum of 3 batches at a 1000-token budget (total 2703 tokens)."""
+    from meddecide.eval.harness import plan_batches
+
+    counts = [1, 1, 1, 900, 900, 900]
+    batches = plan_batches(counts, batch_size=3, max_batch_tokens=1000)
+    assert len(batches) == 3, "packing wastes a batch"
+    assert sorted(i for batch in batches for i in batch) == list(range(len(counts)))
+    for batch in batches:
+        assert sum(counts[i] for i in batch) <= 1000
+
+
+def test_plan_batches_rejects_bad_budgets() -> None:
+    from meddecide.eval.harness import plan_batches
+
+    with pytest.raises(ValueError, match="batch_size"):
+        plan_batches([1], batch_size=0, max_batch_tokens=10)
+    with pytest.raises(ValueError, match="batch_size"):
+        plan_batches([1], batch_size=1, max_batch_tokens=0)
+
+
+def test_plan_batches_never_exceeds_limits_under_pressure() -> None:
+    """A pathological mix must still respect both budgets (the 239-sequence batch bug)."""
+    from meddecide.eval.harness import plan_batches
+
+    counts = [1800] * 500 + [5] * 1000
+    batches = plan_batches(counts, batch_size=16, max_batch_tokens=24576)
+    assert sorted(i for b in batches for i in b) == list(range(len(counts)))
+    for batch in batches:
+        assert len(batch) <= 16, f"batch of {len(batch)} exceeds batch_size"
+        assert sum(counts[i] for i in batch) <= 24576, "batch exceeds token budget"
+
+
+def test_plan_batches_single_huge_item_is_its_own_batch() -> None:
+    from meddecide.eval.harness import plan_batches
+
+    counts = [16000, 10, 10, 10]
+    batches = plan_batches(counts, batch_size=4, max_batch_tokens=8192)
+    huge = [b for b in batches if 0 in b]
+    assert huge == [[0]], "the oversized item must be alone, not dropped and not merged"
+    assert sum(len(b) for b in batches) == 4

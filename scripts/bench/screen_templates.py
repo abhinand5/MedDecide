@@ -30,6 +30,8 @@ from meddecide.utils.provenance import Provenance, utcnow
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fresh", type=Path, default=Path("data/bench/fresh"))
+    parser.add_argument("--tier", default="fresh", help="label used in the report (fresh|tier1)")
+    parser.add_argument("--manifest-name", default="manifest_screened.json")
     parser.add_argument("--patterns", type=Path, default=Path("configs/template_screen_patterns.yaml"))
     parser.add_argument("--config", type=Path, default=Path("configs/bench_v0.yaml"))
     parser.add_argument("--report", type=Path, default=Path("loops/bench_v0/template_screen.md"))
@@ -119,7 +121,7 @@ def main() -> int:
                 for r in results
             },
         }
-        (args.fresh / "manifest_screened.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        (args.fresh / args.manifest_name).write_text(json.dumps(manifest, indent=2) + "\n")
 
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(_render_report(screen, results), encoding="utf-8")

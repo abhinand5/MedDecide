@@ -39,6 +39,11 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-options", type=int, default=32)
+    parser.add_argument("--max-batch-tokens", type=int, default=32768,
+                        help="cap on total prompt tokens per batch (memory safety)")
+    parser.add_argument("--max-prompt-tokens", type=int, default=16384,
+                        help="truncate prompts longer than this")
+    parser.add_argument("--debug-batches", action="store_true")
     parser.add_argument("--splits", nargs="*", default=None, help="restrict to these splits")
     parser.add_argument("--config", type=Path, default=Path("configs/bench_v0.yaml"))
     args = parser.parse_args()
@@ -64,7 +69,13 @@ def main() -> int:
 
     spec = ModelSpec(model_id=args.model, revision=args.revision, max_options=args.max_options)
     t_start = utcnow()
-    harness = Harness(spec, batch_size=args.batch_size)
+    harness = Harness(
+        spec,
+        batch_size=args.batch_size,
+        max_batch_tokens=args.max_batch_tokens,
+        max_prompt_tokens=args.max_prompt_tokens,
+        debug=args.debug_batches,
+    )
     predictions = harness.score(items)
     summary = summarise(predictions, seed=args.seed)
 
@@ -82,6 +93,8 @@ def main() -> int:
         "n_items": len(items),
         "n_predictions": len(predictions),
         "batch_size": args.batch_size,
+        "max_batch_tokens": args.max_batch_tokens,
+        "max_prompt_tokens": args.max_prompt_tokens,
         "seed": args.seed,
         "splits": args.splits,
         "label_token_check": harness.label_check.to_dict(),
@@ -98,6 +111,8 @@ def main() -> int:
                 "limit": args.limit,
                 "splits": args.splits,
                 "batch_size": args.batch_size,
+                "max_batch_tokens": args.max_batch_tokens,
+                "max_prompt_tokens": args.max_prompt_tokens,
                 "seed": args.seed,
                 "max_options": args.max_options,
                 "bench_config": str(args.config),

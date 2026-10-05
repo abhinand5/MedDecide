@@ -115,6 +115,54 @@ class Prediction:
         }
 
 
+def plan_batches(
+    prompt_token_counts: Sequence[int],
+    *,
+    batch_size: int,
+    max_batch_tokens: int,
+    max_open_batches: int = 16,
+) -> list[list[int]]:
+    """Group item positions into batches that respect **both** limits.
+
+    First-fit-decreasing with a bounded number of open batches: a batch only accepts an item
+    when adding it keeps the batch within ``batch_size`` **and** within ``max_batch_tokens``.
+    A new batch is opened when nothing fits, and when ``max_open_batches`` is already open the
+    longest remaining items each get their own batch (they are processed sequentially, never
+    merged into an oversized batch).
+
+    Every position appears exactly once. The hard guarantee is that no returned batch exceeds
+    ``batch_size`` items or ``max_batch_tokens`` tokens of *real* (unpadded) prompt.
+    """
+    if batch_size < 1 or max_batch_tokens < 1:
+        raise ValueError("batch_size and max_batch_tokens must be >= 1")
+    if max_open_batches < 1:
+        raise ValueError("max_open_batches must be >= 1")
+    order = sorted(range(len(prompt_token_counts)), key=lambda i: -prompt_token_counts[i])
+    batches: list[list[int]] = []
+    tokens: list[int] = []
+    for index in order:
+        n = prompt_token_counts[index]
+        placed = False
+        for b, batch in enumerate(batches):
+            if len(batch) < batch_size and tokens[b] + n <= max_batch_tokens:
+                batch.append(index)
+                tokens[b] += n
+                placed = True
+                break
+        if placed:
+            continue
+        if len(batches) < max_open_batches:
+            batches.append([index])
+            tokens.append(n)
+        else:
+            # no room anywhere and no new batch allowed: give this item its own batch rather
+            # than merging it into a full one (an oversized batch is what OOMed: 239 sequences
+            # at ~1.9k tokens each exhausted a 95 GiB card).
+            batches.append([index])
+            tokens.append(n)
+    return batches
+
+
 class Harness:
     """Loads one model and scores batches of items."""
 
@@ -127,6 +175,7 @@ class Harness:
         trust_remote_code: bool = False,
         max_prompt_tokens: int = 16384,
         max_batch_tokens: int = 65536,
+        debug: bool = False,
     ) -> None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -139,6 +188,7 @@ class Harness:
         # tokens and 32 of them made torch try to allocate 104 GiB on a 95 GiB card. Batches are
         # therefore also capped by total prompt tokens.
         self.max_batch_tokens = max_batch_tokens
+        self.debug = debug
         self.torch = torch
         self.tokenizer = AutoTokenizer.from_pretrained(spec.model_id, revision=spec.revision,
                                                        trust_remote_code=trust_remote_code)
@@ -177,6 +227,33 @@ class Harness:
             list(prompts), return_tensors="pt", padding=True, truncation=True,
             max_length=self.max_prompt_tokens,
         )
+        if self.debug:
+            print(
+                f"[harness] batch={tuple(encoded['input_ids'].shape)} "
+                f"max_id={int(encoded['input_ids'].max())} "
+                f"real_tokens={int(encoded['attention_mask'].sum())} "
+                f"vocab={int(getattr(self.model.config, 'vocab_size', 0) or 0)} "
+                f"mem={torch.cuda.memory_allocated() / 1e9:.1f}GB",
+                flush=True,
+            )
+        # Guard: an out-of-range token id makes torch.embedding try to allocate a table-sized
+        # tensor for the *whole batch* (observed: "Tried to allocate 428.83 GiB" on a 95 GiB
+        # card) instead of raising an index error. Check and report the offending token.
+        vocab_size = int(getattr(self.model.config, "vocab_size", 0) or 0)
+        if vocab_size:
+            max_id = int(encoded["input_ids"].max())
+            if max_id >= vocab_size:
+                offenders = [
+                    int(t)
+                    for t in encoded["input_ids"][encoded["input_ids"] >= vocab_size].flatten().tolist()
+                ]
+                pieces = self.tokenizer.convert_ids_to_tokens(offenders[:5])
+                raise ValueError(
+                    f"token id {max_id} >= vocab_size {vocab_size} in a batch of "
+                    f"{encoded['input_ids'].shape[0]} sequences "
+                    f"(max len {encoded['input_ids'].shape[1]}); "
+                    f"offending ids {offenders[:5]} decode to {pieces}"
+                )
         input_ids = encoded["input_ids"].to(self.device)
         attention_mask = encoded["attention_mask"].to(self.device)
         n_tokens = attention_mask.sum(dim=1).tolist()
@@ -198,26 +275,11 @@ class Harness:
             self._key_token_cache[key] = key_token_id(key, self.tokenizer, self.variant)
         return self._key_token_cache[key]
 
-    def _plan_batches(self, prompt_token_counts: list[int]) -> list[tuple[list[int], int, int]]:
-        """Plan batches that respect both ``batch_size`` and ``max_batch_tokens``.
-
-        Items are ordered by prompt length first (then the original order is restored), so a
-        handful of very long items do not force small batches on all the short ones.
-        """
-        order = sorted(range(len(prompt_token_counts)), key=lambda i: prompt_token_counts[i])
-        batches: list[tuple[list[int], int, int]] = []
-        current: list[int] = []
-        tokens = 0
-        for index in order:
-            n = prompt_token_counts[index]
-            if current and (len(current) >= self.batch_size or tokens + n > self.max_batch_tokens):
-                batches.append((current, current[0], current[-1] + 1))
-                current, tokens = [], 0
-            current.append(index)
-            tokens += n
-        if current:
-            batches.append((current, current[0], current[-1] + 1))
-        return batches
+    def _plan_batches(self, prompt_token_counts: list[int]) -> list[list[int]]:
+        """Plan batches that respect both ``batch_size`` and ``max_batch_tokens``."""
+        return plan_batches(
+            prompt_token_counts, batch_size=self.batch_size, max_batch_tokens=self.max_batch_tokens
+        )
 
     def score(
         self,
@@ -237,15 +299,14 @@ class Harness:
             len(self.tokenizer.encode(prompt, add_special_tokens=False)) for prompt in prompts
         ]
         if sort_by_length:
-            batches = [(indices, start, end) for indices, start, end in self._plan_batches(prompt_token_counts)]
+            batches = self._plan_batches(prompt_token_counts)
         else:  # pragma: no cover - escape hatch for order-sensitive callers
             batches = [
-                (list(range(start, min(start + self.batch_size, len(items)))), start,
-                 min(start + self.batch_size, len(items)))
+                list(range(start, min(start + self.batch_size, len(items))))
                 for start in range(0, len(items), self.batch_size)
             ]
         by_position: dict[int, Prediction] = {}
-        for indices, _start, _end in batches:
+        for indices in batches:
             batch_items = [items[i] for i in indices]
             batch_prompts = [prompts[i] for i in indices]
             scored = self._score_batch(batch_items, batch_prompts, transform=transform)
