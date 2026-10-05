@@ -126,6 +126,7 @@ class Harness:
         device: str = "cuda:0",
         trust_remote_code: bool = False,
         max_prompt_tokens: int = 16384,
+        max_batch_tokens: int = 65536,
     ) -> None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -134,6 +135,10 @@ class Harness:
         self.batch_size = batch_size
         self.device = device
         self.max_prompt_tokens = max_prompt_tokens
+        # A fixed batch *size* is unsafe on the fresh tier: PubMed states run to many thousands of
+        # tokens and 32 of them made torch try to allocate 104 GiB on a 95 GiB card. Batches are
+        # therefore also capped by total prompt tokens.
+        self.max_batch_tokens = max_batch_tokens
         self.torch = torch
         self.tokenizer = AutoTokenizer.from_pretrained(spec.model_id, revision=spec.revision,
                                                        trust_remote_code=trust_remote_code)
@@ -193,53 +198,111 @@ class Harness:
             self._key_token_cache[key] = key_token_id(key, self.tokenizer, self.variant)
         return self._key_token_cache[key]
 
-    def score(self, items: Sequence[Item], *, transform: dict[str, Any] | None = None) -> list[Prediction]:
-        """Score items in batches; returns one :class:`Prediction` per item."""
+    def _plan_batches(self, prompt_token_counts: list[int]) -> list[tuple[list[int], int, int]]:
+        """Plan batches that respect both ``batch_size`` and ``max_batch_tokens``.
+
+        Items are ordered by prompt length first (then the original order is restored), so a
+        handful of very long items do not force small batches on all the short ones.
+        """
+        order = sorted(range(len(prompt_token_counts)), key=lambda i: prompt_token_counts[i])
+        batches: list[tuple[list[int], int, int]] = []
+        current: list[int] = []
+        tokens = 0
+        for index in order:
+            n = prompt_token_counts[index]
+            if current and (len(current) >= self.batch_size or tokens + n > self.max_batch_tokens):
+                batches.append((current, current[0], current[-1] + 1))
+                current, tokens = [], 0
+            current.append(index)
+            tokens += n
+        if current:
+            batches.append((current, current[0], current[-1] + 1))
+        return batches
+
+    def score(
+        self,
+        items: Sequence[Item],
+        *,
+        transform: dict[str, Any] | None = None,
+        sort_by_length: bool = True,
+    ) -> list[Prediction]:
+        """Score items; returns one :class:`Prediction` per item, in the input order.
+
+        Prompt lengths are measured first so the batches respect the token budget as well as the
+        batch size. This matters on the fresh tier: PubMed states run to many thousands of tokens
+        and a fixed batch of 32 exhausted a 95 GiB card (torch tried to allocate 104 GiB).
+        """
+        prompts = [render_prompt(item, self.tokenizer, self.variant) for item in items]
+        prompt_token_counts = [
+            len(self.tokenizer.encode(prompt, add_special_tokens=False)) for prompt in prompts
+        ]
+        if sort_by_length:
+            batches = [(indices, start, end) for indices, start, end in self._plan_batches(prompt_token_counts)]
+        else:  # pragma: no cover - escape hatch for order-sensitive callers
+            batches = [
+                (list(range(start, min(start + self.batch_size, len(items)))), start,
+                 min(start + self.batch_size, len(items)))
+                for start in range(0, len(items), self.batch_size)
+            ]
+        by_position: dict[int, Prediction] = {}
+        for indices, _start, _end in batches:
+            batch_items = [items[i] for i in indices]
+            batch_prompts = [prompts[i] for i in indices]
+            scored = self._score_batch(batch_items, batch_prompts, transform=transform)
+            for position, prediction in zip(indices, scored, strict=True):
+                by_position[position] = prediction
+        return [by_position[i] for i in range(len(items))]
+
+    def _score_batch(
+        self,
+        batch: list[Item],
+        prompts: list[str],
+        *,
+        transform: dict[str, Any] | None = None,
+    ) -> list[Prediction]:
+        """Score one batch of already-rendered prompts."""
         predictions: list[Prediction] = []
-        for start in range(0, len(items), self.batch_size):
-            batch = list(items[start : start + self.batch_size])
-            prompts = [render_prompt(item, self.tokenizer, self.variant) for item in batch]
-            t0 = time.perf_counter()
-            logits, n_tokens = self._next_token_logits(prompts)
-            elapsed = time.perf_counter() - t0
-            per_item = elapsed / max(1, len(batch))
-            for row, item, prompt_tokens in zip(logits, batch, n_tokens, strict=True):
-                if item.n_options > self.spec.max_options:
-                    raise ValueError(
-                        f"{item.item_id}: {item.n_options} options exceeds "
-                        f"max_options={self.spec.max_options} for {self.spec.model_id}"
-                    )
-                token_ids = [self._key_token(k) for k in item.option_keys]
-                readout = read_option_probabilities(row, token_ids)
-                probs = [float(p) for p in readout["option_probs"]]
-                argmax = int(np.argmax(readout["option_probs"]))
-                predictions.append(
-                    Prediction(
-                        item_id=item.item_id,
-                        model_id=self.spec.model_id,
-                        source=item.source,
-                        template_id=item.template_id,
-                        split=str(item.split),
-                        qtype=str(item.qtype),
-                        option_keys=item.option_keys,
-                        option_probs=probs,
-                        label_mass=float(readout["label_mass"]),
-                        vocab_argmax_is_option=bool(readout["vocab_argmax_is_option"]),
-                        n_tokens_above_best_option=int(readout["n_tokens_above_best_option"]),
-                        best_option_in_top5=bool(readout["best_option_in_top5"]),
-                        top1_over_option_mass=float(readout["top1_over_option_mass"]),
-                        argmax_index=argmax,
-                        gold_key=item.gold,
-                        correct=argmax == item.gold_index,
-                        expected_level=(
-                            expected_level(probs) if item.qtype is QuestionType.SCORE else None
-                        ),
-                        latency_s=per_item,
-                        variant=self.variant,
-                        prompt_tokens=int(prompt_tokens),
-                        transform=transform or {},
-                    )
+        t0 = time.perf_counter()
+        logits, n_tokens = self._next_token_logits(prompts)
+        elapsed = time.perf_counter() - t0
+        per_item = elapsed / max(1, len(batch))
+        for row, item, prompt_tokens in zip(logits, batch, n_tokens, strict=True):
+            if item.n_options > self.spec.max_options:
+                raise ValueError(
+                    f"{item.item_id}: {item.n_options} options exceeds "
+                    f"max_options={self.spec.max_options} for {self.spec.model_id}"
                 )
+            token_ids = [self._key_token(k) for k in item.option_keys]
+            readout = read_option_probabilities(row, token_ids)
+            probs = [float(p) for p in readout["option_probs"]]
+            argmax = int(np.argmax(readout["option_probs"]))
+            predictions.append(
+                Prediction(
+                    item_id=item.item_id,
+                    model_id=self.spec.model_id,
+                    source=item.source,
+                    template_id=item.template_id,
+                    split=str(item.split),
+                    qtype=str(item.qtype),
+                    option_keys=item.option_keys,
+                    option_probs=probs,
+                    label_mass=float(readout["label_mass"]),
+                    vocab_argmax_is_option=bool(readout["vocab_argmax_is_option"]),
+                    n_tokens_above_best_option=int(readout["n_tokens_above_best_option"]),
+                    best_option_in_top5=bool(readout["best_option_in_top5"]),
+                    top1_over_option_mass=float(readout["top1_over_option_mass"]),
+                    argmax_index=argmax,
+                    gold_key=item.gold,
+                    correct=argmax == item.gold_index,
+                    expected_level=(
+                        expected_level(probs) if item.qtype is QuestionType.SCORE else None
+                    ),
+                    latency_s=per_item,
+                    variant=self.variant,
+                    prompt_tokens=int(prompt_tokens),
+                    transform=transform or {},
+                )
+            )
         return predictions
 
 

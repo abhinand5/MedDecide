@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T00:45:00Z`
+Last updated (UTC): `2026-10-06T01:10:00Z`
 Iterations so far: `3`
 
 ---
@@ -32,8 +32,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T7 | Harness validation vs reference | yes | T3, T6 | DONE | 2026-10-06T00:30:00Z | 2026-10-06T00:45:00Z |
 | T8 | Fresh-template screen | no | T5 | DONE | 2026-10-05T23:22:00Z | 2026-10-06T00:00:00Z |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
-| T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
-| T10 | Teacher pipeline gate | teacher | T3, T5, T6 | PENDING | | |
+| T9 | Zero-shot baseline table | yes | T7, T8 | IN_PROGRESS | 2026-10-06T00:50:00Z | | |
+| T10 | Teacher pipeline gate | teacher | T3, T5, T6 | BLOCKED — teacher endpoint not provided | 2026-10-06T00:50:00Z | 2026-10-06T00:50:00Z |
 | T11 | Operator audit page + sample | no | T8 | BLOCKED — awaiting operator (page + sample delivered) | 2026-10-06T00:00:00Z | 2026-10-06T00:25:00Z |
 | T12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -77,17 +77,23 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (T10 next; needs the teacher endpoint, which is still unset)
-Working dir:    outputs/bench_v0/T10/
+Task in flight: T9 (zero-shot baseline table) — started 2026-10-06T00:50:00Z
+Working dir:    outputs/bench_v0/T9/
 
-Order for the next session:
-1. T10 (teacher pipeline gate) — deps T3/T5/T6 are DONE. Re-check `GET $TEACHER_BASE_URL/models`
-   first. If unset/unreachable: mark T10 `BLOCKED - teacher endpoint not provided` (allowed by
-   GOAL.md), record it, and continue. If it answers, run the gate: >=2,000 dev items
-   non-thinking, one temperature per qtype fitted on half and ECE evaluated on the other half,
-   >=200 items thinking mode, throughput both modes.
-2. T11's audit remains awaiting the operator (page + sample are ready; see questions).
-3. T12 (findings + closure) at the end; it needs every task DONE or BLOCKED with a reason.
+- [x] T7 gate passed (harness validated within tolerance) before reporting any baseline
+- [x] T8 gate passed (kept templates known: 10 of 12)
+- [x] Qwen/Qwen3.5-0.8B: tier-1 test (13,099) + fresh test (30,814) done
+- [~] Qwen/Qwen3.5-0.8B-Base: detached run in flight, log
+      outputs/bench_v0/T9/logs/run_all_test_0p8b_base.log (11 dataset files, --splits test)
+- [ ] remaining ladder: LFM2.5-350M, MedGemma-1.5-4b-it, Qwen3.5-4B, Qwen3.5-9B
+- [ ] decision models (2 h timebox each)
+- [ ] run the single-GPU decision models through their own inference paths (timeboxed 2 h each)
+- [ ] results.json + committed loops/bench_v0/baselines.md with n, coverage, accuracy +/- CI,
+      majority baseline, Brier, ECE, label mass, p50 latency, shuffle flip, abstention
+- [ ] every empty cell reads NOT MEASURED - <reason>
+- [ ] self-audit (R6) written to SELF_AUDIT.md
+- [ ] CLAIMS.md rows appended
+- [ ] STATE updated, committed, pushed
 ```
 
 ---
@@ -116,6 +122,16 @@ Order for the next session:
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T10 — BLOCKED — 2026-10-06T00:50:00Z
+- What ran: nothing (the endpoint was checked, not called).
+- Reason: `TEACHER_BASE_URL` and `TEACHER_API_KEY` are still unset in the pod environment, so
+  `GET $TEACHER_BASE_URL/models` cannot be attempted. ADVISORY T10: "If unset or unreachable when
+  T10 is reached, T10 is BLOCKED — teacher endpoint not provided. Do not wait for it."
+- Headline: `BLOCKED — teacher endpoint not provided`; no teacher numbers exist and none are
+  estimated (R3). Question Q1 in section 6 says what would unblock it.
+- Next: T9 (baselines) is unblocked by T7+T8 and is the only remaining measurement task; T12 can
+  close the loop with T10 blocked and the T11 audit awaiting the operator.
 
 ### T7 — DONE — 2026-10-06T00:45:00Z
 - What ran: `lm_eval --tasks medqa_4options --num_fewshot 0` (plain, 1,273 and 400 items; then
