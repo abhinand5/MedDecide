@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T21:58:00Z`
-Iterations so far: `2`
+Last updated (UTC): `2026-10-05T23:20:00Z`
+Iterations so far: `3`
 
 ---
 
@@ -28,8 +28,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
 | T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
 | T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
-| T6 | Eval harness | yes | T2 | PENDING | | |
-| T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
+| T6 | Eval harness | yes | T2 | DONE | 2026-10-05T22:00:12Z | 2026-10-05T23:20:00Z |
+| T7 | Harness validation vs reference | yes | T3, T6 | IN_PROGRESS | 2026-10-05T23:20:00Z | | |
 | T8 | Fresh-template screen | no | T5 | PENDING | | |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
 | T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
@@ -73,22 +73,16 @@ leaves you unable to tell what you already did.
 Clear this section and write the new task's checklist when you start the next task; the
 completed checklist goes into the iteration-log entry.
 
-<!-- Next session: T6 is PENDING with no work started. The checklist below is the plan for
-     it (copied from ADVISORY T6), not a record of partial work — nothing was launched. -->
 ```
-Task in flight: none (T6 not started)
-Plan for T6 (eval harness), for the next session:
-Working dir:    outputs/bench_v0/T6/
+Task in flight: T7 (harness validation vs reference)
+Working dir:    outputs/bench_v0/T7/
 
-- [ ] verbalizer readout: chat template, thinking disabled, single-token option letters
-- [ ] label-token check for every ladder model (record " A" vs "A" variant)
-- [ ] per-item outputs: option probabilities, label mass, argmax, latency
-- [ ] metrics: accuracy (micro/macro), majority baseline, Brier, ECE 15 bins, bootstrap CIs
-- [ ] probes: option-shuffle flip rate, candidate-count scaling, none-of-the-above abstention
-- [ ] results writer: preds JSONL per (model, source) + summary JSON
-- [ ] unit tests on metric functions with hand-computed cases
-- [ ] 50-item end-to-end run on Qwen3.5-0.8B writes predictions + summary
-- [ ] acceptance check run and passed
+- [ ] pick a tier-1 task present in lm-evaluation-harness with a loglikelihood MC protocol
+- [ ] run lm-eval on the same model + items, zero-shot
+- [ ] run our harness on the same model + items, zero-shot
+- [ ] record both protocols exactly (which scoring variant each uses)
+- [ ] acceptance: agreement within +/-2 accuracy points on >=1 (model, task) pair
+- [ ] if no pair agrees: BLOCKED with the measured gap (never loosen the tolerance)
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
 - [ ] STATE updated, committed, pushed
@@ -120,6 +114,24 @@ Working dir:    outputs/bench_v0/T6/
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T6 — DONE — 2026-10-05T23:20:00Z
+- What ran: `uv run pytest` (65), `scripts/bench/run_eval.py` twice (0.8B + 0.8B-Base, 50
+  MedQA items), `scripts/bench/run_probes.py` (30 items, 3 probes), `scripts/bench/label_token_check.py`.
+- Output: `src/meddecide/eval/{readout,harness,probes}.py`, `scripts/bench/{run_eval,run_probes,label_token_check}.py`,
+  `tests/test_harness.py`; predictions/summaries/probe JSON under `outputs/bench_v0/T6/`.
+- Headline: the harness scores 50 MedQA items on Qwen3.5-0.8B (0.34, majority 0.36, Brier
+  0.761, ECE 0.226) and on -Base (0.40), writes complete prediction files, and passes 65 unit
+  tests; the option-letter variant is **measured per model** (`bare` for Qwen) rather than
+  assumed (C025–C032).
+- Surprises: three readout bugs, each caught by a different cross-check — a prompt that made
+  the model continue the question instead of choosing, a left-padding index that read the wrong
+  token position, and a variant heuristic that read `" A"` while the model emits `A`. The third
+  was invisible in accuracy terms but showed up as label mass ~1e-06; after fixing it the mass
+  is 0.996 and the best option is in the vocab top-5 on every item. Also replaced an unstable
+  `argsort` rank metric with a tie-robust count after it disagreed with direct inspection.
+- Next: T7 must validate this harness against lm-evaluation-harness before any T9 number is
+  reported; T4 (contamination probe) and T8 (CPU screen) are now both unblocked.
 
 ### T5 — DONE — 2026-10-05T21:52:30Z
 - What ran: `uv run python scripts/bench/build_fresh.py --window-end 2026-10-05 --pubmed-files 12`

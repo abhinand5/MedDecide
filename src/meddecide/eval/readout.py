@@ -24,7 +24,18 @@ import numpy as np
 from meddecide.bench.schema import Item, QuestionType
 
 SYSTEM_PROMPT = (
-    "You are a medical decision model. Answer with the letter of the correct option only."
+    "You are a medical decision model. Answer with a single letter only, no explanation."
+)
+# The user turn ends with an explicit instruction to emit one letter. The first version of
+# this prompt ended with a bare "Answer:" and the model continued the question's *subject
+# matter* instead of choosing ("Answer: A 67-year-old ..."), which put the argmax on 'A'
+# regardless of content: 22 % accuracy with a 79 % 'A' rate on 20 MedQA items. With the
+# instruction below the same model scored 55 % on those items with a spread argmax. The
+# prompt is part of the fixed T6 protocol for every model, so it is recorded here and in
+# each run's config.
+SINGLE_LETTER_INSTRUCTION = (
+    "Respond with a single letter: A, B, C, D, ... for the correct option. "
+    "The correct option is:"
 )
 
 LetterVariant = Literal["space", "bare"]
@@ -103,7 +114,13 @@ def check_label_tokens(
 
 
 def pick_variant(checks: Sequence[LabelTokenCheck]) -> LabelTokenCheck:
-    """Prefer the ``space`` variant (chat models are trained with a leading space)."""
+    """Pick a variant that is single-token for every option letter.
+
+    This only guarantees the readout is *possible*; which variant the model actually emits is
+    a separate, empirical question (:func:`detect_variant`). Preference order here is
+    ``bare`` first because a chat model that answers with a letter usually writes the letter
+    itself, not a space-prefixed continuation.
+    """
     ok = [c for c in checks if c.all_single_token]
     if not ok:
         detail = "; ".join(
@@ -111,9 +128,91 @@ def pick_variant(checks: Sequence[LabelTokenCheck]) -> LabelTokenCheck:
         )
         raise ValueError(f"no option-letter variant is single-token for this tokenizer ({detail})")
     for c in ok:
-        if c.variant == "space":
+        if c.variant == "bare":
             return c
     return ok[0]
+
+
+PROBE_ITEM = {
+    "state": (
+        "A 54-year-old patient with type 2 diabetes and hypertension presents with polyuria "
+        "and polydipsia."
+    ),
+    "question": "Which laboratory test is most appropriate first?",
+    "options": [
+        ("A", "Fasting plasma glucose"),
+        ("B", "Serum sodium"),
+        ("C", "Serum calcium"),
+        ("D", "Thyroid stimulating hormone"),
+    ],
+}
+
+
+def probe_prompt(tokenizer: Any) -> str:
+    """A fixed synthetic multiple-choice prompt used only to detect the answer variant."""
+    item = _probe_item()
+    return render_prompt(item, tokenizer, "bare")
+
+
+def _probe_item() -> Item:
+    from meddecide.bench.schema import Tier, make_item
+
+    return make_item(
+        tier=Tier.FRESH,
+        source="variant_probe",
+        source_record_id="probe",
+        source_url="https://example.org/probe",
+        source_license="synthetic",
+        record_date="2026-01-01",
+        split="test",
+        template_id="variant_probe_v1",
+        skill="probe",
+        qtype=QuestionType.CHOICE,
+        state=PROBE_ITEM["state"],
+        question=PROBE_ITEM["question"],
+        options=[{"key": k, "label": v} for k, v in PROBE_ITEM["options"]],
+        gold="A",
+        option_order_seed=0,
+    )
+
+
+def detect_variant(model: Any, tokenizer: Any, checks: Sequence[LabelTokenCheck]) -> tuple[LetterVariant, dict]:
+    """Measure which variant the model actually emits, by greedy generation on a fixed probe.
+
+    Guessing is not acceptable here: on Qwen3.5-0.8B the ``" A"`` token (id 357) sits ~12
+    logits below the bare ``A`` token (id 32) at the answer position, while both are valid
+    single tokens — a harness that preferred ``" A"`` would read the wrong distribution
+    entirely. The probe is generated greedily (1 token) and the variant whose letter token is
+    produced wins; ties or non-letter output fall back to ``pick_variant`` and the fallback is
+    recorded.
+    """
+    import torch
+
+    usable = {c.variant: c for c in checks if c.all_single_token}
+    if not usable:
+        raise ValueError("no single-token variant to detect")
+    prompt = probe_prompt(tokenizer)
+    encoded = tokenizer(prompt, return_tensors="pt")
+    device = getattr(model, "device", None)
+    if device is not None:
+        encoded = {k: v.to(device) for k, v in encoded.items()}
+    with torch.inference_mode():
+        generated = model.generate(**encoded, max_new_tokens=1, do_sample=False)
+    new_tokens = generated[0, encoded["input_ids"].shape[1] :]
+    token_id = int(new_tokens[0]) if len(new_tokens) else -1
+    detail = {"probe_token_id": token_id, "probe_token": tokenizer.convert_ids_to_tokens([token_id])[0]
+              if token_id >= 0 else None}
+    for variant, check in usable.items():
+        # the probe prompt lists options A-D first, so any of the first four letters counts
+        if token_id in set(check.token_ids[:4]):
+            detail["detected"] = variant
+            detail["method"] = "greedy generation on a fixed synthetic probe prompt"
+            return variant, detail
+    fallback = pick_variant(checks).variant
+    detail["detected"] = fallback
+    detail["method"] = "fallback (probe produced a non-letter token)"
+    detail["usable_variants"] = sorted(usable)
+    return fallback, detail
 
 
 def render_prompt(item: Item, tokenizer: Any, variant: LetterVariant = "space") -> str:
@@ -125,7 +224,10 @@ def render_prompt(item: Item, tokenizer: Any, variant: LetterVariant = "space") 
     accepts it; templates that do not accept it are called without it.
     """
     options_block = "\n".join(f"{opt.key}. {opt.label}" for opt in item.options)
-    user = f"{item.state}\n\n{item.question}\n\nOptions:\n{options_block}\n\nAnswer:"
+    user = (
+        f"{item.state}\n\n{item.question}\n\nOptions:\n{options_block}\n\n"
+        f"{SINGLE_LETTER_INSTRUCTION}"
+    )
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user},
@@ -140,14 +242,16 @@ def render_prompt(item: Item, tokenizer: Any, variant: LetterVariant = "space") 
 
 def option_token_ids(item: Item, tokenizer: Any, variant: LetterVariant = "space") -> list[int]:
     """Token ids of the option letters for this item, in option order."""
-    ids: list[int] = []
-    for opt in item.options:
-        text = f" {opt.key}" if variant == "space" else opt.key
-        encoded = tokenizer.encode(text, add_special_tokens=False)
-        if len(encoded) != 1:
-            raise ValueError(f"option key {opt.key!r} is not a single token ({encoded})")
-        ids.append(encoded[0])
-    return ids
+    return [key_token_id(opt.key, tokenizer, variant) for opt in item.options]
+
+
+def key_token_id(key: str, tokenizer: Any, variant: LetterVariant = "space") -> int:
+    """Token id of one option key, cheap enough to call per key (the tokenizer caches)."""
+    text = f" {key}" if variant == "space" else key
+    encoded = tokenizer.encode(text, add_special_tokens=False)
+    if len(encoded) != 1:
+        raise ValueError(f"option key {key!r} is not a single token ({encoded})")
+    return encoded[0]
 
 
 def read_option_probabilities(
@@ -173,10 +277,33 @@ def read_option_probabilities(
     full_shifted = logits - logits.max()
     full = np.exp(full_shifted)
     full /= full.sum()
+    option_ids = np.asarray(token_ids, dtype=np.int64)
+    option_token_mass = full[option_ids]
+    # ``label_mass`` is the raw full-vocabulary mass of the option tokens. On models whose
+    # next-token distribution is spread over tens of thousands of near-tied tokens this is
+    # tiny even when the argmax is a clean option letter (measured: 7e-07 for Qwen3.5-0.8B
+    # on MedQA, while the argmax was the letter the model generates greedily). Two further
+    # diagnostics are therefore reported: whether the full-vocabulary argmax *is* one of the
+    # option tokens (`vocab_argmax_is_option`), and the probability of the top option within
+    # the option softmax (`top1_over_option_mass`).
+    option_id_set = {int(t) for t in option_ids}
+    # How many *strictly larger* logits the best option token has above it. This is a
+    # tie-robust rank: on Qwen3.5-0.8B the next-token logits are so tightly packed that dozens
+    # of tokens share a rounded value, and `argsort` position (the obvious implementation)
+    # varies run to run for the same prompt — it reported rank 125 for letters that a direct
+    # top-6 inspection showed at positions 1-4. Counting strict comparisons is stable and is
+    # what "is the option letter among the model's most likely next tokens" actually means.
+    best_option_logit = float(option_logits.max())
+    n_strictly_higher = int(np.sum(logits > best_option_logit))
     return {
         "option_probs": option_probs,
-        "option_token_mass": full[np.asarray(token_ids, dtype=np.int64)],
-        "label_mass": float(full[np.asarray(token_ids, dtype=np.int64)].sum()),
+        "option_token_mass": option_token_mass,
+        "label_mass": float(option_token_mass.sum()),
+        "vocab_argmax_is_option": bool(int(full.argmax()) in option_id_set),
+        "n_tokens_above_best_option": n_strictly_higher,
+        "best_option_in_top5": bool(n_strictly_higher < 5),
+        "best_option_in_top50": bool(n_strictly_higher < 50),
+        "top1_over_option_mass": float(option_probs.max()),
         "option_logits": option_logits,
     }
 
