@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T21:22:10Z`
+Last updated (UTC): `2026-10-05T21:52:30Z`
 Iterations so far: `1`
 
 ---
@@ -27,8 +27,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T1 | Repo scaffold | smoke | T0 | DONE | 2026-10-05T20:53:18Z | 2026-10-05T20:58:30Z |
 | T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
 | T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
-| T5 | Fresh-tier builders | no | T2 | IN_PROGRESS | 2026-10-05T21:22:10Z | | |
-| T6 | Eval harness | yes | T2 | PENDING | | |
+| T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
+| T6 | Eval harness | yes | T2 | IN_PROGRESS | 2026-10-05T21:52:30Z | | |
 | T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
 | T8 | Fresh-template screen | no | T5 | PENDING | | |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
@@ -71,16 +71,17 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: T5 (fresh-tier builders)
-Working dir:    outputs/bench_v0/T5/
+Task in flight: T6 (eval harness)
+Working dir:    outputs/bench_v0/T6/
 
-- [ ] fresh window: documented training cutoffs for every ladder model + teacher -> docs/benchmark/fresh_window.md
-- [ ] ClinicalTrials.gov API v2 builder (first-posted window; phase/allocation/purpose/intervention/healthy-volunteers)
-- [ ] openFDA drug/label builder (first effective date; class/boxed warning/route)
-- [ ] PubMed update-file builder (publication type / humans-animals / major MeSH)
-- [ ] deterministic distractors + option order, recorded
-- [ ] >=500 items per template where the window allows; dev 20% / test 80% by record hash
-- [ ] zero records before window start (check script) + rebuild determinism
+- [ ] verbalizer readout: chat template, thinking disabled, single-token option letters
+- [ ] label-token check for every ladder model (record " A" vs "A" variant)
+- [ ] per-item outputs: option probabilities, label mass, argmax, latency
+- [ ] metrics: accuracy (micro/macro), majority baseline, Brier, ECE 15 bins, bootstrap CIs
+- [ ] probes: option-shuffle flip rate, candidate-count scaling, none-of-the-above abstention
+- [ ] results writer: preds JSONL per (model, source) + summary JSON
+- [ ] unit tests on metric functions with hand-computed cases
+- [ ] 50-item end-to-end run on Qwen3.5-0.8B writes predictions + summary
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -105,6 +106,24 @@ Working dir:    outputs/bench_v0/T5/
      makes sense with full context ("done, see report") starves the summary. Write
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
+
+### T5 — DONE — 2026-10-05T21:52:30Z
+- What ran: `uv run python scripts/bench/build_fresh.py --window-end 2026-10-05 --pubmed-files 12`
+  (twice, to prove determinism), then `scripts/bench/audit_fresh.py`.
+- Output: `data/bench/fresh/*.jsonl` + `manifest.json` + `acceptance.json` + `audit.json`
+  (gitignored); `docs/benchmark/fresh_window.md` (committed); code in
+  `src/meddecide/bench/fresh/`; `outputs/bench_v0/T5/SELF_AUDIT.md`.
+- Headline: 41,502 fresh items in 12 templates from ClinicalTrials.gov, openFDA and PubMed,
+  every one dated inside the 2026-09-10 → 2026-10-05 window (0 items before the start),
+  with 0 split leaks, 0 duplicate ids, 0 straddling question texts and a byte-identical
+  rebuild (C018–C024).
+- Surprises: the window is only 25 days wide because the teacher's HF repo date is the
+  binding cutoff, so openFDA yields 122 labels and its class template only 19 items; the CT.gov
+  builder silently produced 1 of 5 templates until field names were corrected against the live
+  API; PubMed update files repeat records (one PMID up to 6 times) and the duplicate copies
+  were being discarded by the identity guard until record-level merging was added.
+- Next: T6 (eval harness) is now unblocked and needs the GPU. T7 depends on T6, T8 on T5,
+  T11 on T8.
 
 ### T3 — DONE — 2026-10-05T21:22:10Z
 - What ran: `uv run python scripts/bench/build_tier1.py` then `scripts/bench/audit_tier1.py`
@@ -177,6 +196,22 @@ Working dir:    outputs/bench_v0/T5/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q3 (T5, added 2026-10-05T21:52:30Z) — the fresh window is only 25 days wide.**
+Window start is `2026-09-10`, the Hugging Face repository creation date of the teacher
+(`deepseek-ai/DeepSeek-V4.1-Flash`), which is the latest of all ladder/teacher dates and the
+only one that is not documented anywhere. Consequences: ClinicalTrials.gov gives 3,719 studies
+in-window (fine), openFDA gives 122 labels (thin — the class template has 19 items), PubMed
+gives 44,217 records (ample). Options: (a) keep the conservative 25-day window and report the
+thin templates as thin (my pick — it is the only window that is defensible without a
+documented cutoff); (b) widen the start to a *documented* date if the operator can supply the
+teacher's real training cutoff (e.g. from the DeepSeek-V4.1-Flash tech report), which would
+let the window start much earlier and thicken the openFDA templates; (c) widen to the earliest
+Qwen3.5 repo date (2026-02-27) and accept a contamination risk for the teacher. I did not
+choose (b) or (c) because both require information I do not have, and a benchmark's headline
+tier must not rest on a guess. Note also that PubMed's filter field is the Entrez date, so
+in-window records include older papers being re-indexed — that is fresh in the record stream,
+not necessarily post-cutoff science.
 
 **Q2 (T3, added 2026-10-05T21:22:10Z) — MedQuAD license.**
 `lavita/MedQuAD` (used for the tier-1 routing template) declares **no license** on its HF

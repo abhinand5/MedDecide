@@ -182,6 +182,7 @@ def finalize_splits(
     salt: str,
     cap_test: int | None = None,
     cap_dev: int | None = None,
+    per_template: bool = True,
 ) -> tuple[list[Any], dict[str, int], list[str]]:
     """Enforce three invariants on a source's items, in this order:
 
@@ -193,6 +194,8 @@ def finalize_splits(
        split — never silently kept on both sides of the boundary.
     3. **Caps applied last**, by deterministic seeded sampling, so the exported item count
        equals ``min(cap, distinct items)`` rather than "cap minus whatever dedup removed".
+       With ``per_template`` (the default) the cap is per (template, split) — a source with
+       several templates must not let one template's volume cap another's.
 
     Item ids are recomputed after a forced split move, because the split is part of the id.
 
@@ -263,15 +266,27 @@ def finalize_splits(
     if leaking:
         notes.append(f"{len(leaking)} distinct question text(s) were present in two splits")
 
-    # 3. caps
+    # 3. caps. Fresh-tier sources carry several templates, and a cap is per (template, split):
+    #    one template exporting 5,000 items must not silently cap another template to zero.
     seed = int(cfg.get("seed", 0))
+    if per_template:
+        groups: dict[str, list[Any]] = {}
+        for item in finalized:
+            groups.setdefault(f"{item.template_id}|{item.split}", []).append(item)
+    else:
+        groups = {}
+        for split in ("test", "dev", "train"):
+            rows = [i for i in finalized if str(i.split) == split]
+            if rows:
+                groups[f"*|{split}"] = rows
     capped: list[Any] = []
-    for split, cap in (("test", cap_test), ("dev", cap_dev), ("train", None)):
-        in_split = [i for i in finalized if str(i.split) == split]
-        if cap is None or len(in_split) <= cap:
-            capped.extend(in_split)
+    for key, rows in sorted(groups.items()):
+        template_id, split = key.split("|", 1)
+        cap = {"test": cap_test, "dev": cap_dev, "train": None}[split]
+        if cap is None or len(rows) <= cap:
+            capped.extend(rows)
             continue
-        kept, over = subsample(in_split, cap, seed, salt=f"{salt}:{split}")
+        kept, over = subsample(rows, cap, seed, salt=f"{salt}:{key}")
         capped.extend(kept)
-        bump(f"{split}_over_cap", over)
+        bump(f"{split}_over_cap" if template_id == "*" else f"{split}_over_cap:{template_id}", over)
     return capped, counts, notes

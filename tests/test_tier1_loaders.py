@@ -43,8 +43,9 @@ def test_medqa_loader_gold_and_splits() -> None:
 def test_medqa_cap_drops_are_counted() -> None:
     res = mcq.load_medqa(_medqa_rows(5), _medqa_rows(4, offset=100), cfg=SMALL_CFG, revision="rev")
     assert res.n_items == 2  # 1 test + 1 dev
-    assert res.dropped["test_over_cap"] == 4
-    assert res.dropped["dev_over_cap"] == 3
+    # caps are per (template, split), so the drop reason names the template
+    assert res.dropped["test_over_cap:medqa_usmle4_v1"] == 4
+    assert res.dropped["dev_over_cap:medqa_usmle4_v1"] == 3
 
 
 def test_medqa_records_unparseable_rows() -> None:

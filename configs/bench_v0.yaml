@@ -94,9 +94,10 @@ teacher:
   top_logprobs: 20          # must cover every option token; record misses (T10)
 
 fresh_window:
-  # Filled by T5 once every model's documented training cutoff is recorded in
-  # docs/benchmark/fresh_window.md. Values are ISO dates.
-  start: null
+  # Filled by T5 (2026-10-05): every ladder model's cutoff + the teacher's repo date are
+  # recorded in docs/benchmark/fresh_window.md. Start = latest of those dates (teacher
+  # DeepSeek-V4.1-Flash, repo created 2026-09-10). End = build date, passed per build.
+  start: 2026-09-10
   end: null
 
 screen:
