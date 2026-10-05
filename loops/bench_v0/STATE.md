@@ -83,8 +83,12 @@ Working dir:    outputs/bench_v0/T9/
 - [x] T7 gate passed (harness validated within tolerance) before reporting any baseline
 - [x] T8 gate passed (kept templates known: 10 of 12)
 - [x] Qwen/Qwen3.5-0.8B: tier-1 test (13,099) + fresh test (30,814) done
-- [~] Qwen/Qwen3.5-0.8B-Base: detached run in flight, log
-      outputs/bench_v0/T9/logs/run_all_test_0p8b_base.log (11 dataset files, --splits test)
+- [~] Qwen/Qwen3.5-0.8B-Base: detached run in flight at session end — PID 30003, log
+      outputs/bench_v0/T9/logs/run_all_test_0p8b_base.log, 11 dataset files with --splits test.
+      Resume check: `pgrep -af "run_eval.py --model Qwen/Qwen3.5-0.8B-Base"`; the run is complete
+      when outputs/bench_v0/T9/summaries/all_test__Qwen__Qwen3.5-0.8B-Base.json exists and its
+      run.n_predictions == 44,313. Then re-run scripts/bench/report_baselines.py to fold it into
+      loops/bench_v0/baselines.md.
 - [ ] remaining ladder: LFM2.5-350M, MedGemma-1.5-4b-it, Qwen3.5-4B, Qwen3.5-9B
 - [ ] decision models (2 h timebox each)
 - [ ] run the single-GPU decision models through their own inference paths (timeboxed 2 h each)
