@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T01:45:00Z`
+Last updated (UTC): `2026-10-06T01:55:00Z`
 Iterations so far: `3`
 
 ---
@@ -84,11 +84,17 @@ Working dir:    outputs/bench_v0/T9/
 - [x] T8 gate passed (kept templates known: 10 of 12)
 - [x] Qwen/Qwen3.5-0.8B: tier-1 test (13,099) + fresh test (30,814) done
 - [x] Qwen/Qwen3.5-0.8B-Base: DONE, 43,913 predictions, folded into baselines.md
-- [~] Qwen/Qwen3.5-4B: detached run in flight at session end — PID 33652, log
-      outputs/bench_v0/T9/logs/run_all_test_qwen4b_v3.log (11 files, --splits test, batch 16,
-      max-batch-tokens 24576). Resume check: `pgrep -af "Qwen3.5-4B"`; complete when
-      outputs/bench_v0/T9/summaries/all_test__Qwen__Qwen3.5-4B.json exists with
-      run.n_predictions == 43913. Then re-run scripts/bench/report_baselines.py.
+- [x] Qwen/Qwen3.5-4B: DONE, 43,913 predictions, folded into baselines.md
+      (medqa 0.701, mmlu 0.818, medquad 0.984, medmcqa 0.122 — see the positional-bias note below)
+- [~] Qwen/Qwen3.5-9B: detached run in flight — log
+      outputs/bench_v0/T9/logs/run_all_test_qwen9b.log (11 files, --splits test, batch 8,
+      max-batch-tokens 16384). Resume check: summary all_test__Qwen__Qwen3.5-9B.json with
+      run.n_predictions == 43913, then re-run scripts/bench/report_baselines.py.
+- [ ] Option-shuffle baseline: `run_eval.py --shuffle-options` is implemented (seeded, permutation
+      recorded per item) but not yet run. Reason it matters: MedMCQA's official test contains **no
+      "D" answers** (gold A 1085 / B 925 / C 825 / D 0) while Qwen3.5-4B picks D for 31 % of items
+      and scores 0.122 — a positional-bias artefact, not medical knowledge. Run the shuffled
+      variant for at least 0.8B / Base / 4B over the same items and report both numbers.
 - [ ] LFM2.5-350M: the three earlier attempts died on the batch-planner bug (now fixed and
       regression-tested). MUST be re-run before any NOT MEASURED claim:
       `uv run python scripts/bench/run_eval.py --model LiquidAI/LFM2.5-350M <same 11 files>

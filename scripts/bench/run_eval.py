@@ -44,6 +44,10 @@ def main() -> int:
     parser.add_argument("--max-prompt-tokens", type=int, default=16384,
                         help="truncate prompts longer than this")
     parser.add_argument("--debug-batches", action="store_true")
+    parser.add_argument("--shuffle-options", action="store_true",
+                        help="score a seeded permutation of the options instead of the source order")
+    parser.add_argument("--shuffle-seed", type=int, default=None,
+                        help="option-order seed (default: config seed + 1)")
     parser.add_argument("--splits", nargs="*", default=None, help="restrict to these splits")
     parser.add_argument("--config", type=Path, default=Path("configs/bench_v0.yaml"))
     args = parser.parse_args()
@@ -67,6 +71,20 @@ def main() -> int:
     if not items:
         raise SystemExit("no items to score")
 
+    shuffle_seed = args.shuffle_seed if args.shuffle_seed is not None else args.seed + 1
+    if args.shuffle_options:
+        # Positional bias is a known failure mode and MedMCQA's official test contains no "D"
+        # answers at all, so a model that likes the last position scores near zero for a reason
+        # that is not medical knowledge. The shuffled run measures the same items with a seeded
+        # permutation; the transform records the permutation for every item.
+        from meddecide.eval.probes import shuffle_options
+
+        shuffled = []
+        for item in items:
+            transformed, _record = shuffle_options(item, seed=shuffle_seed, salt="run_eval")
+            shuffled.append(transformed)
+        items = shuffled
+
     spec = ModelSpec(model_id=args.model, revision=args.revision, max_options=args.max_options)
     t_start = utcnow()
     harness = Harness(
@@ -76,7 +94,10 @@ def main() -> int:
         max_prompt_tokens=args.max_prompt_tokens,
         debug=args.debug_batches,
     )
-    predictions = harness.score(items)
+    predictions = harness.score(
+        items,
+        transform={"name": "option_shuffle", "seed": shuffle_seed} if args.shuffle_options else None,
+    )
     summary = summarise(predictions, seed=args.seed)
 
     slug = _slug(args.model)
@@ -97,6 +118,8 @@ def main() -> int:
         "max_prompt_tokens": args.max_prompt_tokens,
         "seed": args.seed,
         "splits": args.splits,
+        "shuffle_options": args.shuffle_options,
+        "shuffle_seed": shuffle_seed if args.shuffle_options else None,
         "label_token_check": harness.label_check.to_dict(),
         "variant_detection": harness.variant_detection,
         "predictions_path": str(preds_path),
@@ -110,6 +133,8 @@ def main() -> int:
                 "items": args.items,
                 "limit": args.limit,
                 "splits": args.splits,
+                "shuffle_options": args.shuffle_options,
+                "shuffle_seed": shuffle_seed if args.shuffle_options else None,
                 "batch_size": args.batch_size,
                 "max_batch_tokens": args.max_batch_tokens,
                 "max_prompt_tokens": args.max_prompt_tokens,

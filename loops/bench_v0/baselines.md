@@ -1,8 +1,8 @@
 # Zero-shot baseline table (T9)
 
-**Generated:** 2026-10-05T22:33:56Z  
-**Prediction rows:** 88226 across 44 (model, source, template, split) groups  
-**Models in this table:** `Qwen/Qwen3.5-0.8B`, `Qwen/Qwen3.5-0.8B-Base`
+**Generated:** 2026-10-05T23:24:48Z  
+**Prediction rows:** 132739 across 66 (model, source, template, split) groups  
+**Models in this table:** `Qwen/Qwen3.5-0.8B`, `Qwen/Qwen3.5-0.8B-Base`, `Qwen/Qwen3.5-4B`
 
 Protocol: the fixed T6 protocol (chat template, thinking disabled, single-letter
 instruction, option-letter readout) — applied unchanged to every model. The harness was
@@ -57,6 +57,26 @@ test items the model could take.
 | `Qwen/Qwen3.5-0.8B-Base` | scifact | `scifact_relevant_noul_v1` | test | noul | 600 | 1.000 | 0.500 (0.460-0.542) | 0.500 | 0.500 | 0.870 | 0.438 | 0.027 | 0.007 | NOT MEASURED | NOT MEASURED |
 | `Qwen/Qwen3.5-0.8B-Base` | trec_covid | `trec_covid_graded_score_v1` | test | score | 117 | 0.600 | 0.333 (0.248-0.419) | 0.333 | 0.333 | 0.810 | 0.288 | 0.021 | 0.007 | NOT MEASURED | NOT MEASURED |
 | `Qwen/Qwen3.5-0.8B-Base` | trec_covid | `trec_covid_relevant_noul_v1` | test | noul | 78 | 0.400 | 0.500 (0.385-0.603) | 0.500 | 0.500 | 0.875 | 0.439 | 0.017 | 0.007 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | clinicaltrials | `ct_intervention_type_choice_v1` | test | choice | 2588 | 0.243 | 0.588 (0.568-0.607) | 0.273 | 0.617 | 0.610 | 0.235 | 0.999 | 0.031 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | clinicaltrials | `ct_phase_choice_v1` | test | choice | 701 | 0.066 | 0.576 (0.539-0.611) | 0.345 | 0.453 | 0.605 | 0.137 | 0.995 | 0.023 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | clinicaltrials | `ct_primary_purpose_choice_v1` | test | choice | 2221 | 0.209 | 0.506 (0.485-0.528) | 0.596 | 0.509 | 0.685 | 0.158 | 0.999 | 0.030 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | clinicaltrials | `ct_randomised_noul_v1` | test | noul | 2221 | 0.209 | 0.718 (0.698-0.735) | 0.693 | 0.796 | 0.543 | 0.283 | 0.004 | 0.027 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | medmcqa | `medmcqa_4opt_v1` | test | choice | 2835 | 1.000 | 0.122 (0.110-0.134) | 0.383 | 0.122 | 1.309 | 0.579 | 0.982 | 0.007 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | medqa | `medqa_usmle4_v1` | test | choice | 1273 | 1.000 | 0.701 (0.676-0.724) | 0.277 | 0.709 | 0.423 | 0.044 | 0.992 | 0.017 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | medquad | `medquad_routing_v1` | test | choice | 5000 | 1.000 | 0.984 (0.981-0.987) | 0.255 | 0.984 | 0.026 | 0.008 | 1.000 | 0.006 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | mmlu_medical | `mmlu_mc_v1` | test | choice | 1103 | 1.000 | 0.818 (0.793-0.842) | 0.325 | 0.813 | 0.264 | 0.037 | 0.983 | 0.009 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | nfcorpus | `nfcorpus_graded_score_v1` | test | score | 969 | 0.600 | 0.416 (0.384-0.448) | 0.333 | 0.416 | 1.036 | 0.487 | 0.023 | 0.022 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | nfcorpus | `nfcorpus_relevant_noul_v1` | test | noul | 647 | 0.400 | 0.567 (0.530-0.607) | 0.501 | 0.568 | 0.782 | 0.376 | 0.003 | 0.021 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | openfda | `fda_boxed_warning_noul_v1` | test | noul | 94 | 0.514 | 0.777 (0.691-0.862) | 0.787 | 0.493 | 0.381 | 0.202 | 0.013 | 0.051 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | openfda | `fda_class_choice_v1` | test | choice | 16 | 0.087 | 0.938 (0.812-1.000) | 0.438 | 0.938 | 0.093 | 0.085 | 0.998 | 0.078 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | openfda | `fda_route_choice_v1` | test | choice | 73 | 0.399 | 0.890 (0.808-0.959) | 0.630 | 0.799 | 0.155 | 0.051 | 0.958 | 0.139 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | pubmed | `pubmed_humans_noul_v1` | test | noul | 5600 | 0.272 | 0.482 (0.469-0.496) | 0.880 | 0.706 | 0.826 | 0.340 | 0.003 | 0.031 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | pubmed | `pubmed_mesh_major_choice_v1` | test | choice | 5000 | 0.243 | 0.991 (0.989-0.994) | 0.259 | 0.991 | 0.013 | 0.007 | 1.000 | 0.031 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | pubmed | `pubmed_pubtype_choice_v1` | test | choice | 5000 | 0.243 | 0.467 (0.453-0.483) | 0.926 | 0.789 | 0.854 | 0.376 | 0.999 | 0.031 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | pubmedqa | `pubmedqa_ynm_v1` | test | choice | 477 | 1.000 | 0.736 (0.696-0.776) | 0.551 | 0.562 | 0.380 | 0.094 | 0.998 | 0.027 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | scifact | `scifact_relevant_noul_v1` | test | noul | 600 | 1.000 | 0.632 (0.592-0.670) | 0.500 | 0.632 | 0.615 | 0.293 | 0.004 | 0.022 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | trec_covid | `trec_covid_graded_score_v1` | test | score | 117 | 0.600 | 0.462 (0.368-0.547) | 0.333 | 0.462 | 0.826 | 0.370 | 0.018 | 0.021 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | trec_covid | `trec_covid_relevant_noul_v1` | test | noul | 78 | 0.400 | 0.641 (0.538-0.744) | 0.500 | 0.641 | 0.656 | 0.349 | 0.004 | 0.020 | NOT MEASURED | NOT MEASURED |
 
 ## Templates dropped by the T8 screen (measured, but not headline rows)
 
@@ -69,6 +89,8 @@ of the baseline claim.
 | `Qwen/Qwen3.5-0.8B` | pubmed | `pubmed_observational_noul_v1` | test | noul | 5000 | 0.245 | 0.041 (0.036-0.047) | 0.985 | 0.513 | 1.229 | 0.746 | 0.021 | 0.009 | 0.300 | 0.133 |
 | `Qwen/Qwen3.5-0.8B-Base` | clinicaltrials | `ct_healthy_volunteers_noul_v1` | test | noul | 2900 | 0.273 | 0.625 (0.608-0.642) | 1.000 | 0.625 | 0.514 | 0.132 | 0.037 | 0.009 | NOT MEASURED | NOT MEASURED |
 | `Qwen/Qwen3.5-0.8B-Base` | pubmed | `pubmed_observational_noul_v1` | test | noul | 5000 | 0.250 | 0.198 (0.188-0.210) | 0.985 | 0.593 | 0.813 | 0.462 | 0.061 | 0.009 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | clinicaltrials | `ct_healthy_volunteers_noul_v1` | test | noul | 2900 | 0.273 | 0.933 (0.923-0.942) | 1.000 | 0.933 | 0.070 | 0.033 | 0.009 | 0.027 | NOT MEASURED | NOT MEASURED |
+| `Qwen/Qwen3.5-4B` | pubmed | `pubmed_observational_noul_v1` | test | noul | 5000 | 0.243 | 0.752 (0.740-0.764) | 0.985 | 0.776 | 0.255 | 0.105 | 0.003 | 0.030 | NOT MEASURED | NOT MEASURED |
 
 ## Cells that are not measured
 
