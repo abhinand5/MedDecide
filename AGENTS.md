@@ -19,6 +19,7 @@
 
 - **Loop:** `bench_v0` (loop 0 of the program)
 - **Mission:** build MedDecide-Bench v0, a validated eval harness, zero-shot baselines, and the DeepSeek-V4.1-Flash teacher-pipeline gate — then hard-stop for review.
+- **Branch:** `loop/bench_v0` (never commit to `main`)
 - **Artifacts:** `loops/bench_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
 - **Run state:** `loops/bench_v0/STATE.md`
 - **Outputs:** `outputs/bench_v0/<task-id>/` (gitignored)
@@ -112,9 +113,13 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 
 ### Git
 
-- Commit loop progress to `main` at least after every task: STATE.md, CLAIMS.md, code,
-  committed reports. Push if the remote is configured. Message format:
-  `loop(bench_v0): T<n> <DONE|BLOCKED> — <headline>`.
+- Each loop works on its own branch, `loop/<loop-name>` (for this loop:
+  `loop/bench_v0`). Check `git branch --show-current` at the start of every session and
+  switch to the loop branch if needed. **Never commit to or push `main`** — the operator
+  merges a loop branch into `main` after review.
+- Commit loop progress at least after every task: STATE.md, CLAIMS.md, code, committed
+  reports. Push the loop branch (`git push origin loop/<loop-name>`). Message format:
+  `loop(<loop-name>): T<n> <DONE|BLOCKED> — <headline>`.
 - Never force-push, never rewrite history, never delete branches.
 
 ---

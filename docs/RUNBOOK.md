@@ -91,7 +91,7 @@ It re-invokes the agent with the KICKOFF prompt until STATE.md says `STOPPED`.
 ## Review progress (from your laptop)
 
 ```bash
-cd ~/dev/projects/MedDecide && git pull
+cd ~/dev/projects/MedDecide && git fetch && git checkout loop/bench_v0 && git pull
 less loops/bench_v0/STATE.md        # board, iteration log, blocked items, questions
 less loops/bench_v0/CLAIMS.md
 ls loops/bench_v0/                  # committed reports (baselines.md, teacher_gate.md, ...)
@@ -107,6 +107,13 @@ When STATE.md asks for it: copy `outputs/bench_v0/T11/audit_sample.jsonl` off th
 press `A`/`R`/`N` per item, Export, and copy `audit_v0.jsonl` back to
 `/workspace/MedDecide/outputs/bench_v0/T11/audit_v0.jsonl`. The sample is benchmark
 data — keep it off git.
+
+## Branches
+
+Each loop runs on `loop/<loop-name>`; `main` holds reviewed state only. After the
+advisor review at a hard stop, merge the loop branch into `main`
+(`git checkout main && git merge --no-ff loop/bench_v0 && git push`), then start the
+next loop's branch from `main`.
 
 ## Stopping early
 
