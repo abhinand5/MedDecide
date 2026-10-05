@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T20:58:30Z`
+Last updated (UTC): `2026-10-05T21:02:40Z`
 Iterations so far: `1`
 
 ---
@@ -25,8 +25,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | T0 | Environment verification | no | — | DONE | 2026-10-05T20:49:53Z | 2026-10-05T20:50:24Z |
 | T1 | Repo scaffold | smoke | T0 | DONE | 2026-10-05T20:53:18Z | 2026-10-05T20:58:30Z |
-| T2 | Item schema | no | T1 | PENDING | | |
-| T3 | Tier 1 loaders | no | T2 | PENDING | | |
+| T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
+| T3 | Tier 1 loaders | no | T2 | IN_PROGRESS | 2026-10-05T21:02:40Z | | |
 | T5 | Fresh-tier builders | no | T2 | PENDING | | |
 | T6 | Eval harness | yes | T2 | PENDING | | |
 | T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
@@ -71,12 +71,15 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: T2 (item schema)
-Working dir:    outputs/bench_v0/T2/
+Task in flight: T3 (tier 1 loaders)
+Working dir:    outputs/bench_v0/T3/
 
-- [ ] pydantic item model + invariants in src/meddecide/bench/schema.py
-- [ ] JSONL read/write helpers with validation and a manifest builder
-- [ ] docs/benchmark/schema.md
+- [ ] loaders: MedQA, MedMCQA, PubMedQA, MMLU medical subsets, SciFact, PubHealth/HealthVer, TREC-COVID + NFCorpus, MedQuAD
+- [ ] official splits preserved; MedMCQA test->validation, dev carved from train
+- [ ] caps applied (5000 test / 2000 dev per source) with recorded sampling
+- [ ] write data/bench/tier1/<source>.jsonl + manifest rows
+- [ ] license recorded per source (or UNKNOWN + question to operator)
+- [ ] no (source, source_record_id) in more than one split
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -101,6 +104,21 @@ Working dir:    outputs/bench_v0/T2/
      makes sense with full context ("done, see report") starves the summary. Write
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
+
+### T2 — DONE — 2026-10-05T21:02:40Z
+- What ran: `uv run pytest` (37), `uv run ruff check .`, `uv run python scripts/t2_acceptance.py`.
+- Output: `src/meddecide/bench/schema.py`, `src/meddecide/utils/io.py`,
+  `docs/benchmark/schema.md`, `tests/test_schema.py`, `tests/test_manifest.py`,
+  `outputs/bench_v0/T2/acceptance.json`, `outputs/bench_v0/T2/SELF_AUDIT.md`.
+- Headline: the one item format is defined and enforced — 6 documented invariants each
+  backed by a check, deterministic 16-hex ids, a reader that accounts for every line
+  (3/3 kept, 0 dropped), a manifest whose sha256 equals the file's
+  (`4f74d121…0926`, C011) and whose counts close, and 0 records crossing splits (C010, C012).
+- Surprises: whitespace-only `state` passed `min_length=1`; now rejected by an explicit
+  blank-text validator (stricter, not looser). Test count 37 vs 35 test functions is
+  parametrisation, explained in the audit.
+- Next: unblocks T3 (tier 1 loaders), T5 (fresh builders), T6 (harness) — the three
+  independent branches of the loop.
 
 ### T1 — DONE — 2026-10-05T20:58:30Z
 - What ran: `uv sync` (157 resolved / 154 installed), `uv run pytest`, `uv run ruff check .`,

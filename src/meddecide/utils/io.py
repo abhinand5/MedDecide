@@ -176,3 +176,59 @@ def build_manifest(
         manifest["counts"][label] = counts
         manifest["totals"][label] = len(rows)
     return manifest
+
+
+@dataclass
+class SplitLeak:
+    """One ``(source, source_record_id)`` pair found in more than one split."""
+
+    source: str
+    source_record_id: str
+    splits: list[str]
+    n_items: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "source_record_id": self.source_record_id,
+            "splits": self.splits,
+            "n_items": self.n_items,
+        }
+
+
+def check_no_record_crosses_splits(rows: Sequence[Any]) -> dict[str, Any]:
+    """Verify no ``(source, source_record_id)`` appears in more than one split.
+
+    This is the T3/T5 acceptance invariant: a record's items must not leak across the
+    dev/test boundary. Returns a report with the offending records (capped) and the
+    counts, so the caller can fail loudly rather than silently proceed.
+    """
+    seen: dict[tuple[str, str], set[str]] = {}
+    items_per_record: Counter[tuple[str, str]] = Counter()
+    for row in rows:
+        source = str(getattr(row, "source", None) if not isinstance(row, dict) else row.get("source"))
+        record = str(
+            getattr(row, "source_record_id", None)
+            if not isinstance(row, dict)
+            else row.get("source_record_id")
+        )
+        split = str(getattr(row, "split", None) if not isinstance(row, dict) else row.get("split"))
+        seen.setdefault((source, record), set()).add(split)
+        items_per_record[(source, record)] += 1
+    leaks = [
+        SplitLeak(
+            source=source,
+            source_record_id=record,
+            splits=sorted(splits),
+            n_items=items_per_record[(source, record)],
+        )
+        for (source, record), splits in sorted(seen.items())
+        if len(splits) > 1
+    ]
+    return {
+        "n_rows": len(rows),
+        "n_unique_records": len(seen),
+        "n_leaking_records": len(leaks),
+        "leaks": [leak.to_dict() for leak in leaks[:50]],
+        "ok": not leaks,
+    }

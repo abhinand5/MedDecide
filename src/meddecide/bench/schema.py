@@ -82,7 +82,7 @@ class Item(BaseModel):
     source: str = Field(min_length=1)
     source_record_id: str = Field(min_length=1)
     source_url: str
-    source_license: str
+    source_license: str = Field(min_length=1)
     record_date: date
     split: Split
     template_id: str = Field(min_length=1)
@@ -92,6 +92,8 @@ class Item(BaseModel):
     # content
     state: str = Field(min_length=1)
     question: str = Field(min_length=1)
+    # NOTE: whitespace-only text is rejected below; pydantic's min_length counts
+    # characters, so " " would otherwise pass as a non-empty state.
     options: list[Option] = Field(min_length=2, max_length=255)
     gold: str = Field(min_length=1)
 
@@ -109,6 +111,13 @@ class Item(BaseModel):
     @classmethod
     def _gold_normalised(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("state", "question", "skill", "template_id", "source")
+    @classmethod
+    def _not_blank(cls, value: str, info) -> str:
+        if not value.strip():
+            raise ValueError(f"{info.field_name} must not be blank")
+        return value
 
     @model_validator(mode="after")
     def _check(self) -> Item:
