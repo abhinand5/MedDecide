@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T21:52:30Z`
-Iterations so far: `1`
+Last updated (UTC): `2026-10-05T21:58:00Z`
+Iterations so far: `2`
 
 ---
 
@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
 | T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
 | T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
-| T6 | Eval harness | yes | T2 | IN_PROGRESS | 2026-10-05T21:52:30Z | | |
+| T6 | Eval harness | yes | T2 | PENDING | | |
 | T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
 | T8 | Fresh-template screen | no | T5 | PENDING | | |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
@@ -50,8 +50,11 @@ recomputing or guessing.
 
 | key | value | source | task |
 |---|---|---|---|
-| fresh window start | | `docs/benchmark/fresh_window.md` | T5 |
-| fresh window end | | | T5 |
+| fresh window start | `2026-09-10` (teacher HF repo creation; latest of all ladder/teacher dates) | `docs/benchmark/fresh_window.md` | T5 |
+| fresh window end | build date, `2026-10-05` for this build | `data/bench/fresh/manifest.json` | T5 |
+| tier-1 items | 21,202 in 10 templates (test 13,099 / dev 8,103), 0 leaks, 0 dup ids | `data/bench/tier1/audit.json` | T3 |
+| fresh items | 41,502 in 12 templates (test 30,870 / dev 10,632), 0 leaks, 0 dup ids | `data/bench/fresh/audit.json` | T5 |
+| item id rule | stable hash of source + record + template + option seed + **split** | `src/meddecide/bench/schema.py` | T2/T3 |
 | option-letter token variant per model | | | T6 |
 | T7 reference agreement (pts) | | | T7 |
 | kept / dropped fresh templates | | | T8 |
@@ -70,8 +73,11 @@ leaves you unable to tell what you already did.
 Clear this section and write the new task's checklist when you start the next task; the
 completed checklist goes into the iteration-log entry.
 
+<!-- Next session: T6 is PENDING with no work started. The checklist below is the plan for
+     it (copied from ADVISORY T6), not a record of partial work — nothing was launched. -->
 ```
-Task in flight: T6 (eval harness)
+Task in flight: none (T6 not started)
+Plan for T6 (eval harness), for the next session:
 Working dir:    outputs/bench_v0/T6/
 
 - [ ] verbalizer readout: chat template, thinking disabled, single-token option letters
@@ -106,6 +112,14 @@ Working dir:    outputs/bench_v0/T6/
      makes sense with full context ("done, see report") starves the summary. Write
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
+
+### session-2 close — 2026-10-05T21:58:00Z
+- Tasks completed this session: T0, T1, T2, T3, T5 (all DONE and pushed).
+- Not started: T6 (eval harness, GPU) — the session ended before it began; T4/T7 depend on it,
+  T8 on T5 (now DONE), so T6 is the next eligible task.
+- Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
+- Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
+  including SELF_AUDIT.md for each completed task.
 
 ### T5 — DONE — 2026-10-05T21:52:30Z
 - What ran: `uv run python scripts/bench/build_fresh.py --window-end 2026-10-05 --pubmed-files 12`
