@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# MedDecide: raw outputs, data, scratch (never commit item text, predictions, teacher outputs)
+outputs/
+data/
+tmp/
+*.parquet
