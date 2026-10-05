@@ -1,8 +1,9 @@
 # KICKOFF — bench_v0
 
-The prompt the operator gives the loop agent. `scripts/run_loop.sh` sends it on every
-wake; it is identical for the first and every later invocation, because all state lives
-in files.
+The goal prompt the operator gives the loop agent (paste it into the DeepSeek harness's
+goal loop). It is identical for the first and every later iteration, because all state
+lives in files. Completion condition for the harness: `loops/bench_v0/STATE.md`
+contains ``Loop status: `STOPPED` ``.
 
 ---
 
@@ -39,7 +40,8 @@ numbers are not. At the end of T12, set `Loop status: STOPPED` and stop.
 
 ## Notes for the operator
 
-- The agent harness must allow shell commands, file edits, and long sessions. It is
+- The agent harness must allow shell commands, file edits, and long sessions. With the
+  DeepSeek harness goal loop, the harness re-invokes the agent itself. Fallback: it is
   re-invoked by `scripts/run_loop.sh` whenever a session ends, until STATE.md says
   `STOPPED` or the iteration cap is hit.
 - Required environment on the pod: see `docs/RUNBOOK.md`.

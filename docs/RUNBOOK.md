@@ -59,18 +59,34 @@ git identity, SSH keys.
 
 ## Start the loop
 
+**With the DeepSeek harness's goal loop (web UI on the pod, the default):**
+
+1. Make sure the harness process was started from a shell that ran
+   `source /workspace/MedDecide/scripts/pod_env.sh` — the agent's commands inherit those
+   cache paths and secrets. If it was started otherwise, restart it that way.
+2. Working directory: `/workspace/MedDecide`.
+3. Goal prompt: paste the block under "Prompt" in `loops/bench_v0/KICKOFF.md` verbatim.
+4. Stop / completion condition (if the harness asks for one): the loop is finished when
+   `loops/bench_v0/STATE.md` contains ``Loop status: `STOPPED` ``.
+5. Allow shell and file-edit tools without per-call approval; allow long sessions.
+
+Reaching the web UI from your laptop: `ssh.runpod.io` (the RunPod SSH proxy) does not
+support port forwarding. Use the pod's **direct TCP SSH** from the RunPod console
+("SSH over exposed TCP"; expose TCP port 22 on the pod if it is missing):
+`ssh -i ~/Documents/g14_ssh_dir/runpod -p <port> -N -L 8888:127.0.0.1:8888 root@<ip>`,
+or Tailscale. Do not expose the UI through RunPod's public HTTP proxy unless the
+harness has its own authentication — it drives an agent with shell access.
+
+**Without a goal-loop harness (fallback):** any CLI agent that takes the prompt as its
+last argument can be driven by the outer loop script:
+
 ```bash
 tmux new -s loop
 cd /workspace/MedDecide && source scripts/pod_env.sh
-AGENT_CMD='<your harness command, prompt appended as last arg>' \
-  bash scripts/run_loop.sh bench_v0
-# detach: Ctrl-b d      reattach: tmux attach -t loop
+AGENT_CMD='<cli agent command>' bash scripts/run_loop.sh bench_v0
 ```
 
-`run_loop.sh` pulls, checks `loops/bench_v0/STATE.md`, and re-invokes the agent with
-the prompt from `loops/bench_v0/KICKOFF.md` until the file says
-`Loop status: STOPPED` (default cap: 60 sessions; `MAX_SESSIONS=…` to change).
-Session transcripts: `/workspace/loop_logs/bench_v0/session_NNN.log`.
+It re-invokes the agent with the KICKOFF prompt until STATE.md says `STOPPED`.
 
 ## Review progress (from your laptop)
 
