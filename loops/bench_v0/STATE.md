@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T00:25:00Z`
+Last updated (UTC): `2026-10-06T00:45:00Z`
 Iterations so far: `3`
 
 ---
@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
 | T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
 | T6 | Eval harness | yes | T2 | DONE | 2026-10-05T22:00:12Z | 2026-10-05T23:20:00Z |
-| T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
+| T7 | Harness validation vs reference | yes | T3, T6 | DONE | 2026-10-06T00:30:00Z | 2026-10-06T00:45:00Z |
 | T8 | Fresh-template screen | no | T5 | DONE | 2026-10-05T23:22:00Z | 2026-10-06T00:00:00Z |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
 | T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
@@ -56,7 +56,10 @@ recomputing or guessing.
 | fresh items | 41,502 in 12 templates (test 30,870 / dev 10,632), 0 leaks, 0 dup ids | `data/bench/fresh/audit.json` | T5 |
 | item id rule | stable hash of source + record + template + option seed + **split** | `src/meddecide/bench/schema.py` | T2/T3 |
 | option-letter token variant per model | | | T6 |
-| T7 reference agreement (pts) | | | T7 |
+| T7 reference agreement (pts) | **-0.50 pts** (ours 0.3825 vs lm-eval 0.3875, same 400 items + same scoring rule; PASS at +/-2.0) | `outputs/bench_v0/T7/validation.json` | T7 |
+| T6 protocol vs lm-eval (same task) | +2.18 pts (0.4093 vs 0.3723, full split; prompt + target differ) | `loops/bench_v0/harness_validation.md` | T7 |
+| option-letter token variant per model | **measured per model** (Qwen = `bare` "A"); see variant_detection in each summary | `outputs/bench_v0/T6/summaries/` | T6 |
+| kept / dropped fresh templates | 10 kept / 2 dropped (`ct_healthy_volunteers_noul_v1` single-class; `pubmed_observational_noul_v1` BoW 0.985) | `loops/bench_v0/template_screen.md` | T8 |
 | kept / dropped fresh templates | | | T8 |
 | teacher logprob API shape | | | T10 |
 | teacher items/hour (non-thinking / thinking) | | | T10 |
@@ -74,13 +77,17 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (T10 is next: it needs the teacher endpoint)
+Task in flight: none (T10 next; needs the teacher endpoint, which is still unset)
 Working dir:    outputs/bench_v0/T10/
 
-Next up: T10 (teacher pipeline gate) is the only eligible task whose deps (T3, T5, T6) are all
-DONE. It needs `TEACHER_BASE_URL` + `TEACHER_API_KEY`. Re-check `GET $TEACHER_BASE_URL/models`
-at the moment T10 starts; if unreachable, mark T10 `BLOCKED - teacher endpoint not provided`
-(GOAL.md allows it) and move to T11's remaining step or T12.
+Order for the next session:
+1. T10 (teacher pipeline gate) — deps T3/T5/T6 are DONE. Re-check `GET $TEACHER_BASE_URL/models`
+   first. If unset/unreachable: mark T10 `BLOCKED - teacher endpoint not provided` (allowed by
+   GOAL.md), record it, and continue. If it answers, run the gate: >=2,000 dev items
+   non-thinking, one temperature per qtype fitted on half and ECE evaluated on the other half,
+   >=200 items thinking mode, throughput both modes.
+2. T11's audit remains awaiting the operator (page + sample are ready; see questions).
+3. T12 (findings + closure) at the end; it needs every task DONE or BLOCKED with a reason.
 ```
 
 ---
@@ -109,6 +116,20 @@ at the moment T10 starts; if unreachable, mark T10 `BLOCKED - teacher endpoint n
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T7 — DONE — 2026-10-06T00:45:00Z
+- What ran: `lm_eval --tasks medqa_4options --num_fewshot 0` (plain, 1,273 and 400 items; then
+  `--apply_chat_template`), and `uv run python scripts/bench/validate_vs_reference.py --limit 400`.
+- Output: committed `loops/bench_v0/harness_validation.md`; raw `outputs/bench_v0/T7/`.
+- Headline: our code and lm-evaluation-harness agree to **-0.50 accuracy points** on the same 400
+  MedQA items with the same prompt and scoring rule (ours 0.3825, lm-eval 0.3875) — inside the
+  +/-2.0 tolerance, so **T9 may report baseline numbers** (C041-C044).
+- Surprises: the first comparison showed a 9-point gap that looked like a harness defect; it was
+  the validation script scoring the bare letter `"A"` where lm-eval scores `" A"` (a tokenisation
+  convention, not arithmetic). Recorded in the report. The T6 protocol itself sits +2.18 points
+  above lm-eval's plain prompt — reported separately as a protocol difference, not as agreement.
+- Next: T9 is unblocked only in principle (it needs T7 AND T8, both now DONE); T10 needs the
+  teacher endpoint.
 
 ### T11 — BLOCKED (awaiting operator) — 2026-10-06T00:25:00Z
 - What ran: `uv run python scripts/bench/make_audit_sample.py` (150-item stratified sample) and
