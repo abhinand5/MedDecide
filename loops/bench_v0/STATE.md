@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-05T20:49:53Z`
+Last updated (UTC): `2026-10-05T20:50:24Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| T0 | Environment verification | no | — | PENDING | | |
+| T0 | Environment verification | no | — | DONE | 2026-10-05T20:49:53Z | 2026-10-05T20:50:24Z |
 | T1 | Repo scaffold | smoke | T0 | PENDING | | |
 | T2 | Item schema | no | T1 | PENDING | | |
 | T3 | Tier 1 loaders | no | T2 | PENDING | | |
@@ -101,10 +101,24 @@ Working dir:    outputs/bench_v0/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### T0 — DONE — 2026-10-05T20:50:24Z
+- What ran: inline environment probe writing `outputs/bench_v0/T0/env.json` (GPU/CPU/RAM/disk,
+  cache paths, `HF_TOKEN` presence, HF `whoami`, gated `medgemma` config fetch, three data
+  APIs, `git push --dry-run`, teacher endpoint).
+- Output: `outputs/bench_v0/T0/env.json`, `outputs/bench_v0/T0/SELF_AUDIT.md`.
+- Headline: 9 of 10 environment checks PASS; the only FAIL is the teacher endpoint
+  (`TEACHER_BASE_URL` unset), which blocks T10 only (C002, C003). Pod = RTX PRO 6000
+  Blackwell 97887 MiB, driver 595.91.07, CUDA 13.0, 128 CPUs, 2015 GB RAM (C001).
+- Surprises: teacher endpoint variables were not in `/workspace/.secrets.env` at loop start
+  — T10 will be `BLOCKED` unless the operator provides them. First draft of the audit
+  undercounted the checks (9 vs 10); corrected in place (R5).
+- Next: unblocks T1 (repo scaffold) and every other task; T10 carries the endpoint question.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| T10 | Teacher pipeline gate | `TEACHER_BASE_URL` and `TEACHER_API_KEY` are not set in the pod environment (`/workspace/.secrets.env` has neither), so the endpoint cannot be reached | Operator adds `export TEACHER_BASE_URL=...` and `export TEACHER_API_KEY=...` to `/workspace/.secrets.env` and brings the self-hosted DeepSeek-V4.1-Flash endpoint up; T10 then needs a `GET $TEACHER_BASE_URL/models` → 200. Not yet marked BLOCKED in the task board — decided when the task is reached. |
 
 ---
 
@@ -112,6 +126,15 @@ Working dir:    outputs/bench_v0/<id>/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q1 (T10, added 2026-10-05T20:50:24Z) — teacher endpoint not configured.**
+At T0 the pod had no `TEACHER_BASE_URL` / `TEACHER_API_KEY`, so `GET $TEACHER_BASE_URL/models`
+could not be attempted. T10 is the only task that needs it. Options: (a) operator adds both
+variables to `/workspace/.secrets.env` and starts the self-hosted DeepSeek-V4.1-Flash
+endpoint before T10 is reached — preferred; (b) leave unset, in which case T10 is recorded
+as `BLOCKED — teacher endpoint not provided` with no numbers (GOAL.md allows this
+explicitly, and a blocked T10 does not block T12). I will re-check the endpoint at the
+moment T10 is reached and will not wait for it.
 
 ---
 
