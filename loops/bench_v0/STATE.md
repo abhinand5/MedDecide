@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T00:00:00Z`
+Last updated (UTC): `2026-10-06T00:25:00Z`
 Iterations so far: `3`
 
 ---
@@ -34,7 +34,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
 | T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
 | T10 | Teacher pipeline gate | teacher | T3, T5, T6 | PENDING | | |
-| T11 | Operator audit page + sample | no | T8 | IN_PROGRESS | 2026-10-06T00:00:00Z | | |
+| T11 | Operator audit page + sample | no | T8 | BLOCKED — awaiting operator (page + sample delivered) | 2026-10-06T00:00:00Z | 2026-10-06T00:25:00Z |
 | T12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (T10 exception in
@@ -74,21 +74,13 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: T11 (operator audit page + sample)
-Working dir:    outputs/bench_v0/T11/
+Task in flight: none (T10 is next: it needs the teacher endpoint)
+Working dir:    outputs/bench_v0/T10/
 
-- [ ] draw a seeded stratified sample of 150 fresh TEST items (50 per source, across kept templates)
-- [ ] write outputs/bench_v0/T11/audit_sample.jsonl (item_id, template_id, source_url, state, question,
-      options, gold, and the raw structured field(s) the gold came from)
-- [ ] tools/audit/audit.html: self-contained, no network, file picker, one item per screen,
-      A accept / R reject / N note, arrow navigation, progress bar, localStorage autosave,
-      Export -> audit_v0.jsonl (item_id, verdict, note, timestamp)
-- [ ] commit tools/audit/audit.html (no data); do NOT commit the sample
-- [ ] validate the page loads a sample and exports valid JSONL (headless check of the export logic)
-- [ ] mark the audit itself BLOCKED - awaiting operator, with instructions in STATE questions
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+Next up: T10 (teacher pipeline gate) is the only eligible task whose deps (T3, T5, T6) are all
+DONE. It needs `TEACHER_BASE_URL` + `TEACHER_API_KEY`. Re-check `GET $TEACHER_BASE_URL/models`
+at the moment T10 starts; if unreachable, mark T10 `BLOCKED - teacher endpoint not provided`
+(GOAL.md allows it) and move to T11's remaining step or T12.
 ```
 
 ---
@@ -117,6 +109,18 @@ Working dir:    outputs/bench_v0/T11/
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T11 — BLOCKED (awaiting operator) — 2026-10-06T00:25:00Z
+- What ran: `uv run python scripts/bench/make_audit_sample.py` (150-item stratified sample) and
+  `node tests/test_audit_page.mjs` (the page's own export logic, incl. the real sample).
+- Output: `tools/audit/audit.html` (committed, no data); `outputs/bench_v0/T11/audit_sample.jsonl`
+  (gitignored) + `audit_sample_manifest.json`; `tests/test_audit_page.{py,mjs}`; 67 tests pass.
+- Headline: the operator audit is ready to run — 150 fresh test items (50 per source across the
+  10 kept templates) with the structured field behind every gold, and a self-contained page whose
+  export round-trips all 150 rows (C038–C040).
+- Blocked on: the operator's ~2 h review (ADVISORY T11). The audit itself cannot be done by the
+  agent; the loop continues, and T12 reports it as blocked-if-not-done.
+- Next: T10 (teacher endpoint) is the only remaining unblocked-by-deps task.
 
 ### T8 — DONE — 2026-10-06T00:00:00Z
 - What ran: `uv run python scripts/bench/screen_templates.py` (regex + TF-IDF/LogReg baselines,
@@ -233,6 +237,7 @@ Working dir:    outputs/bench_v0/T11/
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| T11 (audit itself) | The ~150-item human audit | The audit is a human judgement by design (ADVISORY T11, PROGRAM D10); an agent cannot supply it, and the page + sample are ready | Operator runs `tools/audit/audit.html` against `outputs/bench_v0/T11/audit_sample.jsonl` (see questions below) and returns `audit_v0.jsonl` to `outputs/bench_v0/T11/` |
 | T10 | Teacher pipeline gate | `TEACHER_BASE_URL` and `TEACHER_API_KEY` are not set in the pod environment (`/workspace/.secrets.env` has neither), so the endpoint cannot be reached | Operator adds `export TEACHER_BASE_URL=...` and `export TEACHER_API_KEY=...` to `/workspace/.secrets.env` and brings the self-hosted DeepSeek-V4.1-Flash endpoint up; T10 then needs a `GET $TEACHER_BASE_URL/models` → 200. Not yet marked BLOCKED in the task board — decided when the task is reached. |
 
 ---
@@ -241,6 +246,24 @@ Working dir:    outputs/bench_v0/T11/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q5 (T11, added 2026-10-06T00:25:00Z) — the operator audit is ready; here is how to run it.**
+The page is committed at `tools/audit/audit.html` (self-contained, no network). To audit:
+1. Copy the sample off the pod to the machine where you will review:
+   `outputs/bench_v0/T11/audit_sample.jsonl` (gitignored, so it does not travel with `git pull`;
+   use `scp`/`rsync` or the pod's file browser). Its sha256 is
+   `644fe46ef958620e878298bbed405fe67a9742e41517951e9eee750120ac163f`.
+2. Open `tools/audit/audit.html` in a browser (it needs no server) and pick that file.
+3. Keys: `A` accept, `R` reject, `N` note, `←`/`→` navigate; progress bar at the top; verdicts
+   autosave to `localStorage` for that file.
+4. Click **Export audit JSONL** → downloads `audit_v0.jsonl`. Put it back at
+   `outputs/bench_v0/T11/audit_v0.jsonl` on the pod (or paste it here on the next session) so T12
+   can report the acceptance rate per template.
+What the sample contains: 150 **fresh test** items, 50 per source, spread across the 10 kept
+templates; each screen shows the model-visible state/question/options with the gold highlighted,
+the source link, and the raw structured field(s) the gold came from (e.g. `phases`, `allocation`,
+`publication_types`, `major_topics`). Both templates dropped by T8 are excluded. Time estimate:
+~2 h for 150 items if you read the states.
 
 **Q4 (T6, added 2026-10-05T23:20:00Z) — the fixed T6 prompt is part of the baseline protocol.**
 The harness renders every model through its own chat template with a fixed system prompt and a
