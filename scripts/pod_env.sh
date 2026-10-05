@@ -16,7 +16,10 @@ mkdir -p "$HF_HOME" "$UV_CACHE_DIR" "$UV_PYTHON_INSTALL_DIR" "$TMPDIR" "$TORCH_H
 #   export TEACHER_BASE_URL=...      # optional until T10
 #   export TEACHER_API_KEY=...       # optional until T10
 #   export DEEPSEEK_API_KEY=...      # or OPENROUTER_API_KEY, for the agent harness
+# `set -a` exports every variable the file defines, with or without `export`.
 if [ -f /workspace/.secrets.env ]; then
+  set -a
   # shellcheck disable=SC1091
   source /workspace/.secrets.env
+  set +a
 fi
