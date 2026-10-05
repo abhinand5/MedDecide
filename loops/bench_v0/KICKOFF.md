@@ -34,6 +34,12 @@ secrets (the repo is public); never fit anything on a test split; never let a la
 model produce a benchmark gold label; never edit a check to make it pass; every number
 gets a CLAIMS.md row; `NOT MEASURED` / `BLOCKED` are acceptable outcomes, fabricated
 numbers are not. At the end of T12, set `Loop status: STOPPED` and stop.
+
+Harness goal status: keep this goal active until STATE.md says `Loop status: STOPPED`.
+A BLOCKED task is not a blocked goal — never mark the goal blocked or paused because a
+task is blocked or waiting on the operator; record it in STATE.md and move to the next
+eligible task. Mark the goal complete only after STATE.md says `STOPPED` and that change
+is committed and pushed.
 ```
 
 ---
