@@ -104,7 +104,7 @@ def main() -> int:
     results["deterministic_ids"] = {
         "same_inputs_same_id": a.item_id == b.item_id,
         "different_seed_different_id": a.item_id != c.item_id,
-        "matches_compute_item_id": a.item_id == compute_item_id("synthetic", "r1", "t1", 1),
+        "matches_compute_item_id": a.item_id == compute_item_id("synthetic", "r1", "t1", 1, "test"),
         "id_length": len(a.item_id),
     }
 

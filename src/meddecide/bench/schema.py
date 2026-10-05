@@ -179,10 +179,13 @@ def compute_item_id(
     source_record_id: str,
     template_id: str,
     option_order_seed: int,
+    split: str = "none",
 ) -> str:
-    """Deterministic item id: stable hash of source + record + template + option seed.
+    """Deterministic item id: stable hash of source + record + template + seed + split.
 
-    Same logical item → same id on any machine, in any process, in any dict order.
+    Same logical item → same id on any machine, in any process, in any dict order. The
+    **split is part of the identity**: it guarantees id uniqueness across dev/test, and
+    makes an id used as a prediction key unambiguous about which split produced it.
     """
     return stable_hash(
         {
@@ -190,6 +193,7 @@ def compute_item_id(
             "source_record_id": str(source_record_id),
             "template_id": template_id,
             "option_order_seed": int(option_order_seed),
+            "split": str(split),
         },
         length=ITEM_ID_LENGTH,
     )
@@ -219,7 +223,8 @@ def make_item(
     This is the only supported constructor: it guarantees the id matches the content
     that produced it.
     """
-    item_id = compute_item_id(source, source_record_id, template_id, option_order_seed)
+    split_value = Split(split).value if not isinstance(split, Split) else split.value
+    item_id = compute_item_id(source, source_record_id, template_id, option_order_seed, split_value)
     return Item(
         item_id=item_id,
         tier=tier,

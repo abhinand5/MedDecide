@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-05T21:02:40Z`
+Last updated (UTC): `2026-10-05T21:22:10Z`
 Iterations so far: `1`
 
 ---
@@ -26,8 +26,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T0 | Environment verification | no | — | DONE | 2026-10-05T20:49:53Z | 2026-10-05T20:50:24Z |
 | T1 | Repo scaffold | smoke | T0 | DONE | 2026-10-05T20:53:18Z | 2026-10-05T20:58:30Z |
 | T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
-| T3 | Tier 1 loaders | no | T2 | IN_PROGRESS | 2026-10-05T21:02:40Z | | |
-| T5 | Fresh-tier builders | no | T2 | PENDING | | |
+| T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
+| T5 | Fresh-tier builders | no | T2 | IN_PROGRESS | 2026-10-05T21:22:10Z | | |
 | T6 | Eval harness | yes | T2 | PENDING | | |
 | T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
 | T8 | Fresh-template screen | no | T5 | PENDING | | |
@@ -71,15 +71,16 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: T3 (tier 1 loaders)
-Working dir:    outputs/bench_v0/T3/
+Task in flight: T5 (fresh-tier builders)
+Working dir:    outputs/bench_v0/T5/
 
-- [ ] loaders: MedQA, MedMCQA, PubMedQA, MMLU medical subsets, SciFact, PubHealth/HealthVer, TREC-COVID + NFCorpus, MedQuAD
-- [ ] official splits preserved; MedMCQA test->validation, dev carved from train
-- [ ] caps applied (5000 test / 2000 dev per source) with recorded sampling
-- [ ] write data/bench/tier1/<source>.jsonl + manifest rows
-- [ ] license recorded per source (or UNKNOWN + question to operator)
-- [ ] no (source, source_record_id) in more than one split
+- [ ] fresh window: documented training cutoffs for every ladder model + teacher -> docs/benchmark/fresh_window.md
+- [ ] ClinicalTrials.gov API v2 builder (first-posted window; phase/allocation/purpose/intervention/healthy-volunteers)
+- [ ] openFDA drug/label builder (first effective date; class/boxed warning/route)
+- [ ] PubMed update-file builder (publication type / humans-animals / major MeSH)
+- [ ] deterministic distractors + option order, recorded
+- [ ] >=500 items per template where the window allows; dev 20% / test 80% by record hash
+- [ ] zero records before window start (check script) + rebuild determinism
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -104,6 +105,23 @@ Working dir:    outputs/bench_v0/T3/
      makes sense with full context ("done, see report") starves the summary. Write
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
+
+### T3 — DONE — 2026-10-05T21:22:10Z
+- What ran: `uv run python scripts/bench/build_tier1.py` then `scripts/bench/audit_tier1.py`
+  (recounts from raw JSONL in a fresh process).
+- Output: `data/bench/tier1/*.jsonl` + `manifest.json` + `acceptance.json` + `audit.json`
+  (gitignored); code in `src/meddecide/bench/tier1/` (committed);
+  `tests/test_tier1_loaders.py` (18 tests); `outputs/bench_v0/T3/SELF_AUDIT.md`.
+- Headline: 21,202 tier-1 items from 8 public sources build cleanly — 13,099 test / 8,103
+  dev, 0 split leaks, 0 duplicate ids, 0 question texts in two splits, 8/8 file hashes
+  matching the manifest (C013–C017).
+- Surprises: the self-audit caught three integrity bugs that a counts-only check would have
+  missed — item ids collided across splits, MedQuAD's `question_id` is not unique (9,662
+  repeats), and MMLU/NFCorpus/MedQuAD repeat content across their official splits, so a stem
+  could be seen in dev and scored in test. All three fixed; the fix is a check (content found
+  in two splits is forced to test), never a loosened tolerance.
+- Next: T5 (fresh tier) is the other half of the benchmark; T6 (harness) can start once T5's
+  checklist is parked or in parallel by a later session.
 
 ### T2 — DONE — 2026-10-05T21:02:40Z
 - What ran: `uv run pytest` (37), `uv run ruff check .`, `uv run python scripts/t2_acceptance.py`.
@@ -159,6 +177,16 @@ Working dir:    outputs/bench_v0/T3/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q2 (T3, added 2026-10-05T21:22:10Z) — MedQuAD license.**
+`lavita/MedQuAD` (used for the tier-1 routing template) declares **no license** on its HF
+card; the upstream National Library of Medicine content has no explicit redistribution
+statement either. Options: (a) keep it in v0 with `license: UNKNOWN` recorded and decide at
+release time (my pick — it is one of 10 templates and can be dropped without touching the
+harness or the teacher gate); (b) drop the template now. The full 47,441-row MedQuAD mirror
+is gitignored and never committed; only counts/hashes appear in the repo. Related: the same
+source carries UMLS fields, which the loader drops by name and a unit test asserts never
+reach a serialised item.
 
 **Q1 (T10, added 2026-10-05T20:50:24Z) — teacher endpoint not configured.**
 At T0 the pod had no `TEACHER_BASE_URL` / `TEACHER_API_KEY`, so `GET $TEACHER_BASE_URL/models`

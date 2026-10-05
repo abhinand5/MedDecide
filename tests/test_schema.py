@@ -58,13 +58,19 @@ def test_item_id_is_deterministic_and_content_sensitive() -> None:
     a = _choice_item()
     b = _choice_item()
     assert a.item_id == b.item_id
-    assert a.item_id == compute_item_id("clinicaltrials", "NCT00000001", "ct_phase_v1", 7)
+    assert a.item_id == compute_item_id("clinicaltrials", "NCT00000001", "ct_phase_v1", 7, "test")
     assert len(a.item_id) == 16
 
     # different option order seed -> different id for the same source record + template
     assert _choice_item(option_order_seed=8).item_id != a.item_id
     # different source record -> different id
     assert _choice_item(source_record_id="NCT00000002").item_id != a.item_id
+    # the split is part of the identity: the same record in dev and test is two ids
+    assert _choice_item(split=Split.DEV).item_id != a.item_id
+    # ... and the id is stable across processes for a given split
+    assert _choice_item(split=Split.DEV).item_id == compute_item_id(
+        "clinicaltrials", "NCT00000001", "ct_phase_v1", 7, "dev"
+    )
 
 
 def test_item_id_ignores_dict_order_and_whitespace() -> None:
