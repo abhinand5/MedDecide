@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T01:10:00Z`
+Last updated (UTC): `2026-10-06T01:45:00Z`
 Iterations so far: `3`
 
 ---
@@ -83,12 +83,18 @@ Working dir:    outputs/bench_v0/T9/
 - [x] T7 gate passed (harness validated within tolerance) before reporting any baseline
 - [x] T8 gate passed (kept templates known: 10 of 12)
 - [x] Qwen/Qwen3.5-0.8B: tier-1 test (13,099) + fresh test (30,814) done
-- [~] Qwen/Qwen3.5-0.8B-Base: detached run in flight at session end — PID 30003, log
-      outputs/bench_v0/T9/logs/run_all_test_0p8b_base.log, 11 dataset files with --splits test.
-      Resume check: `pgrep -af "run_eval.py --model Qwen/Qwen3.5-0.8B-Base"`; the run is complete
-      when outputs/bench_v0/T9/summaries/all_test__Qwen__Qwen3.5-0.8B-Base.json exists and its
-      run.n_predictions == 44,313. Then re-run scripts/bench/report_baselines.py to fold it into
-      loops/bench_v0/baselines.md.
+- [x] Qwen/Qwen3.5-0.8B-Base: DONE, 43,913 predictions, folded into baselines.md
+- [~] Qwen/Qwen3.5-4B: detached run in flight at session end — PID 33652, log
+      outputs/bench_v0/T9/logs/run_all_test_qwen4b_v3.log (11 files, --splits test, batch 16,
+      max-batch-tokens 24576). Resume check: `pgrep -af "Qwen3.5-4B"`; complete when
+      outputs/bench_v0/T9/summaries/all_test__Qwen__Qwen3.5-4B.json exists with
+      run.n_predictions == 43913. Then re-run scripts/bench/report_baselines.py.
+- [ ] LFM2.5-350M: the three earlier attempts died on the batch-planner bug (now fixed and
+      regression-tested). MUST be re-run before any NOT MEASURED claim:
+      `uv run python scripts/bench/run_eval.py --model LiquidAI/LFM2.5-350M <same 11 files>
+       --splits test --task T9 --tag all_test --batch-size 16 --max-batch-tokens 24576`
+- [ ] MedGemma-1.5-4b-it and Qwen3.5-9B: not started
+- [ ] decision models (2 h timebox each): not started
 - [ ] remaining ladder: LFM2.5-350M, MedGemma-1.5-4b-it, Qwen3.5-4B, Qwen3.5-9B
 - [ ] decision models (2 h timebox each)
 - [ ] run the single-GPU decision models through their own inference paths (timeboxed 2 h each)
