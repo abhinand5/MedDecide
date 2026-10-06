@@ -117,6 +117,8 @@ def main() -> int:
     parser.add_argument("--shuffle-items", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--max-items", type=int, default=None,
+                        help="cap items per template (debug/large-template safety)")
     parser.add_argument("--resume", action="store_true",
                         help="keep cells already measured in jev9b.json (per-template runs)")
     args = parser.parse_args()
@@ -176,6 +178,8 @@ def main() -> int:
                 continue
             if args.limit_per_template:
                 template_items = template_items[: args.limit_per_template]
+            if args.max_items:
+                template_items = template_items[: args.max_items]
             if args.only_template is None and template_id in existing:
                 continue
             kind = kind_of(template_items[0])

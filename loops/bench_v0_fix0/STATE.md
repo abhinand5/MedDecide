@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T10:18:31Z`
+Last updated (UTC): `2026-10-06T11:16:48Z`
 Iterations so far: `8`
 
 ---
@@ -72,27 +72,28 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F7 (JEV-9B per-template cells) + F6 (4 of 6 models still to run)
+Task in flight: F7 (JEV-9B cells) + F6 (4 models + 350M still to run)
 
-RUNNING: bash outputs/bench_v0_fix0/F7/run_jev_cells.sh (launcher; child shown by `pgrep -f run_jev`)
-  log outputs/bench_v0_fix0/F7/logs/jev_cells.log
-  one process per template, --resume, --shuffle-items 50; results accumulate in
-  outputs/bench_v0_fix0/F7/jev9b.json (cells already in logs/jev9b_full.log are re-measured there)
-  Cells measured so far include medmcqa 0.6230, medqa 0.7156, medquad 0.9882,
-  scifact noul 0.9267 (v0 reported 0.500), all with Brier <= 0.10.
-  RESUME: if the launcher dies, re-run it; it skips cells already in jev9b.json.
+RUNNING: bash outputs/bench_v0_fix0/F7/run_jev_cells.sh   (launcher PID 58593)
+  log outputs/bench_v0_fix0/F7/logs/jev_cells4.log
+  one process per template, --resume, --shuffle-items 50; unmeasured templates first.
+  Safe to re-run: already-measured cells are skipped, so an OOM death costs one cell.
+  Measured so far (outputs/bench_v0_fix0/F7/jev9b.json + this log): medmcqa 0.6229,
+  medqa 0.7156, medquad 0.9882, mmlu 0.8277, nfcorpus noul 0.6553, pubmedqa 0.6960,
+  scifact noul 0.9266, ct_healthy_volunteers 0.7200, ct_phase 0.4745,
+  ct_randomised 0.8765, nfcorpus score 0.2634 (see SCORE_TEMPLATE_FLAW.md).
+  Remaining: fda_boxed, fda_class, pubmed_humans, pubmed_mesh, pubmed_observational.
 
-NOT RUNNING (killed deliberately, see deviations):
-  the F6 queue. Completed: 0.8B-Base (model_qwen3p5-0p8b-base.json).
-  STILL TO RUN: LFM2.5-350M (full run; only a 1-template smoke so far), medgemma-1.5-4b-it,
-  4B, 9B, 0.8B. Before relaunching a model, DELETE its preds_<slug>.jsonl (predictions append).
-  Relaunch with: bash outputs/bench_v0_fix0/F6/run_queue.sh  (edit the model list to skip done ones),
-  or per model: uv run python scripts/bench/run_baselines_v0_1.py --model <id> --out outputs/bench_v0_fix0/F6
-  Wait for JEV to finish first: JEV-9B needs ~20 GB and the 4B/9B baselines need most of the rest.
+AFTER JEV (it needs ~20 GB, the wide choice templates peak near the 96 GB limit):
+  F6 models still to run: LFM2.5-350M (full), medgemma-1.5-4b-it, Qwen3.5-4B, Qwen3.5-9B, 0.8B.
+  DONE: Qwen3.5-0.8B-Base (model_qwen3p5-0p8b-base.json).
+  Before relaunching a model, DELETE its preds_<slug>.jsonl (predictions append, never truncate).
+  Edit the M list in outputs/bench_v0_fix0/F6/run_queue.sh to the five remaining models, then:
+      setsid nohup bash outputs/bench_v0_fix0/F6/run_queue.sh > outputs/bench_v0_fix0/F6/logs/queue2.log 2>&1 &
+  Then: uv run python scripts/bench/report_baselines_v0_1.py
+      -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
 
-After both: uv run python scripts/bench/report_baselines_v0_1.py
-  -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
-Then F11 (findings + closure, HARD STOP).
+THEN: Laya (laya, laya-typed-decisions) via scripts/bench/run_laya_baseline.py, then F11.
 ```
 
 ---
