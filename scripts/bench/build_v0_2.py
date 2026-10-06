@@ -129,12 +129,19 @@ def build_nfcorpus_score_v2(cfg: dict[str, Any]) -> tuple[list[Item], dict[str, 
 
 
 def build_pubmed_mesh_v2(
-    cfg: dict[str, Any], mesh_index_path: Path, window_start: date, window_end: date, n_files: int
+    cfg: dict[str, Any],
+    mesh_index_path: Path,
+    window_start: date,
+    window_end: date,
+    n_files: int,
+    file_names: list[str] | None = None,
 ) -> tuple[list[Item], dict[str, Any]]:
     from meddecide.bench.mesh import load_index
 
     index = load_index(mesh_index_path)
-    paths = _pubmed_files(n_files, PUBMED_CACHE)
+    # v0.1 recorded exactly which update files it read; read the same ones so the new `_v2`
+    # template covers the same records as the carried `pubmed_*_v1` templates.
+    paths = _pubmed_files(n_files, PUBMED_CACHE, require=file_names)
     by_pmid: dict[str, pubmed.PubmedRecord] = {}
     n_parsed = n_copies = 0
     for record in pubmed.iter_records(paths, stop_before=window_start):
@@ -174,16 +181,50 @@ def build_pubmed_mesh_v2(
     return list(rows), meta
 
 
+def _hub_class_values(index: dict[str, Any], *, max_df: int) -> set[str]:
+    """MoA/PE values carried by more than ``max_df`` classes.
+
+    Measured on the full openFDA class index (24,296 labels): `Cell-mediated Immunity [PE]`
+    occurs on 67 classes and `Increased Histamine Release [PE]` on 65, so a class whose only
+    PE values are hubs gets "near-misses" that share nothing meaningful. A value that most of
+    the corpus carries cannot be the reason two classes are near-misses.
+    """
+    df: dict[str, int] = {}
+    for entry in (index.get("classes") or {}).values():
+        for value in set(entry.get("moa") or []) | set(entry.get("pe") or []):
+            df[value] = df.get(value, 0) + 1
+    return {value for value, n in df.items() if n > max_df}
+
+
 def build_openfda_class_v2(
-    cfg: dict[str, Any], class_index_path: Path, window_start: date, window_end: date
+    cfg: dict[str, Any], class_index_path: Path, window_start: date, window_end: date,
+    *, max_value_df: int = 20,
 ) -> tuple[list[Item], dict[str, Any]]:
     from meddecide.bench.fresh import fda_classes
 
     index = fda_classes.load_index(class_index_path)
     labels = openfda.fetch_labels(start=window_start, end=window_end)
+    hubs = _hub_class_values(index, max_df=max_value_df)
 
     def near_miss(gold_class: str, own: set[str]) -> list[dict[str, Any]]:
-        return fda_classes.near_miss_candidates(gold_class, index, exclude=own)
+        """Only mechanistic near-misses, and only via a value that is not a corpus hub.
+
+        `same_route` is deliberately excluded: it fires for 99.7 % of classes (median 228
+        candidates), i.e. it is the v1 pool with a route filter and would leave the template
+        as easy as the one it replaces. A label with fewer than three such distractors is
+        dropped with a counted reason rather than padded with unrelated classes.
+        """
+        out: list[dict[str, Any]] = []
+        for candidate in fda_classes.near_miss_candidates(
+            gold_class, index, exclude=own, max_candidates=200
+        ):
+            if candidate["rule"] not in ("shared_moa", "shared_pe"):
+                continue
+            specific = [value for value in candidate["shared"] if value not in hubs]
+            if not specific:
+                continue
+            out.append({**candidate, "shared": specific})
+        return out
 
     rows, drops, notes = openfda.build_class_v2_items(
         labels,
@@ -192,7 +233,6 @@ def build_openfda_class_v2(
         window_end=window_end,
         near_miss=near_miss,
         class_index_meta=index.get("meta", {}),
-        fallback_pool=openfda.fetch_class_pool(limit=int(cfg["caps"].get("fda_class_pool_size", 800))),
     )
     rows, counts, extra = finalize_splits(
         rows, cfg=cfg, source="openfda", salt="openfda_class_v2", cap_test=5000, cap_dev=2000
@@ -205,26 +245,31 @@ def build_openfda_class_v2(
     meta = {
         "class_index": index.get("meta", {}), "labels_fetched": len(labels), "notes": notes,
         "dropped": drops, "balance": balance,
+        "hub_values_excluded": len(hubs), "max_value_df": max_value_df,
+        "near_miss_rules_allowed": ["shared_moa", "shared_pe"],
     }
     return list(rows), meta
 
 
-def _pubmed_files(n_files: int, cache: Path) -> list[Path]:
-    """The same update files the v0.1 build used, re-downloaded only if they are gone."""
+def _pubmed_files(n_files: int, cache: Path, require: list[str] | None = None) -> list[Path]:
+    """Update files to read: ``require`` when given, else the last ``n_files`` in the listing."""
     import httpx
 
     cache.mkdir(parents=True, exist_ok=True)
     base = "https://ftp.ncbi.nlm.nih.gov/pubmed/updatefiles/"
-    with httpx.Client(timeout=120.0) as http:
-        listing = http.get(base).text
-    names = sorted(
-        {
-            line.split('href="')[-1].split('"')[0]
-            for line in listing.splitlines()
-            if "pubmed26n" in line and line.split('href="')[-1].split('"')[0].endswith(".xml.gz")
-        }
-    )
-    picked = names[-n_files:]
+    if require:
+        picked = list(require)
+    else:
+        with httpx.Client(timeout=120.0) as http:
+            listing = http.get(base).text
+        names = sorted(
+            {
+                line.split('href="')[-1].split('"')[0]
+                for line in listing.splitlines()
+                if "pubmed26n" in line and line.split('href="')[-1].split('"')[0].endswith(".xml.gz")
+            }
+        )
+        picked = names[-n_files:]
     paths: list[Path] = []
     for name in picked:
         path = cache / name
@@ -248,7 +293,7 @@ def main() -> int:
     parser.add_argument("--config", type=Path, default=Path("configs/bench_v0_2.yaml"))
     parser.add_argument("--mesh-index", type=Path, default=Path("/workspace/tmp/mesh/mesh_index.json"))
     parser.add_argument("--fda-class-index", type=Path,
-                        default=Path("/workspace/tmp/openfda/class_index.json"))
+                        default=Path("/workspace/tmp/openfda/class_index_full.json"))
     parser.add_argument("--pubmed-files", type=int, default=12)
     parser.add_argument(
         "--sources", nargs="*", default=None,
@@ -295,7 +340,8 @@ def main() -> int:
         fresh_rows[source] = carried
     if want("pubmed_mesh_v2") and args.mesh_index.is_file():
         new_rows, meta = build_pubmed_mesh_v2(
-            cfg, args.mesh_index, window_start, window_end, args.pubmed_files
+            cfg, args.mesh_index, window_start, window_end, args.pubmed_files,
+            file_names=fresh_manifest.get("source_meta", {}).get("pubmed_files"),
         )
         fresh_rows["pubmed"] = [*fresh_rows.get("pubmed", []), *new_rows]
         build_meta["pubmed_mesh_major_choice_v2"] = meta
@@ -359,23 +405,23 @@ def main() -> int:
     write_json(args.out / "fresh" / "manifest.json", manifest)
 
     # ---- acceptance ----------------------------------------------------------
-    carried_ids_v0_1 = {
-        row.item_id
-        for rows in [*v0_1_tier1.values(), *v0_1_fresh.values()]
-        for row in rows
-        if row.template_id not in SUPERSEDED
-    }
-    carried_ids_v0_2 = {
-        row.item_id
-        for rows in rows_by_source.values()
-        for row in rows
-        if row.template_id not in set(SUPERSEDED.values())
-    }
+    new_templates = set(SUPERSEDED.values())
+
+    def _carried(rows: list[Item]) -> set[str]:
+        return {
+            row.item_id for row in rows
+            if row.template_id not in SUPERSEDED and row.template_id not in new_templates
+        }
+
+    carried_ids_v0_1 = set().union(
+        *(_carried(rows) for rows in [*v0_1_tier1.values(), *v0_1_fresh.values()])
+    )
+    carried_ids_v0_2 = set().union(*(_carried(rows) for rows in rows_by_source.values()))
     def _carried_hashes(groups) -> dict[str, str]:
         out: dict[str, str] = {}
         for rows in groups:
             for row in rows:
-                if row.template_id in SUPERSEDED:
+                if row.template_id in SUPERSEDED or row.template_id in new_templates:
                     continue
                 out[row.item_id] = stable_hash(row.model_dump(mode="json"), length=32)
         return out
@@ -387,7 +433,10 @@ def main() -> int:
         for item_id in carried_ids_v0_1 & carried_ids_v0_2
         if carried_hash_v0_1[item_id] != carried_hash_v0_2[item_id]
     )
-    new_ids = set(carried_ids_v0_2) - carried_ids_v0_1
+    new_ids = {
+        row.item_id for rows in rows_by_source.values() for row in rows
+        if row.template_id in new_templates
+    }
     all_rows = [row for rows in rows_by_source.values() for row in rows]
     leak_report = check_no_record_crosses_splits(all_rows)
 

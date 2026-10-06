@@ -36,7 +36,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
 | S11 | Gate G1 evaluation | yes | S9, S3, S4 | PENDING | | |
 | S12 | Byte-identity + audit read-back | small | S9 | PENDING | | |
-| S13 | Candidate dataset catalog | no | S0 | PENDING | | |
+| S13 | Candidate dataset catalog | no | S0 | DONE | 2026-10-06T18:42:26Z | 2026-10-06T18:57:22Z |
 | S14 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in
@@ -105,6 +105,13 @@ Working dir:    outputs/student_v0/S1/
 - Headline: fused kernels are installed **and bound** (transformers fallback warnings 2 → 0), and Qwen3.5-0.8B prefill goes **40,809 → 124,526 tok/s at 8k (3.05×)** and **36,399 → 106,697 tok/s at 16k (2.93×)**, peak allocated 2.33 → 1.97 GiB at 8k (S001–S006).
 - Surprises: a single-shot measurement said the kernels made it **36× slower**; the cause was Triton JIT-compiling on the first call at each new sequence length (~7.5 s) landing inside the timed region — re-measured with a warmup pass at length (S007). Also, the first binding check read `func.__module__`, which `functools.wraps` copies from the *torch* function, so it reported a fallback that was not happening.
 - Next: S1 (benchmark v0.2 fixes) is unblocked.
+
+### S13 — DONE — 2026-10-06T18:57:22Z
+- What ran: `scripts/bench/catalog_datasets.py` (HfApi metadata for 74 curated ids over 49 search angles); committed catalog regenerated offline with `--from-json` for verification
+- Output: `docs/benchmark/dataset_catalog.md` (committed), `scripts/bench/catalog_datasets.py`, `outputs/student_v0/S13/SELF_AUDIT.md`; scratch `/workspace/tmp/s13/`
+- Headline: **62 candidate datasets** catalogued — 14 `train-candidate`, 20 `eval-candidate`, 28 `reject`; provenance 37 human / 15 structured / 6 llm / 4 unknown (S010–S013). Documentation only: no rows downloaded, nothing trained.
+- Surprises: `bigbio/mednli` turns out to be under a PhysioNet licence (credentialed data) — rejected, and not previously flagged in this loop; 18 rows carry no licence in the card field, 16 of which stay `UNKNOWN` and are demoted to eval-only.
+- Next: nothing in this catalog may be trained on in this loop (ADVISORY section 7); it is input for the next review.
 
 ## 5. Blocked items
 
