@@ -34,7 +34,7 @@ def block_kernel_imports() -> None:
     import importlib.abc
 
     class _Blocker(importlib.abc.MetaPathFinder):
-        def find_spec(self, fullname, path=None, target=None):  # noqa: ANN001
+        def find_spec(self, fullname, path=None, target=None):
             if fullname.split(".")[0] in BLOCKED_PACKAGES:
                 raise ModuleNotFoundError(f"{fullname} blocked by --kernels off")
             return None
@@ -53,7 +53,7 @@ def kernel_state() -> dict:
                 "version": getattr(module, "__version__", None),
                 "file": getattr(module, "__file__", None),
             }
-        except Exception as exc:  # noqa: BLE001 - report the exact failure
+        except Exception as exc:
             state[name] = {"importable": False, "error": f"{type(exc).__name__}: {exc}"}
     return state
 
@@ -97,7 +97,7 @@ def resolved_implementations() -> dict:
     for model_module in ("transformers.models.qwen3_5.modeling_qwen3_5",):
         try:
             module = importlib.import_module(model_module)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             out[model_module] = {"error": f"{type(exc).__name__}: {exc}"}
             continue
         funcs = {}
@@ -132,14 +132,14 @@ class _WarningCapture:
         capture = self
 
         class _Handler(logging.Handler):
-            def emit(self, record):  # noqa: ANN001
+            def emit(self, record):
                 capture.messages.append(record.getMessage())
 
         self._handler = _Handler()
         logging.getLogger("transformers").addHandler(self._handler)
         return self
 
-    def __exit__(self, *exc):  # noqa: ANN002
+    def __exit__(self, *exc):
         import logging
 
         logging.getLogger("transformers").removeHandler(self._handler)
@@ -280,7 +280,7 @@ def main() -> int:
                     warmup_at_length=args.warmup_at_length,
                 )
             )
-        except Exception as exc:  # noqa: BLE001 - an OOM here is a result
+        except Exception as exc:
             torch.cuda.empty_cache()
             record["errors"].append({"prompt_tokens": length, "error": f"{type(exc).__name__}: {exc}"})
 
