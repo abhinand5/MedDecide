@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:39:07Z`
+Last updated (UTC): `2026-10-06T09:49:01Z`
 Iterations so far: `8`
 
 ---
@@ -30,7 +30,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
 | F5 | Tier-1 contamination probe | yes | F1, F2 | DONE | 2026-10-06T09:04:00Z | 2026-10-06T09:39:07Z |
 | F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | IN_PROGRESS | 2026-10-06T09:10:00Z |  |
-| F7 | Decision-model baselines | yes | F3 | PENDING | | |
+| F7 | Decision-model baselines | yes | F3 | IN_PROGRESS | 2026-10-06T09:49:01Z |  |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | BLOCKED — teacher endpoint not provided (TEACHER_BASE_URL/API_KEY unset) | 2026-10-06T09:17:26Z | 2026-10-06T09:17:26Z |
 | F9 | Corrections record | no | F1, F2, F6 | DONE | 2026-10-06T09:29:00Z | 2026-10-06T09:30:06Z |
 | F10 | Regenerate operator audit sample | no | F3 | DONE | 2026-10-06T09:17:00Z | 2026-10-06T09:17:08Z |
@@ -72,28 +72,39 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F5 (contamination probe) + F6 (ladder baselines) — BOTH RUNNING detached
+Task in flight: F7 (decision-model baselines) + F6 (ladder baselines) — BOTH RUNNING
 
-F5: PID 47008, log outputs/bench_v0_fix0/F5/logs/contamination_full.log
-    cmd: uv run python scripts/bench/contamination_probe.py --per-source 500
-    progress: 3 of 6 models done (LFM2.5-350M finished; 0.8B-Base and 0.8B in flight)
-    -> writes outputs/bench_v0_fix0/F5/contamination.json + loops/bench_v0_fix0/contamination.md
+F7: PID 49499, log outputs/bench_v0_fix0/F7/logs/jev9b_full.log
+    autotrust/JEV-9B via transformers+peft (vLLM not installed), decision-head protocol:
+    [decision]: prompt -> verbalizer token log-probs -> head bias + per-kind temperature.
+    Smoke: scifact_relevant_noul_v1 acc 0.6553, Brier 0.0548. Full run in progress;
+    early cell medmcqa_4opt_v1 acc 0.6230, Brier 0.1034, ECE 0.0188, flip 0.09.
+    Remaining F7 models (timeboxed 2h each, in spec order): laya-typed-decisions, laya,
+    Julia-1, GLiNER2.5-Decide, open-jev-deberta-v3-large.
 
 F6: PID 48188 (bash outputs/bench_v0_fix0/F6/run_queue.sh), log outputs/bench_v0_fix0/F6/logs/queue.log
-    queue: 0.8B-Base -> medgemma-1.5-4b-it -> 4B -> 9B -> 0.8B (350M run separately, done in smoke)
-    -> per-model JSON under outputs/bench_v0_fix0/F6/, then run
-       scripts/bench/report_baselines_v0_1.py for results.json + loops/bench_v0_fix0/baselines_v0_1.md
-    if the queue is interrupted, relaunch only the models whose model_<slug>.json is missing
-    (delete that model's preds_<slug>.jsonl first, since predictions append)
+    (grep in the queue script buffers its output; read progress from preds_*.jsonl instead)
+    queue: 0.8B-Base -> medgemma-1.5-4b-it -> 4B -> 9B -> 0.8B
+    NOTE: the 350M model still needs its own full run (only the one-template smoke was done).
+    If interrupted, delete the model's preds_<slug>.jsonl before relaunching that model.
 
-Both must be checked for completeness of OUTPUT, not exit codes:
-  F5: json has 6 models x 8 sources with n_scored and control counts
-  F6: every cell n == the template's test count (or a recorded shortfall), preds count == n
+When both finish: uv run python scripts/bench/report_baselines_v0_1.py
+  -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F7 — IN_PROGRESS — 2026-10-06T09:49:01Z
+- Prepared and launched the JEV-9B decision-head baseline (PID 49499). vLLM is not installed, so
+  the card's vLLM LoRA path is reproduced with transformers+peft and the same client-side head
+  math (bias + per-kind temperature from the repo's own `decision_head.json` / `calibration.json`);
+  the card reports the two paths agree to mean |dp| 0.0008. Recorded as a deviation.
+- Smoke on `scifact_relevant_noul_v1`: **accuracy 0.6553, Brier 0.0548, ECE 0.1455** — where v0's
+  broken readout reported 0.500 (chance). Early full-run cell `medmcqa_4opt_v1`: **0.6230**, Brier
+  0.1034, ECE 0.0188 — the template v0 reported as a 0.122 collapse.
+- F6 continues; both jobs share the GPU with stable memory (35.6 GB of 96 GB).
 
 ### F5 — DONE — 2026-10-06T09:39:07Z
 - Probe completed: 48 cells (6 models x 8 tier-1 sources, 3,672 items per model), Min-K% Prob
