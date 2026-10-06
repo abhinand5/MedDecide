@@ -117,6 +117,8 @@ def main() -> int:
     parser.add_argument("--shuffle-items", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--resume", action="store_true",
+                        help="keep cells already measured in jev9b.json (per-template runs)")
     args = parser.parse_args()
 
     from peft import PeftModel
@@ -151,6 +153,14 @@ def main() -> int:
     }
     preds_path = args.out / "preds_jev9b.jsonl"
 
+    existing: dict[str, Any] = {}
+    existing_path = args.out / "jev9b.json"
+    if args.resume and existing_path.exists():
+        old = json.loads(existing_path.read_text())
+        existing = {c["template_id"]: c for c in old.get("cells", []) if c.get("status") == "measured"}
+        report["cells"] = list(old.get("cells", []))
+        print(f"resuming: {len(existing)} cells already measured", flush=True)
+
     for tier, directory in (("tier1", args.tier1), ("fresh", args.fresh)):
         rows: list[Item] = []
         for path in sorted(directory.glob("*.jsonl")):
@@ -166,6 +176,8 @@ def main() -> int:
                 continue
             if args.limit_per_template:
                 template_items = template_items[: args.limit_per_template]
+            if args.only_template is None and template_id in existing:
+                continue
             kind = kind_of(template_items[0])
             too_many = 0
             scored: list[dict[str, Any]] = []
@@ -222,9 +234,18 @@ def main() -> int:
             gold_prob = probs_matrix[np.arange(len(scored)), np.asarray(gold)]
             flip = None
             if args.shuffle_items > 0 and kind == "choice":
-                flip = shuffle_flip(
-                    model, tokenizer, head, temperatures, template_items, args.shuffle_items, args.seed
-                )
+                try:
+                    flip = shuffle_flip(
+                        model, tokenizer, head, temperatures, template_items,
+                        args.shuffle_items, args.seed,
+                    )
+                except (RuntimeError, torch.OutOfMemoryError) as exc:
+                    # an out-of-memory on the probe must not lose the cell's accuracy: the flip
+                    # rate is recorded as NOT MEASURED with its reason
+                    print(f"  shuffle probe failed for {template_id}: {type(exc).__name__}",
+                          flush=True)
+                    flip = None
+            report["cells"] = [c for c in report["cells"] if c["template_id"] != template_id]
             report["cells"].append({
                 "model_id": MODEL_ID, "tier": tier, "template_id": template_id, "qtype": kind,
                 "source": scored[0]["source"], "n": len(scored),

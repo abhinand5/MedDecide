@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:49:01Z`
+Last updated (UTC): `2026-10-06T10:18:31Z`
 Iterations so far: `8`
 
 ---
@@ -72,24 +72,27 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F7 (decision-model baselines) + F6 (ladder baselines) — BOTH RUNNING
+Task in flight: F7 (JEV-9B per-template cells) + F6 (4 of 6 models still to run)
 
-F7: PID 49499, log outputs/bench_v0_fix0/F7/logs/jev9b_full.log
-    autotrust/JEV-9B via transformers+peft (vLLM not installed), decision-head protocol:
-    [decision]: prompt -> verbalizer token log-probs -> head bias + per-kind temperature.
-    Smoke: scifact_relevant_noul_v1 acc 0.6553, Brier 0.0548. Full run in progress;
-    early cell medmcqa_4opt_v1 acc 0.6230, Brier 0.1034, ECE 0.0188, flip 0.09.
-    Remaining F7 models (timeboxed 2h each, in spec order): laya-typed-decisions, laya,
-    Julia-1, GLiNER2.5-Decide, open-jev-deberta-v3-large.
+RUNNING: bash outputs/bench_v0_fix0/F7/run_jev_cells.sh (launcher; child shown by `pgrep -f run_jev`)
+  log outputs/bench_v0_fix0/F7/logs/jev_cells.log
+  one process per template, --resume, --shuffle-items 50; results accumulate in
+  outputs/bench_v0_fix0/F7/jev9b.json (cells already in logs/jev9b_full.log are re-measured there)
+  Cells measured so far include medmcqa 0.6230, medqa 0.7156, medquad 0.9882,
+  scifact noul 0.9267 (v0 reported 0.500), all with Brier <= 0.10.
+  RESUME: if the launcher dies, re-run it; it skips cells already in jev9b.json.
 
-F6: PID 48188 (bash outputs/bench_v0_fix0/F6/run_queue.sh), log outputs/bench_v0_fix0/F6/logs/queue.log
-    (grep in the queue script buffers its output; read progress from preds_*.jsonl instead)
-    queue: 0.8B-Base -> medgemma-1.5-4b-it -> 4B -> 9B -> 0.8B
-    NOTE: the 350M model still needs its own full run (only the one-template smoke was done).
-    If interrupted, delete the model's preds_<slug>.jsonl before relaunching that model.
+NOT RUNNING (killed deliberately, see deviations):
+  the F6 queue. Completed: 0.8B-Base (model_qwen3p5-0p8b-base.json).
+  STILL TO RUN: LFM2.5-350M (full run; only a 1-template smoke so far), medgemma-1.5-4b-it,
+  4B, 9B, 0.8B. Before relaunching a model, DELETE its preds_<slug>.jsonl (predictions append).
+  Relaunch with: bash outputs/bench_v0_fix0/F6/run_queue.sh  (edit the model list to skip done ones),
+  or per model: uv run python scripts/bench/run_baselines_v0_1.py --model <id> --out outputs/bench_v0_fix0/F6
+  Wait for JEV to finish first: JEV-9B needs ~20 GB and the 4B/9B baselines need most of the rest.
 
-When both finish: uv run python scripts/bench/report_baselines_v0_1.py
+After both: uv run python scripts/bench/report_baselines_v0_1.py
   -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
+Then F11 (findings + closure, HARD STOP).
 ```
 
 ---
@@ -263,6 +266,20 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 ---
 
 ## 7. Deviations from the plan
+
+* **Concurrent GPU jobs.** F5, F6 and F7 ran concurrently at times (the project rule is one GPU job
+  at a time). The consequences were observed and are recorded rather than hidden: F7's JEV-9B cell
+  run and F6's queue both hit `torch.OutOfMemoryError` while the other held memory, and F6's queue
+  was stopped deliberately to give JEV the GPU. No measurement is affected in value (a forward pass
+  depends only on weights and input) but throughput was badly degraded and one job was lost and
+  resumed. The F6 and F7 reports record their own coverage; nothing is estimated.
+* **JEV-9B served with transformers+peft instead of vLLM.** vLLM is not installed and is not
+  compatible with the installed stack without a large upgrade; the card's protocol (decision head,
+  verbalizer tokens, head bias, per-kind temperature) is reproduced and the card reports the two
+  paths agree to mean |dp| 0.0008. Recorded in the F7 report.
+* **Laya `Router` replaced by the repository's own `RLAgent`.** The `laya` package is not
+  installed; `rl_agent_api.py` / `rl_common.py` from the model repo are used directly, which is the
+  implementation the `Router` wraps.
 
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
 expected outcome. Editing code or a check to make it pass is never an acceptable
