@@ -17,6 +17,7 @@ recoverable from the API, so ``openfda`` fields are used only when present.
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from datetime import date
 from typing import Any
 
@@ -314,5 +315,160 @@ def build_items(
     notes.append(
         f"established-pharmacologic-class distractor pool: {len(pool)} classes drawn from the "
         "openFDA-wide corpus (a 25-day window holds too few labels for classes to repeat)"
+    )
+    return items, drops, notes
+
+
+# ---------------------------------------------------------------------------
+# v2: established pharmacologic class with **near-miss** distractors (S1, loop 1)
+# ---------------------------------------------------------------------------
+def build_class_v2_items(
+    labels: list[dict[str, Any]],
+    *,
+    cfg: dict[str, Any],
+    window_start: date,
+    window_end: date,
+    near_miss: Callable[[str, set[str]], list[dict[str, Any]]] | None = None,
+    class_index_meta: dict[str, Any] | None = None,
+    fallback_pool: list[str] | None = None,
+    template_id: str = "fda_class_choice_v2",
+    n_options: int = 4,
+    set_ids_seen_before: set[str] | None = None,
+) -> tuple[list[Any], dict[str, int], list[str]]:
+    """Pharmacologic-class items whose distractors share the gold class's mechanism or effect.
+
+    Why: ``fda_class_choice_v1`` drew its distractors from a pool of unrelated openFDA class
+    names, so the task reduced to topic matching and every model from 0.8B to 9B scored
+    0.84-0.996 (ADVISORY section 1 defect 2). A near-miss class shares a
+    ``pharm_class_moa`` or ``pharm_class_pe`` value with the gold class (else a route), so the
+    options are all plausible for the drug and the model has to discriminate.
+
+    Gold-correctness rule the v1 template did not state: a label may carry **several**
+    established classes, and every one of them is a correct answer, so none may be offered as
+    a distractor (v1 excluded only the one it had picked).
+
+    ``near_miss`` is the injected candidate lookup (``fda_classes.near_miss_candidates``
+    partially applied with the index), so this function has no network dependency and is
+    unit-testable. ``fallback_pool`` is used only when a class has too few near misses; the
+    rule actually used is recorded in every item's ``meta``.
+    """
+    seed = int(cfg.get("seed", 0))
+    drops: dict[str, int] = {}
+    notes: list[str] = []
+
+    def drop(reason: str, n: int = 1) -> None:
+        drops[reason] = drops.get(reason, 0) + n
+
+    seen_before = set_ids_seen_before or set()
+    rng = random.Random(f"{seed}:openfda:class_v2")
+    items: list[Any] = []
+    rule_counts: dict[str, int] = {}
+
+    for label in labels:
+        set_id = _first(label, "set_id")
+        effective = _effective_date(label)
+        if not set_id:
+            drop("missing_set_id")
+            continue
+        if effective is None:
+            drop("missing_effective_time")
+            continue
+        if not (window_start <= effective <= window_end):
+            drop("effective_time_outside_window")
+            continue
+        if set_id in seen_before:
+            drop("set_id_existed_before_window")
+            continue
+
+        openfda = label.get("openfda") or {}
+        classes = [str(c).strip() for c in (openfda.get("pharm_class_epc") or []) if str(c).strip()]
+        if not classes:
+            drop("no_pharm_class")
+            continue
+        gold_class = classes[0]
+        own = set(classes)
+        state = _state_text(label, exclude=())
+        if len(state) < 80:
+            drop("state_too_short")
+            continue
+
+        k = n_options - 1
+        candidates = near_miss(gold_class, own) if near_miss is not None else []
+        distractors: list[str] = []
+        rules: list[str] = []
+        shared: list[list[str]] = []
+        for candidate in candidates:
+            name = str(candidate.get("class"))
+            if name in own or name in distractors or name == gold_class:
+                continue
+            distractors.append(name)
+            rules.append(str(candidate.get("rule")))
+            shared.append(list(candidate.get("shared") or []))
+            if len(distractors) == k:
+                break
+        if len(distractors) < k and fallback_pool:
+            fill = [c for c in fallback_pool if c not in own and c not in distractors]
+            need = k - len(distractors)
+            if len(fill) >= need:
+                for name in rng.sample(fill, need):
+                    distractors.append(name)
+                    rules.append("openfda_pool_fallback")
+                    shared.append([])
+        if len(distractors) < k:
+            drop("fewer_than_3_near_miss_distractors")
+            continue
+        rule = "near_miss" if all(r != "openfda_pool_fallback" for r in rules) else "near_miss+pool_fill"
+        rule_counts[rule] = rule_counts.get(rule, 0) + 1
+
+        labels_list = [*distractors, gold_class]
+        order = list(range(len(labels_list)))
+        rng.shuffle(order)
+        split = split_by_record_hash(set_id, dev_fraction=0.2, salt="openfda")
+        items.append(
+            make_item(
+                tier=Tier.FRESH,
+                source=SOURCE,
+                source_record_id=set_id,
+                source_url=f"https://open.fda.gov/drug/label/?set_id={set_id}",
+                source_license=LICENSE,
+                record_date=effective,
+                split=split,
+                template_id=template_id,
+                skill="pharmacology",
+                qtype=QuestionType.CHOICE,
+                state=state,
+                question="What is the established pharmacologic class of this drug?",
+                options=[
+                    {"key": chr(ord("A") + i), "label": labels_list[j]}
+                    for i, j in enumerate(order)
+                ],
+                gold=chr(ord("A") + order.index(len(labels_list) - 1)),
+                option_order_seed=seed,
+                meta={
+                    "set_id": set_id,
+                    "effective_time": effective.strftime("%Y%m%d"),
+                    "brand_names": openfda.get("brand_name") or [],
+                    "generic_names": openfda.get("generic_name") or [],
+                    "manufacturer_names": openfda.get("manufacturer_name") or [],
+                    "source_field": "openfda.pharm_class_epc",
+                    "gold_class": gold_class,
+                    "pharm_class_epc": classes,
+                    "distractor_rule": rule,
+                    "distractor_rules": rules,
+                    "distractors": distractors,
+                    "shared_values": shared,
+                    "class_index": class_index_meta or {},
+                },
+            )
+        )
+
+    notes.append(
+        "near-miss distractor rule: a class sharing the gold class's mechanism of action "
+        "(pharm_class_moa) or physiologic effect (pharm_class_pe), else the same route; the "
+        f"rule per item is in meta.distractor_rules. Rules used: {dict(sorted(rule_counts.items()))}"
+    )
+    notes.append(
+        "every established class of a label is a correct answer, so no class of the label is "
+        "ever offered as a distractor"
     )
     return items, drops, notes

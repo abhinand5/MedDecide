@@ -24,7 +24,7 @@ import gzip
 import random
 import re
 import xml.etree.ElementTree as ET
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -409,3 +409,140 @@ def _mesh_pool(records: list[PubmedRecord], *, min_count: int) -> list[str]:
         for topic in record.mesh_major_topics:
             counts[topic] = counts.get(topic, 0) + 1
     return sorted(t for t, n in counts.items() if n >= min_count)
+
+
+# ---------------------------------------------------------------------------
+# v2: major MeSH topic with **near-miss** distractors (S1, loop 1)
+# ---------------------------------------------------------------------------
+def build_mesh_major_v2_items(
+    records: list[PubmedRecord],
+    *,
+    cfg: dict[str, Any],
+    window_start: date,
+    window_end: date,
+    mesh_siblings: Callable[[str], list[str]] | None = None,
+    mesh_meta: dict[str, Any] | None = None,
+    template_id: str = "pubmed_mesh_major_choice_v2",
+    n_options: int = 4,
+) -> tuple[list[Any], dict[str, int], list[str]]:
+    """Major-MeSH-topic items whose distractors are **MeSH tree siblings** of the gold topic.
+
+    Why: ``pubmed_mesh_major_choice_v1`` drew distractors from the window's most frequent
+    major topics, so the options were unrelated and every model from 0.8B to 9B scored
+    0.985-0.996 (bench_v0_fix0 X032, ADVISORY section 1 defect 2). A sibling - a descriptor under
+    the same immediate parent tree number - is a near-miss: the model has to read the
+    abstract, not just recognise which of four unrelated topics is vaguely medical.
+
+    Two rules the v1 template did not state and this one enforces, both gold-correctness:
+
+    * **every** major topic of the record is a correct answer, so none of them is ever used
+      as a distractor (v1 excluded only the topic it had picked);
+    * a distractor must not be a sibling *of a second correct topic* either.
+
+    ``mesh_siblings`` is the injected sibling lookup (``MeshIndex.siblings``), so this
+    function has no network dependency and is unit-testable. Without it every record is
+    dropped with ``mesh_index_unavailable`` — a recorded outcome, not a silent one.
+    ``mesh_meta`` (year, sha256) is copied into every item's ``meta`` so the distractor rule
+    is reproducible.
+    """
+    seed = int(cfg.get("seed", 0))
+    drops: dict[str, int] = {}
+    notes: list[str] = []
+
+    def drop(reason: str, n: int = 1) -> None:
+        drops[reason] = drops.get(reason, 0) + n
+
+    in_window = [r for r in records if window_start <= r.entrez_date <= window_end]
+    drop("entrez_date_outside_window", len(records) - len(in_window))
+    usable = [r for r in in_window if r.title and r.abstract]
+    drop("missing_title_or_abstract", len(in_window) - len(usable))
+
+    pool = _mesh_pool(usable, min_count=5)  # window fill pool, used only when siblings run out
+    rng = random.Random(f"{seed}:pubmed:mesh_v2")
+    items: list[Any] = []
+    rule_counts: dict[str, int] = {}
+
+    for record in usable:
+        own_topics = set(record.mesh_major_topics)
+        topic = record.mesh_major_topics[0] if record.mesh_major_topics else None
+        if not topic:
+            drop("no_major_mesh_topic")
+            continue
+        if mesh_siblings is None:
+            drop("mesh_index_unavailable")
+            continue
+
+        siblings = [
+            name
+            for name in mesh_siblings(topic)
+            if name not in own_topics and name != topic
+        ]
+        # a sibling of another correct topic is not a safe distractor either
+        unsafe: set[str] = set()
+        for other in own_topics:
+            if other == topic:
+                continue
+            unsafe.update(mesh_siblings(other))
+        siblings = [name for name in siblings if name not in unsafe]
+
+        k = n_options - 1
+        if len(siblings) >= k:
+            distractors = rng.sample(siblings, k)
+            rule = "mesh_sibling"
+        else:
+            distractors = list(siblings)
+            fill = [t for t in pool if t not in own_topics and t not in distractors and t not in unsafe]
+            need = k - len(distractors)
+            if len(fill) < need:
+                drop("fewer_than_3_safe_distractors")
+                continue
+            distractors.extend(rng.sample(fill, need))
+            rule = "mesh_sibling_partial+window_pool_fill" if siblings else "window_pool_fill"
+        rule_counts[rule] = rule_counts.get(rule, 0) + 1
+
+        labels = [*distractors, topic]
+        order = list(range(len(labels)))
+        rng.shuffle(order)
+        split = split_by_record_hash(record.pmid, dev_fraction=0.2, salt="pubmed")
+        items.append(
+            make_item(
+                tier=Tier.FRESH,
+                source=SOURCE,
+                source_record_id=record.pmid,
+                source_url=f"https://pubmed.ncbi.nlm.nih.gov/{record.pmid}/",
+                source_license=LICENSE,
+                record_date=record.entrez_date,
+                split=split,
+                template_id=template_id,
+                skill="knowledge",
+                qtype=QuestionType.CHOICE,
+                state=record.state_text,
+                question="Which major MeSH topic is this record indexed under?",
+                options=[
+                    {"key": chr(ord("A") + i), "label": labels[j]} for i, j in enumerate(order)
+                ],
+                gold=chr(ord("A") + order.index(len(labels) - 1)),
+                option_order_seed=seed,
+                meta={
+                    "source_field": "MeshHeadingList/DescriptorName[@MajorTopicYN=Y]",
+                    "gold_topic": topic,
+                    "major_topics": record.mesh_major_topics,
+                    "distractor_rule": rule,
+                    "distractors": distractors,
+                    "n_siblings_available": len(siblings),
+                    "window_pool_size": len(pool),
+                    "mesh": mesh_meta or {},
+                    "journal": record.journal,
+                },
+            )
+        )
+
+    notes.append(
+        f"near-miss distractor rule: MeSH tree siblings (same immediate parent tree number); "
+        f"rules used: {dict(sorted(rule_counts.items()))}"
+    )
+    notes.append(
+        "every major topic of a record is a correct answer, so no major topic of the record "
+        "and no sibling of another correct topic is ever offered as a distractor"
+    )
+    return items, drops, notes

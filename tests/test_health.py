@@ -101,3 +101,70 @@ def test_report_serialises_all_measured_values() -> None:
                 "failures", "chance"):
         assert key in payload
     assert payload["passed"] is True
+
+
+# ---------------------------------------------------------------------------
+# constant-answer check (added in loop 1, S1)
+# ---------------------------------------------------------------------------
+def test_constant_answer_on_a_balanced_template_fails_as_degenerate() -> None:
+    """The LFM2.5-350M pattern: exactly chance accuracy, one answer every time.
+
+    A balanced 2-option template (majority 0.5) answered "yes" on every item scores 0.50,
+    which is not below chance and carries high label mass, so the original three checks pass
+    it. It is a readout defect, not a result.
+    """
+    n = 200
+    report = _cell(
+        n_options=2,
+        label_masses=[0.99] * n,
+        correct=[True] * (n // 2) + [False] * (n // 2),
+        greedy_matches=[True] * n,
+        predicted_labels=["yes"] * n,
+        majority_share=0.50,
+    )
+    assert not report.passed
+    assert any("degenerate" in f for f in report.failures), report.failures
+    assert any("yes" in f and "1.000" in f for f in report.failures)
+    assert report.modal_option == "yes"
+    assert report.modal_share == pytest.approx(1.0)
+    assert report.accuracy == pytest.approx(0.5)
+
+
+def test_constant_answer_is_not_flagged_when_the_template_really_is_dominated() -> None:
+    """A template whose majority share is above the ceiling may legitimately get one answer."""
+    n = 100
+    report = _cell(
+        n_options=2,
+        label_masses=[0.99] * n,
+        correct=[True] * 90 + [False] * 10,
+        greedy_matches=[True] * n,
+        predicted_labels=["yes"] * n,
+        majority_share=0.90,
+    )
+    assert report.passed, report.failures
+    assert report.modal_share == pytest.approx(1.0)
+
+
+def test_constant_answer_below_the_modal_threshold_passes() -> None:
+    n = 100
+    labels = ["yes"] * 85 + ["no"] * 15  # modal share 0.85 < 0.90
+    report = _cell(
+        n_options=2,
+        label_masses=[0.99] * n,
+        correct=[True] * 60 + [False] * 40,
+        greedy_matches=[True] * n,
+        predicted_labels=labels,
+        majority_share=0.50,
+    )
+    assert report.passed, report.failures
+
+
+def test_constant_answer_check_reports_not_measured_without_majority_share() -> None:
+    report = _cell(predicted_labels=["yes"] * 4)
+    assert report.passed
+    assert any("constant-answer check NOT MEASURED" in note for note in report.notes)
+
+
+def test_predicted_labels_length_is_validated() -> None:
+    with pytest.raises(ValueError, match="predicted_labels"):
+        _cell(predicted_labels=["yes", "no"])

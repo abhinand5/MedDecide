@@ -14,6 +14,7 @@ every relevance source, so a `score` number means the same thing everywhere.
 from __future__ import annotations
 
 import random
+from collections.abc import Sequence
 from datetime import date
 from typing import Any
 
@@ -63,15 +64,25 @@ def load_beir_relevance(
     record_date: date,
     graded: bool,
     query_cap: int | None = None,
+    score_levels: Sequence[int] | None = None,
+    score_template_id: str | None = None,
 ) -> LoadResult:
     """Build ``noul`` (relevant?) items and, when ``graded``, graded ``score`` items.
 
     ``noul``: one relevant (qrels grade > 0) and one non-relevant (grade <= 0) passage per
-    sampled query. ``score``: one passage per grade level present in the qrels, plus a
-    grade-0 passage from the explicitly non-relevant pool when the qrels contain none.
+    sampled query. ``score``: one passage per **offered** level, where the offered levels are
+    the levels that actually occur in this split's pool (``score_levels`` overrides that
+    explicitly).
+
+    Why the offered set is computed rather than fixed: v0.1's ``_v1`` template offered all
+    three levels on nfcorpus, whose test qrels contain no grade-0 passage for any query, so
+    one of the three options could never be the answer and a model choosing it was
+    guaranteed wrong (bench_v0_fix0 X029). Offering exactly the levels present removes that
+    defect; the levels actually offered are recorded in each item's ``meta``.
     """
     seed = int(cfg.get("seed", 0))
     max_items, _ = _caps(cfg)
+    template_id = score_template_id or f"{source}_graded_score_v1"
     result = LoadResult(
         source=source,
         dataset_id=dataset_id,
@@ -110,6 +121,23 @@ def load_beir_relevance(
     grade0 = [cid for cid, grade in all_grades.items() if grade == 0 and cid in corpus_index]
     grade1 = [cid for cid, grade in all_grades.items() if grade == 1 and cid in corpus_index]
     grade2 = [cid for cid, grade in all_grades.items() if grade == 2 and cid in corpus_index]
+
+    # The offered levels are decided once, from the pool this split actually has, so every
+    # offered level is the gold of at least one built item (checked at build time).
+    present_levels = _levels_present(picked, qrels_map, corpus_index)
+    offered_levels = [int(level) for level in score_levels] if score_levels else present_levels
+    offered_levels = sorted(set(offered_levels))
+    unknown = [level for level in offered_levels if not 0 <= level < len(GRADE_LEVELS)]
+    if unknown:
+        raise ValueError(f"score levels out of range for {source!r}: {unknown}")
+    if graded:
+        result.notes.append(
+            f"levels present in the {split.value} pool: {present_levels}; offered: {offered_levels} "
+            f"({[GRADE_LEVELS[level] for level in offered_levels]})"
+        )
+        dropped_levels = [level for level in present_levels if level not in offered_levels]
+        if dropped_levels:
+            result.drop("score_level_present_but_not_offered", len(dropped_levels))
 
     n_noul = n_score = 0
     for qid in picked:
@@ -157,18 +185,19 @@ def load_beir_relevance(
         fallback_pools = {0: grade0 or unjudged, 1: grade1, 2: grade2}
         per_query = {
             grade: [cid for cid, g in judgements.items() if _level_of(g) == grade and cid in corpus_index]
-            for grade in (0, 1, 2)
+            for grade in offered_levels
         }
-        for grade, pool in per_query.items():
+        for level, pool in per_query.items():
             if not pool:
-                result.drop(f"score_level_{grade}_unavailable")
+                result.drop(f"score_level_{level}_unavailable_for_query")
                 # only a true corpus-wide shortage is worth a note; a query that lacks this
                 # level is normal and is counted by the drop above
-                if not fallback_pools[grade]:
-                    result.notes.append(f"no passage anywhere in the corpus has grade {grade}")
+                if not fallback_pools.get(level):
+                    result.notes.append(f"no passage anywhere in the corpus has grade {level}")
                 continue
             cid = pool[rng.randrange(len(pool))]
             observed = judgements[cid]
+            labels = [GRADE_LEVELS[level_] for level_ in offered_levels]
             result.rows.append(
                 make_choice_item(
                     source=source,
@@ -177,16 +206,22 @@ def load_beir_relevance(
                     license_=BEIR_LICENSE,
                     record_date=record_date,
                     split=split,
-                    template_id=f"{source}_graded_score_v1",
+                    template_id=template_id,
                     skill="relevance",
                     state=f"Query: {query_text[qid]}\n\nPassage: {_passage_text(corpus_index[cid])}",
                     question="How relevant is this passage to the query?",
-                    labels=GRADE_LEVELS,
-                    gold_index=_level_of(observed),
+                    labels=labels,
+                    gold_index=offered_levels.index(_level_of(observed)),
                     option_order_seed=seed,
                     qtype=QuestionType.SCORE,
                     lead="1",
-                    meta={"query_id": qid, "corpus_id": cid, "qrel_grade": observed},
+                    meta={
+                        "query_id": qid,
+                        "corpus_id": cid,
+                        "qrel_grade": observed,
+                        "offered_levels": offered_levels,
+                        "offered_level_labels": labels,
+                    },
                 )
             )
             n_score += 1
@@ -196,6 +231,20 @@ def load_beir_relevance(
     if not graded:
         result.notes.append("this source's qrels are binary; no score template is built")
     return result
+
+
+def _levels_present(
+    picked: Sequence[str],
+    qrels_map: dict[str, dict[str, int]],
+    corpus_index: dict[str, dict[str, str]],
+) -> list[int]:
+    """Score levels that occur in the pool of the queries actually sampled for this split."""
+    levels: set[int] = set()
+    for qid in picked:
+        for cid, grade in qrels_map[qid].items():
+            if cid in corpus_index:
+                levels.add(_level_of(grade))
+    return sorted(levels)
 
 
 def _level_of(grade: int) -> int:
@@ -291,11 +340,17 @@ def build_nfcorpus(
     qrels_train: list[dict[str, Any]],
     cfg: dict[str, Any],
     revision: str,
+    score_template_id: str | None = None,
+    score_levels: Sequence[int] | None = None,
 ) -> LoadResult:
     """NFCorpus: official qrels test split is tier-1 test; the official train qrels are dev.
 
     The official train qrels are graded 1 only, so ``score`` items are built for the test
     split (grades 1/2 plus a level-0 pool); the dev split carries ``noul`` items.
+
+    ``score_template_id``/``score_levels`` let a later benchmark build supersede the ``_v1``
+    score template (which offered a level no passage in the pool had) without touching the
+    v0.1 artifacts, which are frozen.
     """
     dev = load_beir_relevance(
         source="nfcorpus", dataset_id=NFCORPUS_ID, queries=queries_train, corpus=corpus,
@@ -306,10 +361,15 @@ def build_nfcorpus(
         source="nfcorpus", dataset_id=NFCORPUS_ID, queries=queries_test, corpus=corpus,
         qrels=qrels_test, cfg=cfg, revision=revision, split=Split.TEST,
         record_date=date(2015, 1, 1), graded=True,
+        score_levels=score_levels,
+        score_template_id=score_template_id,
     )
     dev.rows.extend(test.rows)
     for reason, count in test.dropped.items():
         dev.drop(reason, count)
+    for note in test.notes:
+        if note not in dev.notes:
+            dev.notes.append(note)
     max_test, max_dev = _caps(cfg)
     dev.rows, counts, extra = finalize_splits(
         dev.rows, cfg=cfg, source="nfcorpus", salt="nfcorpus", cap_test=max_test, cap_dev=max_dev

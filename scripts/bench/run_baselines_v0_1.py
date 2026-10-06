@@ -39,6 +39,7 @@ from meddecide.bench.schema import Item, QuestionType
 from meddecide.eval.harness import Harness, ModelSpec, Prediction, greedy_first_token
 from meddecide.eval.health import evaluate_cell
 from meddecide.eval.metrics import bootstrap_ci, ece, macro_accuracy
+from meddecide.eval.predlog import read_prediction_log
 from meddecide.eval.probes import shuffle_options
 from meddecide.eval.readout import canonicalise_options, render_prompt
 from meddecide.utils.io import read_jsonl
@@ -132,6 +133,10 @@ def summarise_cell(
         greedy_matches=greedy_matches,
         n_options=n_options,
         seed=seed,
+        # constant-answer check (S1): the readout's argmax key per item, against the
+        # template's own majority share
+        predicted_labels=[p.option_keys[p.argmax_index] for p in predictions],
+        majority_share=majority_count / n,
     )
     cell: dict[str, Any] = {
         "model_id": model_id,
@@ -158,6 +163,8 @@ def summarise_cell(
         "label_mass_min": float(np.min([p.label_mass for p in predictions])),
         "greedy_agreement": health.greedy_agreement,
         "greedy_sample_size": health.greedy_sample_size,
+        "modal_option": health.modal_option,
+        "modal_share": health.modal_share,
         "shuffle_flip_rate": shuffle_flip,
         "p50_seconds_per_item": float(np.median([p.latency_s for p in predictions])),
         "gate_status": health.status,
@@ -200,13 +207,17 @@ def run_model(args: argparse.Namespace) -> int:
                     strict_ids.add(item.item_id)
 
     spec = ModelSpec(model_id=args.model, revision=args.revision)
+    run_id = args.run_id or f"{slug(args.model)}:{utcnow()}"
     batch_size = args.batch_size if args.batch_size != 8 else BATCH_BY_MODEL.get(
         args.model, args.batch_size
     )
-    harness = Harness(spec, batch_size=batch_size, max_batch_tokens=args.max_batch_tokens)
+    harness = Harness(
+        spec, batch_size=batch_size, max_batch_tokens=args.max_batch_tokens, run_id=run_id
+    )
     preds_path = out_dir / f"preds_{slug(args.model)}.jsonl"
     model_report: dict[str, Any] = {
         "model_id": args.model,
+        "run_id": run_id,
         "variant_detection": harness.variant_detection,
         "generated_at_utc": utcnow(),
         "batch_size": batch_size,
@@ -285,6 +296,9 @@ def run_model(args: argparse.Namespace) -> int:
 
     model_report["wall_seconds"] = time.time() - started
     model_report["n_prediction_rows"] = sum(c["n"] for c in model_report["cells"])
+    if model_report.get("preds_path"):
+        # append-only file: say what is in it, not just how many rows it has (S1/P7)
+        model_report["prediction_log"] = read_prediction_log(Path(model_report["preds_path"])).report()
     out_path = out_dir / f"model_{slug(args.model)}.json"
     out_path.write_text(json.dumps(model_report, indent=2) + "\n")
     prov = Provenance(
@@ -362,6 +376,8 @@ def main() -> int:
     parser.add_argument("--greedy-items", type=int, default=50)
     parser.add_argument("--shuffle-items", type=int, default=500)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--run-id", default=None,
+                        help="stamp on every prediction row; defaults to <model>:<utc>")
     parser.add_argument("--write-predictions", action="store_true", default=True)
     args = parser.parse_args()
     return run_model(args)

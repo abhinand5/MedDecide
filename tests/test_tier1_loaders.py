@@ -295,6 +295,64 @@ def test_relevance_query_without_judged_passage_is_dropped_not_invented() -> Non
     assert res.dropped["query_without_text_or_judged_passage"] == 1
 
 
+def _beir_fixture_without_grade0(n_queries=6):
+    """The nfcorpus shape: graded qrels that contain no grade-0 passage at all."""
+    queries, corpus, qrels = _beir_fixture(n_queries, 3 * n_queries)
+    qrels = [q for q in qrels if q["score"] != 0]
+    return queries, corpus, qrels
+
+
+def test_relevance_score_offers_only_the_levels_present() -> None:
+    """S1 defect 1 (X029): a level no passage in the pool has must not be offered.
+
+    On nfcorpus every one of the 429 v0.1 score items offered "Not relevant", which no
+    passage in the pool had, so choosing it was always wrong.
+    """
+    queries, corpus, qrels = _beir_fixture_without_grade0()
+    res = relevance.load_beir_relevance(
+        source="synthetic_rel", dataset_id="x/y", queries=queries, corpus=corpus, qrels=qrels,
+        cfg=CFG, revision="rev", split=Split.TEST, record_date=date(2020, 1, 1),
+        graded=True,
+    )
+    score_items = [i for i in res.items if i.qtype is QuestionType.SCORE]
+    assert score_items, "the fixture must produce score items"
+    for item in score_items:
+        assert item.n_options == 2
+        assert item.meta["offered_levels"] == [1, 2]
+        assert [o.label for o in item.options] == ["Relevant", "Highly relevant"]
+    # every offered level is the gold of at least one built item (the guarantee that makes
+    # the option set usable), and no other level appears as gold
+    golds = {item.gold for item in score_items}
+    assert golds == {"1", "2"}
+
+
+def test_relevance_explicit_score_levels_are_honoured_and_counted() -> None:
+    queries, corpus, qrels = _beir_fixture()  # all three grades present
+    res = relevance.load_beir_relevance(
+        source="synthetic_rel", dataset_id="x/y", queries=queries, corpus=corpus, qrels=qrels,
+        cfg=CFG, revision="rev", split=Split.TEST, record_date=date(2020, 1, 1),
+        graded=True, score_levels=[1, 2],
+    )
+    score_items = [i for i in res.items if i.qtype is QuestionType.SCORE]
+    assert {item.gold for item in score_items} == {"1", "2"}
+    assert all(item.n_options == 2 for item in score_items)
+    assert res.dropped["score_level_present_but_not_offered"] == 1
+    # a level that is present but not offered is counted, never silently dropped
+    assert any("levels present" in note and "offered: [1, 2]" in note for note in res.notes)
+
+
+def test_relevance_score_level_out_of_range_is_an_error() -> None:
+    import pytest
+
+    queries, corpus, qrels = _beir_fixture()
+    with pytest.raises(ValueError, match="out of range"):
+        relevance.load_beir_relevance(
+            source="synthetic_rel", dataset_id="x/y", queries=queries, corpus=corpus, qrels=qrels,
+            cfg=CFG, revision="rev", split=Split.TEST, record_date=date(2020, 1, 1),
+            graded=True, score_levels=[0, 3],
+        )
+
+
 def test_mmlu_identical_stem_on_both_sides_is_forced_to_test() -> None:
     """MMLU really does repeat a stem with different answer sets across splits."""
     by_subject = {

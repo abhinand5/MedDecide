@@ -90,11 +90,16 @@ class Prediction:
     best_option_in_top5: bool = False
     top1_over_option_mass: float = 0.0
     transform: dict[str, Any] = field(default_factory=dict)
+    # Identifies the run that produced this row. Prediction files are append-only across
+    # re-runs (bench_v0_fix0 P7), so a row count is not an item count: consumers dedupe by
+    # (run_id, item_id). Rows written before loop 1 carry no run_id and dedupe on item_id.
+    run_id: str = ""
 
     def to_json(self) -> dict[str, Any]:
         return {
             "item_id": self.item_id,
             "model_id": self.model_id,
+            "run_id": self.run_id,
             "source": self.source,
             "template_id": self.template_id,
             "split": self.split,
@@ -184,6 +189,7 @@ class Harness:
         max_prompt_tokens: int = 16384,
         max_batch_tokens: int = 65536,
         debug: bool = False,
+        run_id: str = "",
     ) -> None:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -197,6 +203,9 @@ class Harness:
         # therefore also capped by total prompt tokens.
         self.max_batch_tokens = max_batch_tokens
         self.debug = debug
+        # stamped onto every Prediction this harness returns, so an append-only prediction
+        # file can be deduplicated per run (S1)
+        self.run_id = run_id
         self.torch = torch
         self.tokenizer = AutoTokenizer.from_pretrained(spec.model_id, revision=spec.revision,
                                                        trust_remote_code=trust_remote_code)
@@ -385,6 +394,7 @@ class Harness:
                 gold_index = keys.index(gold_key)
                 predictions.append(
                     Prediction(
+                        run_id=self.run_id,
                         item_id=item_ids[position],
                         model_id=self.spec.model_id,
                         source=sources[position],
@@ -438,6 +448,7 @@ class Harness:
             argmax = int(np.argmax(readout["option_probs"]))
             predictions.append(
                 Prediction(
+                    run_id=self.run_id,
                     item_id=item.item_id,
                     model_id=self.spec.model_id,
                     source=item.source,
