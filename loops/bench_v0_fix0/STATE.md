@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T05:48:40Z`
+Last updated (UTC): `2026-10-06T05:57:21Z`
 Iterations so far: `1`
 
 ---
@@ -24,7 +24,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
 | F0 | Orientation and baseline snapshot | no | — | IN_PROGRESS | 2026-10-06T05:47:36Z | |
-| F1 | MedMCQA key fix + raw-gold verification for all tier-1 sources | no | F0 | IN_PROGRESS | 2026-10-06T05:48:40Z | | |
+| F1 | MedMCQA key fix + raw-gold verification for all tier-1 sources | no | F0 | DONE | 2026-10-06T05:48:40Z | 2026-10-06T05:57:21Z |
 | F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | PENDING | | |
 | F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | PENDING | | |
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | PENDING | | |
@@ -51,7 +51,7 @@ recomputing or guessing.
 |---|---|---|---|
 | v0.1 fresh window start / end | | `docs/benchmark/fresh_window.md` | F4 |
 | strict-slice start | 2026-09-10 | ADVISORY §1 item 4 | F4 |
-| MedMCQA gold mismatches after fix (of N) | | `outputs/bench_v0_fix0/F1/gold_verification.json` | F1 |
+| MedMCQA gold mismatches after fix (of N) | **0 of 4,183** (all 8 tier-1 sources: 0 of 15,915 checked) | `outputs/bench_v0_fix0/F1/gold_verification.json` | F1 |
 | `noul` reference agreement (pts) | | | F2 |
 | `choice` MedQA reproduction (vs bench_v0) | | | F2 |
 | balancing K per template | | | F4 |
@@ -72,15 +72,16 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F1 (MedMCQA key fix + raw-gold verification)
-Working dir:    outputs/bench_v0_fix0/F1/
+Task in flight: F2 (`noul`/`score` readout fix + reference validation + health gate)
+Working dir:    outputs/bench_v0_fix0/F2/
 
-- [ ] fix _medmcqa_item: cop is 0-based, validate cop in {0,1,2,3}, count drops
-- [ ] scripts/bench/verify_gold.py + src/meddecide/bench/verify.py: independent gold-text check
-      for every tier-1 source against the raw HF dataset at the pinned revision
-- [ ] compare gold-class distribution with the raw answer-field distribution
-- [ ] unit tests: MedMCQA cop=0 -> option A; tiny fixture per source
-- [ ] build tier-1 v0.1 into data/bench/v0.1/tier1/ and run the tier-1 audit
+- [ ] render every item's options with letter labels; read letter tokens (same path as validated choice)
+- [ ] noul: "A. Yes" / "B. No"; score: A = lowest level; record letter -> option-key map per item
+- [ ] keep the choice path byte-identical; re-run T7's MedQA comparison to prove it
+- [ ] validate noul against lm-evaluation-harness (boolq or PubMedQA yes/no) within +/-2 pts
+- [ ] implement the readout-health gate (median label mass >= 0.5, greedy agreement >= 0.9,
+      CI upper bound not below chance) with unit tests
+- [ ] 200 noul + 200 score items for 0.8B and 4B: median label mass >= 0.9, greedy agreement >= 0.9
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -90,6 +91,20 @@ Working dir:    outputs/bench_v0_fix0/F1/
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F1 — DONE — 2026-10-06T05:57:21Z
+- What ran: fixed `_medmcqa_item` (cop is 0-based), wrote `scripts/bench/verify_gold.py` and
+  `src/meddecide/bench/verify.py`, rebuilt tier-1 as v0.1, ran the independent gold check twice.
+- Output: `outputs/bench_v0_fix0/F1/` (gold_verification.json, SELF_AUDIT.md),
+  `data/bench/v0.1/tier1/` (manifest, acceptance, audit).
+- Headline: **0 gold mismatches of 15,915 checked items across all eight tier-1 sources** (X004);
+  MedMCQA now has 4,183 test items with gold A 1,348 / B 1,085 / C 925 / D 825, identical to the raw
+  `cop` counts (X002, X003).
+- Surprises: verification also caught a *real* second loader bug - three nfcorpus score items
+  carried a grade borrowed from another query's pool (X005) - plus two defects in my own checker
+  (label-vs-key comparison, pooled qrels) that produced false alarms before the real bug surfaced.
+- Next: F2 (`noul`/`score` readout), which gates every GPU number in this loop.
+
 
 ### F0 — DONE — 2026-10-06T05:48:40Z
 - What ran: `git rev-parse HEAD`, `sha256sum` over every v0 benchmark JSONL, manifest totals via
