@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T21:47:41Z`
+Last updated (UTC): `2026-10-06T21:48:05Z`
 Iterations so far: `1`
 
 ---
@@ -26,7 +26,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S0 | Orientation, snapshot, fused kernels | smoke | — | DONE | 2026-10-06T18:06:22Z | 2026-10-06T18:25:39Z |
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
 | S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
-| S3 | Long-record slice + shared-prefix measurement | yes | S2 | PENDING | | |
+| S3 | Long-record slice + shared-prefix measurement | yes | S2 | IN_PROGRESS | 2026-10-06T21:48:05Z | |
 | S4 | HLE medical subset (supplementary test) | small | S1 | PENDING | | |
 | S5 | Tier-1 train-split builders | no | S1 | PENDING | | |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | PENDING | | |
@@ -78,29 +78,19 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S2 — record-claim consistency templates** (started 2026-10-06T20:38:06Z)
-Working dir:    outputs/student_v0/S2/
+Task in flight: **S3 — long-record slice + shared-prefix measurement** (started 2026-10-06T21:48:05Z)
+Working dir:    outputs/student_v0/S3/
 
-Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
-  source template id                     qtype   role-binding design                                   windows
-  ct_arm_role_noul_v1                    noul    intervention -> arm role (arms listed, types removed)   fresh + pre-window
-  ct_claim_set_choice_v1                 choice  multi-field: 4 stated fields, exactly one swapped      fresh + pre-window
-  fda_route_claim_noul_v1                noul    claimed route vs openfda.route, swapped route also in text fresh + pre-window
-  ct_outcome_role_noul_v1                noul    primary vs secondary outcome (labels removed)          fresh + pre-window
-  HOLD-OUT (D14): ct_arm_role_noul_v1 - the arm/intervention role structure differs most from the
-  field-claim designs, so a model that learned "verify a stated field" still has to handle it.
-
-- [x] 1. src/meddecide/bench/fresh/consistency.py: the three builders (structured gold only; role-binding; balanced 50/50 per template+split; multi-field variant)
-- [x] 2. unit tests: balance, role-binding (swapped value also in state), gold correctness, determinism, drop accounting
-- [x] 3. build_consistency.py: fresh built (8,962 CT + 3,036 FDA items) and pre-window built (117,972 items, held-out template excluded); both verdict PASS
-- [x] 4. string-presence baseline measured on the written test split: 0.4985 / 0.3138 / 0.4750 (all <= 0.60)
-- [x] 5. screen: all three kept (BoW macro 0.507 / 0.342 / 0.530; gold-in-state 0.389 / 0.000 / 0.595); 25 templates, 19 kept
-- [x] 6. zero-shot: all 6 cells gate PASS (arm-role 0.6950/0.8780; claim-set 0.2517/0.7778; route-claim 0.8875/0.9020)
-- [x] 7. docs/benchmark/consistency_templates.md committed (how each template satisfies rules 1-5, the hold-out and why)
-- [x] 8. acceptance check run: all 7 criteria PASS
-- [x] 9. self-audit (R6) written to SELF_AUDIT.md
-- [x] 10. CLAIMS.md rows appended (S027-S034)
-- [x] 11. STATE updated, committed, pushed
+- [ ] 1. tokenise every v0.2 fresh test prompt (Qwen3.5 tokenizer) and write data/bench/v0.2/long_record.json + a manifest block (counts per template, item ids); items themselves stay untouched so the v0.1 carried-identity property survives
+- [ ] 2. if the slice has < 300 items, rebuild the affected openFDA / CT.gov templates with a larger state budget (recorded, up to 32768 tokens)
+- [ ] 3. report zero-shot 0.8B and 9B on the slice separately (D12 applied)
+- [ ] 4. scripts/bench/measure_prefix.py: per-record latency for (a) one prompt per question vs (b) state as a shared prefix with the KV cache reused, on Qwen3.5-0.8B
+- [ ] 5. agreement check: (b) gives the same argmax as (a) on >= 99% of questions
+- [ ] 6. outputs/student_v0/S3/prefix.json with both throughputs and the agreement rate
+- [ ] 7. acceptance check run and passed
+- [ ] 8. self-audit (R6) written to SELF_AUDIT.md
+- [ ] 9. CLAIMS.md rows appended
+- [ ] 10. STATE updated, committed, pushed
 ```
 
 ---
