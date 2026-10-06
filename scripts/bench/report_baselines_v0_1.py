@@ -69,6 +69,8 @@ def main() -> int:
     parser.add_argument("--report", type=Path,
                         default=Path("loops/bench_v0_fix0/baselines_v0_1.md"))
     parser.add_argument("--screen", type=Path, default=Path("data/bench/v0.1/screen.json"))
+    parser.add_argument("--benchmark-label", default="MedDecide-Bench v0.1 (F6)",
+                        help="title used in the generated report")
     args = parser.parse_args()
 
     # `model_<slug>_provenance.json` also matches the glob; it is not a results file
@@ -78,10 +80,21 @@ def main() -> int:
     if not model_files:
         print(f"no model_*.json under {args.dir}", file=sys.stderr)
         return 1
+    # One model can have several result files (a per-template run writes its own); merge the
+    # cells instead of letting the last file win, and keep the first payload's metadata.
     models: dict[str, Any] = {}
     for path in model_files:
         payload = json.loads(path.read_text())
-        models[payload["model_id"]] = payload
+        model_id = payload["model_id"]
+        if model_id not in models:
+            models[model_id] = payload
+            models[model_id]["source_files"] = [path.name]
+        else:
+            models[model_id]["cells"].extend(payload.get("cells", []))
+            models[model_id].setdefault("source_files", []).append(path.name)
+            models[model_id]["n_prediction_rows"] = models[model_id].get(
+                "n_prediction_rows", 0
+            ) + payload.get("n_prediction_rows", 0)
 
     screen = json.loads(args.screen.read_text()) if args.screen.exists() else {"templates": []}
     kept = {t["template_id"] for t in screen["templates"] if not t["drop"]}
@@ -127,7 +140,7 @@ def main() -> int:
     args.out.write_text(json.dumps({"summary": summary, "cells": all_cells}, indent=2) + "\n")
 
     lines = [
-        "# Zero-shot ladder baselines on MedDecide-Bench v0.1 (F6)",
+        f"# Zero-shot ladder baselines on {args.benchmark_label}",
         "",
         f"Generated: `{summary['generated_at_utc']}`  ",
         f"Models: {', '.join(f'`{m}`' for m in models)}  ",

@@ -214,7 +214,10 @@ def run_model(args: argparse.Namespace) -> int:
     harness = Harness(
         spec, batch_size=batch_size, max_batch_tokens=args.max_batch_tokens, run_id=run_id
     )
-    preds_path = out_dir / f"preds_{slug(args.model)}.jsonl"
+    # per-template runs must not overwrite each other: with --only-template the template
+    # name is part of the file name (the default, whole-benchmark behaviour is unchanged)
+    suffix = f"__{args.only_template}" if args.only_template else ""
+    preds_path = out_dir / f"preds_{slug(args.model)}{suffix}.jsonl"
     model_report: dict[str, Any] = {
         "model_id": args.model,
         "run_id": run_id,
@@ -299,7 +302,7 @@ def run_model(args: argparse.Namespace) -> int:
     if model_report.get("preds_path"):
         # append-only file: say what is in it, not just how many rows it has (S1/P7)
         model_report["prediction_log"] = read_prediction_log(Path(model_report["preds_path"])).report()
-    out_path = out_dir / f"model_{slug(args.model)}.json"
+    out_path = out_dir / f"model_{slug(args.model)}{suffix}.json"
     out_path.write_text(json.dumps(model_report, indent=2) + "\n")
     prov = Provenance(
         run_name=f"F6_baseline_{slug(args.model)}",
@@ -309,7 +312,7 @@ def run_model(args: argparse.Namespace) -> int:
         config={"model": args.model, "batch_size": args.batch_size,
                 "greedy_items": args.greedy_items, "shuffle_items": args.shuffle_items},
     )
-    prov.finish().write(out_dir / f"model_{slug(args.model)}_provenance.json")
+    prov.finish().write(out_dir / f"model_{slug(args.model)}{suffix}_provenance.json")
     tiers = model_report["tiers"]
     print(json.dumps(tiers, indent=2))
     print(f"wall: {model_report['wall_seconds']:.1f}s; wrote {out_path}")

@@ -37,7 +37,7 @@ from typing import Any
 import yaml
 
 from meddecide.bench.fresh import openfda, pubmed
-from meddecide.bench.schema import Item, QuestionType
+from meddecide.bench.schema import Item, QuestionType, compute_item_id
 from meddecide.bench.tier1 import relevance
 from meddecide.bench.tier1.common import balance_classes, finalize_splits
 from meddecide.utils.hashing import stable_hash
@@ -93,7 +93,9 @@ def _load_dataset(dataset_id: str, config: str | None, split: str):
     return load_dataset(dataset_id, config, split=split) if config else load_dataset(dataset_id, split=split)
 
 
-def build_nfcorpus_score_v2(cfg: dict[str, Any]) -> tuple[list[Item], dict[str, Any]]:
+def build_nfcorpus_score_v2(
+    cfg: dict[str, Any], carried_rows: list[Item]
+) -> tuple[list[Item], dict[str, Any]]:
     """The `_v2` graded-score items: the offered levels are exactly the levels present."""
     from huggingface_hub import HfApi
 
@@ -113,6 +115,8 @@ def build_nfcorpus_score_v2(cfg: dict[str, Any]) -> tuple[list[Item], dict[str, 
     )
     score_items = [row for row in res.items if row.qtype is QuestionType.SCORE]
     res.rows = score_items
+    # the carried nfcorpus rows fix the split of any query this template touches
+    res.rows, reconcile = _reconcile_new_item_splits(res.rows, carried_rows)
     res.rows, counts, extra = finalize_splits(
         res.rows, cfg=cfg, source="nfcorpus", salt="nfcorpus_v2", cap_test=5000, cap_dev=2000
     )
@@ -124,7 +128,8 @@ def build_nfcorpus_score_v2(cfg: dict[str, Any]) -> tuple[list[Item], dict[str, 
         "S1 fix: the offered levels are the levels present in the sampled test pool, so every "
         "offered level is the gold of at least one item"
     )
-    meta = {"revision": revision, "notes": res.notes, "dropped": res.dropped, "balance": balance}
+    meta = {"revision": revision, "notes": res.notes, "dropped": res.dropped,
+            "balance": balance, "split_reconcile": reconcile}
     return list(res.rows), meta
 
 
@@ -135,6 +140,7 @@ def build_pubmed_mesh_v2(
     window_end: date,
     n_files: int,
     file_names: list[str] | None = None,
+    carried_rows: list[Item] | None = None,
 ) -> tuple[list[Item], dict[str, Any]]:
     from meddecide.bench.mesh import load_index
 
@@ -163,9 +169,11 @@ def build_pubmed_mesh_v2(
         mesh_siblings=index.siblings,
         mesh_meta={**index.meta, "index_path": str(mesh_index_path)},
     )
+    rows, reconcile = _reconcile_new_item_splits(rows, carried_rows or [])
     rows, counts, extra = finalize_splits(
         rows, cfg=cfg, source="pubmed", salt="pubmed_mesh_v2", cap_test=5000, cap_dev=2000
     )
+    rows, reconcile_after = _reconcile_new_item_splits(rows, carried_rows or [])
     for reason, n in counts.items():
         drops[reason] = drops.get(reason, 0) + n
     rows, balance = balance_classes(rows, cfg=cfg, salt="pubmed_mesh_v2")
@@ -177,6 +185,7 @@ def build_pubmed_mesh_v2(
     meta = {
         "mesh": index.meta, "files": [p.name for p in paths], "notes": notes, "dropped": drops,
         "balance": balance, "dataset_revision": ",".join(p.name for p in paths),
+        "split_reconcile": [reconcile, reconcile_after],
     }
     return list(rows), meta
 
@@ -198,7 +207,7 @@ def _hub_class_values(index: dict[str, Any], *, max_df: int) -> set[str]:
 
 def build_openfda_class_v2(
     cfg: dict[str, Any], class_index_path: Path, window_start: date, window_end: date,
-    *, max_value_df: int = 20,
+    carried_rows: list[Item] | None = None, *, max_value_df: int = 20,
 ) -> tuple[list[Item], dict[str, Any]]:
     from meddecide.bench.fresh import fda_classes
 
@@ -234,9 +243,11 @@ def build_openfda_class_v2(
         near_miss=near_miss,
         class_index_meta=index.get("meta", {}),
     )
+    rows, reconcile = _reconcile_new_item_splits(rows, carried_rows or [])
     rows, counts, extra = finalize_splits(
         rows, cfg=cfg, source="openfda", salt="openfda_class_v2", cap_test=5000, cap_dev=2000
     )
+    rows, reconcile_after = _reconcile_new_item_splits(rows, carried_rows or [])
     for reason, n in counts.items():
         drops[reason] = drops.get(reason, 0) + n
     rows, balance = balance_classes(rows, cfg=cfg, salt="openfda_class_v2")
@@ -247,6 +258,7 @@ def build_openfda_class_v2(
         "dropped": drops, "balance": balance,
         "hub_values_excluded": len(hubs), "max_value_df": max_value_df,
         "near_miss_rules_allowed": ["shared_moa", "shared_pe"],
+        "split_reconcile": [reconcile, reconcile_after],
     }
     return list(rows), meta
 
@@ -284,6 +296,59 @@ def _pubmed_files(n_files: int, cache: Path, require: list[str] | None = None) -
                     fh.write(chunk)
         paths.append(path)
     return paths
+
+
+def _reconcile_new_item_splits(
+    new_rows: list[Item], carried_rows: list[Item]
+) -> tuple[list[Item], dict[str, Any]]:
+    """Make the new `_v2` items agree with the split their record already has.
+
+    A record's split is decided by a hash of its id, but v0.1 also **moved** items to test
+    when the same (state, question) text occurred in both splits (``finalize_splits`` rule 2).
+    A record whose v0.1 items were moved therefore has a split that the hash alone does not
+    reproduce, and a freshly built item for that record lands on the wrong side — which is a
+    record crossing the dev/test boundary, the invariant the leakage check exists to protect.
+
+    Resolution, in order: join the carried split when the record has exactly one (the
+    authoritative decision); otherwise, if the record's new items still span two splits,
+    force them all to **test** (test is the safe side; nothing is fitted on it). Item ids are
+    recomputed because the split is part of the id.
+    """
+    carried_split: dict[tuple[str, str], set[str]] = {}
+    for row in carried_rows:
+        carried_split.setdefault((row.source, row.source_record_id), set()).add(str(row.split))
+
+    def _moved(row: Item, target: str) -> Item:
+        payload = row.model_dump()
+        payload["split"] = target
+        payload["item_id"] = compute_item_id(
+            row.source, row.source_record_id, row.template_id,
+            int(row.meta.get("option_order_seed", 0)), target,
+        )
+        return Item.model_validate(payload)
+
+    joined = 0
+    out: list[Item] = []
+    for row in new_rows:
+        splits = carried_split.get((row.source, row.source_record_id))
+        if splits is not None and len(splits) == 1 and str(row.split) not in splits:
+            row = _moved(row, next(iter(splits)))
+            joined += 1
+        out.append(row)
+
+    # second pass: a record with no carried items must still not be split by the content move
+    by_record: dict[tuple[str, str], list[Item]] = {}
+    for row in out:
+        by_record.setdefault((row.source, row.source_record_id), []).append(row)
+    forced = 0
+    final: list[Item] = []
+    for key, rows in by_record.items():
+        splits = {str(r.split) for r in rows}
+        if len(splits) > 1 and key not in carried_split:
+            rows = [_moved(r, "test") if str(r.split) != "test" else r for r in rows]
+            forced += sum(1 for r in rows if str(r.split) == "test")
+        final.extend(rows)
+    return final, {"n_joined_carried_split": joined, "n_forced_to_test": forced}
 
 
 def main() -> int:
@@ -327,7 +392,7 @@ def main() -> int:
         tier1_rows[source] = carried
     build_meta: dict[str, Any] = {}
     if want("nfcorpus_v2"):
-        new_rows, meta = build_nfcorpus_score_v2(cfg)
+        new_rows, meta = build_nfcorpus_score_v2(cfg, tier1_rows.get("nfcorpus", []))
         tier1_rows["nfcorpus"] = [*tier1_rows.get("nfcorpus", []), *new_rows]
         build_meta["nfcorpus_graded_score_v2"] = meta
 
@@ -342,6 +407,7 @@ def main() -> int:
         new_rows, meta = build_pubmed_mesh_v2(
             cfg, args.mesh_index, window_start, window_end, args.pubmed_files,
             file_names=fresh_manifest.get("source_meta", {}).get("pubmed_files"),
+            carried_rows=fresh_rows.get("pubmed", []),
         )
         fresh_rows["pubmed"] = [*fresh_rows.get("pubmed", []), *new_rows]
         build_meta["pubmed_mesh_major_choice_v2"] = meta
@@ -351,7 +417,8 @@ def main() -> int:
         }
     if want("openfda_class_v2") and args.fda_class_index.is_file():
         new_rows, meta = build_openfda_class_v2(
-            cfg, args.fda_class_index, window_start, window_end
+            cfg, args.fda_class_index, window_start, window_end,
+            carried_rows=fresh_rows.get("openfda", []),
         )
         fresh_rows["openfda"] = [*fresh_rows.get("openfda", []), *new_rows]
         build_meta["fda_class_choice_v2"] = meta
