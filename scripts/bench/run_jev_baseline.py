@@ -115,7 +115,9 @@ def main() -> int:
     parser.add_argument("--only-template", default=None)
     parser.add_argument("--limit-per-template", type=int, default=None)
     parser.add_argument("--shuffle-items", type=int, default=100)
-    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=1,
+                        help="read one item per forward pass; larger values pad the vocab-dim "
+                             "logits across the batch and OOM on long openFDA prompts")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--max-items", type=int, default=None,
                         help="cap items per template (debug/large-template safety)")
@@ -193,6 +195,10 @@ def main() -> int:
                 labels = [o.label for o in item.options]
                 prompt = build_prompt(kind, item.state, item.question, labels)
                 ids = verbalizer_ids(head, kind, n_options)
+                # one item at a time: the JEV base is Qwen3.5-9B with a 151k vocabulary, and
+                # batching pads every sequence to the longest one, which made the final
+                # [batch, seq, vocab] logits tensor reach 33 GiB on the openFDA templates (the
+                # model's own prediction is a single position, so nothing is lost by batching 1)
                 enc = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
                 enc = {k: v.to(model.device) for k, v in enc.items()}
                 with torch.inference_mode():

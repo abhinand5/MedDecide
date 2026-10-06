@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T11:16:48Z`
+Last updated (UTC): `2026-10-06T12:38:15Z`
 Iterations so far: `8`
 
 ---
@@ -72,33 +72,47 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F7 (JEV-9B cells) + F6 (4 models + 350M still to run)
+Task in flight: F6 (4 models left) then F7's last 2 cells, then Laya, then F11
 
-RUNNING: bash outputs/bench_v0_fix0/F7/run_jev_cells.sh   (launcher PID 58593)
-  log outputs/bench_v0_fix0/F7/logs/jev_cells4.log
-  one process per template, --resume, --shuffle-items 50; unmeasured templates first.
-  Safe to re-run: already-measured cells are skipped, so an OOM death costs one cell.
-  Measured so far (outputs/bench_v0_fix0/F7/jev9b.json + this log): medmcqa 0.6229,
-  medqa 0.7156, medquad 0.9882, mmlu 0.8277, nfcorpus noul 0.6553, pubmedqa 0.6960,
-  scifact noul 0.9266, ct_healthy_volunteers 0.7200, ct_phase 0.4745,
-  ct_randomised 0.8765, nfcorpus score 0.2634 (see SCORE_TEMPLATE_FLAW.md).
-  Remaining: fda_boxed, fda_class, pubmed_humans, pubmed_mesh, pubmed_observational.
+RUNNING: bash outputs/bench_v0_fix0/F6/run_queue3.sh  (PID shown by `pgrep -f run_queue3`)
+  log outputs/bench_v0_fix0/F6/logs/queue3.log   (note: each model's output is piped through
+  `tail -40`, so cell lines appear only when that model finishes; read preds_<slug>.jsonl for
+  live progress)
+  queue: Qwen3.5-0.8B [DONE] -> medgemma-1.5-4b-it [running] -> 4B -> 9B
+  memory-safe settings: --max-batch-tokens 4096 (an earlier run without it held 86 GB on 0.8B)
+  DONE models: LFM2.5-350M (16/16 cells PASS), Qwen3.5-0.8B-Base, Qwen3.5-0.8B (16/16 PASS)
 
-AFTER JEV (it needs ~20 GB, the wide choice templates peak near the 96 GB limit):
-  F6 models still to run: LFM2.5-350M (full), medgemma-1.5-4b-it, Qwen3.5-4B, Qwen3.5-9B, 0.8B.
-  DONE: Qwen3.5-0.8B-Base (model_qwen3p5-0p8b-base.json).
-  Before relaunching a model, DELETE its preds_<slug>.jsonl (predictions append, never truncate).
-  Edit the M list in outputs/bench_v0_fix0/F6/run_queue.sh to the five remaining models, then:
-      setsid nohup bash outputs/bench_v0_fix0/F6/run_queue.sh > outputs/bench_v0_fix0/F6/logs/queue2.log 2>&1 &
-  Then: uv run python scripts/bench/report_baselines_v0_1.py
-      -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
+F7 JEV-9B: 14 of 17 kept-template cells measured (both `trec_covid` templates are 200-item
+  drops, so 17 is the maximum). MISSING: `fda_boxed_warning_noul_v1`, `fda_class_choice_v1` —
+  both kept OOM-ing because the padded [batch, seq, 151k-vocab] logits tensor reached 33 GB.
+  FIXED in scripts/bench/run_jev_baseline.py: the reader now does one item per forward pass
+  (--batch-size default 1). To finish, once F6 has released the GPU:
+      uv run python scripts/bench/run_jev_baseline.py --only-template fda_boxed_warning_noul_v1 \
+          --resume --shuffle-items 20 --out outputs/bench_v0_fix0/F7
+      uv run python scripts/bench/run_jev_baseline.py --only-template fda_class_choice_v1 \
+          --resume --shuffle-items 20 --out outputs/bench_v0_fix0/F7
+  Then write loops/bench_v0_fix0/decision_models_v0_1.md from jev9b.json.
 
-THEN: Laya (laya, laya-typed-decisions) via scripts/bench/run_laya_baseline.py, then F11.
+THEN: Laya (scripts/bench/run_laya_baseline.py --model laya| laya-typed-decisions).
+THEN: F6 report: uv run python scripts/bench/report_baselines_v0_1.py
+THEN: F11 (findings + closure, HARD STOP).
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F6 + F7 — IN_PROGRESS — 2026-10-06T12:38:15Z
+- F6 memory defect found and fixed: an 0.8B run held **86 GB** because the padded
+  `[batch, seq, vocab]` logits tensor is vocabulary-sized (151k) on long openFDA/PubMed prompts.
+  Restarted with `--max-batch-tokens 4096`; memory now peaks ~64 GB and the model completes.
+  Three models done, all cells PASS: LFM2.5-350M (tier-1 medqa 0.2914, mmlu 0.2411 — a clean
+  floor), 0.8B-Base, 0.8B (medqa 0.4139, mmlu 0.4605, 16/16 gates PASS).
+- F7 memory defect found and fixed: JEV-9B's reader batched 8 long prompts, and the padded
+  151k-vocab logits reached 33 GB, killing both openFDA cells. Now one item per forward pass;
+  the two cells re-run once F6 frees the GPU. 14 of 17 cells are measured.
+- Both defects are the same root cause (a vocabulary-sized tensor multiplied by padding) and are
+  recorded here rather than worked around silently.
 
 ### F7 — IN_PROGRESS — 2026-10-06T09:49:01Z
 - Prepared and launched the JEV-9B decision-head baseline (PID 49499). vLLM is not installed, so

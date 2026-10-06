@@ -58,6 +58,16 @@ def slug(model_id: str) -> str:
     return model_id.split("/")[-1].lower().replace(".", "p")
 
 
+# Batch size per model. The 4B/9B models OOM on the widest `choice` templates when sharing the
+# GPU with another job, and F7 hit the same wall; a smaller batch is the cheap insurance, and the
+# batch size is recorded in each model's summary so a reader can see which run used what.
+BATCH_BY_MODEL = {
+    "Qwen/Qwen3.5-9B": 2,
+    "Qwen/Qwen3.5-4B": 3,
+    "google/medgemma-1.5-4b-it": 4,
+}
+
+
 def load_benchmark(tier1: Path, fresh: Path, keep: set[str] | None) -> dict[str, list[Item]]:
     """All test items, grouped by tier: {tier: [Item, ...]}, filtered to kept templates."""
     out: dict[str, list[Item]] = {}
@@ -190,13 +200,17 @@ def run_model(args: argparse.Namespace) -> int:
                     strict_ids.add(item.item_id)
 
     spec = ModelSpec(model_id=args.model, revision=args.revision)
-    harness = Harness(spec, batch_size=args.batch_size, max_batch_tokens=args.max_batch_tokens)
+    batch_size = args.batch_size if args.batch_size != 8 else BATCH_BY_MODEL.get(
+        args.model, args.batch_size
+    )
+    harness = Harness(spec, batch_size=batch_size, max_batch_tokens=args.max_batch_tokens)
     preds_path = out_dir / f"preds_{slug(args.model)}.jsonl"
     model_report: dict[str, Any] = {
         "model_id": args.model,
         "variant_detection": harness.variant_detection,
         "generated_at_utc": utcnow(),
-        "batch_size": args.batch_size,
+        "batch_size": batch_size,
+        "batch_size_requested": args.batch_size,
         "max_batch_tokens": args.max_batch_tokens,
         "gpu": gpu_name(),
         "tiers": {},
