@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T20:37:00Z`
+Last updated (UTC): `2026-10-06T20:38:06Z`
 Iterations so far: `1`
 
 ---
@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | S0 | Orientation, snapshot, fused kernels | smoke | — | DONE | 2026-10-06T18:06:22Z | 2026-10-06T18:25:39Z |
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
-| S2 | Record–claim consistency templates | small | S1 | PENDING | | |
+| S2 | Record–claim consistency templates | small | S1 | IN_PROGRESS | 2026-10-06T20:38:06Z | |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | PENDING | | |
 | S4 | HLE medical subset (supplementary test) | small | S1 | PENDING | | |
 | S5 | Tier-1 train-split builders | no | S1 | PENDING | | |
@@ -78,21 +78,29 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S1 — benchmark v0.2 fixes** (started 2026-10-06T18:25:57Z)
-Working dir:    outputs/student_v0/S1/
+Task in flight: **S2 — record-claim consistency templates** (started 2026-10-06T20:38:06Z)
+Working dir:    outputs/student_v0/S2/
 
-- [x] 1. nfcorpus_graded_score_v2: offer only levels present in the template pool; unit test (every offered level has >=1 item with that gold in test)
-- [x] 2a. pubmed_mesh_major_choice_v2: MeSH tree-sibling distractors (built, screened; saturated -> recorded)
-- [x] 2b. fda_class_choice_v2: moa/pe-sharing class distractors (built, screened, 9B 0.8705 <= 0.90)
-- [x] 3. constant-answer check in eval/health.py + unit test (LFM2.5-350M pattern)
-- [x] 4. prediction files carry run_id; readers dedupe by (run_id, item_id) and report raw vs unique counts
-- [x] 5. data/bench/v0.2/ built with manifest; v1 versions marked superseded; unchanged templates keep identical item_ids
-- [x] 6. three _v2 templates pass the screen (gold-in-state, BoW macro < 0.90, n_test >= 200)
-- [~] 7. zero-shot done (5 cells reported, 1 D12-withheld); saturation FAILS for the MeSH template (0.9830) — recorded, fix investigated and proposed
-- [x] 8. acceptance check run: 5 of 6 criteria PASS, the no-saturation criterion FAILS for one template (recorded)
-- [x] 9. self-audit (R6) written to SELF_AUDIT.md
-- [x] 10. CLAIMS.md rows appended (S014-S026)
-- [x] 11. STATE updated, committed, pushed
+Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
+  source template id                     qtype   role-binding design                                   windows
+  ct_arm_role_noul_v1                    noul    intervention -> arm role (arms listed, types removed)   fresh + pre-window
+  ct_claim_set_choice_v1                 choice  multi-field: 4 stated fields, exactly one swapped      fresh + pre-window
+  fda_route_claim_noul_v1                noul    claimed route vs openfda.route, swapped route also in text fresh + pre-window
+  ct_outcome_role_noul_v1                noul    primary vs secondary outcome (labels removed)          fresh + pre-window
+  HOLD-OUT (D14): ct_arm_role_noul_v1 - the arm/intervention role structure differs most from the
+  field-claim designs, so a model that learned "verify a stated field" still has to handle it.
+
+- [ ] 1. src/meddecide/bench/fresh/consistency.py: the four builders (structured gold only; role-binding; balanced 50/50 per template+split; multi-field variant)
+- [ ] 2. unit tests: balance, role-binding (swapped value also in state), gold correctness, determinism, drop accounting
+- [ ] 3. scripts/bench/build_consistency.py: build fresh (>=2026-03-01) into data/bench/v0.2/fresh/ and pre-window (<2026-03-01) into data/train/student_v0/prewindow_consistency.jsonl
+- [ ] 4. string-presence baseline per template must be <= 0.60 macro (measured, on the built test split)
+- [ ] 5. screen: each template passes (gold-in-state, BoW macro < 0.90, n_test >= 200)
+- [ ] 6. zero-shot Qwen3.5-0.8B and 9B on the fresh test split, D12 applied
+- [ ] 7. docs/benchmark/consistency_templates.md committed (how each template satisfies rules 1-5, the hold-out and why)
+- [ ] 8. acceptance check run and passed
+- [ ] 9. self-audit (R6) written to SELF_AUDIT.md
+- [ ] 10. CLAIMS.md rows appended
+- [ ] 11. STATE updated, committed, pushed
 ```
 
 ---
