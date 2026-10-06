@@ -290,3 +290,94 @@ def finalize_splits(
         capped.extend(kept)
         bump(f"{split}_over_cap" if template_id == "*" else f"{split}_over_cap:{template_id}", over)
     return capped, counts, notes
+
+
+def balance_classes(
+    items: list[Any],
+    *,
+    cfg: dict[str, Any],
+    salt: str,
+    target_per_class: int | None = None,
+    min_class_size: int | None = None,
+) -> tuple[list[Any], dict[str, Any]]:
+    """Cap every gold class at ``K`` items per (template, split); return the new list and a report.
+
+    Why: bench_v0's fresh templates were dominated by one class (`pubmed_observational_noul_v1`
+    98.5 % "no", `pubmed_pubtype_choice_v1` 92.6 % "Other"), so micro accuracy could not distinguish
+    a model from a majority-class predictor, and three templates had a single gold class in test.
+
+    ``K`` is ``min(target_per_class, smallest class size)`` so no class is dropped, and the same
+    ``K`` is applied to every class, keeping the split as balanced as the data allows. Templates
+    whose smallest class is below ``min_class_size`` are reported (not silently dropped): the
+    decision to drop a template belongs to the screen (F3), which has the majority baseline.
+
+    Sampling within a class is seeded and deterministic; the report records the class counts before
+    and after and the ``K`` used, so "balanced" is a checkable claim rather than a description.
+    """
+    counts = cfg.get("caps", {}) if isinstance(cfg.get("caps"), dict) else {}
+    target = int(target_per_class or counts.get("fresh_target_items_per_template", 1000))
+    floor = int(min_class_size or counts.get("fresh_balance_min_class", 200))
+
+    report: dict[str, Any] = {"target_per_class": target, "min_class_size": floor, "templates": {}}
+    kept: list[Any] = []
+    groups: dict[tuple[str, str], list[Any]] = {}
+    for item in items:
+        groups.setdefault((item.template_id, str(item.split)), []).append(item)
+
+    seed = int(cfg.get("seed", 0))
+    dropped_groups: list[str] = []
+    for (template_id, split), rows in sorted(groups.items()):
+        by_class: dict[str, list[Any]] = {}
+        for row in rows:
+            by_class.setdefault(str(row.gold), []).append(row)
+        if len(by_class) < 2:
+            # A split with one gold class cannot produce a discriminating accuracy (every answer
+            # scores the majority baseline), so the template is dropped here with a reason
+            # rather than exported and screened later.
+            dropped_groups.append(f"{template_id}|{split}")
+            report["templates"][f"{template_id}|{split}"] = {
+                "k": 0,
+                "n_before": len(rows),
+                "n_after": 0,
+                "n_classes": len(by_class),
+                "before": {cls: len(v) for cls, v in sorted(by_class.items())},
+                "after": {},
+                "smallest_class_before": len(rows),
+                "below_min_class_size": True,
+                "single_class": True,
+                "dropped": True,
+                "drop_reason": "single_gold_class_in_split",
+            }
+            continue
+        smallest = min(len(v) for v in by_class.values())
+        k = min(target, smallest)
+        before = {cls: len(v) for cls, v in sorted(by_class.items())}
+        picked: list[Any] = []
+        for cls, class_rows in sorted(by_class.items()):
+            if len(class_rows) <= k:
+                picked.extend(class_rows)
+                continue
+            rng = random.Random(f"{seed}:{salt}:{template_id}:{split}:{cls}")
+            indices = sorted(rng.sample(range(len(class_rows)), k))
+            picked.extend(class_rows[i] for i in indices)
+        kept.extend(picked)
+        report["templates"][f"{template_id}|{split}"] = {
+            "k": k,
+            "n_before": len(rows),
+            "n_after": len(picked),
+            "n_classes": len(by_class),
+            "before": before,
+            "after": {cls: k if before[cls] > k else before[cls] for cls in sorted(by_class)},
+            "smallest_class_before": smallest,
+            "below_min_class_size": smallest < floor,
+            "single_class": False,
+            "dropped": False,
+        }
+    report["dropped_groups"] = sorted(dropped_groups)
+    report["n_dropped_single_class"] = sum(
+        entry["n_before"] for key, entry in report["templates"].items()
+        if entry.get("dropped") and not key.endswith("|test")
+    )
+    report["n_before_total"] = len(items)
+    report["n_after_total"] = len(kept)
+    return kept, report

@@ -22,7 +22,7 @@ from typing import Any
 import yaml
 
 from meddecide.bench.fresh import clinicaltrials, openfda, pubmed
-from meddecide.bench.tier1.common import LoadResult, finalize_splits
+from meddecide.bench.tier1.common import LoadResult, balance_classes, finalize_splits
 from meddecide.utils.io import (
     build_manifest,
     check_no_record_crosses_splits,
@@ -155,6 +155,8 @@ def main() -> int:
     # integrity rules + caps, per source (same rules as tier 1)
     max_test = int(cfg["caps"]["tier1_max_test_items_per_source"])
     max_dev = int(cfg["caps"]["tier1_max_dev_items_per_source"])
+    balance_reports: dict[str, Any] = {}
+    strict_slice_start = cfg.get("fresh_window", {}).get("strict_slice_start")
     for res in results:
         res.rows, counts, extra = finalize_splits(
             res.rows, cfg=cfg, source=res.source, salt=res.source, cap_test=max_test, cap_dev=max_dev
@@ -162,6 +164,28 @@ def main() -> int:
         for reason, n in counts.items():
             res.drop(reason, n)
         res.notes.extend(extra)
+        # D11 strict slice: mark every item whose own filter date is at/after the strict start
+        # (2026-09-10, the teacher's repo date). Items before it are still built; the slice is a
+        # reported subset, never a silent filter.
+        if strict_slice_start:
+            strict_date = date.fromisoformat(str(strict_slice_start))
+            sliced = []
+            for row in res.rows:
+                meta = {**row.meta, "strict_post_teacher": row.record_date >= strict_date}
+                sliced.append(row.model_copy(update={"meta": meta}))
+            res.rows = sliced
+            res.notes.append(
+                f"strict slice: {sum(1 for r in res.rows if r.meta['strict_post_teacher'])} of "
+                f"{len(res.rows)} items dated on/after {strict_slice_start}"
+            )
+        # balance classes per (template, split) so micro accuracy can be read against a
+        # majority baseline that is not near 1.0
+        res.rows, balance = balance_classes(res.rows, cfg=cfg, salt=res.source)
+        balance_reports[res.source] = balance
+        res.drop("class_balance_removed", balance["n_before_total"] - balance["n_after_total"])
+        res.notes.append(
+            "class balancing: K per (template, split) recorded in the manifest's balance block"
+        )
 
     files: dict[str, Path] = {}
     rows_by_source: dict[str, list[Any]] = {}
@@ -178,6 +202,10 @@ def main() -> int:
     manifest["window_source"] = "docs/benchmark/fresh_window.md"
     manifest["sources"] = per_source
     manifest["source_meta"] = source_meta
+    manifest["class_balance"] = balance_reports
+    # must be a str: a date object is not JSON-serialisable (this aborted one build after the
+    # files were written, which is why the manifest write happens before the checks)
+    manifest["strict_slice_start"] = str(strict_slice_start) if strict_slice_start else None
     write_json(args.manifest, manifest)
 
     # ---- acceptance: freshness, rebuild determinism, integrity -------------------
@@ -189,6 +217,14 @@ def main() -> int:
         "every_source_has_items": all(len(rows) > 0 for rows in rows_by_source.values()),
         "zero_records_before_window_start": date_check["ok"],
         "no_record_crosses_splits": bool(leak_report["ok"]),
+        "every_item_has_strict_slice_flag": all(
+            "strict_post_teacher" in r.meta for rows in rows_by_source.values() for r in rows
+        ),
+        "no_class_is_single_in_test": all(
+            not (entry["single_class"] and key.endswith("|test"))
+            for report in balance_reports.values()
+            for key, entry in report["templates"].items()
+        ),
         "manifest_rows_match_items": all(
             manifest["files"][src]["n_rows"] == len(rows_by_source[src]) for src in files
         ),
@@ -200,6 +236,8 @@ def main() -> int:
         "split_disjointness": leak_report,
         "totals": {src: len(rows) for src, rows in rows_by_source.items()},
         "by_template": _by_template(rows_by_source),
+        "class_balance": balance_reports,
+        "strict_slice": _strict_slice_check(args.out, rows_by_source, strict_slice_start),
         "n_items_total": len(all_rows),
         "wall_clock_s": round(time.perf_counter() - t0, 1),
     }
@@ -219,6 +257,22 @@ def main() -> int:
     print(json.dumps(check_report["by_template"], indent=2))
     print(f"verdict: {check_report['verdict']} -> {check_path}")
     return 0 if check_report["verdict"] == "PASS" else 1
+
+
+def _strict_slice_check(
+    out: Path, rows_by_source: dict[str, list[Any]], strict_start: Any
+) -> dict[str, Any]:
+    """Count the strict slice from the written files (never from in-memory rows)."""
+    if not strict_start:
+        return {"status": "NOT MEASURED — no strict_slice_start in config"}
+    per_source: dict[str, Any] = {}
+    total = 0
+    for source in sorted(rows_by_source):
+        rows, _report = read_jsonl(out / f"{source}.jsonl", type(rows_by_source[source][0]))
+        in_slice = sum(1 for r in rows if r.meta.get("strict_post_teacher"))
+        total += in_slice
+        per_source[source] = {"n": len(rows), "in_strict_slice": in_slice}
+    return {"strict_start": str(strict_start), "n_items_in_slice": total, "per_source": per_source}
 
 
 def _by_template(rows_by_source: dict[str, list[Any]]) -> dict[str, Any]:

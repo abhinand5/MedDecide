@@ -1,4 +1,4 @@
-# Fresh window (tier 2) — bench_v0
+# Fresh window (tier 2) — bench_v0 and v0.1
 
 **Authored:** 2026-10-05, task T5.
 **Why this file exists:** the fresh tier's validity rests on every item post-dating the
@@ -62,3 +62,56 @@ The model cards themselves are cached at `outputs/bench_v0/T5/cards/` (gitignore
 `scripts/bench/build_fresh.py --window-end YYYY-MM-DD` rebuilds the whole tier for a new end
 date; the window start is read from `configs/bench_v0.yaml` (`fresh_window.start`). Two builds
 with the same arguments produce identical files (checked by the acceptance check).
+
+
+---
+
+# v0.1 window (loop `bench_v0_fix0`, decision D11)
+
+**Supersedes the v0 section above for all new work.** v0's window (2026-09-10 → build date) was
+bounded by the *teacher's* repository date, which left openFDA's templates with 16–94 test items.
+Decision **D11** changes the rule: the window is bounded by the models whose scores this program
+reports as its own or as its starting points — the **ladder** — not by the teacher.
+
+| | value |
+|---|---|
+| **v0.1 window start** | `2026-03-01` |
+| **v0.1 window end** | build date (`2026-10-05` for the F4 build) |
+| **strict slice start** | `2026-09-10` (the teacher's repo date) |
+| **deciding model for the start** | `Qwen/Qwen3.5-0.8B` and friends — latest ladder repo date `2026-02-28`, so the window starts the next day |
+| **rationale** | the teacher never labels benchmark items, so its training data cannot leak gold into them; later baselines (4B/9B, decision models) seeing in-window records can only *advantage them*, which is conservative for us |
+
+## The strict slice
+
+Every v0.1 fresh item carries `meta.strict_post_teacher` — `true` when the item's own filter date
+is on/after **2026-09-10**. That date is after the ladder *and* after the 4B/9B and decision-model
+baselines, so the strict slice is the subset no baseline could have seen. It is reported separately
+(as bench_v0 did for the whole tier) and comprises **2,896 of 23,582 items** in the F4 build:
+ClinicalTrials.gov 955, openFDA 30, PubMed 1,911.
+
+The main v0.1 analysis uses the full 2026-03-01 window; the strict slice exists so a reviewer can
+ask "and what does the number look like on records nobody could have seen?" without rebuilding.
+
+## What changed structurally in v0.1
+
+* **Class balancing per (template, split)** — up to `K` items per gold class, with `K` recorded per
+  group. In the F4 build, templates with a dominant class are capped: `pubmed_observational_noul_v1`
+  K=103 (206 test items, was 98.5 % one class), `pubmed_pubtype_choice_v1` K=19, `fda_route_choice_v1`
+  K=7, `ct_intervention_type_choice_v1` K=9. Micro accuracy can now be read against a majority
+  baseline that is not ~1.0.
+* **Single-class splits are dropped with a reason** (`single_gold_class_in_split`) rather than
+  exported; the F4 build dropped none.
+* **Templates whose smallest class is below 200 test items are flagged** (`below_min_class_size`) so
+  the F3 screen can apply its own rule. In F4 that is `ct_intervention_type_choice_v1`,
+  `ct_primary_purpose_choice_v1`, `fda_route_choice_v1`, `pubmed_observational_noul_v1`,
+  `pubmed_pubtype_choice_v1` (test) and several dev groups.
+* **openFDA is no longer thin**: 7,297 items across three templates (was 222 across the 25-day
+  window).
+
+## Reproduce
+
+```bash
+uv run python scripts/bench/build_fresh.py --config configs/bench_v0_1.yaml \
+    --window-start 2026-03-01 --window-end 2026-10-05 --pubmed-files 60 \
+    --out data/bench/v0.1/fresh --manifest data/bench/v0.1/fresh/manifest.json
+```

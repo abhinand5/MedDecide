@@ -16,6 +16,7 @@ merely received an update inside the window is not selected.
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from typing import Any
 
@@ -66,17 +67,35 @@ def fetch_studies(
             query = dict(params)
             if token:
                 query["pageToken"] = token
-            response = http.get(API, params=query)
+            # The API returns 429 when a window is paged quickly (a 7-month window is ~40
+            # pages). Retry with exponential backoff instead of failing the whole build, and
+            # keep a small delay between pages.
+            response = None
+            for attempt in range(6):
+                response = http.get(API, params=query)
+                if response.status_code != 429:
+                    break
+                wait = 2.0 * (2**attempt)
+                time.sleep(wait)
+            assert response is not None
             response.raise_for_status()
             payload = response.json()
             studies.extend(payload.get("studies", []))
             token = payload.get("nextPageToken")
             if not token or (max_records is not None and len(studies) >= max_records):
                 break
+            time.sleep(0.2)
     finally:
         if own_client:
             http.close()
     return studies
+
+
+def _is_true(value: Any) -> bool:
+    """Interpret a CT.gov boolean-ish field: booleans, "Yes"/"True"/"yes"/"true" are true."""
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ("yes", "true", "y", "1")
 
 
 def _phase_label(raw: Any) -> str | None:
@@ -306,8 +325,12 @@ def build_items(
             )
 
         # --- accepts healthy volunteers? ---
-        # The field is eligibilityModule.healthyVolunteers with the value "Yes"/"No"
-        # (not acceptsHealthyVolunteers — verified against the live API on 2026-10-05).
+        # The field is eligibilityModule.healthyVolunteers. Its value is a **JSON boolean**
+        # (True/False) in the current API: measured over 2,000 studies in the v0.1 window,
+        # {"False": 1461, "True": 506, "None": 33}. bench_v0 compared `str(value).lower()`
+        # against "yes", so every record became "no" — which is how this template reached a
+        # single 100 %-negative gold class and was dropped as degenerate in the first v0.1
+        # build. Boolean and "Yes"/"No" string shapes are both handled here.
         accepts = _module(study, "eligibilityModule").get("healthyVolunteers")
         if accepts is None:
             drop("missing_healthy_volunteers_field")
@@ -322,7 +345,7 @@ def build_items(
                     state=state,
                     question="Does this study accept healthy volunteers?",
                     options=[{"key": "yes", "label": "Yes"}, {"key": "no", "label": "No"}],
-                    gold="yes" if str(accepts).strip().lower() == "yes" else "no",
+                    gold="yes" if _is_true(accepts) else "no",
                     option_order_seed=seed,
                     meta={**base_meta, "source_field": "eligibilityModule.healthyVolunteers",
                           "healthy_volunteers": accepts},

@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T07:17:04Z`
+Last updated (UTC): `2026-10-06T08:39:54Z`
 Iterations so far: `1`
 
 ---
@@ -72,26 +72,39 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F4 (fresh tier v0.1: window 2026-03-01, balanced, strict slice)
+Task in flight: F4 (fresh tier v0.1 — IN_PROGRESS, awaiting the determinism rebuild)
 Working dir:    data/bench/v0.1/fresh/ + outputs/bench_v0_fix0/F4/
 
-- [ ] configs/bench_v0_1.yaml already has start=2026-03-01 (done in F1); update fresh_window.md
-      with a v0.1 section (D11 rule + strict slice), keeping the v0 section as history
-- [ ] every fresh item gets meta.strict_post_teacher = (first date >= 2026-09-10)
-- [ ] class balancing per template and split: up to K per gold class, seeded, K recorded,
-      counts before/after per class
-- [ ] rebuild into data/bench/v0.1/fresh/, 0 items before 2026-03-01
-- [ ] freshness + integrity + rebuild-determinism checks (two builds, identical hashes)
-- [ ] F3 screen on v0.1 (tier 1 and fresh) once F4 is done
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
+- [x] configs/bench_v0_1.yaml window start 2026-03-01 (F1)
+- [x] docs/benchmark/fresh_window.md v0.1 section (D11 rule + strict slice), v0 section kept
+- [x] meta.strict_post_teacher on every item (2,896 in slice)
+- [x] class balancing per template+split with K recorded; single-class splits dropped with reason
+- [x] rebuilt into data/bench/v0.1/fresh/ — 23,582 items, acceptance PASS 7/7
+- [x] fixed CT.gov healthyVolunteers boolean bug (all items were "no") and 429 paging
+- [x] freshness, integrity, strict-slice and balance checks all pass
+- [ ] determinism: second build byte-identical (rebuild running into /workspace/tmp)
+- [x] self-audit (R6) written to SELF_AUDIT.md
+- [x] CLAIMS.md rows appended (X012-X016)
 - [ ] STATE updated, committed, pushed
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F4 — IN_PROGRESS — 2026-10-06T08:39:54Z
+- What ran: `build_fresh.py` on the D11 window into `data/bench/v0.1/fresh/` (five attempts; two
+  were killed mid-flight for racing each other, one crashed on a `date` serialisation, one hit a
+  CT.gov 429), then a determinism rebuild into `/workspace/tmp/fresh_v01_rebuild/`.
+- Headline: **23,582 fresh items** (17,027 test / 6,555 dev) across 12 templates, 0 before the
+  window start, **2,896 in the strict slice**, 0 single-class groups, acceptance **PASS 7/7**
+  (X012-X014).
+- Found and fixed two more loader defects: CT.gov `healthyVolunteers` is a JSON boolean, so
+  `str(value) == "yes"` made **every** item "no" (X015) — caught only because balancing forced
+  the single-class split into the open; and the manifest writer crashed on a `date` object.
+- Self-correction: I first reported 13,047 test / 10,535 dev by misreading the source-keyed
+  `acceptance.totals` as split counts; corrected to 17,027 / 6,555 in the audit and CLAIMS (X012).
+- Next: finish the determinism check, then F4 DONE, then F3 (screen on v0.1).
 
 ### F2 — DONE — 2026-10-06T07:17:04Z
 - What ran: `check_readout_health.py` (0.8B and 4B, 200 `noul` + 200 `score` items each),
