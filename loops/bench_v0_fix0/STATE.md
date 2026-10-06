@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T13:08:20Z`
+Last updated (UTC): `2026-10-06T16:17:19Z`
 Iterations so far: `8`
 
 ---
@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | DONE | 2026-10-06T08:32:00Z | 2026-10-06T08:55:19Z |
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
 | F5 | Tier-1 contamination probe | yes | F1, F2 | DONE | 2026-10-06T09:04:00Z | 2026-10-06T09:39:07Z |
-| F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | IN_PROGRESS | 2026-10-06T09:10:00Z |  |
+| F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | DONE | 2026-10-06T09:10:00Z | 2026-10-06T16:17:19Z |
 | F7 | Decision-model baselines | yes | F3 | IN_PROGRESS | 2026-10-06T09:49:01Z |  |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | BLOCKED — teacher endpoint not provided (TEACHER_BASE_URL/API_KEY unset) | 2026-10-06T09:17:26Z | 2026-10-06T09:17:26Z |
 | F9 | Corrections record | no | F1, F2, F6 | DONE | 2026-10-06T09:29:00Z | 2026-10-06T09:30:06Z |
@@ -72,37 +72,41 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F6 (4 models left) then F7's last 2 cells, then Laya, then F11
+Task in flight: F7 (Laya running) — then F11
 
-RUNNING: bash outputs/bench_v0_fix0/F6/run_queue3.sh  (PID shown by `pgrep -f run_queue3`)
-  log outputs/bench_v0_fix0/F6/logs/queue3.log   (note: each model's output is piped through
-  `tail -40`, so cell lines appear only when that model finishes; read preds_<slug>.jsonl for
-  live progress)
-  queue: Qwen3.5-0.8B [DONE] -> medgemma-1.5-4b-it [running] -> 4B -> 9B
-  memory-safe settings: --max-batch-tokens 4096 (an earlier run without it held 86 GB on 0.8B)
-  DONE models: LFM2.5-350M (16/16 cells PASS), Qwen3.5-0.8B-Base, Qwen3.5-0.8B (16/16 PASS)
+RUNNING: laya queue (autoencoder `laya` then `laya-typed-decisions`), log
+  outputs/bench_v0_fix0/F7/logs/laya_full.log; results land in outputs/bench_v0_fix0/F7/laya.json
+  and laya-typed-decisions.json. Relaunch: uv run python scripts/bench/run_laya_baseline.py \
+      --model laya --shuffle-items 100 --out outputs/bench_v0_fix0/F7
 
-F7 JEV-9B: 14 of 17 kept-template cells measured (both `trec_covid` templates are 200-item
-  drops, so 17 is the maximum). MISSING: `fda_boxed_warning_noul_v1`, `fda_class_choice_v1` —
-  both kept OOM-ing because the padded [batch, seq, 151k-vocab] logits tensor reached 33 GB.
-  FIXED in scripts/bench/run_jev_baseline.py: the reader now does one item per forward pass
-  (--batch-size default 1). **Re-tried concurrently with F6 and it still OOMs** (JEV asked for
-  23.5 GB more while F6 held 30 GB): these two cells need the GPU to themselves. To finish, once
-  F6 has released the GPU entirely:
-      uv run python scripts/bench/run_jev_baseline.py --only-template fda_boxed_warning_noul_v1 \
-          --resume --shuffle-items 20 --out outputs/bench_v0_fix0/F7
-      uv run python scripts/bench/run_jev_baseline.py --only-template fda_class_choice_v1 \
-          --resume --shuffle-items 20 --out outputs/bench_v0_fix0/F7
-  Then write loops/bench_v0_fix0/decision_models_v0_1.md from jev9b.json.
+DONE this session:
+  F6: all 6 ladder models, 96 cells, 91 PASS / 5 READOUT_FAIL, 181,464 prediction rows,
+      coverage == item count for every scored cell (no silent eval death).
+      -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
+  F7 JEV-9B: 16 of 16 kept-template cells measured (x031-x035 claim rows);
+      -> loops/bench_v0_fix0/decision_models_v0_1.md (Laya section pending)
 
-THEN: Laya (scripts/bench/run_laya_baseline.py --model laya| laya-typed-decisions).
-THEN: F6 report: uv run python scripts/bench/report_baselines_v0_1.py
-THEN: F11 (findings + closure, HARD STOP).
+THEN F11: finish FINDINGS.md (Summary is written; body + five-claim spot-check pending),
+  write NEXT.md, set Loop status: STOPPED, commit, push, stop.
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F6 — DONE; F7 JEV — DONE — 2026-10-06T16:17:19Z
+- **F6 complete**: all 6 ladder models over v0.1 (tier-1 test + fresh test, kept templates),
+  **96 cells, 91 PASS, 5 READOUT_FAIL, 181,464 prediction rows**, and `coverage` now means what
+  the spec asked (share of the template's own items) with no cell short of its item count.
+  Headline scaling: MedQA 0.2914 (350M) -> 0.4139 (0.8B) -> 0.7030 (4B) -> 0.7572 (9B);
+  MMLU 0.2411 -> 0.4605 -> 0.8168 -> 0.8585; MedMCQA 0.3246 -> 0.3791 -> 0.5892 -> 0.6562.
+- **The gate withheld 5 cells** rather than reporting them: MedGemma MedQA and 0.8B-Base MedMCQA /
+  fda_boxed (greedy agreement 0.86-0.88 < 0.9), and the 4B/9B graded-score cells (accuracy CI
+  below chance — the template flaw of X029).
+- **F7 JEV-9B complete**: 16/16 cells, strong calibration (ECE 0.0045-0.05 on the large `choice`
+  templates); MedMCQA 0.6229 where bench_v0 reported a 0.122 collapse; two openFDA cells carry a
+  recorded prompt-length shortfall (661 and 846 items) because the 9B hybrid lacks fused kernels
+  in this environment.
 
 ### F6 + F7 — IN_PROGRESS — 2026-10-06T12:38:15Z
 - F6 memory defect found and fixed: an 0.8B run held **86 GB** because the padded
