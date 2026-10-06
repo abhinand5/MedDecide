@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T22:40:00Z`
+Last updated (UTC): `2026-10-06T22:42:30Z`
 Iterations so far: `1`
 
 ---
@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
 | S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | DONE | 2026-10-06T21:48:05Z | 2026-10-06T22:40:00Z |
-| S4 | HLE medical subset (supplementary test) | small | S1 | PENDING | | |
+| S4 | HLE medical subset (supplementary test) | small | S1 | IN_PROGRESS | 2026-10-06T22:39:33Z | |
 | S5 | Tier-1 train-split builders | no | S1 | PENDING | | |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | PENDING | | |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | PENDING | | |
@@ -78,19 +78,17 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S3 — long-record slice + shared-prefix measurement** (started 2026-10-06T21:48:05Z)
-Working dir:    outputs/student_v0/S3/
+Task in flight: **S4 — HLE medical subset (supplementary test)** (started 2026-10-06T22:39:33Z)
+Working dir:    outputs/student_v0/S4/
 
-- [x] 1. tokenise every v0.2 fresh test prompt (Qwen3.5 tokenizer) and write data/bench/v0.2/long_record.json + a manifest block (counts per template, item ids); items themselves stay untouched so the v0.1 carried-identity property survives
-- [x] 2. slice is 2,224 items (>= 300), so no template rebuild was needed, rebuild the affected openFDA / CT.gov templates with a larger state budget (recorded, up to 32768 tokens)
-- [~] 3. 0.8B slice numbers done (S038); 9B re-measurement RUNNING in the background (job `outputs/student_v0/S3/logs/reruns9b.pid`, log `logs/run_s3_9b.log`)
-- [x] 4. scripts/bench/measure_prefix.py written and run: per-record latency for (a) one prompt per question vs (b) state as a shared prefix with the KV cache reused, on Qwen3.5-0.8B
-- [x] 5. agreement check run: **0.9697 < 0.99 — FAILS**, with both disagreements ties (margins 0.000 and 0.037; 100 % above a 0.05 margin): (b) gives the same argmax as (a) on >= 99% of questions
-- [x] 6. outputs/student_v0/S3/prefix.json written with both throughputs and the agreement rate
-- [x] 7. acceptance check run: slice counts in manifest + prefix.json PASS; the >= 0.99 agreement step FAILS and is recorded with its cause
-- [x] 8. self-audit (R6) written to SELF_AUDIT.md
-- [x] 9. CLAIMS.md rows appended (S035-S042)
-- [x] 10. STATE updated, committed, pushed
+- [x] 1. cais/hle loads (terms accepted): 2,500 test rows, revision 5a81a4c7271a, licence mit
+- [x] 2. built data/bench/v0.2/supplementary/hle_med.jsonl: **141 items** (166 Biology/Medicine multipleChoice minus 19 with images, 6 unparseable), 5-16 options each: category Biology/Medicine, answer type multiple-choice, no image, as `choice` items; record count, revision, licence
+- [x] 3. manifest written with count/revision/licence/drop reasons; checks PASS (choice, gold in options, no images)
+- [~] 4. zero-shot 0.8B/9B **QUEUED**: chain job `outputs/student_v0/S4/logs/hle.pid` waits for the S3 9B job then runs both cells (log `logs/run_hle.log`); numbers to be appended as a CLAIMS row
+- [x] 5. recorded as supplementary only (manifest `role`), never trained on; chance is 1/n_options per item (5-16 options, so the gate's single `chance`=1/16 is conservative)
+- [ ] 6. acceptance check run and passed
+- [ ] 7. self-audit (R6) + CLAIMS rows
+- [ ] 8. STATE updated, committed, pushed
 ```
 
 ---
@@ -133,6 +131,12 @@ Working dir:    outputs/student_v0/S3/
 - Next: S5 (tier-1 train-split builders) is unblocked; the 9B re-measurement continues in the background.
 
 ## 5. Blocked items
+
+| id | what is blocked | exact reason | what would unblock it |
+|---|---|---|---|
+| — | — | nothing is blocked | — |
+
+
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
