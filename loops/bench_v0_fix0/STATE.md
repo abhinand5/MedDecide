@@ -10,10 +10,10 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T16:17:19Z`
-Iterations so far: `8`
+Last updated (UTC): `2026-10-06T16:38:59Z`
+Iterations so far: `14`
 
 ---
 
@@ -30,11 +30,11 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
 | F5 | Tier-1 contamination probe | yes | F1, F2 | DONE | 2026-10-06T09:04:00Z | 2026-10-06T09:39:07Z |
 | F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | DONE | 2026-10-06T09:10:00Z | 2026-10-06T16:17:19Z |
-| F7 | Decision-model baselines | yes | F3 | IN_PROGRESS | 2026-10-06T09:49:01Z |  |
+| F7 | Decision-model baselines | yes | F3 | DONE | 2026-10-06T09:49:01Z | 2026-10-06T16:38:59Z |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | BLOCKED — teacher endpoint not provided (TEACHER_BASE_URL/API_KEY unset) | 2026-10-06T09:17:26Z | 2026-10-06T09:17:26Z |
 | F9 | Corrections record | no | F1, F2, F6 | DONE | 2026-10-06T09:29:00Z | 2026-10-06T09:30:06Z |
 | F10 | Regenerate operator audit sample | no | F3 | DONE | 2026-10-06T09:17:00Z | 2026-10-06T09:17:08Z |
-| F11 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| F11 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-06T16:38:59Z | 2026-10-06T16:38:59Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (F8 exception in
 ADVISORY §6). Never run two GPU tasks at once. A `BLOCKED` task does not block
@@ -72,27 +72,28 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F7 (Laya running) — then F11
+Task in flight: none — LOOP CLOSED (hard stop after F11)
 
-RUNNING: laya queue (autoencoder `laya` then `laya-typed-decisions`), log
-  outputs/bench_v0_fix0/F7/logs/laya_full.log; results land in outputs/bench_v0_fix0/F7/laya.json
-  and laya-typed-decisions.json. Relaunch: uv run python scripts/bench/run_laya_baseline.py \
-      --model laya --shuffle-items 100 --out outputs/bench_v0_fix0/F7
+Final state: F0-F7, F9, F10, F11 DONE; F8 BLOCKED (teacher endpoint unset, advisory-defined).
+No PENDING task remains. All numbers are in CLAIMS.md (X001-X039) with artifacts and recompute
+commands; every bench_v0 claim is dispositioned in CORRECTIONS.md; the five-claim spot-check
+reproduced in fresh processes (FINDINGS.md section 7).
 
-DONE this session:
-  F6: all 6 ladder models, 96 cells, 91 PASS / 5 READOUT_FAIL, 181,464 prediction rows,
-      coverage == item count for every scored cell (no silent eval death).
-      -> outputs/bench_v0_fix0/F6/results.json + loops/bench_v0_fix0/baselines_v0_1.md
-  F7 JEV-9B: 16 of 16 kept-template cells measured (x031-x035 claim rows);
-      -> loops/bench_v0_fix0/decision_models_v0_1.md (Laya section pending)
-
-THEN F11: finish FINDINGS.md (Summary is written; body + five-claim spot-check pending),
-  write NEXT.md, set Loop status: STOPPED, commit, push, stop.
+Do not start loop 1 from this session. `NEXT.md` carries proposals only.
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F11 — DONE; LOOP STOPPED — 2026-10-06T16:38:59Z
+- Wrote `FINDINGS.md` (Summary, 8-section body, five-claim spot-check re-run in fresh processes —
+  all five reproduced) and `NEXT.md` (8 proposals, no decisions).
+- Closure totals: **22,594 tier-1 + 23,582 fresh v0.1 items**; **96 ladder cells (91 PASS,
+  5 READOUT_FAIL)** and **48 decision-model cells**; **181,464 + 20,542 + Laya prediction rows**;
+  39 claims; 53/53 bench_v0 claims dispositioned; 84 tests pass, lint clean.
+- Set `Loop status: STOPPED` as the plan requires at the end of F11. The operator merges
+  `loop/bench_v0` after review. No loop 1 work was started.
 
 ### F6 — DONE; F7 JEV — DONE — 2026-10-06T16:17:19Z
 - **F6 complete**: all 6 ladder models over v0.1 (tier-1 test + fresh test, kept templates),
