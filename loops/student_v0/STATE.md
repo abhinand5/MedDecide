@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T22:42:40Z`
+Last updated (UTC): `2026-10-06T23:03:00Z`
 Iterations so far: `1`
 
 ---
@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | DONE | 2026-10-06T21:48:05Z | 2026-10-06T22:40:00Z |
 | S4 | HLE medical subset (supplementary test) | small | S1 | IN_PROGRESS | 2026-10-06T22:39:33Z | |
-| S5 | Tier-1 train-split builders | no | S1 | IN_PROGRESS | 2026-10-06T22:42:40Z | |
+| S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:03:00Z |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | PENDING | | |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | PENDING | | |
 | S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
@@ -134,6 +134,13 @@ Working dir:    outputs/student_v0/S4/
 - Why now: S5 is CPU/network-only and on the critical path (S6 depends on it); the ADVISORY sanctions CPU-only work while a GPU job runs. S4's remaining work is the queued 0.8B/9B cells, so S4 stays IN_PROGRESS and S5 starts in parallel (recorded as a benign parallel start, not a dependency shortcut).
 - What ran: build_tier1_train.py (MedQA train, MedMCQA train capped 60k with the v0.1 dev carve excluded, SciFact train qrels, NFCorpus train qrels with the `_v2` pool rule, MedQuAD rows unused by tier 1) + leakage check vs every v0.2 test/dev split + independent gold verification.
 - Output: data/train/student_v0/tier1_train.jsonl + manifest (gitignored); scripts/bench/build_tier1_train.py; tests/test_tier1_train.py
+
+### S5 — DONE — 2026-10-06T23:03:00Z
+- What ran: `build_tier1_train.py` (MedQA/MedMCQA/SciFact/NFCorpus/MedQuAD official train splits, 219 s, deterministic), leakage filter vs every v0.2 test/dev item, independent gold verification
+- Output: `data/train/student_v0/tier1_train.jsonl` (106,184 items, 100 MB, sha256 `4ed0ae4e…`) + manifest; `scripts/bench/build_tier1_train.py`; `tests/test_tier1_train.py`
+- Headline: **106,184 gold-only training items** (choice 99,573 + noul 6,611), gold verified **0 mismatches of 106,184**, leakage **2,188 removed / 0 collisions** against 57,007 v0.2 test+dev items (S043–S048).
+- Surprises: the official NFCorpus **train** qrels are binary, so **no `score` items are constructible** — the student will face the score template without score-shaped training data (recorded, S046); MedQuAD over-exclusion by id (~7.6k rows) is deliberate and counted; the MedQA source ships two contradictory placeholder stems (dropped).
+- Next: S6 (pre-window structured-gold mix + leakage check) is unblocked and now has both inputs (this file and the consistency pre-window file).
 
 ## 5. Blocked items
 
