@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:11:22Z`
+Last updated (UTC): `2026-10-06T09:17:08Z`
 Iterations so far: `8`
 
 ---
@@ -33,7 +33,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F7 | Decision-model baselines | yes | F3 | PENDING | | |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | PENDING | | |
 | F9 | Corrections record | no | F1, F2, F6 | PENDING | | |
-| F10 | Regenerate operator audit sample | no | F3 | PENDING | | |
+| F10 | Regenerate operator audit sample | no | F3 | DONE | 2026-10-06T09:17:00Z | 2026-10-06T09:17:08Z |
 | F11 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (F8 exception in
@@ -94,6 +94,13 @@ Both must be checked for completeness of OUTPUT, not exit codes:
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F10 — DONE — 2026-10-06T09:17:08Z
+- Drew the operator audit sample from v0.1 fresh test: **150 rows, 50 per source, 8 kept
+  templates, 20 strict-slice items**, sha256 `e380f930…` (X022). Packaging acceptance PASS 7/7.
+- The audit itself stays **BLOCKED — awaiting operator** (X023): label correctness is a human
+  judgement. `tools/audit/audit.html` is reused unchanged and its tests pass (2 passed).
+- F5 (PID 47008) and F6 (PID 48188) continue running on the GPU; F6 queue on model 1 of 5.
 
 ### F5 + F6 — IN_PROGRESS — 2026-10-06T09:11:22Z
 - F5 launched (PID 47008) after a smoke run on LFM2.5-350M; F6 runner written, smoke-tested on
