@@ -90,8 +90,8 @@ Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
   HOLD-OUT (D14): ct_arm_role_noul_v1 - the arm/intervention role structure differs most from the
   field-claim designs, so a model that learned "verify a stated field" still has to handle it.
 
-- [ ] 1. src/meddecide/bench/fresh/consistency.py: the four builders (structured gold only; role-binding; balanced 50/50 per template+split; multi-field variant)
-- [ ] 2. unit tests: balance, role-binding (swapped value also in state), gold correctness, determinism, drop accounting
+- [x] 1. src/meddecide/bench/fresh/consistency.py: the three builders (structured gold only; role-binding; balanced 50/50 per template+split; multi-field variant)
+- [x] 2. unit tests: balance, role-binding (swapped value also in state), gold correctness, determinism, drop accounting
 - [ ] 3. scripts/bench/build_consistency.py: build fresh (>=2026-03-01) into data/bench/v0.2/fresh/ and pre-window (<2026-03-01) into data/train/student_v0/prewindow_consistency.jsonl
 - [ ] 4. string-presence baseline per template must be <= 0.60 macro (measured, on the built test split)
 - [ ] 5. screen: each template passes (gold-in-state, BoW macro < 0.90, n_test >= 200)
