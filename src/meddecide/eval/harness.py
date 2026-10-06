@@ -31,6 +31,7 @@ from meddecide.bench.schema import Item, QuestionType
 from meddecide.eval.metrics import accuracy, bootstrap_ci, brier_score, ece_detail, macro_accuracy
 from meddecide.eval.readout import (
     LetterVariant,
+    canonicalise_options,
     check_label_tokens,
     detect_variant,
     expected_level,
@@ -81,6 +82,9 @@ class Prediction:
     latency_s: float
     variant: str
     prompt_tokens: int
+    # original source-vocabulary keys in display order (yes/no, 1..N, A..); defaults to the
+    # rendered letters when a caller builds a Prediction by hand (unit tests)
+    original_option_keys: list[str] = field(default_factory=list)
     vocab_argmax_is_option: bool = True
     n_tokens_above_best_option: int = 0
     best_option_in_top5: bool = False
@@ -97,7 +101,11 @@ class Prediction:
             "qtype": self.qtype,
             # option labels are deliberately absent: the repo is public and the item text
             # lives only in the gitignored data/ tree
+            # `option_keys` are the letters actually rendered and scored; the original keys
+            # (yes/no, 1..N for score levels, A.. for choice) are recorded so a consumer can
+            # map a prediction back to the source vocabulary without re-deriving it.
             "option_keys": self.option_keys,
+            "original_option_keys": self.original_option_keys,
             "option_probs": [round(p, 6) for p in self.option_probs],
             "label_mass": self.label_mass,
             "vocab_argmax_is_option": self.vocab_argmax_is_option,
@@ -294,6 +302,18 @@ class Harness:
         batch size. This matters on the fresh tier: PubMed states run to many thousands of tokens
         and a fixed batch of 32 exhausted a 95 GiB card (torch tried to allocate 104 GiB).
         """
+        # Every question type goes through the letter path: `canonicalise_options` is a no-op
+        # for `choice` (already A/B/C) and converts `noul` (yes/no) and `score` (1..N) to
+        # letters, which is what the prompt instructs the model to answer with. Before this,
+        # `noul`/`score` prompts said "yes. Yes" while the instruction said "Respond with a
+        # single letter", and the readout scored the yes/no tokens: label mass ~0.002.
+        canonical_items: list[Item] = []
+        original_keys: list[list[str]] = []
+        for item in items:
+            canonical, keys = canonicalise_options(item)
+            canonical_items.append(canonical)
+            original_keys.append(keys)
+        items = canonical_items
         prompts = [render_prompt(item, self.tokenizer, self.variant) for item in items]
         prompt_token_counts = [
             len(self.tokenizer.encode(prompt, add_special_tokens=False)) for prompt in prompts
@@ -311,8 +331,87 @@ class Harness:
             batch_prompts = [prompts[i] for i in indices]
             scored = self._score_batch(batch_items, batch_prompts, transform=transform)
             for position, prediction in zip(indices, scored, strict=True):
+                prediction.original_option_keys = original_keys[position]
                 by_position[position] = prediction
         return [by_position[i] for i in range(len(items))]
+
+    def score_prompts(
+        self,
+        prompts: Sequence[str],
+        option_keys: Sequence[Sequence[str]],
+        gold_keys: Sequence[str],
+        qtypes: Sequence[str] | None = None,
+        sources: Sequence[str] | None = None,
+        template_ids: Sequence[str] | None = None,
+        item_ids: Sequence[str] | None = None,
+        *,
+        transform: dict[str, Any] | None = None,
+        original_keys: Sequence[Sequence[str]] | None = None,
+    ) -> list[Prediction]:
+        """Score already-rendered prompts with an explicit option-key list per prompt.
+
+        This exists for reference validation: the *same* prompt text can be handed to this
+        harness and to another tool, so a disagreement cannot come from a prompt-building
+        difference. The caller supplies the option keys in display order (the letters the prompt
+        shows) and the gold key.
+        """
+        n = len(prompts)
+        for name, seq in (("option_keys", option_keys), ("gold_keys", gold_keys)):
+            if len(seq) != n:
+                raise ValueError(f"{name} must have one entry per prompt ({len(seq)} != {n})")
+        qtypes = list(qtypes) if qtypes else ["choice"] * n
+        sources = list(sources) if sources else ["reference"] * n
+        template_ids = list(template_ids) if template_ids else ["reference_prompt"] * n
+        item_ids = list(item_ids) if item_ids else [f"prompt-{i}" for i in range(n)]
+        original_keys = list(original_keys) if original_keys else [list(k) for k in option_keys]
+        token_ids = [[self._key_token(k) for k in keys] for keys in option_keys]
+        token_counts = [
+            len(self.tokenizer.encode(prompt, add_special_tokens=False)) for prompt in prompts
+        ]
+        predictions: list[Prediction] = []
+        batches = self._plan_batches(token_counts)
+        for indices in batches:
+            batch_prompts = [prompts[i] for i in indices]
+            t0 = time.perf_counter()
+            logits, n_tokens = self._next_token_logits(batch_prompts)
+            elapsed = time.perf_counter() - t0
+            per_item = elapsed / max(1, len(indices))
+            for row, position, prompt_tokens in zip(logits, indices, n_tokens, strict=True):
+                keys = list(option_keys[position])
+                readout = read_option_probabilities(row, token_ids[position])
+                probs = [float(p) for p in readout["option_probs"]]
+                argmax = int(np.argmax(readout["option_probs"]))
+                gold_key = gold_keys[position]
+                gold_index = keys.index(gold_key)
+                predictions.append(
+                    Prediction(
+                        item_id=item_ids[position],
+                        model_id=self.spec.model_id,
+                        source=sources[position],
+                        template_id=template_ids[position],
+                        split="test",
+                        qtype=qtypes[position],
+                        option_keys=keys,
+                        original_option_keys=list(original_keys[position]),
+                        option_probs=probs,
+                        label_mass=float(readout["label_mass"]),
+                        vocab_argmax_is_option=bool(readout["vocab_argmax_is_option"]),
+                        n_tokens_above_best_option=int(readout["n_tokens_above_best_option"]),
+                        best_option_in_top5=bool(readout["best_option_in_top5"]),
+                        top1_over_option_mass=float(readout["top1_over_option_mass"]),
+                        argmax_index=argmax,
+                        gold_key=gold_key,
+                        correct=argmax == gold_index,
+                        expected_level=(
+                            expected_level(probs) if qtypes[position] == "score" else None
+                        ),
+                        latency_s=per_item,
+                        variant=self.variant,
+                        prompt_tokens=int(prompt_tokens),
+                        transform=transform or {},
+                    )
+                )
+        return predictions
 
     def _score_batch(
         self,
@@ -356,6 +455,8 @@ class Harness:
                     gold_key=item.gold,
                     correct=argmax == item.gold_index,
                     expected_level=(
+                        # canonical options are ordered lowest level first, so the expected
+                        # level (1-based) is sum_k (k+1) * p_k over the canonical order
                         expected_level(probs) if item.qtype is QuestionType.SCORE else None
                     ),
                     latency_s=per_item,
@@ -365,6 +466,34 @@ class Harness:
                 )
             )
         return predictions
+
+
+def greedy_first_token(
+    harness: Harness,
+    prompts: Sequence[str],
+    option_token_ids: Sequence[Sequence[int]],
+) -> list[int]:
+    """Greedily generate one token per prompt and return which option (if any) it was.
+
+    Returns the option *index* whose token id equals the generated token id, or ``-1`` when the
+    model generated something that is not one of the item's option tokens. This is the check the
+    D12 gate needs: it compares the readout's argmax against what the model actually says, so a
+    readout that is internally consistent but wrong cannot pass.
+    """
+    import torch
+
+    results: list[int] = []
+    for prompt, ids in zip(prompts, option_token_ids, strict=True):
+        encoded = harness.tokenizer(prompt, return_tensors="pt")
+        device = getattr(harness.model, "device", None)
+        if device is not None:
+            encoded = {k: v.to(device) for k, v in encoded.items()}
+        with torch.inference_mode():
+            generated = harness.model.generate(**encoded, max_new_tokens=1, do_sample=False)
+        new_tokens = generated[0, encoded["input_ids"].shape[1] :]
+        token_id = int(new_tokens[0]) if len(new_tokens) else -1
+        results.append(ids.index(token_id) if token_id in ids else -1)
+    return results
 
 
 def summarise(predictions: Sequence[Prediction], *, n_bins: int = 15, n_resamples: int = 1000,

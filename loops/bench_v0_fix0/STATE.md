@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T05:57:21Z`
+Last updated (UTC): `2026-10-06T07:17:04Z`
 Iterations so far: `1`
 
 ---
@@ -52,8 +52,8 @@ recomputing or guessing.
 | v0.1 fresh window start / end | | `docs/benchmark/fresh_window.md` | F4 |
 | strict-slice start | 2026-09-10 | ADVISORY §1 item 4 | F4 |
 | MedMCQA gold mismatches after fix (of N) | **0 of 4,183** (all 8 tier-1 sources: 0 of 15,915 checked) | `outputs/bench_v0_fix0/F1/gold_verification.json` | F1 |
-| `noul` reference agreement (pts) | | | F2 |
-| `choice` MedQA reproduction (vs bench_v0) | | | F2 |
+| `noul` reference agreement (pts) | **0.00 (protocol-identical**: ours 0.5828 = lm-eval 0.5828); letter-vs-continuation differs by +3.56 as a protocol, not an implementation | `outputs/bench_v0_fix0/F2/reference_validation_0p8b.json` | F2 |
+| `choice` MedQA reproduction (vs bench_v0) | **-0.00016 pts** (4B 0.70149 = 0.70149); 200/200 prompts byte-identical | `outputs/bench_v0_fix0/F2/reference_validation_0p8b.json` | F2 |
 | balancing K per template | | | F4 |
 | kept / dropped templates (v2 screen) | | | F3 |
 | cells passing / failing the health gate | | | F6 |
@@ -72,16 +72,17 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F2 (`noul`/`score` readout fix + reference validation + health gate)
-Working dir:    outputs/bench_v0_fix0/F2/
+Task in flight: F4 (fresh tier v0.1: window 2026-03-01, balanced, strict slice)
+Working dir:    data/bench/v0.1/fresh/ + outputs/bench_v0_fix0/F4/
 
-- [ ] render every item's options with letter labels; read letter tokens (same path as validated choice)
-- [ ] noul: "A. Yes" / "B. No"; score: A = lowest level; record letter -> option-key map per item
-- [ ] keep the choice path byte-identical; re-run T7's MedQA comparison to prove it
-- [ ] validate noul against lm-evaluation-harness (boolq or PubMedQA yes/no) within +/-2 pts
-- [ ] implement the readout-health gate (median label mass >= 0.5, greedy agreement >= 0.9,
-      CI upper bound not below chance) with unit tests
-- [ ] 200 noul + 200 score items for 0.8B and 4B: median label mass >= 0.9, greedy agreement >= 0.9
+- [ ] configs/bench_v0_1.yaml already has start=2026-03-01 (done in F1); update fresh_window.md
+      with a v0.1 section (D11 rule + strict slice), keeping the v0 section as history
+- [ ] every fresh item gets meta.strict_post_teacher = (first date >= 2026-09-10)
+- [ ] class balancing per template and split: up to K per gold class, seeded, K recorded,
+      counts before/after per class
+- [ ] rebuild into data/bench/v0.1/fresh/, 0 items before 2026-03-01
+- [ ] freshness + integrity + rebuild-determinism checks (two builds, identical hashes)
+- [ ] F3 screen on v0.1 (tier 1 and fresh) once F4 is done
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -91,6 +92,24 @@ Working dir:    outputs/bench_v0_fix0/F2/
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F2 — DONE — 2026-10-06T07:17:04Z
+- What ran: `check_readout_health.py` (0.8B and 4B, 200 `noul` + 200 `score` items each),
+  `validate_readouts.py` (choice reproduction + relevance `noul` + lm-eval's pubmedqa task),
+  `lm_eval --tasks pubmedqa_parquet --limit 477`, `pytest` (84 tests).
+- Output: committed `loops/bench_v0_fix0/readout_validation.md`; artifacts under
+  `outputs/bench_v0_fix0/F2/`.
+- Headline: the readout defect is fixed — `noul`/`score` median label mass is **0.996-0.999**
+  (was ~0.002) with greedy agreement 0.96-1.00 on both models, and the previously validated
+  `choice` path is **byte-identical** (MedQA 0.70149 = 0.70149) (X007, X008).
+- Implementation check vs lm-evaluation-harness on a yes/no task: **0.5828 vs 0.5828
+  (delta 0.00 pts)** under the same protocol (X009); the letter readout's +3.56 pts against the
+  continuation rule is a protocol difference, reported as such (X010).
+- Surprises: the first two validation designs were themselves broken (a bare BoolQ prompt dropped
+  label mass to 1.2e-04; canonical gold compared against yes/no labels), and lm-eval's own
+  `pubmedqa` task cannot load its script-based dataset on `datasets` 5.x; all three are recorded in
+  `readout_validation.md`.
+- Next: F4 (rebuild the fresh tier on the wider window with balancing).
 
 ### F1 — DONE — 2026-10-06T05:57:21Z
 - What ran: fixed `_medmcqa_item` (cop is 0-based), wrote `scripts/bench/verify_gold.py` and

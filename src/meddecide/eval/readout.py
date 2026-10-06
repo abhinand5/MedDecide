@@ -21,7 +21,7 @@ from typing import Any, Literal
 
 import numpy as np
 
-from meddecide.bench.schema import Item, QuestionType
+from meddecide.bench.schema import Item, Option, QuestionType
 
 SYSTEM_PROMPT = (
     "You are a medical decision model. Answer with a single letter only, no explanation."
@@ -213,6 +213,43 @@ def detect_variant(model: Any, tokenizer: Any, checks: Sequence[LabelTokenCheck]
     detail["method"] = "fallback (probe produced a non-letter token)"
     detail["usable_variants"] = sorted(usable)
     return fallback, detail
+
+
+def canonicalise_options(item: Item) -> tuple[Item, list[str]]:
+    """Return a copy of ``item`` whose options are keyed ``A``, ``B``, ``C``, ... and the
+    original keys in display order.
+
+    Every question type is rendered and read through the same letter path:
+
+    * ``noul`` — "A. Yes" / "B. No" (the schema stores the keys ``yes``/``no``);
+    * ``score`` — levels lowest first, so ``A`` is the lowest level;
+    * ``choice`` — already lettered, so this is a no-op and the prompt stays byte-identical to
+      the path validated against lm-evaluation-harness in loop bench_v0 (T7).
+
+    Gold follows its content: the returned item's ``gold`` is the letter at the same position.
+    Returns ``(canonical_item, original_keys)``; the caller records ``original_keys`` so a
+    prediction can always be mapped back to the source vocabulary.
+    """
+    original_keys = item.option_keys
+    options = [
+        Option(key=option_letter(i), label=opt.label, description=opt.description)
+        for i, opt in enumerate(item.options)
+    ]
+    gold_index = item.gold_index
+    if item.qtype is QuestionType.NOUL:
+        # fixed, recorded order; the schema guarantees ["yes", "no"]
+        options = [
+            Option(key="A", label="Yes"),
+            Option(key="B", label="No"),
+        ] if item.option_keys == ["yes", "no"] else options
+    canonical = item.model_copy(
+        update={
+            "options": options,
+            "gold": options[gold_index].key,
+            "meta": {**item.meta, "original_option_keys": original_keys},
+        }
+    )
+    return canonical, original_keys
 
 
 def render_prompt(item: Item, tokenizer: Any, variant: LetterVariant = "space") -> str:
