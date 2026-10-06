@@ -17,15 +17,15 @@
 
 ## Current loop
 
-- **Loop:** `bench_v0` (loop 0 of the program)
-- **Mission:** build MedDecide-Bench v0, a validated eval harness, zero-shot baselines, and the DeepSeek-V4.1-Flash teacher-pipeline gate — then hard-stop for review.
-- **Branch:** `loop/bench_v0` (never commit to `main`)
-- **Artifacts:** `loops/bench_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/bench_v0/STATE.md`
-- **Outputs:** `outputs/bench_v0/<task-id>/` (gitignored)
-- **Claims:** `loops/bench_v0/CLAIMS.md`
+- **Loop:** `bench_v0_fix0` (repair loop for loop 0)
+- **Mission:** fix the benchmark and harness defects found in the bench_v0 review (MedMCQA key, `noul`/`score` readout, template screen, fresh window), add the readout-health gate, rebuild as v0.1, re-measure baselines, record corrections — then hard-stop for review.
+- **Branch:** `loop/bench_v0` (continued from bench_v0; never commit to `main`)
+- **Artifacts:** `loops/bench_v0_fix0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/bench_v0_fix0/STATE.md`
+- **Outputs:** `outputs/bench_v0_fix0/<task-id>/` (gitignored)
+- **Claims:** `loops/bench_v0_fix0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-05T20:49:53Z` (T0)
+- **Started:** `<filled by the loop agent in F0>`
 
 ---
 
@@ -113,13 +113,13 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 
 ### Git
 
-- Each loop works on its own branch, `loop/<loop-name>` (for this loop:
-  `loop/bench_v0`). Check `git branch --show-current` at the start of every session and
-  switch to the loop branch if needed. **Never commit to or push `main`** — the operator
-  merges a loop branch into `main` after review.
+- Each loop works on the branch named in "Current loop" above (usually
+  `loop/<loop-name>`; a repair loop may continue its parent's branch). Check
+  `git branch --show-current` at the start of every session and switch to that branch if
+  needed. **Never commit to or push `main`** — the operator merges after review.
 - Commit loop progress at least after every task: STATE.md, CLAIMS.md, code, committed
-  reports. Push the loop branch (`git push origin loop/<loop-name>`). Message format:
-  `loop(<loop-name>): T<n> <DONE|BLOCKED> — <headline>`.
+  reports. Push that branch. Message format:
+  `loop(<loop-name>): <task-id> <DONE|BLOCKED> — <headline>`.
 - Never force-push, never rewrite history, never delete branches.
 
 ---
@@ -192,7 +192,7 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
-| — | — | — |
+| `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
 
 ---
 

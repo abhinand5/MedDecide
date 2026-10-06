@@ -70,6 +70,8 @@ re-measured on MedDecide-Bench.
 | D8 | MIMIC: main public model is MIMIC-free in training but evaluated on MIMIC-derived sets; a separate **MedDecide-clinical** trains on MIMIC, released via credentialed access | 2026-10-06 | keeps the headline release unblocked |
 | D9 | Control: no cash cap; every gate is a hard stop for operator + advisor review | 2026-10-06 | operator steers between loops |
 | D10 | Human audit: the operator audits ~150 fresh-tier items per benchmark build via a keyboard-driven local HTML page | 2026-10-06 | validates templates, not every label |
+| D11 | Fresh window start is bounded by the **ladder** models (our bases), not the teacher: v0.1 starts 2026-03-01 (latest ladder date 2026-02-28). Items dated ≥ 2026-09-10 form a **strict slice** reported separately | 2026-10-06 | the teacher never labels benchmark items; later baselines seeing records can only advantage them (conservative for us); v0's 25-day window left openFDA templates with 16–94 items |
+| D12 | **Readout-health gate** on every reported (model, template) cell: median label mass ≥ 0.5, greedy agreement ≥ 0.9, accuracy CI not below chance; failing cells are `READOUT_FAIL`, never accuracies. Every question type needs its own reference validation | 2026-10-06 | bench_v0 reported a broken `noul` readout and an off-by-one MedMCQA key as findings |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -83,7 +85,7 @@ teacher is the first suspect.
 Each stage = one loop. **Gate** = the hard-stop condition reviewed with the operator.
 Estimates are planning guesses, not measurements; loop 0 measures real throughput.
 
-### Loop 0 — `bench_v0`: benchmark, harness, baselines, teacher gate  *(current)*
+### Loop 0 — `bench_v0`: benchmark, harness, baselines, teacher gate  *(done — see review)*
 
 Build MedDecide-Bench v0 (tier 1 + fresh tier from ClinicalTrials.gov, openFDA,
 PubMed), the eval harness (accuracy, Brier, ECE, latency, option-shuffle, candidate
@@ -95,6 +97,19 @@ teacher pipeline gate, build the audit page.
   temperature fitting on ≥2k gold dev items (or BLOCKED); operator audit done.
 - **Compute:** ~30–50 h on 1×PRO 6000; a few hours on the 4×PRO 6000 teacher.
 - Spec: `loops/bench_v0/ADVISORY.md`.
+
+### Loop 0b — `bench_v0_fix0`: repair and re-measure  *(current)*
+
+Inserted after the bench_v0 review. Fix the MedMCQA key and verify every tier-1 gold
+against its raw record; fix the `noul`/`score` readout and validate it against
+lm-evaluation-harness; add the readout-health gate (D12); template screen v2
+(gold-in-state, regex, macro-based drop rule); rebuild the fresh tier as v0.1 (D11,
+class-balanced, strict slice); contamination probe; re-run ladder baselines; first
+decision-model baselines; corrections record.
+- **Gate G0 (re-applied):** every reported cell passes the health gate; `choice` and
+  `noul` readouts agree with a reference within ±2 pts; v0.1 manifest, screen, and
+  corrections complete; operator audit of the v0.1 sample.
+- Spec: `loops/bench_v0_fix0/ADVISORY.md`.
 
 ### Loop 1 — `student_v0`: first student, gold-only
 

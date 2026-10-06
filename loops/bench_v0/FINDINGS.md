@@ -1,5 +1,13 @@
 # FINDINGS — MedDecide loop `bench_v0`
 
+> **Advisor note (2026-10-06, added after closure):** parts of this record are wrong. The
+> MedMCQA answer key is off by one and the `noul`/`score` readout is broken, so Summary
+> findings 3 and 5 (and claims C048, C050's MedMCQA/`noul`/`score` rows, C051) are
+> invalid. See `loops/bench_v0_fix0/ADVISORY.md` §1 for the evidence and
+> `loops/bench_v0_fix0/CORRECTIONS.md` for dispositions. The rest of this file is left
+> as the loop wrote it.
+
+
 **Loop:** bench_v0 (loop 0 of the MedDecide program)
 **Branch:** `loop/bench_v0`  **Closed:** 2026-10-06
 **Status:** complete for what was measurable; two tasks blocked on inputs only the operator can
