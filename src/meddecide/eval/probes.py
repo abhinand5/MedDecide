@@ -214,3 +214,89 @@ def detect_abstention(
         "n_abstention_items": len(nota_probabilities),
         "detection_rate": detections / len(nota_probabilities),
     }
+
+
+# ---------------------------------------------------------------------------
+# Contamination probes (T4/F5)
+# ---------------------------------------------------------------------------
+def min_k_prob(logprobs: list[float], k_fraction: float = 0.20) -> float:
+    """Min-K%-Prob memorisation score: the mean log-probability of the least likely K% of tokens.
+
+    A model that memorised a string assigns its tokens higher probability than a model seeing it
+    for the first time, and the *tail* of the token distribution is the sensitive part: the
+    easiest 80 % of tokens are predictable from general language statistics, so averaging over all
+    tokens washes the signal out. This is the K=20 % variant from the T4 spec.
+
+    ``logprobs`` must be the per-token log-probabilities of the text under the model, one per
+    predicted token (the first token of the text has no predecessor and is excluded by the
+    caller). Higher (less negative) means "more memorised".
+    """
+    if not logprobs:
+        raise ValueError("logprobs must be non-empty")
+    if not 0.0 < k_fraction <= 1.0:
+        raise ValueError("k_fraction must be in (0, 1]")
+    ordered = sorted(logprobs)
+    n_tail = max(1, round(len(ordered) * k_fraction))
+    return float(sum(ordered[:n_tail]) / n_tail)
+
+
+def reorder_control(text: str, *, seed: int, salt: str = "") -> tuple[str, TransformRecord]:
+    """Deterministic control paraphrase with three escalating granularities.
+
+    Tier-1 items are often one or two sentences, so sentence reordering alone leaves many items
+    without a control. The control therefore tries, in order:
+
+    1. **sentences** — permute sentences (best: destroys verbatim sequence, keeps words);
+    2. **clauses** — permute comma/semicolon-separated clauses within the text (medium);
+    3. **lines** — permute non-empty lines (weakest, used when a record is a list of fields).
+
+    The granularity actually used is recorded per item (``details.kind``), because a control built
+    from lines is a weaker test than one built from sentences and the report must say which was
+    used. Text that admits none of the three is returned unchanged with ``applied: False`` and is
+    excluded from the gap rather than scored against itself.
+    """
+    import re
+
+    def _permute(parts: list[str]) -> tuple[list[str], list[int]]:
+        rng = random.Random(f"{seed}:{salt}")
+        order = list(range(len(parts)))
+        for _ in range(20):
+            rng.shuffle(order)
+            if order != list(range(len(parts))):
+                break
+        return [parts[i] for i in order], order
+
+    sentences = [x for x in re.split(r"(?<=[.!?])\s+", text) if x.strip()]
+    if len(sentences) >= 2:
+        parts, order = _permute(sentences)
+        return " ".join(parts), TransformRecord(
+            name="reorder_control", seed=seed,
+            details={"kind": "sentences", "n_units": len(sentences), "applied": True, "order": order},
+        )
+
+    clauses = [x for x in re.split(r"(?<=[,;:])\s+", text) if x.strip()]
+    if len(clauses) >= 2:
+        parts, order = _permute(clauses)
+        return " ".join(parts), TransformRecord(
+            name="reorder_control", seed=seed,
+            details={"kind": "clauses", "n_units": len(clauses), "applied": True, "order": order},
+        )
+
+    lines = [x for x in text.splitlines() if x.strip()]
+    if len(lines) >= 2:
+        parts, order = _permute(lines)
+        return "\n".join(parts), TransformRecord(
+            name="reorder_control", seed=seed,
+            details={"kind": "lines", "n_units": len(lines), "applied": True, "order": order},
+        )
+
+    return text, TransformRecord(
+        name="reorder_control", seed=seed,
+        details={"kind": "none", "n_units": 1, "applied": False,
+                 "reason": "text has fewer than two sentences, clauses and lines"},
+    )
+
+
+def sentence_reorder(text: str, *, seed: int, salt: str = "") -> tuple[str, TransformRecord]:
+    """Sentence-only reordering (kept for callers that need exactly that transform)."""
+    return reorder_control(text, seed=seed, salt=salt)

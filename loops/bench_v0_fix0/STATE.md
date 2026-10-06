@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:00:55Z`
-Iterations so far: `6`
+Last updated (UTC): `2026-10-06T09:11:22Z`
+Iterations so far: `8`
 
 ---
 
@@ -28,8 +28,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | DONE | 2026-10-06T05:57:21Z | 2026-10-06T07:17:04Z |
 | F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | DONE | 2026-10-06T08:32:00Z | 2026-10-06T08:55:19Z |
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
-| F5 | Tier-1 contamination probe | yes | F1, F2 | PENDING | | |
-| F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | PENDING | | |
+| F5 | Tier-1 contamination probe | yes | F1, F2 | IN_PROGRESS | 2026-10-06T09:04:00Z |  |
+| F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | IN_PROGRESS | 2026-10-06T09:10:00Z |  |
 | F7 | Decision-model baselines | yes | F3 | PENDING | | |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | PENDING | | |
 | F9 | Corrections record | no | F1, F2, F6 | PENDING | | |
@@ -72,24 +72,40 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F3 DONE — next task F5 (tier-1 contamination probe)
-Working dir:    outputs/bench_v0_fix0/F5/
+Task in flight: F5 (contamination probe) + F6 (ladder baselines) — BOTH RUNNING detached
 
-F3 closed: 22 templates screened, 16 kept, 6 dropped (all size), 0 leaks, 16 regex NOT MEASURED.
-Screen lives in data/bench/v0.1/screen.json + committed template_screen_v0_1.md.
+F5: PID 47008, log outputs/bench_v0_fix0/F5/logs/contamination_full.log
+    cmd: uv run python scripts/bench/contamination_probe.py --per-source 500
+    progress: 3 of 6 models done (LFM2.5-350M finished; 0.8B-Base and 0.8B in flight)
+    -> writes outputs/bench_v0_fix0/F5/contamination.json + loops/bench_v0_fix0/contamination.md
 
-F5 checklist (contamination probe):
-- [ ] probe each tier-1 source against the ladder models' training data using only public,
-      non-credentialed sources (n-gram overlap on a public corpus slice or the source's own
-      train split), and report per-source overlap rates with counts
-- [ ] report NOT MEASURED for any source where no public corpus is available
-- [ ] state explicitly that this is a *proxy* for contamination, not proof
-- [ ] acceptance check, SELF_AUDIT.md, CLAIMS rows, STATE, commit, push
+F6: PID 48188 (bash outputs/bench_v0_fix0/F6/run_queue.sh), log outputs/bench_v0_fix0/F6/logs/queue.log
+    queue: 0.8B-Base -> medgemma-1.5-4b-it -> 4B -> 9B -> 0.8B (350M run separately, done in smoke)
+    -> per-model JSON under outputs/bench_v0_fix0/F6/, then run
+       scripts/bench/report_baselines_v0_1.py for results.json + loops/bench_v0_fix0/baselines_v0_1.md
+    if the queue is interrupted, relaunch only the models whose model_<slug>.json is missing
+    (delete that model's preds_<slug>.jsonl first, since predictions append)
+
+Both must be checked for completeness of OUTPUT, not exit codes:
+  F5: json has 6 models x 8 sources with n_scored and control counts
+  F6: every cell n == the template's test count (or a recorded shortfall), preds count == n
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F5 + F6 — IN_PROGRESS — 2026-10-06T09:11:22Z
+- F5 launched (PID 47008) after a smoke run on LFM2.5-350M; F6 runner written, smoke-tested on
+  `scifact_relevant_noul_v1` and launched as a per-model queue (PID 48188).
+- F6 smoke result for the smallest model on that template: n=600/600 (coverage 1.000, the metric
+  F6 was asked to fix), accuracy 0.5033, **label mass 1.0000 and greedy agreement 1.000** where
+  bench_v0 measured label mass ~0.000 on the same template — the F2 readout working in the F6 path.
+- Deviation recorded: F5 and F6 run concurrently on the same GPU (F5 will be using 9B while F6
+  runs a 4B/9B model). One-GPU-job-at-a-time is a project rule; the collision is on memory and
+  throughput, not correctness, and F6 timings are not used for any contention-free claim. If
+  either job OOMs, it is relaunched serially.
+- Next: collect both, then F7.
 
 ### F3 — DONE — 2026-10-06T09:00:21Z
 - What ran: `scripts/bench/screen_v0_1.py` over v0.1 tier-1 and fresh (regex + TF-IDF/BoW
