@@ -124,9 +124,14 @@ def _medmcqa_item(row: dict[str, Any], *, split: Split, seed: int):
     labels = [row.get("opa"), row.get("opb"), row.get("opc"), row.get("opd")]
     if any(not isinstance(x, str) or not x.strip() for x in labels):
         return None
-    cop = row.get("cop")
+    # `cop` is the 0-based index of the correct option in openlifescienceai/medmcqa (a value
+    # of 0 occurs 1,348 times in the official validation split). bench_v0 read it as 1-based,
+    # which shifted every gold label one letter back and silently dropped every `cop == 0`
+    # row. Proven independently: the record's own `exp` explanation names option[cop] in
+    # 66.6 % of rows versus 11.5 % for option[cop+1], and writes "Ans-a"/"Answer- A" for
+    # cop == 0 (scripts/bench/verify_gold.py records this check).
     try:
-        gold_index = int(cop) - 1
+        gold_index = int(row.get("cop"))
     except (TypeError, ValueError):
         return None
     if not 0 <= gold_index < len(labels):

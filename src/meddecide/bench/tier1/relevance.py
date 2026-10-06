@@ -148,16 +148,27 @@ def load_beir_relevance(
 
         if not graded:
             continue
+        # Every score item's gold must be the grade of *this* (query, passage) pair. An earlier
+        # version fell back to a corpus-wide pool when a query had no passage at its own grade,
+        # which attached another query's passage to this query and then recorded this query's
+        # intended grade — three items on nfcorpus claimed qrel_grade 2 while the qrels gave
+        # their pair grade 1 (F1's verifier caught exactly those three). Pools are therefore
+        # strictly per query: a level with no passage for this query is simply not built.
+        fallback_pools = {0: grade0 or unjudged, 1: grade1, 2: grade2}
         per_query = {
-            0: [cid for cid, g in judgements.items() if g <= 0 and cid in corpus_index] or grade0 or unjudged,
-            1: [cid for cid, g in judgements.items() if g == 1 and cid in corpus_index] or grade1,
-            2: [cid for cid, g in judgements.items() if g == 2 and cid in corpus_index] or grade2,
+            grade: [cid for cid, g in judgements.items() if _level_of(g) == grade and cid in corpus_index]
+            for grade in (0, 1, 2)
         }
         for grade, pool in per_query.items():
             if not pool:
                 result.drop(f"score_level_{grade}_unavailable")
+                # only a true corpus-wide shortage is worth a note; a query that lacks this
+                # level is normal and is counted by the drop above
+                if not fallback_pools[grade]:
+                    result.notes.append(f"no passage anywhere in the corpus has grade {grade}")
                 continue
             cid = pool[rng.randrange(len(pool))]
+            observed = judgements[cid]
             result.rows.append(
                 make_choice_item(
                     source=source,
@@ -171,11 +182,11 @@ def load_beir_relevance(
                     state=f"Query: {query_text[qid]}\n\nPassage: {_passage_text(corpus_index[cid])}",
                     question="How relevant is this passage to the query?",
                     labels=GRADE_LEVELS,
-                    gold_index=grade,
+                    gold_index=_level_of(observed),
                     option_order_seed=seed,
                     qtype=QuestionType.SCORE,
                     lead="1",
-                    meta={"query_id": qid, "corpus_id": cid, "qrel_grade": grade},
+                    meta={"query_id": qid, "corpus_id": cid, "qrel_grade": observed},
                 )
             )
             n_score += 1
@@ -185,6 +196,12 @@ def load_beir_relevance(
     if not graded:
         result.notes.append("this source's qrels are binary; no score template is built")
     return result
+
+
+def _level_of(grade: int) -> int:
+    """qrels grade -> score level index (0-based). Grades are 0/1/2 in these collections;
+    a negative judgement (-1) is treated as grade 0, i.e. the lowest level."""
+    return min(max(int(grade), 0), len(GRADE_LEVELS) - 1)
 
 
 def _all_grades(qrels_map: dict[str, dict[str, int]]) -> dict[str, int]:

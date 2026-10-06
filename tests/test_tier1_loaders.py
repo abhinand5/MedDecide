@@ -77,7 +77,9 @@ def test_medmcqa_uses_validation_as_test_and_carves_dev() -> None:
     res = mcq.load_medmcqa(_medmcqa_rows(3), _medmcqa_rows(4, offset=100), cfg=CFG, revision="rev")
     assert res.n_items == 7
     assert {i.split for i in res.items} == {Split.TEST, Split.DEV}
-    assert all(i.gold == "B" for i in res.items)
+    # `cop` is 0-based, so cop="2" selects the third option ("C"). bench_v0 read it as 1-based
+    # and produced "B" here; this assertion is the regression test for that off-by-one.
+    assert all(i.gold == "C" for i in res.items)
     assert "validation" in res.split_map["test"]
     assert any("labels are not public" in n for n in res.notes)
 
@@ -351,3 +353,27 @@ def mq_rows_with_shared_question():
             }
         )
     return rows
+
+
+def test_medmcqa_cop_is_zero_based() -> None:
+    """cop=0 must select option A, and cop=3 must select D (F1 regression test).
+
+    Evidence for the 0-based reading is in scripts/bench/verify_gold.py --prove-cop: the record's
+    own `exp` explanation names option[cop] in 66.6 % of rows versus 11.5 % for option[cop+1].
+    """
+    from meddecide.bench.tier1 import mcq
+
+    for cop, expected in ((0, "A"), (1, "B"), (2, "C"), (3, "D")):
+        rows = _medmcqa_rows(1)
+        rows[0]["cop"] = str(cop)
+        res = mcq.load_medmcqa(rows, [], cfg=CFG, revision="rev")
+        assert res.n_items == 1, f"cop={cop} was dropped instead of mapped"
+        assert res.rows[0].gold == expected, f"cop={cop} mapped to {res.rows[0].gold}, want {expected}"
+        # the gold option's text must be the cop-indexed option text
+        labels = [rows[0]["opa"], rows[0]["opb"], rows[0]["opc"], rows[0]["opd"]]
+        assert res.rows[0].options[res.rows[0].gold_index].label == labels[cop]
+    # an out-of-range cop is dropped, with a reason
+    bad = _medmcqa_rows(1)
+    bad[0]["cop"] = "4"
+    res = mcq.load_medmcqa(bad, [], cfg=CFG, revision="rev")
+    assert res.n_items == 0 and res.dropped["unparseable_record"] == 1
