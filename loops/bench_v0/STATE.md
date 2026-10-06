@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-05T20:49:53Z`
-Last updated (UTC): `2026-10-06T00:35:00Z`
+Last updated (UTC): `2026-10-06T01:10:00Z`
 Iterations so far: `3`
 
 ---
@@ -35,7 +35,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | T9 | Zero-shot baseline table | yes | T7, T8 | DONE (decision models NOT MEASURED - timeboxed) | 2026-10-06T00:50:00Z | 2026-10-06T00:35:00Z |
 | T10 | Teacher pipeline gate | teacher | T3, T5, T6 | BLOCKED — teacher endpoint not provided | 2026-10-06T00:50:00Z | 2026-10-06T00:50:00Z |
 | T11 | Operator audit page + sample | no | T8 | BLOCKED — awaiting operator (page + sample delivered) | 2026-10-06T00:00:00Z | 2026-10-06T00:25:00Z |
-| T12 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| T12 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-06T00:40:00Z | 2026-10-06T01:10:00Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (T10 exception in
 ADVISORY §6). Never run two GPU tasks at once. A `BLOCKED` task does not block
@@ -77,14 +77,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none — T9 done; T12 (findings + closure, HARD STOP) is the last task
-Working dir:    outputs/bench_v0/T12/
-
-- [x] all six ladder models measured (264,478 prediction rows, 132 groups)
-- [x] MedMCQA position-bias finding proven with a seeded shuffle
-- [ ] T12: write loops/bench_v0/FINDINGS.md (Summary first, then the body, then the
-      five-claim spot-check with re-run outputs), loops/bench_v0/NEXT.md, fill STATE
-      closure feed, set `Loop status: STOPPED`, commit, push, STOP.
+Task in flight: none — all tasks DONE or BLOCKED with a reason. Loop STOPPED.
 ```
 
 ---
@@ -113,6 +106,15 @@ Working dir:    outputs/bench_v0/T12/
 - Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
 - Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
   including SELF_AUDIT.md for each completed task.
+
+### T12 — DONE (HARD STOP) — 2026-10-06T01:10:00Z
+- What ran: five-claim spot-check re-run in fresh processes, then the closure documents.
+- Output: `loops/bench_v0/FINDINGS.md` (Summary + body + spot-check), `loops/bench_v0/NEXT.md`,
+  this STATE file's closure feed, `Loop status: STOPPED`.
+- Headline: the loop's output is the validated harness, the two-tier benchmark with its integrity
+  proofs, the six-model baseline table, and the honest list of what is blocked (teacher, audit) or
+  not measured (decision models, T4 contamination probe).
+- Next: nothing in this loop. Loop 1 is planned only after operator + advisor review.
 
 ### T9 — DONE (decision models NOT MEASURED) — 2026-10-06T00:35:00Z
 - What ran: `scripts/bench/run_eval.py` for six ladder models over tier-1 test + fresh test
@@ -374,4 +376,11 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | The eval harness agrees with lm-evaluation-harness to 0.5 accuracy points on identical items and protocol, so its numbers can be believed | C041 | `outputs/bench_v0/T7/validation.json`, `loops/bench_v0/harness_validation.md` |
+| 2 | MedDecide-Bench v0 exists: 21,202 tier-1 items and 41,502 fresh items, with zero split leaks, zero duplicate ids and byte-identical rebuilds | C013-C024 | `data/bench/*/audit.json` (gitignored), `docs/benchmark/*` |
+| 3 | Six zero-shot ladder models were measured on 264,478 test predictions; MedQA scales 0.290 (350M) to 0.754 (9B) against a 0.277 majority | C050, C052, C053 | `loops/bench_v0/baselines.md`, `outputs/bench_v0/T9/results.json` |
+| 4 | MedMCQA's 0.12 for the 4B/9B models is positional bias, proven by a seeded option shuffle (the "D" preference survives a balanced permutation) | C048, C051 | `outputs/bench_v0/T9/preds/medmcqa_shuffled__*` |
+| 5 | Two templates are flattered by their own state (MeSH topic leakage, MedQuAD keyword routing) and must be redesigned before any claim uses them | C047 | `outputs/bench_v0/T8/screen_tier1.json` |
+| 6 | The teacher gate is BLOCKED (no endpoint) and the human audit is BLOCKED (awaiting operator) — both reported, neither estimated | C003, C038-C040 | STATE.md sections 5-6 |
+| 7 | The fresh window is 25 days wide because only one ladder model documents a cutoff; that is why openFDA is thin and one template has a single class | C019, C033 | `docs/benchmark/fresh_window.md` |
+| 8 | Four harness defects (prompt, padding index, letter variant, batch planner) were found by cross-checking and fixed; each had silently wrong numbers behind it | C027, C045 | `outputs/bench_v0/{T6,T9}/SELF_AUDIT.md` |
