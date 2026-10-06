@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T12:38:15Z`
+Last updated (UTC): `2026-10-06T13:08:20Z`
 Iterations so far: `8`
 
 ---
@@ -86,7 +86,9 @@ F7 JEV-9B: 14 of 17 kept-template cells measured (both `trec_covid` templates ar
   drops, so 17 is the maximum). MISSING: `fda_boxed_warning_noul_v1`, `fda_class_choice_v1` —
   both kept OOM-ing because the padded [batch, seq, 151k-vocab] logits tensor reached 33 GB.
   FIXED in scripts/bench/run_jev_baseline.py: the reader now does one item per forward pass
-  (--batch-size default 1). To finish, once F6 has released the GPU:
+  (--batch-size default 1). **Re-tried concurrently with F6 and it still OOMs** (JEV asked for
+  23.5 GB more while F6 held 30 GB): these two cells need the GPU to themselves. To finish, once
+  F6 has released the GPU entirely:
       uv run python scripts/bench/run_jev_baseline.py --only-template fda_boxed_warning_noul_v1 \
           --resume --shuffle-items 20 --out outputs/bench_v0_fix0/F7
       uv run python scripts/bench/run_jev_baseline.py --only-template fda_class_choice_v1 \
