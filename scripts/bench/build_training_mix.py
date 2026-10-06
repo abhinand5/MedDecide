@@ -137,23 +137,34 @@ def record_key(item: Item) -> str:
     return f"{item.source}|{item.source_record_id}"
 
 
-def as_train(item: Item) -> tuple[Item, bool]:
+def as_train(item: Item, *, option_order_seed: int = 0) -> tuple[Item, bool]:
     """Return ``(item, changed)`` with ``split=train``; the id is recomputed when it moves.
 
-    ``item_id`` is a hash over the split (``schema.compute_item_id``), so a row whose split
-    is rewritten to ``train`` gets its id recomputed — otherwise the id would no longer be
-    the deterministic hash of the row it names. Inputs are never modified; this operates on
-    rows in memory on their way into ``train.jsonl``.
+    ``item_id`` is a hash over the split *and* ``option_order_seed``
+    (``schema.compute_item_id``), so a row whose split is rewritten to ``train`` gets its id
+    recomputed — otherwise the id would no longer be the deterministic hash of the row it
+    names. The seed is read from ``meta.option_order_seed`` when the builder recorded it and
+    otherwise taken from ``option_order_seed`` (the build config's seed; every fresh/tier-1
+    builder passes ``cfg["seed"]`` to ``make_item``). ``load_component`` re-derives the id of
+    every row it reads, so a wrong seed fails loudly instead of minting wrong ids.
     """
     if str(item.split) == "train":
         return item, False
+    seed = int(item.meta.get("option_order_seed", option_order_seed))
     payload = item.model_dump(mode="json")
     payload["split"] = "train"
     payload["item_id"] = compute_item_id(
-        item.source, item.source_record_id, item.template_id,
-        int(item.meta.get("option_order_seed", 0)), "train",
+        item.source, item.source_record_id, item.template_id, seed, "train",
     )
     return Item.model_validate(payload), True
+
+
+def item_id_matches(item: Item, *, option_order_seed: int = 0) -> bool:
+    """True when ``item.item_id`` is the hash of the row's own identity fields."""
+    seed = int(item.meta.get("option_order_seed", option_order_seed))
+    return item.item_id == compute_item_id(
+        item.source, item.source_record_id, item.template_id, seed, str(item.split)
+    )
 
 
 def counts_by(rows: Sequence[Item], *keys: str) -> dict[str, int]:
@@ -518,7 +529,8 @@ def build_prewindow_clinicaltrials(
     by_template_all = Counter(str(i.template_id) for i in items)
     held_out_excluded = Counter(str(i.template_id) for i in items if i.template_id in HELD_OUT_TEMPLATES)
     kept_build = [i for i in items if i.template_id not in HELD_OUT_TEMPLATES]
-    normalised = [as_train(i)[0] for i in kept_build]
+    seed = int(cfg.get("seed", 0))
+    normalised = [as_train(i, option_order_seed=seed)[0] for i in kept_build]
     n_split_rewritten = sum(1 for i in kept_build if str(i.split) != "train")
     balanced, balance_report = balance_and_cap(
         normalised, cfg=cfg, salt="prewindow_clinicaltrials", cap_per_template=cap_per_template
@@ -676,7 +688,8 @@ def build_prewindow_openfda(
     by_template_all = Counter(str(i.template_id) for i in items)
     held_out_excluded = Counter(str(i.template_id) for i in items if i.template_id in HELD_OUT_TEMPLATES)
     kept_build = [i for i in items if i.template_id not in HELD_OUT_TEMPLATES]
-    normalised = [as_train(i)[0] for i in kept_build]
+    seed = int(cfg.get("seed", 0))
+    normalised = [as_train(i, option_order_seed=seed)[0] for i in kept_build]
     n_split_rewritten = sum(1 for i in kept_build if str(i.split) != "train")
     balanced, balance_report = balance_and_cap(
         normalised, cfg=cfg, salt="prewindow_openfda", cap_per_template=cap_per_template
@@ -858,13 +871,32 @@ def _load_items(path: Path) -> list[Item]:
     return [row for row in rows if isinstance(row, Item)]
 
 
-def load_component(path: Path, origin: str, *, normalise_split: bool = True) -> tuple[list[Item], dict[str, Any]]:
-    """Load one input component, rewriting every row's split to ``train``."""
+def load_component(
+    path: Path,
+    origin: str,
+    *,
+    normalise_split: bool = True,
+    option_order_seed: int = 0,
+) -> tuple[list[Item], dict[str, Any]]:
+    """Load one input component, rewriting every row's split to ``train``.
+
+    Every row's ``item_id`` is re-derived from its identity fields first; a mismatch means the
+    seed used here is not the seed the builder used, and the build stops rather than writing
+    rows whose ids do not name them.
+    """
     rows = _load_items(path)
+    bad = [r.item_id for r in rows if not item_id_matches(r, option_order_seed=option_order_seed)]
+    if bad:
+        raise SystemExit(
+            f"{path}: {len(bad)} rows whose item_id does not match compute_item_id with seed "
+            f"{option_order_seed} (first: {bad[0]}) — refusing to rewrite their split"
+        )
     changed = 0
     out: list[Item] = []
     for row in rows:
-        item, was = as_train(row) if normalise_split else (row, False)
+        item, was = (
+            as_train(row, option_order_seed=option_order_seed) if normalise_split else (row, False)
+        )
         changed += int(was)
         out.append(item)
     return out, {
@@ -917,7 +949,9 @@ def assemble_mix(
     loaded: dict[str, list[Item]] = {}
     component_report: dict[str, Any] = {}
     for name in components:
-        rows, report = load_component(train_dir / f"{name}.jsonl", name)
+        rows, report = load_component(
+            train_dir / f"{name}.jsonl", name, option_order_seed=int(cfg.get("seed", 0))
+        )
         loaded[name] = rows
         component_report[name] = report
 
@@ -1066,12 +1100,19 @@ def assemble_mix(
         json.dumps(
             {
                 "train_total": len(written),
-                "dev_total": len(dev_written),
+                "train_by_source": manifest["files"]["train"]["count_by_source"],
+                "train_by_template": dict(sorted(Counter(r.template_id for r in written).items())),
+                "train_by_qtype": manifest["files"]["train"]["count_by_qtype"],
+                "mixture": mixture["n_used_from_each_component"],
                 "n_removed_pass1": leakage_pass1["n_removed_total"],
                 "removed_by_reason": leakage_pass1["by_reason"],
+                "removed_by_source": leakage_pass1["by_source"],
                 "recheck_failing": leakage_written["n_failing_total"],
+                "recheck_by_reason": leakage_written["by_reason"],
+                "dev_total": len(dev_written),
+                "dev_by_template": dict(sorted(Counter(r.template_id for r in dev_written).items())),
                 "train_dev_shared_items": disjoint["n_shared_items"],
-                "mixture": mixture["n_used_from_each_component"],
+                "counts_close": checks["counts_close"]["closes"],
                 "wall_clock_s": manifest["wall_clock_s"],
             },
             indent=2,
@@ -1160,9 +1201,153 @@ def build_prewindow_stage(args: argparse.Namespace, cfg: dict[str, Any]) -> dict
     return report
 
 
+def audit_stage(args: argparse.Namespace) -> dict[str, Any]:
+    """Re-derive the manifest's headline numbers from the written files, independently.
+
+    R6 self-audit, run as its own process. The leakage and disjointness checks are
+    **re-implemented here** (plain sets and date comparisons, no call into the build path),
+    so a bug in one implementation cannot hide in the other. Every number is recomputed from
+    ``train.jsonl`` / ``dev.jsonl`` / the component files and compared with the manifest.
+    """
+    t0 = time.perf_counter()
+    train_dir = Path(args.train_dir)
+    bench_dir = Path(args.bench_dir)
+    manifest = json.loads((train_dir / "manifest.json").read_text())
+    train = _load_items(train_dir / "train.jsonl")
+    dev = _load_items(train_dir / "dev.jsonl")
+
+    # independent leakage index: read the bench files directly
+    bench_records: set[str] = set()
+    bench_states: set[str] = set()
+    bench_content: set[str] = set()
+    n_bench = 0
+    for path in (
+        sorted((bench_dir / "tier1").glob("*.jsonl"))
+        + sorted((bench_dir / "fresh").glob("*.jsonl"))
+        + sorted((bench_dir / "supplementary").glob("*.jsonl"))
+    ):
+        for row in _load_items(path):
+            if str(row.split) not in ("test", "dev"):
+                continue
+            n_bench += 1
+            bench_records.add(f"{row.source}\x1f{row.source_record_id}")
+            bench_states.add(normalize_text(row.state))
+            bench_content.add(normalize_text(row.state) + "\x1e" + normalize_text(row.question))
+
+    leaks = {
+        "record_id": [r.item_id for r in train if f"{r.source}\x1f{r.source_record_id}" in bench_records],
+        "state_hash": [r.item_id for r in train if normalize_text(r.state) in bench_states],
+        "state_question_hash": [
+            r.item_id
+            for r in train
+            if normalize_text(r.state) + "\x1e" + normalize_text(r.question) in bench_content
+        ],
+        "date": [r.item_id for r in train if r.record_date >= WINDOW_START],
+        "held_out_template": [r.item_id for r in train if r.template_id in HELD_OUT_TEMPLATES],
+    }
+
+    # mixture: attribute each written train row to a component by re-deriving its id
+    origin: dict[str, str] = {}
+    for name in ("tier1_train", "prewindow_consistency", "prewindow_structured"):
+        path = train_dir / f"{name}.jsonl"
+        if not path.is_file():
+            continue
+        for row in _load_items(path):
+            origin[compute_item_id(
+                row.source, row.source_record_id, row.template_id,
+                int(row.meta.get("option_order_seed", 0)), "train",
+            )] = name
+    mixture = Counter(origin.get(r.item_id, "UNKNOWN") for r in train)
+
+    train_records = {f"{r.source}\x1f{r.source_record_id}" for r in train}
+    train_states = {normalize_text(r.state) for r in train}
+    train_content = {
+        normalize_text(r.state) + "\x1e" + normalize_text(r.question) for r in train
+    }
+    shared = {
+        "record_key": len({f"{r.source}\x1f{r.source_record_id}" for r in dev} & train_records),
+        "state_hash": len({normalize_text(r.state) for r in dev} & train_states),
+        "state_question_hash": len(
+            {normalize_text(r.state) + "\x1e" + normalize_text(r.question) for r in dev}
+            & train_content
+        ),
+        "item_id": len({r.item_id for r in dev} & {r.item_id for r in train}),
+    }
+
+    def _counts(rows: Sequence[Item]) -> dict[str, int]:
+        counter: Counter[str] = Counter(f"{r.source}|{r.template_id}|{r.qtype}" for r in rows)
+        return dict(sorted(counter.items()))
+
+    recomputed = {
+        "train_total": len(train),
+        "dev_total": len(dev),
+        "train_by_source": dict(sorted(Counter(r.source for r in train).items())),
+        "train_by_template": dict(sorted(Counter(r.template_id for r in train).items())),
+        "train_by_qtype": dict(sorted(Counter(str(r.qtype) for r in train).items())),
+        "train_by_source_template_qtype": _counts(train),
+        "dev_by_source_template_qtype": _counts(dev),
+        "mixture": dict(sorted(mixture.items())),
+        "leakage_counts": {kind: len(v) for kind, v in leaks.items()},
+        "train_dev_shared": shared,
+        "every_train_row_split_train": all(str(r.split) == "train" for r in train),
+        "every_train_row_before_window": all(r.record_date < WINDOW_START for r in train),
+        "no_held_out_template_in_train": all(r.template_id not in HELD_OUT_TEMPLATES for r in train),
+        "every_dev_row_split_dev": all(str(r.split) == "dev" for r in dev),
+        "no_test_item_in_dev": all(str(r.split) != "test" for r in dev),
+    }
+    matches = {
+        "train_total": recomputed["train_total"] == manifest["totals"].get("train"),
+        "dev_total": recomputed["dev_total"] == manifest["totals"].get("dev"),
+        "train_by_source": recomputed["train_by_source"]
+        == manifest["files"]["train"]["count_by_source"],
+        "train_by_qtype": recomputed["train_by_qtype"]
+        == manifest["files"]["train"]["count_by_qtype"],
+        "train_by_source_template_qtype": all(
+            recomputed["train_by_source_template_qtype"].get(f"{s}|{t}|{q}") == n
+            for s, templates in manifest["by_source_template_qtype"]["train"].items()
+            for t, qtypes in templates.items()
+            for q, n in qtypes.items()
+        )
+        and sum(recomputed["train_by_source_template_qtype"].values()) == recomputed["train_total"],
+        "mixture": recomputed["mixture"] == manifest["mixture"]["n_used_from_each_component"],
+        "leakage_all_zero": all(v == 0 for v in recomputed["leakage_counts"].values()),
+        "train_dev_disjoint": all(v == 0 for v in shared.values()),
+        "checks_all_pass": all(
+            recomputed[k]
+            for k in (
+                "every_train_row_split_train",
+                "every_train_row_before_window",
+                "no_held_out_template_in_train",
+                "every_dev_row_split_dev",
+                "no_test_item_in_dev",
+            )
+        ),
+        "bench_rows_indexed_matches_manifest": n_bench == manifest["leakage_index"]["n_items"],
+    }
+    audit = {
+        "audited_at_utc": utcnow(),
+        "git_commit": git_commit(),
+        "command": " ".join([sys.executable, *sys.argv]),
+        "artifacts": {
+            "train": str(train_dir / "train.jsonl"),
+            "dev": str(train_dir / "dev.jsonl"),
+            "manifest": str(train_dir / "manifest.json"),
+        },
+        "recomputed": recomputed,
+        "matches_manifest": matches,
+        "verdict": "PASS" if all(matches.values()) and all(
+            v == 0 for v in recomputed["leakage_counts"].values()
+        ) and all(v == 0 for v in shared.values()) else "FAIL",
+        "wall_clock_s": round(time.perf_counter() - t0, 1),
+    }
+    write_json(train_dir / "self_audit.json", audit)
+    print(json.dumps({"stage": "audit", **{k: audit[k] for k in ("verdict", "recomputed")}}, indent=2))
+    return audit
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--stage", choices=["prewindow", "mix", "all"], default="all")
+    parser.add_argument("--stage", choices=["prewindow", "mix", "audit", "all"], default="all")
     parser.add_argument("--sources", nargs="*", default=["clinicaltrials", "openfda", "pubmed"])
     parser.add_argument("--config", type=Path, default=Path("configs/bench_v0_2.yaml"))
     parser.add_argument("--train-dir", type=Path, default=TRAIN_DIR)
@@ -1173,6 +1358,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ct-slice-months", type=int, default=3,
                         help="ClinicalTrials.gov fetch slice length in months")
     parser.add_argument("--refetch", action="store_true", help="ignore cached raw fetches")
+    parser.add_argument("--log-dir", type=Path, default=None,
+                        help="where the provenance JSON goes (default: <train-dir>/logs)")
     args = parser.parse_args(argv)
 
     t0 = time.perf_counter()
@@ -1185,6 +1372,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             train_dir=Path(args.train_dir), bench_dir=Path(args.bench_dir), cfg=cfg,
             cap_per_template=args.cap_per_template,
         )
+    if args.stage in ("audit", "all"):
+        audit_stage(args)
     prov = Provenance(
         run_name=f"S6_build_training_mix_{args.stage}",
         command=" ".join([sys.executable, *sys.argv]),
@@ -1198,7 +1387,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
     )
     prov.wall_clock_s = round(time.perf_counter() - t0, 1)
-    log_dir = Path("outputs/student_v0/S6/logs")
+    log_dir = Path(args.log_dir) if args.log_dir else Path(args.train_dir) / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     prov.finish().write(log_dir / f"build_training_mix_{args.stage}_provenance.json")
     return 0

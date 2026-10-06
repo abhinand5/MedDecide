@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T23:00:21Z`
+Last updated (UTC): `2026-10-06T23:19:43Z`
 Iterations so far: `1`
 
 ---
@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | DONE | 2026-10-06T21:48:05Z | 2026-10-06T22:40:00Z |
 | S4 | HLE medical subset (supplementary test) | small | S1 | IN_PROGRESS | 2026-10-06T22:39:33Z | |
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
-| S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | IN_PROGRESS | 2026-10-06T23:10:00Z | |
+| S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | IN_PROGRESS | 2026-10-06T23:19:43Z | |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | PENDING | | |
 | S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
@@ -142,7 +142,7 @@ Working dir:    outputs/student_v0/S4/
 - Surprises: the official NFCorpus **train** qrels are binary, so **no `score` items are constructible** — the student will face the score template without score-shaped training data (recorded, S046); MedQuAD over-exclusion by id (~7.6k rows) is deliberate and counted; the MedQA source ships two contradictory placeholder stems (dropped).
 - Next: S6 (pre-window structured-gold mix + leakage check) is unblocked and now has both inputs (this file and the consistency pre-window file).
 
-### S6 — started in parallel (CPU/network only) — 2026-10-06T23:10:00Z
+### S6 — started in parallel (CPU/network only) — 2026-10-06T23:19:43Z
 - Why now: S6's deps (S2, S5) are DONE and it is CPU/network-only; the GPU is running S3's 9B re-measurement and S4's queued HLE cells. Same sanctioned parallel pattern as S5.
 - What runs: pre-window ClinicalTrials.gov / openFDA / PubMed items (2023-01-01 -> 2026-02-28, balanced, cap 20k/template, held-out templates excluded) + the training mix (tier1_train + prefwindow_structured, dev = v0.2 tier-1 dev + fresh dev on non-held-out templates) + the four-part mechanical leakage check on the written files.
 - Inputs reused: data/train/student_v0/{tier1_train.jsonl,prewindow_consistency.jsonl}.
