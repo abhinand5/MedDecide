@@ -52,6 +52,15 @@ contamination probe, measured decision-model baselines, and wrote a corrections 
    0.5804 restricted to the levels present (X029).
    (d) the fourth was mine: two of my own validation designs were broken before the real bug
    surfaced, and both are recorded rather than deleted (see "What did not work").
+6. **The readout-health gate suppresses a real cell rather than reporting it.** MedGemma-1.5-4b-it
+   on MedQA agrees with its own greedy continuation on only **0.86** of the 50 sampled items
+   (threshold 0.90), so its MedQA accuracy is reported as
+   `READOUT_FAIL — greedy agreement 0.860 < 0.9 (n=50)` and **no number is printed for it**. The
+   same model passes 15 of its other 16 cells, and its `choice` cells generally sit at 0.90–0.96
+   while its `noul`/`score` cells sit at 0.96–1.00 — i.e. this model sometimes emits the option's
+   *content* where the protocol expects a letter. The gate is doing exactly what D12 created it
+   for: a plausible-looking accuracy (0.48, near `bench_v0`'s own MedGemma number) is withheld
+   because the readout cannot be shown to be reading the model's answer.
 
 **What it means.** The repairs hold: tier-1 gold verifies **0 mismatches of 15,915 checked items**
 across all eight sources (X004); v0.1 builds deterministically and passes 7/7 acceptance checks
