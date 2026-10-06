@@ -92,10 +92,10 @@ Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
 
 - [x] 1. src/meddecide/bench/fresh/consistency.py: the three builders (structured gold only; role-binding; balanced 50/50 per template+split; multi-field variant)
 - [x] 2. unit tests: balance, role-binding (swapped value also in state), gold correctness, determinism, drop accounting
-- [ ] 3. scripts/bench/build_consistency.py: build fresh (>=2026-03-01) into data/bench/v0.2/fresh/ and pre-window (<2026-03-01) into data/train/student_v0/prewindow_consistency.jsonl
-- [ ] 4. string-presence baseline per template must be <= 0.60 macro (measured, on the built test split)
-- [ ] 5. screen: each template passes (gold-in-state, BoW macro < 0.90, n_test >= 200)
-- [ ] 6. zero-shot Qwen3.5-0.8B and 9B on the fresh test split, D12 applied
+- [x] 3. build_consistency.py: fresh built (8,962 CT + 3,036 FDA items) and pre-window built (117,972 items, held-out template excluded); both verdict PASS
+- [x] 4. string-presence baseline measured on the written test split: 0.4985 / 0.3138 / 0.4750 (all <= 0.60)
+- [x] 5. screen: all three kept (BoW macro 0.507 / 0.342 / 0.530; gold-in-state 0.389 / 0.000 / 0.595); 25 templates, 19 kept
+- [~] 6. zero-shot: 5 of 6 cells measured (arm-role 0.6950/0.8780; claim-set 0.2517/0.7778; route-claim 0.8875/***running***, GPU job PID in outputs/student_v0/S2/logs/baselines.pid, log logs/run_s2_baselines.log)
 - [ ] 7. docs/benchmark/consistency_templates.md committed (how each template satisfies rules 1-5, the hold-out and why)
 - [ ] 8. acceptance check run and passed
 - [ ] 9. self-audit (R6) written to SELF_AUDIT.md

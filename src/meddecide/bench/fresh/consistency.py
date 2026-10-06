@@ -400,11 +400,11 @@ def build_ct_claim_set_items(
                 template_id=template_id,
                 skill="consistency",
                 qtype=QuestionType.CHOICE,
-                state=(
-                    f"{state}\n\nStated fields for this record:\n"
+                state=state,
+                question=(
+                    "Which one of these stated fields is not supported by the record?\n"
                     + "\n".join(f"- {name}: {value}" for name, value in stated)
                 ),
-                question="Which one of these stated fields is not supported by the record?",
                 options=options,
                 gold=gold,
                 option_order_seed=seed,
@@ -501,14 +501,14 @@ def build_fda_route_claim_items(
             word for word in ROUTE_WORDS
             if word not in routes and _route_stem_in(upper_state, word)
         ]
+        # Both classes need the cue: if only the unsupported half had another route word in
+        # the text, "the label mentions several routes" would predict the answer (measured:
+        # a BoW baseline read that cue at 0.715 macro accuracy).
+        if not alternatives:
+            drop("no_alternative_route_word_in_the_state_text")
+            continue
         want_supported = (n_supported * 2) <= len(items)
-        if want_supported:
-            claimed = truth
-        else:
-            if not alternatives:
-                drop("no_alternative_route_word_in_the_state_text")
-                continue
-            claimed = alternatives[rng.randrange(len(alternatives))]
+        claimed = truth if want_supported else alternatives[rng.randrange(len(alternatives))]
         n_supported += int(want_supported)
         split = split_by_record_hash(set_id, dev_fraction=0.2, salt="openfda")
         items.append(

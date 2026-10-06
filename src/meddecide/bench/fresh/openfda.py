@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Callable
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from meddecide.bench.schema import QuestionType, Tier, make_item, split_by_record_hash
@@ -37,6 +37,18 @@ ROUTE_LABELS = [
 BOXED_WARNING_KEYS = ("boxed_warning", "boxed_warning_table")
 
 
+def _month_slices(start: date, end: date) -> list[tuple[date, date]]:
+    """Split ``[start, end]`` into calendar-month slices."""
+    slices: list[tuple[date, date]] = []
+    cursor = start
+    while cursor <= end:
+        next_month = date(cursor.year + (cursor.month == 12), (cursor.month % 12) + 1, 1)
+        last = min(end, next_month - timedelta(days=1))
+        slices.append((cursor, last))
+        cursor = next_month
+    return slices
+
+
 def fetch_labels(
     *,
     start: date,
@@ -44,14 +56,51 @@ def fetch_labels(
     page_size: int = PAGE_SIZE,
     max_records: int | None = None,
     client: Any | None = None,
+    slice_days: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch every label with an ``effective_time`` inside ``[start, end]``."""
+    """Fetch every label with an ``effective_time`` inside ``[start, end]``.
+
+    Long windows are fetched in slices because openFDA rejects ``skip`` beyond 25,000
+    (HTTP 400: measured on a 3-year pre-window request, which failed at ``skip=25100``). A
+    window with more than ~25k matching labels therefore cannot be paged in one pass at all;
+    month slices keep every slice's own ``skip`` far below the cap. Set ``slice_days`` to
+    force a slice length, or leave it ``None`` to slice by month whenever the window is longer
+    than 31 days.
+    """
     import httpx
+
+    if slice_days is not None or (end - start).days > 31:
+        own = client is None
+        http = client or httpx.Client(timeout=120.0)
+        try:
+            windows = (
+                _month_slices(start, end) if slice_days is None
+                else [
+                    (start + timedelta(days=i), min(end, start + timedelta(days=i + slice_days - 1)))
+                    for i in range(0, (end - start).days + 1, slice_days)
+                ]
+            )
+            labels: list[dict[str, Any]] = []
+            seen: set[str] = set()
+            for slice_start, slice_end in windows:
+                for label in fetch_labels(
+                    start=slice_start, end=slice_end, page_size=page_size,
+                    max_records=max_records, client=http,
+                ):
+                    key = str(label.get("set_id") or label.get("id") or id(label))
+                    if key in seen:  # a label can appear in two slices if the API rounds dates
+                        continue
+                    seen.add(key)
+                    labels.append(label)
+            return labels
+        finally:
+            if own:
+                http.close()
 
     search = f"effective_time:[{start.strftime('%Y%m%d')} TO {end.strftime('%Y%m%d')}]"
     own_client = client is None
     http = client or httpx.Client(timeout=120.0)
-    labels: list[dict[str, Any]] = []
+    labels = []
     try:
         skip = 0
         while True:
