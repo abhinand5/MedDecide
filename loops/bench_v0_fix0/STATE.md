@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-06T05:47:36Z`
+Last updated (UTC): `2026-10-06T05:48:40Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,8 +23,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| F0 | Orientation and baseline snapshot | no | — | PENDING | | |
-| F1 | MedMCQA key fix + raw-gold verification for all tier-1 sources | no | F0 | PENDING | | |
+| F0 | Orientation and baseline snapshot | no | — | IN_PROGRESS | 2026-10-06T05:47:36Z | |
+| F1 | MedMCQA key fix + raw-gold verification for all tier-1 sources | no | F0 | IN_PROGRESS | 2026-10-06T05:48:40Z | | |
 | F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | PENDING | | |
 | F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | PENDING | | |
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | PENDING | | |
@@ -72,11 +72,15 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/bench_v0_fix0/<id>/
+Task in flight: F1 (MedMCQA key fix + raw-gold verification)
+Working dir:    outputs/bench_v0_fix0/F1/
 
-- [ ] <step 1>
-- [ ] <step 2>
+- [ ] fix _medmcqa_item: cop is 0-based, validate cop in {0,1,2,3}, count drops
+- [ ] scripts/bench/verify_gold.py + src/meddecide/bench/verify.py: independent gold-text check
+      for every tier-1 source against the raw HF dataset at the pinned revision
+- [ ] compare gold-class distribution with the raw answer-field distribution
+- [ ] unit tests: MedMCQA cop=0 -> option A; tiny fixture per source
+- [ ] build tier-1 v0.1 into data/bench/v0.1/tier1/ and run the tier-1 audit
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -86,6 +90,18 @@ Working dir:    outputs/bench_v0_fix0/<id>/
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F0 — DONE — 2026-10-06T05:48:40Z
+- What ran: `git rev-parse HEAD`, `sha256sum` over every v0 benchmark JSONL, manifest totals via
+  `jq`, `uv run pytest --junit-xml`, `uv run ruff check .`.
+- Output: `outputs/bench_v0_fix0/F0/{start.json,pytest.txt,pytest.xml,SELF_AUDIT.md}`.
+- Headline: the repair loop starts from a provable snapshot — commit `88dea18`, 11 v0 files
+  hashed, tier-1 21,202 items and fresh 41,502 items (reproducing bench_v0 C013/C018), test suite
+  74 passed / 0 failed (X001).
+- Surprises: the repo's `-q` addopts suppresses pytest's console summary under `--tb=no`, so the
+  count had to come from the JUnit XML; the first parse attempt raised IndexError and is recorded
+  in the audit rather than hidden.
+- Next: F1 (MedMCQA key fix and gold verification for all eight tier-1 sources).
 
 <!-- Template for each entry:
 ### <task-id> — <DONE|BLOCKED> — <UTC timestamp>

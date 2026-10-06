@@ -25,7 +25,7 @@
 - **Outputs:** `outputs/bench_v0_fix0/<task-id>/` (gitignored)
 - **Claims:** `loops/bench_v0_fix0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `<filled by the loop agent in F0>`
+- **Started:** `2026-10-06T05:47:36Z` (F0)
 
 ---
 
