@@ -72,25 +72,35 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F4 (fresh tier v0.1 — IN_PROGRESS, awaiting the determinism rebuild)
-Working dir:    data/bench/v0.1/fresh/ + outputs/bench_v0_fix0/F4/
+Task in flight: F4 DONE — next task F3 (template screen v2 on v0.1)
+Working dir:    data/bench/v0.1/ + outputs/bench_v0_fix0/F3/
 
-- [x] configs/bench_v0_1.yaml window start 2026-03-01 (F1)
-- [x] docs/benchmark/fresh_window.md v0.1 section (D11 rule + strict slice), v0 section kept
-- [x] meta.strict_post_teacher on every item (2,896 in slice)
-- [x] class balancing per template+split with K recorded; single-class splits dropped with reason
-- [x] rebuilt into data/bench/v0.1/fresh/ — 23,582 items, acceptance PASS 7/7
-- [x] fixed CT.gov healthyVolunteers boolean bug (all items were "no") and 429 paging
-- [x] freshness, integrity, strict-slice and balance checks all pass
-- [ ] determinism: second build byte-identical (rebuild running into /workspace/tmp)
-- [x] self-audit (R6) written to SELF_AUDIT.md
-- [x] CLAIMS.md rows appended (X012-X016)
-- [ ] STATE updated, committed, pushed
+F4 closed: 23,582 fresh items, acceptance PASS 7/7, determinism identical (3/3), audit and
+CLAIMS X012-X016 written.
+
+F3 checklist (screen v2 — must screen v0.1 tier 1 AND v0.1 fresh):
+- [ ] regex baselines over each template: report NOT MEASURED for noul/score templates
+      (a 0.000 regex baseline on those is meaningless), computed for choice
+- [ ] BoW baseline per template; drop only on a *balanced* majority comparison, not raw
+      imbalance (v0 dropped pubmed_observational_noul_v1 at 0.985 majority while keeping
+      pubmed_pubtype_choice_v1 at 0.926)
+- [ ] gold-in-state leak check (MeSH strings appeared in the state in v0; C047)
+- [ ] record each template's K, class counts, majority baseline, chance level, n test
+- [ ] apply the declared drop rule to below_min_class_size templates and record every drop
+- [ ] screen output -> data/bench/v0.1/screen.json + committed template_screen_v0_1.md
+- [ ] acceptance check, SELF_AUDIT.md, CLAIMS rows, STATE, commit, push
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F4 — DONE — 2026-10-06T08:55:19Z
+- Determinism: second build into a scratch directory is **byte-identical (3/3 files)**, both
+  builds PASS 7/7 (`outputs/bench_v0_fix0/F4/determinism_check.txt`).
+- Headline stands: 23,582 items (17,027 test / 6,555 dev), 12 templates, 2,896 strict-slice,
+  0 single-class groups, 0 before the window start (X012-X016).
+- Next: F3 (template screen v2 over both v0.1 tiers).
 
 ### F4 — IN_PROGRESS — 2026-10-06T08:39:54Z
 - What ran: `build_fresh.py` on the D11 window into `data/bench/v0.1/fresh/` (five attempts; two
