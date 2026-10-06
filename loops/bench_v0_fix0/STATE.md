@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:30:06Z`
+Last updated (UTC): `2026-10-06T09:39:07Z`
 Iterations so far: `8`
 
 ---
@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | DONE | 2026-10-06T05:57:21Z | 2026-10-06T07:17:04Z |
 | F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | DONE | 2026-10-06T08:32:00Z | 2026-10-06T08:55:19Z |
 | F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
-| F5 | Tier-1 contamination probe | yes | F1, F2 | IN_PROGRESS | 2026-10-06T09:04:00Z |  |
+| F5 | Tier-1 contamination probe | yes | F1, F2 | DONE | 2026-10-06T09:04:00Z | 2026-10-06T09:39:07Z |
 | F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | IN_PROGRESS | 2026-10-06T09:10:00Z |  |
 | F7 | Decision-model baselines | yes | F3 | PENDING | | |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | BLOCKED — teacher endpoint not provided (TEACHER_BASE_URL/API_KEY unset) | 2026-10-06T09:17:26Z | 2026-10-06T09:17:26Z |
@@ -94,6 +94,17 @@ Both must be checked for completeness of OUTPUT, not exit codes:
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F5 — DONE — 2026-10-06T09:39:07Z
+- Probe completed: 48 cells (6 models x 8 tier-1 sources, 3,672 items per model), Min-K% Prob
+  with a deterministic reorder control at sentence/clause/line granularity.
+- Headline: the larger models show a small positive gap (0.8B-Base +0.816, 4B +0.796, 9B +0.764)
+  and LFM2.5-350M is negative on 7 of 8 sources (-1.517 mean) (X027).
+- **The gap does not grow with model size** (4B vs 9B differ by 0.03), and the probe cannot
+  separate memorisation from "original order is more predictable prose" — reported as a flag, not
+  a finding, and **no tier-1 accuracy is adjusted by it** (X028). MedQuAD at +3.52 for the 9B is
+  the one cell where the memorisation reading is materially more plausible; flagged, not claimed.
+- Next: F6 continues on the GPU; F7 (JEV-9B decision head) is next once F6 frees capacity.
 
 ### F9 — DONE — 2026-10-06T09:30:06Z
 - Wrote the corrections record: **all 53 bench_v0 claims** disposed (4 withdrawn, 8 corrected,
