@@ -79,19 +79,50 @@ def questions_for(item: Item, kind: str) -> tuple[dict[str, Any], int]:
 
 
 def load_agent(model_key: str, device: str = "cuda"):
+    """Load a Laya checkpoint using the implementation published in `convaiinnovations/laya`.
+
+    The two checkpoints differ in where the weights live and in which modules ship with them:
+
+    * `convaiinnovations/laya` — weights at the root, and the implementation (`rl_agent_api.py`,
+      `rl_common.py`) alongside them;
+    * `convaiinnovations/laya-typed-decisions` — weights under `typed-decisions/`, and **no
+      implementation at all** (the repo contains only the safetensors, configs and tokenizer).
+
+    So the implementation is always taken from the main repo and the weights from the requested
+    checkpoint; `RLAgent` receives the directory holding that checkpoint's `model.safetensors`.
+    """
+    import shutil
+    import tempfile
+
     from huggingface_hub import snapshot_download
 
-    repo = MODELS[model_key]
-    snapshot = snapshot_download(repo, allow_patterns=[
-        "*.py", "*.json", "*.safetensors", "tokenizer/*", "encoder/*", "multilingual/*",
-        "typed-decisions/*",
-    ])
-    # `laya` carries three checkpoints; the typed-decisions variant lives in its own subdirectory
-    # with its own model.safetensors / rl_agent_config.json / tokenizer / encoder
-    agent_dir = snapshot if model_key == "laya" else os.path.join(
-        snapshot, "typed-decisions"
-    )
-    # the checkpoint's own modules import each other by bare name
+    code_dir = snapshot_download("convaiinnovations/laya", allow_patterns=["*.py", "*.json"])
+    if model_key == "laya":
+        agent_dir = code_dir
+    else:
+        weights_dir = snapshot_download(
+            MODELS[model_key],
+            allow_patterns=["*.json", "*.safetensors", "tokenizer/*", "encoder/*"],
+        )
+        sub = os.path.join(weights_dir, "typed-decisions")
+        if not os.path.isdir(sub):
+            # this checkpoint's weights are at its own root, not in a subdirectory
+            sub = weights_dir
+        # stage the implementation next to the weights so the modules' bare-name imports resolve
+        workdir = Path(tempfile.mkdtemp(prefix="laya-typed-"))
+        for name in ("rl_agent_api.py", "rl_common.py", "email_utils.py"):
+            src = os.path.join(code_dir, name)
+            if os.path.exists(src):
+                shutil.copy2(src, workdir / name)
+        for entry in os.listdir(sub):
+            src = os.path.join(sub, entry)
+            dst = workdir / entry
+            if os.path.isdir(src):
+                if not dst.exists():
+                    os.symlink(src, dst)
+            else:
+                shutil.copy2(src, dst)
+        agent_dir = str(workdir)
     sys.path.insert(0, agent_dir)
     from rl_agent_api import RLAgent  # type: ignore[import-not-found]
 
