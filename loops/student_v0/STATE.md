@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T20:38:06Z`
+Last updated (UTC): `2026-10-06T21:47:41Z`
 Iterations so far: `1`
 
 ---
@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | S0 | Orientation, snapshot, fused kernels | smoke | — | DONE | 2026-10-06T18:06:22Z | 2026-10-06T18:25:39Z |
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
-| S2 | Record–claim consistency templates | small | S1 | IN_PROGRESS | 2026-10-06T20:38:06Z | |
+| S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | PENDING | | |
 | S4 | HLE medical subset (supplementary test) | small | S1 | PENDING | | |
 | S5 | Tier-1 train-split builders | no | S1 | PENDING | | |
@@ -95,12 +95,12 @@ Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
 - [x] 3. build_consistency.py: fresh built (8,962 CT + 3,036 FDA items) and pre-window built (117,972 items, held-out template excluded); both verdict PASS
 - [x] 4. string-presence baseline measured on the written test split: 0.4985 / 0.3138 / 0.4750 (all <= 0.60)
 - [x] 5. screen: all three kept (BoW macro 0.507 / 0.342 / 0.530; gold-in-state 0.389 / 0.000 / 0.595); 25 templates, 19 kept
-- [~] 6. zero-shot: 5 of 6 cells measured (arm-role 0.6950/0.8780; claim-set 0.2517/0.7778; route-claim 0.8875/***running***, GPU job PID in outputs/student_v0/S2/logs/baselines.pid, log logs/run_s2_baselines.log)
-- [ ] 7. docs/benchmark/consistency_templates.md committed (how each template satisfies rules 1-5, the hold-out and why)
-- [ ] 8. acceptance check run and passed
-- [ ] 9. self-audit (R6) written to SELF_AUDIT.md
-- [ ] 10. CLAIMS.md rows appended
-- [ ] 11. STATE updated, committed, pushed
+- [x] 6. zero-shot: all 6 cells gate PASS (arm-role 0.6950/0.8780; claim-set 0.2517/0.7778; route-claim 0.8875/0.9020)
+- [x] 7. docs/benchmark/consistency_templates.md committed (how each template satisfies rules 1-5, the hold-out and why)
+- [x] 8. acceptance check run: all 7 criteria PASS
+- [x] 9. self-audit (R6) written to SELF_AUDIT.md
+- [x] 10. CLAIMS.md rows appended (S027-S034)
+- [x] 11. STATE updated, committed, pushed
 ```
 
 ---
@@ -127,6 +127,13 @@ Design decided at the start of S2 (ADVISORY section S2 rules 1-5):
 - Headline: v0.2 is **45,009 items = 35,263 carried identical to v0.1 + 9,746 new `_v2`**; the three repairs are the score level set (offered {1,2}, every offered level a gold in test), MeSH tree-sibling distractors, and mechanism-sharing FDA class distractors. 0.8B/9B: score 0.5966 / `READOUT_FAIL`, MeSH **0.9580 / 0.9830**, FDA class **0.7803 / 0.8705** (S014-S025).
 - Surprises: the MeSH template is **still saturated** (9B 0.9830 vs a <= 0.90 criterion) and it is not the copy shortcut (0.9491 without it) nor the option count (0.9614 at 8 options, paired on 1,838 records) — a measured negative result, recorded with a proposal to retire the template rather than loosen the rule. The 9B score cell is withheld by D12 (greedy 0.880). A first build failed acceptance on **1 record of 43,621 crossing splits** (v0.1 had moved its items to test); fixed by joining the record's existing split.
 - Next: S2 (record-claim consistency templates) is unblocked; S3/S5 too.
+
+### S2 — DONE — 2026-10-06T21:47:41Z
+- What ran: `build_consistency.py --window fresh` (243 s) and `--window prewindow` (828 s); `screen_v0_1.py` on v0.2; `run_s2_baselines.sh` (6 GPU cells); `report_baselines_v0_1.py`
+- Output: 3 templates in `data/bench/v0.2/fresh/`, `data/train/student_v0/prewindow_consistency.jsonl`, `docs/benchmark/consistency_templates.md`, `loops/student_v0/consistency_baselines.md`, `outputs/student_v0/S2/`
+- Headline: three record-claim templates built and measured — string-presence baseline **0.4985 / 0.3138 / 0.4750** (cap 0.60), all kept by the screen, zero-shot 0.8B/9B **0.6950/0.8780** (arm role, held out), **0.2517/0.7778** (multi-field claim set), **0.8875/0.9020** (route claim); pre-window training file **117,972 items** with the held-out template excluded (S027-S034).
+- Surprises: the claim-set template was dropped by the screen in its first build (gold-in-state 1.000) because the stated claims were rendered into the state — fixed by stating them in the question; the route-claim's unsupported half leaked a construction cue that a BoW baseline read at 0.715 macro — fixed by requiring the same cue for both classes (0.530). Also found openFDA's `skip` cap of 25,000 (HTTP 400 at skip=25100) and made long windows fetch in month slices.
+- Next: S3 (long-record slice + shared prefix) and S5 (tier-1 train splits) are unblocked.
 
 ## 5. Blocked items
 

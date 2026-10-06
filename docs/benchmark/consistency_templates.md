@@ -94,7 +94,7 @@ rather than a misleading 0.000 (the v0.1 screen rule).
 |---|---|---|---|
 | `ct_arm_role_noul_v1` (held out) | **0.6950** | **0.8780** | 0.50 |
 | `ct_claim_set_choice_v1` | **0.2517** | **0.7778** | 0.25 |
-| `fda_route_claim_noul_v1` | **0.8875** | *see `outputs/student_v0/S2/`* | 0.50 |
+| `fda_route_claim_noul_v1` | **0.8875** | **0.9020** | 0.50 |
 
 Every cell passes the readout-health gate (label mass 0.987–0.998, greedy agreement 0.94–1.00).
 
