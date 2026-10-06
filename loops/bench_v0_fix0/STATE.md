@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T09:17:26Z`
+Last updated (UTC): `2026-10-06T09:30:06Z`
 Iterations so far: `8`
 
 ---
@@ -32,7 +32,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | IN_PROGRESS | 2026-10-06T09:10:00Z |  |
 | F7 | Decision-model baselines | yes | F3 | PENDING | | |
 | F8 | Teacher pipeline gate | teacher | F1, F2, F4 | BLOCKED — teacher endpoint not provided (TEACHER_BASE_URL/API_KEY unset) | 2026-10-06T09:17:26Z | 2026-10-06T09:17:26Z |
-| F9 | Corrections record | no | F1, F2, F6 | PENDING | | |
+| F9 | Corrections record | no | F1, F2, F6 | DONE | 2026-10-06T09:29:00Z | 2026-10-06T09:30:06Z |
 | F10 | Regenerate operator audit sample | no | F3 | DONE | 2026-10-06T09:17:00Z | 2026-10-06T09:17:08Z |
 | F11 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -94,6 +94,17 @@ Both must be checked for completeness of OUTPUT, not exit codes:
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F9 — DONE — 2026-10-06T09:30:06Z
+- Wrote the corrections record: **all 53 bench_v0 claims** disposed (4 withdrawn, 8 corrected,
+  9 superseded, 32 still valid), verified by script rather than by eye (X025).
+- The two headline findings are **withdrawn**: C048 ("MedMCQA has no D answers") and C051
+  ("collapse is a positional-bias artefact") were both artefacts of the off-by-one key (X026).
+  C050 stands for MedQA/MMLU and is withdrawn as the citation for the relevance finding.
+- `loops/bench_v0/` untouched; FINDINGS' Summary item numbering disambiguated from the Body
+  sections deliberately, since the spec refers to the Summary list.
+- F5 and F6 continue on the GPU; their numbers replace C046/C049/C052/C053 as ROWS in this table
+  once written.
 
 ### F8 — BLOCKED — 2026-10-06T09:17:26Z
 - Checked the pod environment directly: `TEACHER_BASE_URL` **UNSET**, `TEACHER_API_KEY` **UNSET**.
