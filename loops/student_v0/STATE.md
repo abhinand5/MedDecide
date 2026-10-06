@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-06T18:06:22Z`
+Last updated (UTC): `2026-10-06T18:27:30Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| S0 | Orientation, snapshot, fused kernels | smoke | — | PENDING | | |
+| S0 | Orientation, snapshot, fused kernels | smoke | — | DONE | 2026-10-06T18:06:22Z | 2026-10-06T18:27:30Z |
 | S1 | Benchmark v0.2 fixes | small | S0 | PENDING | | |
 | S2 | Record–claim consistency templates | small | S1 | PENDING | | |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | PENDING | | |
@@ -53,8 +53,8 @@ recomputing or guessing.
 
 | key | value | source | task |
 |---|---|---|---|
-| fused kernels installed (yes/no, versions) | | `outputs/student_v0/S0/kernels.json` | S0 |
-| Qwen3.5-0.8B tokens/s at 8k / 16k prompt, before → after kernels | | | S0 |
+| fused kernels installed (yes/no, versions) | **yes** — `causal_conv1d` 1.7.0, `flash-linear-attention` 0.5.2 (triton 3.8.0); both bound by transformers 5.18 (`fallback_warnings` 2 → 0) | `outputs/student_v0/S0/kernels.json` | S0 |
+| Qwen3.5-0.8B tokens/s at 8k / 16k prompt, before → after kernels | **40,809 → 124,526** (8k) and **36,399 → 106,697** (16k), best of 5 after warmup at length | `outputs/student_v0/S0/kernels.json` | S0 |
 | v0.2 manifest sha256 | | `data/bench/v0.2/manifest.json` | S1 |
 | consistency templates built (ids) + the held-out one | | `docs/benchmark/consistency_templates.md` | S2 |
 | long-record slice size (items, templates) | | | S3 |
@@ -78,35 +78,30 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/student_v0/<id>/
+Task in flight: none — S0 finished 2026-10-06T18:27:30Z
+Working dir:    outputs/student_v0/S0/
 
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+- [x] fill "Run started" in STATE + "Started" in AGENTS.md
+- [x] snapshot.json: git commit, v0.1 manifest hashes, test count
+- [x] install causal_conv1d + flash-linear-attention for torch 2.14 / cu130 / sm_120
+- [x] measure Qwen3.5-0.8B tokens/s + peak memory, 8k and 16k prompt, before -> after kernels
+- [x] kernels.json written (numbers, or NOT MEASURED with reason)
+- [x] acceptance check run and passed (snapshot.json + kernels.json exist; uv run pytest passes)
+- [x] self-audit (R6) written to SELF_AUDIT.md
+- [x] CLAIMS.md rows appended (S001–S009)
+- [x] STATE updated, committed, pushed
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
 
-<!-- Template for each entry:
-### <task-id> — <DONE|BLOCKED> — <UTC timestamp>
-- What ran: <command or script>
-- Output: <path>
-- Headline: <one number or one sentence, with its CLAIMS id>
-- Surprises: <anything unexpected, or "none">
-- Next: <what this unblocks>
--->
-
-<!-- The Headline line matters beyond this file: these headlines are the raw material
-     FINDINGS.md's Summary section is written from at closure. A headline that only
-     makes sense with full context ("done, see report") starves the summary. Write
-     each one so a reader who has not seen the task can repeat it: what was measured,
-     what came out, with what denominator. -->
+### S0 — DONE — 2026-10-06T18:27:30Z
+- What ran: `uv pip install causal-conv1d flash-linear-attention` (TORCH_CUDA_ARCH_LIST=12.0, built from source ~13 min); `scripts/student/s0_kernels.py --kernels off|auto --lengths 8192 16384 --reps 5 --warmup-at-length`; `scripts/student/s0_snapshot.py`
+- Output: `outputs/student_v0/S0/{snapshot.json,kernels.json,kernels_before.json,kernels_after.json,SELF_AUDIT.md,pytest.xml}`
+- Headline: fused kernels are installed **and bound** (transformers fallback warnings 2 → 0), and Qwen3.5-0.8B prefill goes **40,809 → 124,526 tok/s at 8k (3.05×)** and **36,399 → 106,697 tok/s at 16k (2.93×)**, peak allocated 2.33 → 1.97 GiB at 8k (S001–S006).
+- Surprises: a single-shot measurement said the kernels made it **36× slower**; the cause was Triton JIT-compiling on the first call at each new sequence length (~7.5 s) landing inside the timed region — re-measured with a warmup pass at length (S007). Also, the first binding check read `func.__module__`, which `functools.wraps` copies from the *torch* function, so it reported a fallback that was not happening.
+- Next: S1 (benchmark v0.2 fixes) is unblocked.
 
 ## 5. Blocked items
 

@@ -25,7 +25,7 @@
 - **Outputs:** `outputs/student_v0/<task-id>/` (gitignored)
 - **Claims:** `loops/student_v0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `<filled by the loop agent in S0>`
+- **Started:** `2026-10-06T18:06:22Z`
 
 ---
 
