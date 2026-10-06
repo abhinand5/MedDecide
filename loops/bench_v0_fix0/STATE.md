@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (F11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T05:47:36Z`
-Last updated (UTC): `2026-10-06T08:39:54Z`
-Iterations so far: `1`
+Last updated (UTC): `2026-10-06T09:00:55Z`
+Iterations so far: `6`
 
 ---
 
@@ -23,11 +23,11 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| F0 | Orientation and baseline snapshot | no | — | IN_PROGRESS | 2026-10-06T05:47:36Z | |
+| F0 | Orientation and baseline snapshot | no | — | DONE | 2026-10-06T05:47:36Z | 2026-10-06T05:48:40Z |
 | F1 | MedMCQA key fix + raw-gold verification for all tier-1 sources | no | F0 | DONE | 2026-10-06T05:48:40Z | 2026-10-06T05:57:21Z |
-| F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | PENDING | | |
-| F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | PENDING | | |
-| F3 | Template screen v2 (on v0.1) | no | F1, F4 | PENDING | | |
+| F2 | `noul`/`score` readout fix + reference validation + health gate | yes | F0 | DONE | 2026-10-06T05:57:21Z | 2026-10-06T07:17:04Z |
+| F4 | Fresh tier v0.1: window 2026-03-01, balanced, strict slice | no | F0 | DONE | 2026-10-06T08:32:00Z | 2026-10-06T08:55:19Z |
+| F3 | Template screen v2 (on v0.1) | no | F1, F4 | DONE | 2026-10-06T08:57:00Z | 2026-10-06T09:00:49Z |
 | F5 | Tier-1 contamination probe | yes | F1, F2 | PENDING | | |
 | F6 | Ladder baselines on v0.1 with health gate | yes | F2, F3 | PENDING | | |
 | F7 | Decision-model baselines | yes | F3 | PENDING | | |
