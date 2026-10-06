@@ -119,6 +119,10 @@ def main() -> int:
                         help="read one item per forward pass; larger values pad the vocab-dim "
                              "logits across the batch and OOM on long openFDA prompts")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--max-prompt-tokens", type=int, default=8192,
+                        help="skip items whose prompt exceeds this; the 9B hybrid's fallback "
+                             "attention path materialises a 30 GB intermediate on very long "
+                             "openFDA prompts. Excluded items are counted per cell, never hidden")
     parser.add_argument("--max-items", type=int, default=None,
                         help="cap items per template (debug/large-template safety)")
     parser.add_argument("--resume", action="store_true",
@@ -186,12 +190,22 @@ def main() -> int:
                 continue
             kind = kind_of(template_items[0])
             too_many = 0
+            too_long = 0
             scored: list[dict[str, Any]] = []
             for item in template_items:
                 n_options = item.n_options
                 if kind == "choice" and n_options > MAX_CHOICE_SLOTS:
                     too_many += 1
                     continue
+                if args.max_prompt_tokens:
+                    n_prompt = len(tokenizer.encode(
+                        build_prompt(kind, item.state, item.question,
+                                     [o.label for o in item.options]),
+                        add_special_tokens=False,
+                    ))
+                    if n_prompt > args.max_prompt_tokens:
+                        too_long += 1
+                        continue
                 labels = [o.label for o in item.options]
                 prompt = build_prompt(kind, item.state, item.question, labels)
                 ids = verbalizer_ids(head, kind, n_options)
@@ -262,6 +276,7 @@ def main() -> int:
                 "template_total": len(template_items),
                 "coverage_under_head_limit": len(scored) / len(template_items),
                 "n_excluded_over_limit": too_many,
+                "n_excluded_prompt_too_long": too_long,
                 "n_options": scored[0]["n_options"],
                 "chance": 0.5 if kind == "noul" else 1.0 / scored[0]["n_options"],
                 "accuracy": accuracy, "accuracy_ci95": [lo, hi],

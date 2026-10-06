@@ -71,7 +71,10 @@ def main() -> int:
     parser.add_argument("--screen", type=Path, default=Path("data/bench/v0.1/screen.json"))
     args = parser.parse_args()
 
-    model_files = sorted(args.dir.glob("model_*.json"))
+    # `model_<slug>_provenance.json` also matches the glob; it is not a results file
+    model_files = sorted(
+        p for p in args.dir.glob("model_*.json") if not p.name.endswith("_provenance.json")
+    )
     if not model_files:
         print(f"no model_*.json under {args.dir}", file=sys.stderr)
         return 1
