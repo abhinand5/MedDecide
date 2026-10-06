@@ -462,6 +462,17 @@ def build_mesh_major_v2_items(
     items: list[Any] = []
     rule_counts: dict[str, int] = {}
 
+    # `siblings()` scans the descriptor index on every call (~13 ms on the 31k-descriptor
+    # MeSH file) and a record is asked about each of its major topics, while the vocabulary
+    # repeats heavily across records. Memoising is a pure-function cache: no behaviour
+    # change, and it is what makes the pre-window rebuild (S6) tractable.
+    sibling_cache: dict[str, list[str]] = {}
+
+    def cached_siblings(name: str) -> list[str]:
+        if name not in sibling_cache:
+            sibling_cache[name] = list(mesh_siblings(name)) if mesh_siblings else []
+        return sibling_cache[name]
+
     for record in usable:
         own_topics = set(record.mesh_major_topics)
         topic = record.mesh_major_topics[0] if record.mesh_major_topics else None
@@ -474,7 +485,7 @@ def build_mesh_major_v2_items(
 
         siblings = [
             name
-            for name in mesh_siblings(topic)
+            for name in cached_siblings(topic)
             if name not in own_topics and name != topic
         ]
         # a sibling of another correct topic is not a safe distractor either
@@ -482,7 +493,7 @@ def build_mesh_major_v2_items(
         for other in own_topics:
             if other == topic:
                 continue
-            unsafe.update(mesh_siblings(other))
+            unsafe.update(cached_siblings(other))
         siblings = [name for name in siblings if name not in unsafe]
 
         k = n_options - 1

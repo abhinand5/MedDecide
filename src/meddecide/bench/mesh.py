@@ -184,6 +184,12 @@ class MeshIndex:
 
     by_name: dict[str, list[str]]
     meta: dict[str, Any] = field(default_factory=dict)
+    # Lazily built reverse index: immediate parent tree number -> descriptors under it.
+    # `siblings()` without it rescans all 31k descriptors per call (~13 ms), which is fine
+    # for a handful of lookups and hopeless for a template builder that sweeps 300k records.
+    _children_by_parent: dict[str, list[str]] | None = field(
+        default=None, repr=False, compare=False
+    )
 
     @property
     def n_descriptors(self) -> int:
@@ -191,6 +197,20 @@ class MeshIndex:
 
     def has_descriptor(self, name: str) -> bool:
         return name in self.by_name
+
+    def children_by_parent(self) -> dict[str, list[str]]:
+        """``{parent tree number: [descriptor names]}``, built once and cached."""
+        if self._children_by_parent is None:
+            out: dict[str, list[str]] = {}
+            for descriptor, tree_numbers in self.by_name.items():
+                for tree_number in tree_numbers:
+                    parent = parent_tree_number(tree_number)
+                    if parent:
+                        out.setdefault(parent, []).append(descriptor)
+            for names in out.values():
+                names.sort()
+            self._children_by_parent = out
+        return self._children_by_parent
 
     def siblings(
         self,
@@ -212,15 +232,14 @@ class MeshIndex:
         tree_numbers = self.by_name.get(name)
         if not tree_numbers:
             return []
+        children = self.children_by_parent()
         found: set[str] = set()
         for tree_number in sorted(dict.fromkeys(tree_numbers), key=_tree_sort_key):
             parent = parent_tree_number(tree_number)
             if parent is None:  # a top-level number has no sibling group
                 continue
-            for other, other_tree_numbers in self.by_name.items():
-                if other == name or other in found:
-                    continue
-                if any(parent_tree_number(t) == parent for t in other_tree_numbers):
+            for other in children.get(parent, ()):  # already sorted
+                if other != name:
                     found.add(other)
             if len(found) >= min_siblings:
                 break
