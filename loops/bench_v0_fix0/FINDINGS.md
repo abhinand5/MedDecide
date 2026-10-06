@@ -1,5 +1,14 @@
 # FINDINGS — MedDecide loop `bench_v0_fix0` (repair loop for `bench_v0`)
 
+> **Advisor note (2026-10-06, added after closure):** Summary item 7's sentence "On the fresh
+> tier the same models are at ~0.50 on every `noul` template and near chance on `choice`"
+> holds only for LFM2.5-350M. From 0.8B up, models score 0.60–0.88 on fresh `noul` and
+> 0.35–0.99 on fresh `choice` (`baselines_v0_1.md`; e.g. Qwen3.5-9B `ct_randomised` 0.8840,
+> `pubmed_humans` 0.8678). Also, X032's conclusion that `pubmed_mesh_major_choice_v1` is
+> "legitimately earned" is not accepted as-is: every model from 0.8B to 9B scores
+> 0.985–0.996, so the template does not discriminate; `student_v0` S1 rebuilds it with
+> near-miss distractors. The rest of this file is left as the loop wrote it.
+
 ## Summary
 
 **The question.** `bench_v0` built MedDecide-Bench v0 and an eval harness, and an advisor review

@@ -17,15 +17,15 @@
 
 ## Current loop
 
-- **Loop:** `bench_v0_fix0` (repair loop for loop 0)
-- **Mission:** fix the benchmark and harness defects found in the bench_v0 review (MedMCQA key, `noul`/`score` readout, template screen, fresh window), add the readout-health gate, rebuild as v0.1, re-measure baselines, record corrections — then hard-stop for review.
-- **Branch:** `loop/bench_v0` (continued from bench_v0; never commit to `main`)
-- **Artifacts:** `loops/bench_v0_fix0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/bench_v0_fix0/STATE.md`
-- **Outputs:** `outputs/bench_v0_fix0/<task-id>/` (gitignored)
-- **Claims:** `loops/bench_v0_fix0/CLAIMS.md`
+- **Loop:** `student_v0` (loop 1 — the first trained MedDecide)
+- **Mission:** fix three benchmark defects and add record–claim consistency, long-record and HLE test sets (v0.2); build a gold-only training set (tier-1 train splits + pre-window structured-gold items, with held-out templates); train MedDecide-0.8B (LoRA + pointer head) with a Base ablation; apply gate G1 — then hard-stop for review.
+- **Branch:** `loop/student_v0` (never commit to `main` or `loop/bench_v0`)
+- **Artifacts:** `loops/student_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/student_v0/STATE.md`
+- **Outputs:** `outputs/student_v0/<task-id>/` (gitignored)
+- **Claims:** `loops/student_v0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-06T05:47:36Z` (F0)
+- **Started:** `<filled by the loop agent in S0>`
 
 ---
 
@@ -69,9 +69,17 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 - **Teacher:** `deepseek-ai/DeepSeek-V4.1-Flash`, self-hosted by the operator on
   4×RTX PRO 6000 when a task needs it.
 - **Benchmark:** two tiers. Tier 1 = established public test sets (+ contamination
-  probe). Tier 2 = **fresh** items from sources dated after every ladder model's and the
-  teacher's training cutoff, with gold derived **only from structured source fields**.
-  The SoTA claim rests on tier 2.
+  probe). Tier 2 = **fresh** items from records dated after the ladder models' dates
+  (window start 2026-03-01, D11; strict slice ≥ 2026-09-10 reported separately), with
+  gold derived **only from structured source fields**. The SoTA claim rests on tier 2.
+- **Readout-health gate (D12):** no zero-shot letter-readout accuracy is reported unless
+  its (model, template) cell passes the gate; failing cells read `READOUT_FAIL — <check>`.
+- **Training data (D13):** official train splits and **pre-window** structured-gold items
+  (records dated before 2026-03-01) only, until the operator adds sources. Never test
+  splits, never LLM labels for gold.
+- **Held-out templates (D14):** some fresh templates are excluded from training entirely
+  and reported separately; the list is fixed per loop in its ADVISORY.
+- **Gate G1 (D16):** defined in `docs/plans/PROGRAM.md`; never changed after results.
 - **Release policy:** model weights, benchmark (public-source items only), and code are
   open. **Training data stays private.**
 
@@ -84,7 +92,7 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   hosted third-party API — only to self-hosted models.
 - **MIMIC and other PhysioNet credentialed data** may only be processed on
   operator-controlled machines by local models; never sent to a hosted third-party
-  API; never printed into anything committed. (Not used in `bench_v0`.)
+  API; never printed into anything committed. (Not used before the clinical loop.)
 - **Test splits are evaluation-only.** Never fit temperatures, thresholds, prompts, or
   templates on a test split. Dev/train splits only.
 - **No silent drops.** Every filter returns counts and reasons.
@@ -193,6 +201,7 @@ it under "Deviations from the plan".
 | loop | outcome | findings |
 |---|---|---|
 | `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
+| `bench_v0_fix0` | Repaired loop 0: MedMCQA key fixed (0 gold mismatches of 15,915 verified), `noul`/`score` readout fixed (label mass 0.996+), D12 readout-health gate added, benchmark rebuilt as v0.1 (22,594 tier-1 + 23,582 balanced fresh items, window 2026-03-01), all 6 ladder models + JEV-9B + 2 Laya models measured, all 53 bench_v0 claims dispositioned (4 withdrawn). Teacher gate still blocked; audit staged. Advisor note: its Summary item 7 ("~0.50 on every fresh `noul`") holds only for the 350M model. | `loops/bench_v0_fix0/FINDINGS.md` |
 
 ---
 
