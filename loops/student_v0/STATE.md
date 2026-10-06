@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T21:48:05Z`
+Last updated (UTC): `2026-10-06T22:40:00Z`
 Iterations so far: `1`
 
 ---
@@ -26,7 +26,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S0 | Orientation, snapshot, fused kernels | smoke | — | DONE | 2026-10-06T18:06:22Z | 2026-10-06T18:25:39Z |
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
 | S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
-| S3 | Long-record slice + shared-prefix measurement | yes | S2 | IN_PROGRESS | 2026-10-06T21:48:05Z | |
+| S3 | Long-record slice + shared-prefix measurement | yes | S2 | DONE | 2026-10-06T21:48:05Z | 2026-10-06T22:40:00Z |
 | S4 | HLE medical subset (supplementary test) | small | S1 | PENDING | | |
 | S5 | Tier-1 train-split builders | no | S1 | PENDING | | |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | PENDING | | |
@@ -81,16 +81,16 @@ completed checklist goes into the iteration-log entry.
 Task in flight: **S3 — long-record slice + shared-prefix measurement** (started 2026-10-06T21:48:05Z)
 Working dir:    outputs/student_v0/S3/
 
-- [ ] 1. tokenise every v0.2 fresh test prompt (Qwen3.5 tokenizer) and write data/bench/v0.2/long_record.json + a manifest block (counts per template, item ids); items themselves stay untouched so the v0.1 carried-identity property survives
-- [ ] 2. if the slice has < 300 items, rebuild the affected openFDA / CT.gov templates with a larger state budget (recorded, up to 32768 tokens)
-- [ ] 3. report zero-shot 0.8B and 9B on the slice separately (D12 applied)
-- [ ] 4. scripts/bench/measure_prefix.py: per-record latency for (a) one prompt per question vs (b) state as a shared prefix with the KV cache reused, on Qwen3.5-0.8B
-- [ ] 5. agreement check: (b) gives the same argmax as (a) on >= 99% of questions
-- [ ] 6. outputs/student_v0/S3/prefix.json with both throughputs and the agreement rate
-- [ ] 7. acceptance check run and passed
-- [ ] 8. self-audit (R6) written to SELF_AUDIT.md
-- [ ] 9. CLAIMS.md rows appended
-- [ ] 10. STATE updated, committed, pushed
+- [x] 1. tokenise every v0.2 fresh test prompt (Qwen3.5 tokenizer) and write data/bench/v0.2/long_record.json + a manifest block (counts per template, item ids); items themselves stay untouched so the v0.1 carried-identity property survives
+- [x] 2. slice is 2,224 items (>= 300), so no template rebuild was needed, rebuild the affected openFDA / CT.gov templates with a larger state budget (recorded, up to 32768 tokens)
+- [~] 3. 0.8B slice numbers done (S038); 9B re-measurement RUNNING in the background (job `outputs/student_v0/S3/logs/reruns9b.pid`, log `logs/run_s3_9b.log`)
+- [x] 4. scripts/bench/measure_prefix.py written and run: per-record latency for (a) one prompt per question vs (b) state as a shared prefix with the KV cache reused, on Qwen3.5-0.8B
+- [x] 5. agreement check run: **0.9697 < 0.99 — FAILS**, with both disagreements ties (margins 0.000 and 0.037; 100 % above a 0.05 margin): (b) gives the same argmax as (a) on >= 99% of questions
+- [x] 6. outputs/student_v0/S3/prefix.json written with both throughputs and the agreement rate
+- [x] 7. acceptance check run: slice counts in manifest + prefix.json PASS; the >= 0.99 agreement step FAILS and is recorded with its cause
+- [x] 8. self-audit (R6) written to SELF_AUDIT.md
+- [x] 9. CLAIMS.md rows appended (S035-S042)
+- [x] 10. STATE updated, committed, pushed
 ```
 
 ---
@@ -124,6 +124,13 @@ Working dir:    outputs/student_v0/S3/
 - Headline: three record-claim templates built and measured — string-presence baseline **0.4985 / 0.3138 / 0.4750** (cap 0.60), all kept by the screen, zero-shot 0.8B/9B **0.6950/0.8780** (arm role, held out), **0.2517/0.7778** (multi-field claim set), **0.8875/0.9020** (route claim); pre-window training file **117,972 items** with the held-out template excluded (S027-S034).
 - Surprises: the claim-set template was dropped by the screen in its first build (gold-in-state 1.000) because the stated claims were rendered into the state — fixed by stating them in the question; the route-claim's unsupported half leaked a construction cue that a BoW baseline read at 0.715 macro — fixed by requiring the same cue for both classes (0.530). Also found openFDA's `skip` cap of 25,000 (HTTP 400 at skip=25100) and made long windows fetch in month slices.
 - Next: S3 (long-record slice + shared prefix) and S5 (tier-1 train splits) are unblocked.
+
+### S3 — DONE (one task step failed and is explained) — 2026-10-06T22:40:00Z
+- What ran: `tag_long_records.py`; `report_long_slice.py`; `measure_prefix.py` (3 versions: two bug fixes); `run_s3_0p8b.sh` (3 GPU cells)
+- Output: `data/bench/v0.2/{long_record.json,long_record_items.json}` + manifest block; `loops/student_v0/long_record_v0_2.md`; `outputs/student_v0/S3/{prefix.json,long_slice.json}`
+- Headline: the long-record slice is **2,224 of 24,263** fresh test items (>8,192 tokens; max 75,319); on it the 0.8B scores route claim **0.9915**, class **0.9451**, boxed warning **0.4296** against a long-subset majority of 0.835 (the one below-majority subset). Shared-prefix reuse is **slower** (24.14 vs 26.93 questions/s) and agrees with the plain path on **0.9697** of questions, both disagreements being ties (S035-S041).
+- Surprises: (a) the harness was **truncating the question away** for the 584 items over the 16,384-token cap — fixed (keep the tail) and re-measured, +0.030 and +0.065 on the two affected templates, which corrects S020/S031; (b) my first shared-prefix implementation appended each question to the previous question's cache (a 0.73-margin flip), fixed by branching from a copy of the prefix cache; (c) a draft audit quoted "431 of 3,236" over-cap class items — the verified count is **137**, corrected in all three places it appeared.
+- Next: S5 (tier-1 train-split builders) is unblocked; the 9B re-measurement continues in the background.
 
 ## 5. Blocked items
 

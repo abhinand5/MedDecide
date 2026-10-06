@@ -176,6 +176,19 @@ def plan_batches(
     return batches
 
 
+def configure_truncation(tokenizer: Any) -> None:
+    """Make truncation keep the **end** of a prompt: the question, options and instruction.
+
+    The question is at the end and the state is what gets too long, so the tokenizer default
+    (``truncation_side="right"``) silently removed the question from every over-long item — the
+    model was then scored on a prompt that asked nothing. Measured on v0.2: 258 of 2,000
+    ``fda_route_claim_noul_v1`` test items, 185 of 1,910 ``fda_boxed_warning_noul_v1`` items and
+    137 of 3,236 ``fda_class_choice_v2`` items were over the 16,384-token cap (584 of 24,263
+    fresh test items in total). The cap is unchanged; only which end survives it.
+    """
+    tokenizer.truncation_side = "left"
+
+
 class Harness:
     """Loads one model and scores batches of items."""
 
@@ -240,6 +253,7 @@ class Harness:
         distribution is the logits at the final sequence position.
         """
         torch = self.torch
+        configure_truncation(self.tokenizer)
         encoded = self.tokenizer(
             list(prompts), return_tensors="pt", padding=True, truncation=True,
             max_length=self.max_prompt_tokens,

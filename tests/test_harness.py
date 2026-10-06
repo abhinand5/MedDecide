@@ -294,3 +294,32 @@ def test_plan_batches_single_huge_item_is_its_own_batch() -> None:
     huge = [b for b in batches if 0 in b]
     assert huge == [[0]], "the oversized item must be alone, not dropped and not merged"
     assert sum(len(b) for b in batches) == 4
+
+
+def test_truncation_keeps_the_question_and_options_not_the_state_head() -> None:
+    """A prompt over the token cap must keep its tail: the question is there, not at the front.
+
+    The harness used the tokenizer default (`truncation_side="right"`), which kept the head of a
+    long state and dropped the question, the options and the instruction — so an over-long item
+    was scored on a prompt that did not ask anything. This test pins the fixed behaviour, and
+    the affected item counts are recorded in CLAIMS.
+    """
+    from types import SimpleNamespace
+
+    from meddecide.eval.harness import configure_truncation
+
+    tokenizer = SimpleNamespace(truncation_side="right")
+    configure_truncation(tokenizer)
+    assert tokenizer.truncation_side == "left"
+
+    # and the property that matters: the last tokens of a truncated prompt are the tail
+    class _Tokenizer:
+        truncation_side = "left"
+
+        def __call__(self, prompts, return_tensors=None, padding=None, truncation=None,
+                     max_length=None):
+            ids = list(range(100))
+            kept = ids[-max_length:] if self.truncation_side == "left" else ids[:max_length]
+            return {"input_ids": [kept], "attention_mask": [[1] * len(kept)]}
+
+    assert _Tokenizer()(None, max_length=10)["input_ids"][0][-1] == 99
