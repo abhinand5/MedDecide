@@ -183,6 +183,98 @@ def bow_predict(
     }
 
 
+def balanced_shortcut_drop(
+    *,
+    micro: float | None,
+    macro: float | None,
+    majority_share: float,
+    macro_threshold: float = 0.90,
+    micro_threshold: float = 0.90,
+    margin_over_majority: float = 0.10,
+    macro_floor: float = 0.50,
+) -> tuple[bool, str | None]:
+    """Decide whether a baseline is a real shortcut, using *balanced* evidence.
+
+    v0's rule dropped any template whose baseline micro accuracy was >= 0.90. That misattributes
+    class imbalance to shortcut-learnability: `pubmed_observational_noul_v1` has a 98.5 % majority
+    class, so "always say no" scores 0.985 and the template was dropped as a BoW shortcut while
+    `pubmed_pubtype_choice_v1` (92.6 % majority) was kept — the ordering was an artefact of the
+    class distribution, not of how learnable the task is.
+
+    A baseline is a shortcut here only when it is accurate *across classes*:
+
+    * ``macro >= macro_threshold`` — it classifies every class, not just the majority one; or
+    * ``micro >= micro_threshold`` **and** ``micro >= majority + margin`` **and**
+      ``macro >= macro_floor`` — it beats the majority baseline while still doing better than a
+      majority-class predictor on the other classes.
+
+    Returns ``(is_shortcut, reason)``.
+    """
+    if macro is not None and macro >= macro_threshold:
+        return True, f"macro_accuracy>={macro_threshold} ({macro:.3f})"
+    if (
+        micro is not None
+        and micro >= micro_threshold
+        and micro >= majority_share + margin_over_majority
+        and (macro is None or macro >= macro_floor)
+    ):
+        return True, (
+            f"micro_accuracy>={micro_threshold} ({micro:.3f}) and >={margin_over_majority} above "
+            f"the majority baseline ({majority_share:.3f})"
+        )
+    return False, None
+
+
+def gold_in_state_check(
+    items: Sequence[Item],
+    *,
+    flag_share: float = 0.80,
+    margin_over_majority: float = 0.30,
+) -> dict[str, Any]:
+    """Flag a template whose gold option's text appears verbatim in its own state.
+
+    MeSH headings, publication types and similar structured strings are *legitimately* in the
+    state — they are the source field the gold comes from, and v0 never checked whether that made
+    the task a copy exercise (the MeSH leak noted as C047). This measures it: for what share of
+    items does the gold label's text appear in the state, and how much better than the majority
+    class is that share.
+
+    A template is flagged when the gold text is present for at least ``flag_share`` of items
+    **and** the per-class presence is uneven enough that "copy the string in the state" would beat
+    the majority baseline by ``margin_over_majority``.
+    """
+    if not items:
+        return {"n": 0, "status": "NOT MEASURED — no items"}
+    present = 0
+    by_class: dict[str, list[bool]] = {}
+    for item in items:
+        label = item.options[item.gold_index].label
+        found = bool(label) and label.casefold() in item.state.casefold()
+        present += int(found)
+        by_class.setdefault(str(item.gold), []).append(found)
+    share = present / len(items)
+    class_shares = {cls: sum(v) / len(v) for cls, v in sorted(by_class.items())}
+    majority_share = max(
+        sum(1 for i in items if str(i.gold) == cls) / len(items) for cls in by_class
+    )
+    copy_accuracy = share
+    flagged = share >= flag_share and copy_accuracy >= majority_share + margin_over_majority
+    return {
+        "n": len(items),
+        "gold_text_in_state_share": share,
+        "copy_baseline_accuracy": copy_accuracy,
+        "majority_share": majority_share,
+        "per_class_share": class_shares,
+        "flagged": flagged,
+        "status": (
+            f"FLAGGED — the gold text is in the state for {share:.3f} of items "
+            f"(majority baseline {majority_share:.3f})"
+            if flagged
+            else f"ok — gold text in state for {share:.3f} of items"
+        ),
+    }
+
+
 def screen_template(
     template_id: str,
     dev_items: Sequence[Item],

@@ -72,28 +72,36 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: F4 DONE — next task F3 (template screen v2 on v0.1)
-Working dir:    data/bench/v0.1/ + outputs/bench_v0_fix0/F3/
+Task in flight: F3 DONE — next task F5 (tier-1 contamination probe)
+Working dir:    outputs/bench_v0_fix0/F5/
 
-F4 closed: 23,582 fresh items, acceptance PASS 7/7, determinism identical (3/3), audit and
-CLAIMS X012-X016 written.
+F3 closed: 22 templates screened, 16 kept, 6 dropped (all size), 0 leaks, 16 regex NOT MEASURED.
+Screen lives in data/bench/v0.1/screen.json + committed template_screen_v0_1.md.
 
-F3 checklist (screen v2 — must screen v0.1 tier 1 AND v0.1 fresh):
-- [ ] regex baselines over each template: report NOT MEASURED for noul/score templates
-      (a 0.000 regex baseline on those is meaningless), computed for choice
-- [ ] BoW baseline per template; drop only on a *balanced* majority comparison, not raw
-      imbalance (v0 dropped pubmed_observational_noul_v1 at 0.985 majority while keeping
-      pubmed_pubtype_choice_v1 at 0.926)
-- [ ] gold-in-state leak check (MeSH strings appeared in the state in v0; C047)
-- [ ] record each template's K, class counts, majority baseline, chance level, n test
-- [ ] apply the declared drop rule to below_min_class_size templates and record every drop
-- [ ] screen output -> data/bench/v0.1/screen.json + committed template_screen_v0_1.md
+F5 checklist (contamination probe):
+- [ ] probe each tier-1 source against the ladder models' training data using only public,
+      non-credentialed sources (n-gram overlap on a public corpus slice or the source's own
+      train split), and report per-source overlap rates with counts
+- [ ] report NOT MEASURED for any source where no public corpus is available
+- [ ] state explicitly that this is a *proxy* for contamination, not proof
 - [ ] acceptance check, SELF_AUDIT.md, CLAIMS rows, STATE, commit, push
 ```
 
 ---
 
 ## 4. Iteration log (append only, newest last)
+
+### F3 — DONE — 2026-10-06T09:00:21Z
+- What ran: `scripts/bench/screen_v0_1.py` over v0.1 tier-1 and fresh (regex + TF-IDF/BoW
+  baselines, gold-in-state check, balanced drop rule).
+- Headline: **22 templates screened, 16 kept, 6 dropped — every drop is `n_test<200`, none is a
+  shortcut drop** (X017); `pubmed_observational_noul_v1` is **kept** because with a 103/103 split
+  its real BoW macro accuracy is 0.796, not the 0.985 that v0's imbalance produced (X018).
+- 0 templates flagged for gold-in-state leakage (X020); 16 regex baselines reported as
+  NOT MEASURED rather than 0.000 (X021).
+- Surprises: the corrected rule changes the *keep/drop decision* on the exact template the review
+  named, which is the cleanest evidence that v0's screen was measuring imbalance.
+- Next: F5 (tier-1 contamination probe).
 
 ### F4 — DONE — 2026-10-06T08:55:19Z
 - Determinism: second build into a scratch directory is **byte-identical (3/3 files)**, both
