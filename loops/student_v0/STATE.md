@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T18:49:01Z`
+Last updated (UTC): `2026-10-07T19:19:09Z`
 Iterations so far: `1`
 
 ---
@@ -274,6 +274,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Step 22,500, alive**, i.e. **past 18k-21.5k where run 2 collapsed**. Dev evals on the same 2,019-item sample: step 21500 acc 0.7276 / macro 0.6587 / brier 0.3643; step 22000 acc **0.7330** / macro **0.6670** / brier 0.3417; step 22500 acc 0.7320 / macro 0.5812 / brier **0.3337**.
 - **The contrast that carries the finding:** when run 2 was stopped at step 21,574 its dev had collapsed to acc ~0.34 / macro 0.11 with pre-clip grad spikes to ~25,000; run 3 at step 22,500 reads acc ~0.73 / macro ~0.58-0.67 / brier ~0.33-0.36.
 - **What this does and does not establish:** the combination of (i) the chunked length bucketing (curriculum fix), (ii) warmup 3 % + cosine on both groups, and (iii) **LoRA r=8** (the diag's pick) is **stable 25 % further into training than the recipe that diverged** - at the same dev sample and the same batch plan. It does **not** yet establish a full pass (deadline 20:45Z), nor which single change mattered: the diag's arms were run one at a time on a 20k subset that understates length pressure, so the attribution between schedule and rank is **not measured**.
+- **Run 3 progress (2026-10-07T19:19:09Z):** step **28,500** (~65 %), alive, still stable - step 27500 acc 0.7251 / macro 0.5788 / brier 0.3498, step 28000 0.7301 / 0.5755 / 0.3263, step 28500 acc **0.7370** / macro 0.5695 / brier 0.3378. No sign of the run-2 tail; deadline 20:45Z, then the CLI's temperature fit + per-template dev report, then the test evaluation.
 - Remaining risk recorded earlier still applies: the length-driven grad tail in the long openFDA/CT records (arm b localised it; `--max-prompt-tokens 2048` is the untried-in-full-run fallback).
 - Checkpoints exist at **every** dev eval (`S9_run3/checkpoints/step_<n>/`), so the ADVISORY's macro-first selection can be re-examined on dev without another 4 h run.
 
