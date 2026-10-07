@@ -620,6 +620,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--train-path", default=None, help="default: the config's train_path")
     parser.add_argument("--dev-path", default=None, help="default: the config's dev_path")
+    parser.add_argument("--base-model", default=None,
+                        help="override config.base_model (S10 uses Qwen/Qwen3.5-0.8B-Base)")
     parser.add_argument("--model-id", default=DEFAULT_MODEL_ID,
                         help="id stamped into the run artifacts (not into any prediction row)")
     parser.add_argument("--max-seconds", type=float, default=None,
@@ -722,6 +724,8 @@ def build_config(args: argparse.Namespace) -> StudentConfig:
         overrides["batch_size"] = args.batch_size
     if args.chunk_factor is not None:
         overrides["batch_chunk_factor"] = args.chunk_factor
+    if args.base_model is not None:
+        overrides["base_model"] = str(args.base_model)
     if args.head_lr is not None:
         overrides["lr"] = float(args.head_lr)
     if args.lora_lr is not None:

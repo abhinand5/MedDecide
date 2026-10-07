@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T20:44:35Z`
+Last updated (UTC): `2026-10-07T20:59:46Z`
 Iterations so far: `1`
 
 ---
@@ -284,6 +284,8 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **`[S9] training done: steps=44152 epochs=1 stopped_early=None wall=13867s items=212481 items/s=22.64`** - the **entire planned epoch** (44,152 batches / 212,481 items), **not** a budget cut, in **3 h 51 m** against the 14,549 s (4 h) budget. Measured throughput 22.64 items/s (the S7 estimate was 21.7).
 - **Final dev trajectory (2,019-item sample):** converged and flat at the end - step 39500 acc **0.7548** / macro 0.6652 / brier 0.3176, step 40000 0.7494 / 0.6633 / 0.3169, step 40500 0.7499 / 0.6634 / 0.3182, step 41000 0.7479 / 0.6631 / 0.3182. Run 2 (diverged) read acc 0.34-0.45 / macro 0.11-0.18 in the same region.
 - **This is the loop's core artifact:** a stable, complete full-pass 0.8B run under the fixed pipeline (chunked bucketing, warmup 3 % + cosine, LoRA r=8, macro-first selection, a checkpoint per dev eval). Post-training the CLI is writing the temperature fit and the per-template dev report (weights loading at 2026-10-07T20:44:35Z); the test evaluation follows, then S10/S11.
+- **Finalisation written (2026-10-07T20:59:46Z):** `temperature.json` -> **choice T=1.2190** (n=10,967, FITTED), **noul T=2.8959** (n=5,454, FITTED), **score `NOT FITTED - too few dev items (n=33 < 50)`** with the value beside it labelled a diagnostic on that small sample (as required - the qtype has no training items either). Note the contrast with run 2's fits (choice 4.27 / noul 11.61): run 3 needs **far less sharpening**, consistent with its much lower Brier. Also written: `dev_final.json`, `run.json`. `best.json` -> step **1000**, rule: highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) broken by lower dev Brier, then .
+- **Test evaluation running** (`run_student.py --checkpoint outputs/student_v0/S9_run3/...`): the tier-1/fresh cells with coverage and gate status land next, then S10.
 - **Attribution caveat still stands:** which single change (schedule vs rank) was decisive is **not measured** - the diag ran arms one at a time on a subset that understates length pressure. S14 states it that way.
 
 ## 5. Blocked items
