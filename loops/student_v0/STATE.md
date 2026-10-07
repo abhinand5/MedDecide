@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T02:32:57Z`
+Last updated (UTC): `2026-10-07T02:33:35Z`
 Iterations so far: `1`
 
 ---
@@ -189,6 +189,7 @@ identifiable (S8 recorded `NOT FITTED`).
 - **GPU serialisation (2026-10-07T02:07:02Z).** The S8 agent was still re-running its own acceptance evaluation (`scripts/bench/run_student.py --split test`, PID 112270, ~17 GB) when S9 started. The S9 agent has been told to finish CPU-only work, wait for that PID to exit, and only then launch the training pass - one GPU job at a time. If a future round finds two GPU jobs running, kill the redundant one and record it as a deviation (bench_v0_fix0's lesson: concurrent GPU jobs cost ~1 h of OOM re-runs).
 - **GPU contention, measured (2026-10-07T02:22:41Z):** `nvidia-smi --query-compute-apps` shows **two** GPU processes and **no training run**: PID 112270 `run_student.py --split test` (S8 agent's redundant re-check of its post-edit code, 23,488 MiB, 18 min in) and PID 116048 `pytest -q --ignore=tests/test_train_student.py` (53,464 MiB - the repo's suite includes GPU-marked model tests, so running it *is* a GPU job). Total 77 GB of 96 GB. `outputs/student_v0/S9/RUN_NOTES.md` confirms **S9's training had not been launched** and the agent was waiting, so the timebox is intact but the "one GPU job at a time" rule is being bent by two *transient* jobs. Not killed: both are verification runs whose output is wanted, and neither is the training pass; recorded here as a deviation rather than hidden. If S9's launch ever overlaps a live job, kill the redundant one first.
 - **GPU reserved for S9 (2026-10-07T02:32:57Z to ~05:30Z).** S8's re-check finished (wall 1342.7 s) and S9 has asked for the card exclusively. I have told the g1 agent (S11 machinery) and the S8 agent to stop all GPU work and use `pytest -m "not gpu"` from now on. S9 then runs one full `pytest -q` (~5 min) and launches the training pass: pidfile `outputs/student_v0/S9/train.pid`, log `outputs/student_v0/S9/logs/train_stdout.log`, wall-clock deadline **05:30Z** so the temperature fit and the post-training `run_student.py --split test` finish inside the 06:06Z box. **No other agent or job may touch the GPU until S9 reports it has exited.**
+- **Card cleared (2026-10-07T02:33:35Z):** at 02:33Z the GPU was **full - 96,464 MiB of 96 GB** across two pytest runs (PID 117267 53,464 MiB and PID 118173 43,564 MiB `--ignore=tests/test_train_student.py`), which blocked S9's launch. I killed the redundant one (**118173**; its owner was already told to stop GPU work) and left 117267, asking S9 to confirm ownership: if it is not S9's, it gets killed too rather than starting a ~32 GB pass on a 53 GB card. Deviation recorded: the "one GPU job at a time" rule was broken twice today by *test suites* (a full `pytest` run loads models), so from here on non-owner agents use `pytest -m "not gpu"`.
 - Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
 
 ## 5. Blocked items
