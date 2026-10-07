@@ -6,15 +6,19 @@ not do on its own, all of them about *this* run's bookkeeping:
 
 1. the S9 recipe from ``configs/student_v0.yaml`` held fixed (LoRA r=16, LoRA lr 2e-4, batch 8,
    8k prompt cap, one epoch) with a wall-clock budget covering data loading and dev evals;
-2. **dev evaluation every ``--eval-every`` steps** on a fixed, reproducible stratified sample of
-   ``data/train/student_v0/dev.jsonl`` (the sample's item ids and a digest are written beside the
-   run, so the selection can be re-derived);
-3. **best-checkpoint selection by dev Brier** (tie-break: higher dev macro accuracy, then the
-   earlier step). The library's built-in rule selects on macro accuracy with Brier as the
-   tie-break; S9's brief fixes Brier as the primary key, so the selection lives here
-   (:class:`DevSelector`) and both orderings are reported. A checkpoint is written every time the
-   rule improves;
-4. after training, the **per-qtype temperature fit on dev** (never on test), written to
+2. **dev evaluation every ``--eval-every`` steps** on a fixed, reproducible sample of
+   ``data/train/student_v0/dev.jsonl`` stratified **by template** and at least
+   ``--min-eval-items`` items (the sample's item ids and a digest are written beside the run, so
+   the selection can be re-derived);
+3. **best-checkpoint selection by dev macro accuracy, Brier as the tie-break** (ADVISORY S9),
+   then the earlier step. A checkpoint is written every time the rule improves; the rule is
+   quoted verbatim in ``best.json`` and ``run.json``;
+4. a **planned-epoch pass** before training: the CLI encodes the epoch once
+   (:func:`meddecide.train.data.plan_epoch_detail`), records the batch-count/token plan and the
+   per-batch length series, checks that batch length does not trend with batch index (the
+   accidental-curriculum regression test, on the real item set), and hands the planned batch
+   count to the trainer as the total for **linear warmup (3 %) + cosine decay**;
+5. after training, the **per-qtype temperature fit on dev** (never on test), written to
    ``temperature.json`` and embedded in the saved checkpoint's ``model.json`` so
    ``scripts/bench/run_student.py`` applies it without a second fit.
 
@@ -43,11 +47,17 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.stats import spearmanr
 
 from meddecide.eval.metrics import accuracy, brier_score, ece_from_confidence, macro_accuracy
 from meddecide.model.meddecide_model import MedDecideModel, ScoredItems
 from meddecide.train.config import DEFAULT_CONFIG_PATH, StudentConfig, load_config
-from meddecide.train.data import read_items, stratified_sample
+from meddecide.train.data import (
+    plan_epoch_detail,
+    read_items,
+    shuffled_order,
+    stratified_sample_by,
+)
 from meddecide.train.temperature import fit_per_qtype
 from meddecide.train.trainer import Trainer, provenance
 from meddecide.utils.provenance import utcnow
@@ -66,31 +76,78 @@ from run_student import (  # noqa: E402
 
 DEFAULT_OUT = Path("outputs/student_v0/S9")
 DEFAULT_MODEL_ID = "meddecide-0.8b-lora-pointer"
-# selection rule, quoted verbatim into every artifact that reports a best step
+# selection rule, quoted verbatim into every artifact that reports a best step (ADVISORY S9:
+# "keep the best dev checkpoint (dev macro-accuracy, Brier as tiebreak)")
 SELECTION_RULE = (
-    "lowest dev Brier on the fixed dev evaluation sample; ties (|dBrier| <= 1e-12) broken by "
-    "higher dev macro accuracy, then by the earlier step"
+    "highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) "
+    "broken by lower dev Brier, then by the earlier step"
 )
-# how many dev items the *periodic* evaluation scores, per qtype (the full dev split is used for
-# the final fit and the per-template report)
-DEFAULT_EVAL_PER_QTYPE = 256
+# how many dev items the *periodic* evaluation scores, per template, and the floor the sampled
+# set must reach (the full dev split is used for the final fit and the per-template report)
+DEFAULT_EVAL_PER_TEMPLATE = 150
+MIN_EVAL_ITEMS = 2000
+# forward-only dev scoring batches: bigger than training batches (no activations are kept); the
+# same defaults the S8 evaluation path uses
+DEFAULT_EVAL_BATCH_SIZE = 16
+DEFAULT_EVAL_MAX_BATCH_TOKENS = 32768
 
 
 # --------------------------------------------------------------------------- pure helpers
 def selection_key(metrics: dict[str, Any]) -> tuple[float, float]:
-    """Sort key whose minimum is the selected checkpoint: ``(Brier, -macro accuracy)``."""
-    return (float(metrics["brier"]), -float(metrics["macro_accuracy"]))
+    """Sort key whose minimum is the selected checkpoint: ``(-macro accuracy, Brier)``."""
+    return (-float(metrics["macro_accuracy"]), float(metrics["brier"]))
 
 
 def is_better(candidate: dict[str, Any], best: dict[str, Any] | None, *, tol: float = 1e-12) -> bool:
     """Whether ``candidate`` beats ``best`` under :data:`SELECTION_RULE` (strict improvement)."""
     if best is None:
         return True
-    cand_brier, cand_macro = selection_key(candidate)
-    best_brier, best_macro = selection_key(best)
-    if cand_brier < best_brier - tol:
+    cand_macro, cand_brier = selection_key(candidate)
+    best_macro, best_brier = selection_key(best)
+    if cand_macro < best_macro - tol:  # -macro is smaller, i.e. macro accuracy is higher
         return True
-    return abs(cand_brier - best_brier) <= tol and cand_macro < best_macro
+    return abs(cand_macro - best_macro) <= tol and cand_brier < best_brier - tol
+
+
+def length_trend(
+    batch_tokens: Sequence[int], batch_mean_chars: Sequence[float], *, head: int = 200
+) -> dict[str, Any]:
+    """Spearman correlations between batch index and batch length (the anti-curriculum check).
+
+    ``rho_tokens`` / ``rho_chars`` are taken over the whole epoch; the ``head_*`` numbers are the
+    first and last 20 batches *of the first* ``head`` batches (the operator's sanity check). The
+    accidental-curriculum bug produced rho near +1 with batches growing monotonically; a
+    stationary plan gives rho near 0 and a head ratio near 1.
+    """
+    n = len(batch_tokens)
+    if len(batch_mean_chars) != n:
+        raise ValueError("batch_tokens and batch_mean_chars must be the same length")
+    index = np.arange(n, dtype=np.float64)
+    tokens = np.asarray(batch_tokens, dtype=np.float64)
+    chars = np.asarray(batch_mean_chars, dtype=np.float64)
+    head_n = int(min(head, n))
+    first = slice(0, min(20, head_n))
+    last = slice(max(0, head_n - 20), head_n)
+    first_mean = float(tokens[first].mean()) if head_n else None
+    last_mean = float(tokens[last].mean()) if head_n else None
+    return {
+        "n_batches": n,
+        "rho_tokens": None if n < 3 else float(spearmanr(index, tokens).statistic),
+        "rho_mean_chars": None if n < 3 else float(spearmanr(index, chars).statistic),
+        "head_batches": head_n,
+        "head_first20_mean_tokens": first_mean,
+        "head_last20_mean_tokens": last_mean,
+        "head_first20_mean_chars": float(chars[first].mean()) if head_n else None,
+        "head_last20_mean_chars": float(chars[last].mean()) if head_n else None,
+        "head_ratio_tokens": (
+            float(last_mean / first_mean) if first_mean not in (None, 0.0) else None
+        ),
+        "head_ratio_chars": (
+            float(chars[last].mean() / chars[first].mean())
+            if head_n and chars[first].mean() > 0
+            else None
+        ),
+    }
 
 
 def best_eval(evals: Sequence[dict[str, Any]], *, tol: float = 1e-12) -> dict[str, Any] | None:
@@ -283,7 +340,11 @@ def gold_by_qtype(scored: ScoredItems) -> dict[str, list[int]]:
 
 # --------------------------------------------------------------------------- the dev-eval hook
 class DevSelector:
-    """The training hook: dev-evaluate every ``eval_every`` steps, keep the best by Brier.
+    """The training hook: dev-evaluate every ``eval_every`` steps, keep the best by the S9 rule.
+
+    The rule (:data:`SELECTION_RULE`) is dev macro accuracy first, Brier as the tie-break — the
+    ADVISORY's S9 wording. The Brier-first alternative is reported as additional analysis, since
+    the earlier brief had it the other way round.
 
     ``trainer`` only has to provide ``evaluate(items)``, ``save_checkpoint(path)`` and a ``model``
     with ``train_mode()`` — which is what makes this testable without a GPU.
@@ -378,20 +439,21 @@ class DevSelector:
         return row
 
     # ---- artifacts ----------------------------------------------------------
-    def macro_best(self) -> dict[str, Any] | None:
-        """Additional analysis: the step the library's macro-accuracy rule would pick."""
+    def brier_best(self) -> dict[str, Any] | None:
+        """Additional analysis: the step a Brier-first rule would pick."""
         rows = [r for r in self.evals if r.get("event") == "dev_eval"]
         if not rows:
             return None
-        best = max(rows, key=lambda r: (r["metrics"]["macro_accuracy"], -r["metrics"]["brier"]))
+        best = min(rows, key=lambda r: (r["metrics"]["brier"], -r["metrics"]["macro_accuracy"]))
         return {
             "note": (
-                "additional — the library's built-in rule selects on macro accuracy with Brier as "
-                "the tie-break; reported, never used for S9's selection"
+                "additional — a Brier-first rule (the superseded run-1 rule) would pick this step; "
+                "reported, never used for S9's selection"
             ),
-            "macro_accuracy_best_step": int(best["step"]),
-            "macro_accuracy_best_value": float(best["metrics"]["macro_accuracy"]),
-            "macro_accuracy_best_brier": float(best["metrics"]["brier"]),
+            "brier_best_step": int(best["step"]),
+            "brier_best_brier": float(best["metrics"]["brier"]),
+            "brier_best_macro_accuracy": float(best["metrics"]["macro_accuracy"]),
+            "brier_best_accuracy": float(best["metrics"]["accuracy"]),
         }
 
     def best_payload(self) -> dict[str, Any]:
@@ -405,7 +467,9 @@ class DevSelector:
             "dev_metrics_at_selection": self.best_metrics,
             "dev_eval": {
                 "n_items": len(self.eval_items),
-                "per_qtype": self.eval_sample.get("per_qtype"),
+                "per_template": self.eval_sample.get("per_template"),
+                "min_eval_items": self.eval_sample.get("min_eval_items"),
+                "by_template": self.eval_sample.get("by_template"),
                 "item_ids_path": self.eval_sample.get("path"),
                 "sample_sha256": self.eval_sample.get("sha256"),
                 "eval_every": self.eval_every,
@@ -413,7 +477,7 @@ class DevSelector:
             "n_evals_so_far": len([r for r in self.evals if r.get("event") == "dev_eval"]),
             "written_at_utc": utcnow(),
             "save_error": self.save_error,
-            "additional_analysis": self.macro_best(),
+            "additional_analysis": self.brier_best(),
         }
 
     def trajectory(self) -> list[dict[str, Any]]:
@@ -448,8 +512,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=None,
                         help="hard step cap (default: one epoch, bounded only by --max-seconds)")
     parser.add_argument("--eval-every", type=int, default=500)
-    parser.add_argument("--eval-per-qtype", type=int, default=DEFAULT_EVAL_PER_QTYPE,
-                        help="dev items per qtype in the periodic evaluation")
+    parser.add_argument("--eval-per-template", type=int, default=DEFAULT_EVAL_PER_TEMPLATE,
+                        help="dev items per template in the periodic evaluation")
+    parser.add_argument("--min-eval-items", type=int, default=MIN_EVAL_ITEMS,
+                        help="the periodic dev sample must reach at least this many items")
+    parser.add_argument("--eval-batch-size", type=int, default=DEFAULT_EVAL_BATCH_SIZE,
+                        help="forward-only dev scoring batch size (bigger than training's)")
+    parser.add_argument("--eval-max-batch-tokens", type=int, default=DEFAULT_EVAL_MAX_BATCH_TOKENS,
+                        help="forward-only dev scoring token cap per batch")
+    parser.add_argument("--chunk-factor", type=int, default=None,
+                        help="length-bucketing chunk size in units of batch_size "
+                             "(default: the config's batch_chunk_factor, 100)")
     parser.add_argument("--dev-final-per-qtype", type=int, default=None,
                         help="cap per qtype for the final dev fit/report (default: every dev item)")
     parser.add_argument("--temperature-items-per-qtype", type=int, default=None,
@@ -484,7 +557,9 @@ def build_config(args: argparse.Namespace) -> StudentConfig:
         "output_dir": str(args.out),
         "epochs": 1,
         "eval_every": args.eval_every,
-        "eval_items": args.eval_per_qtype,
+        "eval_items": args.eval_per_template,
+        "eval_batch_size": args.eval_batch_size,
+        "eval_max_batch_tokens": args.eval_max_batch_tokens,
         "log_every": 1,  # the brief asks for a per-step log
         "temperature_per_qtype": True,
         "temperature_items_per_qtype": args.temperature_items_per_qtype,
@@ -497,6 +572,8 @@ def build_config(args: argparse.Namespace) -> StudentConfig:
         overrides["device"] = args.device
     if args.batch_size is not None:
         overrides["batch_size"] = args.batch_size
+    if args.chunk_factor is not None:
+        overrides["batch_chunk_factor"] = args.chunk_factor
     return replace(config, **overrides)
 
 
@@ -530,18 +607,29 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[S9] read {len(train_items)} train + {len(dev_items_all)} dev items "
           f"in {read_seconds:.1f}s", flush=True)
 
-    eval_items = stratified_sample(
-        dev_items_all, per_qtype=args.eval_per_qtype, seed=config.seed
+    eval_items = stratified_sample_by(
+        dev_items_all, key="template_id", per_group=args.eval_per_template, seed=config.seed
     )
+    if len(eval_items) < args.min_eval_items:
+        raise ValueError(
+            f"the periodic dev sample has {len(eval_items)} items, below the required "
+            f"{args.min_eval_items}: raise --eval-per-template (templates: "
+            f"{len({i.template_id for i in dev_items_all})})"
+        )
     eval_sample = {
         "path": str(out / "dev_eval_ids.json"),
         "n_items": len(eval_items),
-        "per_qtype": args.eval_per_qtype,
+        "per_template": args.eval_per_template,
+        "min_eval_items": args.min_eval_items,
         "seed": config.seed,
         "sha256": sample_digest(eval_items),
         "by_qtype": {
             q: sum(1 for i in eval_items if str(i.qtype) == q)
             for q in sorted({str(i.qtype) for i in eval_items})
+        },
+        "by_template": {
+            t: sum(1 for i in eval_items if i.template_id == t)
+            for t in sorted({i.template_id for i in eval_items})
         },
     }
     write_json(
@@ -551,10 +639,13 @@ def main(argv: list[str] | None = None) -> int:
     final_items = (
         dev_items_all
         if args.dev_final_per_qtype is None
-        else stratified_sample(dev_items_all, per_qtype=args.dev_final_per_qtype, seed=config.seed)
+        else stratified_sample_by(
+            dev_items_all, key="qtype", per_group=args.dev_final_per_qtype, seed=config.seed
+        )
     )
-    print(f"[S9] periodic dev eval: {len(eval_items)} items ({json.dumps(eval_sample['by_qtype'])})"
-          f" sha256={eval_sample['sha256'][:16]}", flush=True)
+    print(f"[S9] periodic dev eval: {len(eval_items)} items over "
+          f"{len(eval_sample['by_template'])} templates "
+          f"({json.dumps(eval_sample['by_qtype'])}) sha256={eval_sample['sha256'][:16]}", flush=True)
     if args.dry_run:
         print("[S9] dry run: config, data and the eval sample are fine; not training")
         pidfile.unlink(missing_ok=True)
@@ -602,6 +693,55 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
 
+    # ---- planned epoch: batch plan, length-trend check, LR-schedule total -----
+    t_plan = time.perf_counter()
+    # the plan must use the *same* item order the trainer will use (a per-epoch shuffle): with
+    # raw file order the chunks would be source/template blocks, whose very different lengths
+    # would leave a spurious batch-index trend that training never sees
+    plan_order = shuffled_order(len(train_items), seed=config.seed, epoch=0)
+    detail = plan_epoch_detail(
+        model,
+        train_items,
+        order=plan_order,
+        batch_size=config.batch_size,
+        max_batch_tokens=config.max_batch_tokens,
+        max_prompt_tokens=config.max_prompt_tokens,
+        augment_options=config.shuffle_options,
+        epoch=0,
+        seed=config.seed,
+        chunk_factor=config.batch_chunk_factor,
+    )
+    plan_seconds = time.perf_counter() - t_plan
+    trend = length_trend(detail.batch_tokens, detail.batch_mean_chars)
+    planned = {
+        "task": "S9",
+        "kind": "planned_epoch",
+        "planned_at_utc": utcnow(),
+        "seconds": plan_seconds,
+        "epoch": 0,
+        "chunk_factor": config.batch_chunk_factor,
+        "chunk_size_items": max(
+            config.batch_size, config.batch_chunk_factor * config.batch_size
+        ),
+        "plan": detail.plan.to_dict(),
+        "length_trend": trend,
+        "batch_tokens": detail.batch_tokens,
+        "batch_mean_chars": detail.batch_mean_chars,
+        "batch_items": detail.batch_items,
+    }
+    write_json(out / "planned_epoch.json", planned)
+    print(f"[S9] planned epoch: {detail.plan.n_batches} batches, "
+          f"{detail.plan.real_tokens} tokens, {plan_seconds:.1f}s to plan; "
+          f"spearman(batch index, batch tokens) = {trend['rho_tokens']:.4f}, "
+          f"first-20 vs last-20 of the first {trend['head_batches']} batches = "
+          f"{trend['head_first20_mean_tokens']:.0f} -> {trend['head_last20_mean_tokens']:.0f} tokens",
+          flush=True)
+    if trend["rho_tokens"] is not None and abs(trend["rho_tokens"]) >= 0.1:
+        raise RuntimeError(
+            f"batch length still trends with batch index (rho={trend['rho_tokens']:.3f}); "
+            f"refusing to train under an accidental length curriculum"
+        )
+
     # ---- training with dev evals every `eval_every` steps ------------------
     selector = DevSelector(
         trainer,
@@ -630,6 +770,7 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint_dir=None,
         max_seconds=remaining,
         on_step=selector,
+        schedule_steps=detail.plan.n_batches,
     )
     train_seconds = time.perf_counter() - train_started
     rates = throughput_of(list(result.history))
@@ -723,7 +864,7 @@ def main(argv: list[str] | None = None) -> int:
     reopened = json.loads((best_dir / "model.json").read_text(encoding="utf-8"))
     calibration_embedded = reopened.get("calibration") or {}
 
-    macro_best = selector.macro_best()
+    macro_best = selector.brier_best()
     run = {
         "task": "S9",
         "kind": "training_run",
@@ -739,6 +880,7 @@ def main(argv: list[str] | None = None) -> int:
             "train_limit": args.train_limit,
             "dev_items": len(dev_items_all),
             "read_seconds": read_seconds,
+            "plan_seconds": plan_seconds,
             "items_seen": items_seen,
             "fraction_of_train_seen": items_seen / len(train_items),
             "tokens_seen": rates.get("real_tokens"),
@@ -753,7 +895,14 @@ def main(argv: list[str] | None = None) -> int:
             "pre_train_seconds": pre_train_seconds,
             "budget_seconds": args.max_seconds,
             "train_budget_seconds": remaining,
+            "schedule": result.schedule,
             "throughput": rates,
+        },
+        "planned_epoch": {
+            "path": str(out / "planned_epoch.json"),
+            "seconds": plan_seconds,
+            "plan": detail.plan.to_dict(),
+            "length_trend": trend,
         },
         "dev_evals": {
             "path": str(evals_path),
@@ -762,11 +911,12 @@ def main(argv: list[str] | None = None) -> int:
             "eval_every": config.eval_every,
             "n_items_per_eval": len(eval_items),
             "sample_sha256": eval_sample["sha256"],
+            "sample_by_template": eval_sample["by_template"],
             "trajectory": selector.trajectory(),
             "best_step_by_selection_rule": selector.best_step,
             "best_metrics_by_selection_rule": selector.best_metrics,
             "selection_rule": SELECTION_RULE,
-            "additional_macro_accuracy_best": macro_best,
+            "additional_brier_first_rule": macro_best,
         },
         "checkpoint": {
             "path": str(best_dir),

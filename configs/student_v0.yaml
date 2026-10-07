@@ -54,20 +54,32 @@ head:
 
 # loss = cross-entropy over the offered options + lambda * Brier
 lambda_brier: 1.0
-lr: 1.0e-3               # pointer head (randomly initialised)
-lora_lr: 2.0e-4          # LoRA adapter (starts at zero)
+lr: 1.0e-3               # pointer head (randomly initialised) — peak LR
+lora_lr: 2.0e-4          # LoRA adapter (starts at zero) — peak LR
 weight_decay: 0.0
 grad_clip: 1.0
+# LR schedule, applied when Trainer.train is given an explicit schedule_steps total (S9 passes
+# the planned batch count of its one epoch): linear warmup, then cosine decay to zero, on BOTH
+# parameter groups. warmup_fraction is a fraction of the scheduled steps.
+lr_schedule: cosine
+warmup_fraction: 0.03
 
 batch_size: 8            # max items per batch
 max_batch_tokens: 8192   # max *real* prompt tokens per batch (both limits are enforced)
 max_prompt_tokens: 8192  # prompts longer than this keep their tail (question + options)
+# length bucketing is confined to chunks of batch_chunk_factor * batch_size items, and both the
+# chunks and the batches inside them are visited in a per-epoch shuffled order — without this,
+# sorting the epoch by length produced an accidental curriculum (S9 run 1)
+batch_chunk_factor: 100
 
 epochs: 1
 shuffle_options: true    # option-order augmentation, reshuffled every epoch
 
 eval_every: 200
-eval_items: 256
+eval_items: 256          # the S9 CLI sets this to a per-template cap; its sample must be >= 2000
+# forward-only dev scoring may use bigger batches than training (no activations are kept)
+eval_batch_size: 16
+eval_max_batch_tokens: 32768
 log_every: 10
 max_seconds: null
 

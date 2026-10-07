@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T04:47:29Z`
+Last updated (UTC): `2026-10-07T05:12:43Z`
 Iterations so far: `1`
 
 ---
@@ -201,6 +201,7 @@ identifiable (S8 recorded `NOT FITTED`).
 - Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
 
 ### DEVIATION — S9 run 1 stopped by operator instruction: failed by pipeline, not by recipe — 2026-10-07T04:47:29Z
+- **Fix progress (2026-10-07T05:12:43Z):** the code changes have landed in the working tree - `src/meddecide/train/{data,config,trainer}.py`, `scripts/bench/train_student.py`, `configs/student_v0.yaml`, `tests/test_train_student.py` (`data.py` now carries the chunked length bucketing + the Spearman regression test). The agent is running a **30-step sanity pass on 512 items** (`--train-limit 512 --steps 30 --eval-every 15`) on the GPU before committing the box - the correct order. The fresh S9 box has **not** started yet; its start time will be recorded when it does, and `outputs/student_v0/S9_run1_sorted/` stays untouched.
 - **Instruction (operator, advisor-reviewed):** S9 run 1 is **invalid due to a pipeline bug**. Stop it, keep its artifacts under `outputs/student_v0/S9_run1_sorted/`, and record it here as failed-by-pipeline, **not as evidence about the recipe**.
 - **Done:** killed training PID 119600 and launchers 119582/119592 (SIGTERM; all three stopped, no `train_student` process remains, GPU back to 0 MiB); moved `outputs/student_v0/S9/` -> **`outputs/student_v0/S9_run1_sorted/`** (RUN_NOTES.md, best/, best.json, run_started.json, dev_eval_ids.json, logs/, train.pid all preserved).
 - **Root cause (operator's diagnosis):** `src/meddecide/train/data.py::iter_batches()` sorts the whole epoch by `char_proxy` **after** shuffling, so training ran shortest -> longest - an **accidental length curriculum**. The dev curve peaked ~step 17.5k and then degraded as batches got long. My own recorded watch items (the flat 0.41-0.49 band, the late decline to brier 0.79) were symptoms of this, and my "lr too high / overfitting" hypotheses were **wrong in mechanism** - the operator's diagnosis supersedes them.

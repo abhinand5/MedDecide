@@ -42,7 +42,12 @@ _TOP_LEVEL_KEYS = {
     "shuffle_options",
     "eval_every",
     "eval_items",
+    "eval_batch_size",
+    "eval_max_batch_tokens",
     "log_every",
+    "lr_schedule",
+    "warmup_fraction",
+    "batch_chunk_factor",
     "fit_temperature",
     "temperature_per_qtype",
     "temperature_items_per_qtype",
@@ -78,7 +83,18 @@ class StudentConfig:
     shuffle_options: bool = True
     eval_every: int = 200
     eval_items: int = 256
+    # forward-only dev scoring may use bigger batches than training (no activations are kept);
+    # None falls back to batch_size / max_batch_tokens
+    eval_batch_size: int | None = None
+    eval_max_batch_tokens: int | None = None
     log_every: int = 10
+    # LR schedule, applied by Trainer.train only when it is given an explicit schedule_steps
+    # total (S9 passes the planned batch count of its one epoch). "cosine" = linear warmup over
+    # warmup_fraction of the steps, then cosine decay to zero, on **both** parameter groups.
+    lr_schedule: str = "cosine"
+    warmup_fraction: float = 0.03
+    # length-bucketing chunk size in units of batch_size (see meddecide.train.data)
+    batch_chunk_factor: int = 100
     fit_temperature: bool = True
     temperature_per_qtype: bool = True
     temperature_items_per_qtype: int | None = None
@@ -123,6 +139,12 @@ class StudentConfig:
             raise ValueError("lambda_brier must be >= 0")
         if cfg.epochs < 1:
             raise ValueError("epochs must be >= 1")
+        if cfg.lr_schedule not in {"cosine", "constant"}:
+            raise ValueError(f"lr_schedule must be 'cosine' or 'constant', got {cfg.lr_schedule!r}")
+        if not 0.0 <= cfg.warmup_fraction < 1.0:
+            raise ValueError(f"warmup_fraction must be in [0, 1), got {cfg.warmup_fraction}")
+        if cfg.batch_chunk_factor < 1:
+            raise ValueError("batch_chunk_factor must be >= 1")
         return cfg
 
 

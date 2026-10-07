@@ -11,11 +11,17 @@ What the loop does, in order, for every step:
 
 Dev evaluation and temperature fitting are separate methods so a caller can decide when to pay
 for them. Nothing here touches a test split.
+
+``train`` can also run a **linear-warmup + cosine-decay** learning-rate schedule on **both**
+parameter groups (head and LoRA). It is opt-in through ``schedule_steps``: a total is needed to
+know what "3 % of the steps" and "the end of training" mean, and callers that do not pass one keep
+the constant-LR behaviour they had before (the overfit smoke test relies on it).
 """
 
 from __future__ import annotations
 
 import json
+import math
 import platform
 import subprocess
 import time
@@ -124,6 +130,7 @@ class TrainResult:
     best_step: int | None = None
     best_dev: dict[str, Any] | None = None
     stopped_early: str | None = None
+    schedule: dict[str, Any] | None = None
 
     def to_dict(self, *, include_history: bool = True) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -133,6 +140,7 @@ class TrainResult:
             "best_step": self.best_step,
             "best_dev": self.best_dev,
             "stopped_early": self.stopped_early,
+            "schedule": self.schedule,
         }
         if include_history:
             out["history"] = [r.to_dict() for r in self.history]
@@ -167,6 +175,9 @@ class Trainer:
                 lr=config.lr, lora_lr=config.lora_lr, weight_decay=config.weight_decay
             )
         )
+        # the peak LRs the schedule scales; set here so a caller-supplied optimizer works too
+        for group in self.optimizer.param_groups:
+            group.setdefault("base_lr", float(group["lr"]))
         self.history: list[StepRecord] = []
 
     # ---- helpers ------------------------------------------------------------
@@ -181,8 +192,10 @@ class Trainer:
         self.model.eval_mode()
         scored = self.model.score_items(
             items,
-            batch_size=batch_size or self.config.batch_size,
-            max_batch_tokens=self.config.max_batch_tokens,
+            batch_size=batch_size or self.config.eval_batch_size or self.config.batch_size,
+            max_batch_tokens=(
+                self.config.eval_max_batch_tokens or self.config.max_batch_tokens
+            ),
             max_prompt_tokens=self.config.max_prompt_tokens,
         )
         overall = scored.metrics()
@@ -278,6 +291,34 @@ class Trainer:
     def save_checkpoint(self, path: str | Path) -> Path:
         return self.model.save(path)
 
+    # ---- learning-rate schedule --------------------------------------------
+    @staticmethod
+    def lr_factor(step: int, *, total_steps: int, warmup_steps: int) -> float:
+        """Linear warmup then cosine decay, as a multiplier in ``[0, 1]``.
+
+        ``step`` is 1-based. The warmup reaches 1.0 at ``warmup_steps``; the cosine reaches 0.0
+        at ``total_steps``. ``warmup_steps <= 0`` means "no warmup, start at the peak".
+        """
+        if total_steps < 1:
+            raise ValueError("total_steps must be >= 1")
+        if warmup_steps > 0 and step <= warmup_steps:
+            return max(0.0, min(1.0, step / warmup_steps))
+        span = total_steps - max(0, warmup_steps)
+        if span <= 0:
+            return 1.0
+        progress = min(1.0, max(0.0, (step - max(0, warmup_steps)) / span))
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+    def _apply_lr(self, step: int, schedule: dict[str, Any] | None) -> None:
+        """Set every parameter group's LR for ``step`` from the schedule (no-op when None)."""
+        if schedule is None:
+            return
+        factor = self.lr_factor(
+            step, total_steps=int(schedule["total_steps"]), warmup_steps=int(schedule["warmup_steps"])
+        )
+        for group in self.optimizer.param_groups:
+            group["lr"] = float(group["base_lr"]) * factor
+
     # ---- training -----------------------------------------------------------
     def train(
         self,
@@ -288,8 +329,15 @@ class Trainer:
         checkpoint_dir: str | Path | None = None,
         max_seconds: float | None = None,
         on_step: Callable[[int], None] | None = None,
+        schedule_steps: int | None = None,
     ) -> TrainResult:
-        """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs)."""
+        """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs).
+
+        ``schedule_steps`` is the total step count the LR schedule is laid out over (the caller's
+        planned epoch). ``None`` (the default, and every caller before S9) keeps the constant LRs
+        the optimizer was built with; the schedule is also skipped when ``lr_schedule`` is
+        ``"constant"``.
+        """
         config = self.config
         if config.device.startswith("cuda") and torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
@@ -304,6 +352,16 @@ class Trainer:
             (max_seconds if max_seconds is not None else config.max_seconds) or None
         )
         epoch = 0
+        schedule: dict[str, Any] | None = None
+        if schedule_steps is not None and config.lr_schedule == "cosine":
+            warmup_steps = round(float(config.warmup_fraction) * int(schedule_steps))
+            schedule = {
+                "kind": "linear_warmup_cosine_decay",
+                "total_steps": int(schedule_steps),
+                "warmup_steps": max(0, warmup_steps),
+                "warmup_fraction": float(config.warmup_fraction),
+                "peak_lr_by_group": [float(g["base_lr"]) for g in self.optimizer.param_groups],
+            }
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
         # N steps, not "N steps or one pass, whichever comes first" (the overfit test relies on
         # this to see its 64 items many times)
@@ -330,6 +388,7 @@ class Trainer:
                     break
                 if config.device.startswith("cuda") and torch.cuda.is_available():
                     torch.cuda.reset_peak_memory_stats()
+                self._apply_lr(total_steps + 1, schedule)
                 t0 = time.perf_counter()
                 model_batch = self.model.collate(batch)
                 _logits, probs = self.model.batch_logits(model_batch)
@@ -407,6 +466,7 @@ class Trainer:
             best_step=best_step,
             best_dev=best,
             stopped_early=stopped_early,
+            schedule=schedule,
         )
         self._log({"event": "end", **result.to_dict(include_history=False)})
         self.model.eval_mode()

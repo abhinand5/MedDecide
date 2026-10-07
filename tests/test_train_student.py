@@ -8,8 +8,13 @@ against a fake trainer.
 
 Covered:
 
-* the selection rule is Brier-first (macro accuracy is the tie-break, then the earlier step) and
-  the trajectory fold agrees with it;
+* the selection rule is **macro-accuracy-first** (Brier is the tie-break, then the earlier step)
+  and the trajectory fold agrees with it;
+* **batch length does not trend with batch index** — the regression test for the accidental length
+  curriculum that invalidated S9 run 1 (the test also proves it can detect that bug);
+* the LR schedule warms up linearly over 3 % of the steps, decays by cosine to zero, and is
+  applied to **both** parameter groups;
+* the periodic dev sample is stratified by template and its floor is enforced;
 * the dev sample digest is order-independent and content-sensitive;
 * the loader refuses a file whose items are not of the expected split (training reads no test);
 * per-template metrics sum to the total and Brier is weighted correctly across option counts;
@@ -26,6 +31,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -51,7 +57,7 @@ ts = _load_cli()
 
 # --------------------------------------------------------------------------- fixtures/helpers
 class FakeItem:
-    """The item attributes the CLI's metrics and split check read (no schema validation)."""
+    """The item attributes the CLI's metrics, length proxy and split check read."""
 
     def __init__(
         self,
@@ -61,12 +67,21 @@ class FakeItem:
         source: str = "clinicaltrials",
         qtype: str = "choice",
         split: Split = Split.DEV,
+        state: str = "state",
+        question: str = "q?",
+        option_labels: tuple[str, ...] = ("yes", "no"),
     ) -> None:
+        from types import SimpleNamespace
+
         self.item_id = item_id
         self.template_id = template_id
         self.source = source
         self.qtype = qtype
         self.split = split
+        self.state = state
+        self.question = question
+        self.options = [SimpleNamespace(label=label) for label in option_labels]
+        self.n_options = len(option_labels)
 
 
 def scored_items(rows: list[tuple[str, str, str, str, list[str], list[float], int]]) -> ScoredItems:
@@ -151,8 +166,9 @@ def selector_for(tmp_path: Path, trainer: FakeTrainer, **kwargs) -> object:
         evals_path=tmp_path / "logs" / "dev_evals.jsonl",
         best_dir=tmp_path / "best",
         best_json_path=tmp_path / "best.json",
-        eval_sample={"per_qtype": 256, "path": str(tmp_path / "dev_eval_ids.json"),
-                     "sha256": "deadbeef"},
+        eval_sample={"per_template": 150, "min_eval_items": 2000,
+                     "by_template": {"t_choice": 2},
+                     "path": str(tmp_path / "dev_eval_ids.json"), "sha256": "deadbeef"},
         model_id="meddecide-0.8b-lora-pointer",
         print_fn=lambda _: None,
         **kwargs,
@@ -164,17 +180,17 @@ def read_jsonl(path: Path) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- the selection rule
-def test_brier_is_the_primary_key_not_macro_accuracy() -> None:
-    worse_brier_better_macro = {"brier": 0.31, "macro_accuracy": 0.90}
+def test_macro_accuracy_is_the_primary_key_not_brier() -> None:
+    better_macro_worse_brier = {"brier": 0.31, "macro_accuracy": 0.90}
     better_brier_worse_macro = {"brier": 0.30, "macro_accuracy": 0.40}
-    assert ts.is_better(better_brier_worse_macro, worse_brier_better_macro)
-    assert not ts.is_better(worse_brier_better_macro, better_brier_worse_macro)
+    assert ts.is_better(better_macro_worse_brier, better_brier_worse_macro)
+    assert not ts.is_better(better_brier_worse_macro, better_macro_worse_brier)
 
 
-def test_tie_on_brier_breaks_on_macro_accuracy() -> None:
-    assert ts.is_better({"brier": 0.30, "macro_accuracy": 0.60}, {"brier": 0.30, "macro_accuracy": 0.50})
+def test_tie_on_macro_accuracy_breaks_on_brier() -> None:
+    assert ts.is_better({"brier": 0.30, "macro_accuracy": 0.60}, {"brier": 0.31, "macro_accuracy": 0.60})
     assert not ts.is_better(
-        {"brier": 0.30, "macro_accuracy": 0.50}, {"brier": 0.30, "macro_accuracy": 0.60}
+        {"brier": 0.31, "macro_accuracy": 0.60}, {"brier": 0.30, "macro_accuracy": 0.60}
     )
 
 
@@ -197,7 +213,7 @@ def test_best_eval_matches_a_manual_minimum() -> None:
     ]
     best = ts.best_eval(rows)
     manual = min(rows, key=lambda r: ts.selection_key(r["metrics"]))
-    assert best is not None and best["step"] == manual["step"] == 1500
+    assert best is not None and best["step"] == manual["step"] == 2000  # highest macro accuracy
 
 
 # --------------------------------------------------------------------------- sample identity
@@ -293,7 +309,10 @@ def test_s9_recipe_is_pinned() -> None:
     assert config.shuffle_options is True
     assert config.log_every == 1  # a per-step loss/lr/tokens/s/memory log
     assert config.eval_every == 500
-    assert config.eval_items == 256
+    assert config.eval_items == 150  # per template; the sampler must reach >= 2,000 items
+    assert config.lr_schedule == "cosine" and config.warmup_fraction == 0.03
+    assert config.batch_chunk_factor == 100
+    assert config.eval_batch_size == 16 and config.eval_max_batch_tokens == 32768
     assert config.fit_temperature is True and config.temperature_per_qtype is True
     assert config.train_path.endswith("data/train/student_v0/train.jsonl")
     assert config.dev_path.endswith("data/train/student_v0/dev.jsonl")
@@ -302,7 +321,9 @@ def test_s9_recipe_is_pinned() -> None:
 def test_cli_defaults() -> None:
     args = ts.parse_args([])
     assert args.out == Path("outputs/student_v0/S9")
-    assert args.eval_every == 500 and args.eval_per_qtype == 256
+    assert args.eval_every == 500 and args.eval_per_template == 150
+    assert args.min_eval_items == 2000
+    assert args.eval_batch_size == 16 and args.eval_max_batch_tokens == 32768
     assert args.max_seconds is None and args.train_limit is None
     assert args.dry_run is False
 
@@ -324,7 +345,7 @@ def test_throughput_of_reports_items_tokens_and_peak_memory() -> None:
 
 
 # --------------------------------------------------------------------------- DevSelector
-def test_dev_selector_keeps_the_best_by_brier_and_writes_its_artifacts(tmp_path: Path) -> None:
+def test_dev_selector_keeps_the_best_by_the_s9_rule_and_writes_its_artifacts(tmp_path: Path) -> None:
     trainer = FakeTrainer([
         {"n": 545, "accuracy": 0.50, "macro_accuracy": 0.50, "brier": 0.40, "mean_nll": 0.7},
         {"n": 545, "accuracy": 0.55, "macro_accuracy": 0.55, "brier": 0.35, "mean_nll": 0.6},
@@ -354,7 +375,10 @@ def test_dev_selector_keeps_the_best_by_brier_and_writes_its_artifacts(tmp_path:
     assert best["selection_rule"] == ts.SELECTION_RULE
     assert best["dev_metrics_at_selection"]["brier"] == 0.35
     assert best["dev_eval"]["eval_every"] == 500
-    assert best["additional_analysis"]["macro_accuracy_best_step"] == 2000
+    assert best["dev_eval"]["by_template"] == {"t_choice": 2}
+    # the additional analysis reports what a Brier-first rule would have picked
+    assert best["additional_analysis"]["brier_best_step"] == 2000
+    assert best["additional_analysis"]["brier_best_brier"] == 0.35
     trajectory = selector.trajectory()
     assert [t["step"] for t in trajectory] == [500, 1000, 1500, 2000]
 
@@ -425,12 +449,13 @@ def test_main_dry_run_covers_the_data_path_without_a_model(tmp_path: Path) -> No
         "--train-path", str(train_path),
         "--dev-path", str(dev_path),
         "--out", str(out),
-        "--eval-per-qtype", "2",
+        "--eval-per-template", "3",
+        "--min-eval-items", "2",
         "--dry-run",
     ])
     assert code == 0
     started = json.loads((out / "dev_eval_ids.json").read_text(encoding="utf-8"))
-    assert started["n_items"] == 2 and started["sha256"]
+    assert started["n_items"] == 3 and started["sha256"]  # --eval-per-template 3, one template
     assert started["item_ids"] == sorted(started["item_ids"])  # written in a stable order
     assert not (out / "run.json").exists()
     assert not (out / "best.json").exists()
@@ -450,3 +475,182 @@ def test_main_dry_run_refuses_a_test_item_in_the_training_file(tmp_path: Path) -
             "--out", str(tmp_path / "S9b"),
             "--dry-run",
         ])
+
+
+# --------------------------------------------------------------------------- batching regression
+class FakeEncodeModel:
+    """A tokenizer stand-in: n_tokens is a purely local function of the item's text.
+
+    It never looks at the batch or at any global state, so any length trend in the *batch order*
+    can only come from ``iter_batches`` itself.
+    """
+
+    def __init__(self, *, chars_per_token: int = 4) -> None:
+        self.chars_per_token = chars_per_token
+
+    def encode_item(self, item, permutation=None, max_prompt_tokens: int = 8192):
+        from types import SimpleNamespace
+
+        text = item.state + item.question + "".join(o.label for o in item.options)
+        n_tokens = max(1, len(text) // self.chars_per_token)
+        return SimpleNamespace(
+            item_id=item.item_id,
+            n_tokens=min(n_tokens, max_prompt_tokens),
+            truncated=n_tokens > max_prompt_tokens,
+        )
+
+
+def _length_series(items, *, chunk_factor, epoch=0, seed=0, batch_size=8):
+    from meddecide.train.data import iter_batches
+
+    model = FakeEncodeModel()
+    tokens, chars = [], []
+    for _, batch in iter_batches(
+        model,
+        items,
+        batch_size=batch_size,
+        max_batch_tokens=8192,
+        max_prompt_tokens=8192,
+        augment_options=False,
+        epoch=epoch,
+        seed=seed,
+        chunk_factor=chunk_factor,
+    ):
+        tokens.append(sum(e.n_tokens for e in batch))
+        by_id = {i.item_id: i for i in items}
+        chars.append(sum(len(by_id[e.item_id].state) for e in batch) / len(batch))
+    return tokens, chars
+
+
+def _spearman(series):
+    from scipy.stats import spearmanr
+
+    return float(spearmanr(np.arange(len(series), dtype=float), np.asarray(series, float)).statistic)
+
+
+def _wide_length_items(n: int = 2400, *, seed: int = 0):
+    """Items whose lengths are randomly shuffled (so a global sort is visible as a trend)."""
+    rng = np.random.default_rng(seed)
+    lengths = rng.integers(20, 6000, size=n)
+    return [
+        FakeItem(f"i{i}", state="x" * int(lengths[i]), question="q?", option_labels=("yes",))
+        for i in range(n)
+    ]
+
+
+def test_iter_batches_has_no_length_curriculum() -> None:
+    """Regression test for the accidental length curriculum that invalidated S9 run 1.
+
+    The first batching implementation sorted the whole epoch by length *after* shuffling, so the
+    epoch ran shortest-to-longest: dev peaked mid-epoch and then degraded. Length bucketing must
+    now happen only inside shuffled chunks, so the Spearman |rho| between batch index and mean
+    batch length over one planned epoch stays below 0.1.
+    """
+    items = _wide_length_items()
+    tokens, chars = _length_series(items, chunk_factor=100)
+    assert len(tokens) > 200, "the fixture must produce enough batches for a trend test"
+    assert abs(_spearman(tokens)) < 0.1, f"batch token length trends with batch index: {_spearman(tokens):.3f}"
+    assert abs(_spearman(chars)) < 0.1, f"batch mean chars trend with batch index: {_spearman(chars):.3f}"
+
+    # sensitivity: on a length-ordered epoch the same statistic is strongly positive, so this
+    # test can detect the curriculum it guards against
+    assert _spearman(sorted(tokens)) > 0.9
+    # and the plan is invariant to a caller that hands items over already sorted by length (the
+    # old code inherited that order and produced the curriculum; the new one shuffles batches
+    # inside the chunk, so the order the optimiser sees carries no length signal)
+    sorted_items = sorted(items, key=lambda i: len(i.state))
+    sorted_tokens, _ = _length_series(sorted_items, chunk_factor=10**9)
+    assert abs(_spearman(sorted_tokens)) < 0.1
+
+    # deterministic for a given (seed, epoch)
+    again_tokens, _ = _length_series(items, chunk_factor=100)
+    assert again_tokens == tokens
+    from meddecide.train.data import plan_epoch_detail
+
+    plan = plan_epoch_detail(
+        FakeEncodeModel(), items, batch_size=8, max_batch_tokens=8192, max_prompt_tokens=8192,
+        augment_options=False, epoch=0, seed=0, chunk_factor=100,
+    )
+    assert plan.plan.n_items == len(items)
+    assert plan.plan.n_batches == len(plan.batch_tokens) == len(plan.batch_mean_chars)
+    assert sum(plan.batch_tokens) == plan.plan.real_tokens
+    assert sum(plan.batch_items) == plan.plan.n_items
+    assert plan.plan.n_batches > 0 and plan.plan.real_tokens > 0
+
+
+def test_length_trend_reports_the_cli_sanity_check() -> None:
+    rising = list(range(1, 401))
+    flat = [100 + (i % 7) for i in range(400)]
+    bug = ts.length_trend(rising, [float(x) for x in rising])
+    ok = ts.length_trend(flat, [float(x) for x in flat])
+    assert bug["rho_tokens"] > 0.9 and bug["head_ratio_tokens"] > 5
+    assert abs(ok["rho_tokens"]) < 0.1 and abs(ok["head_ratio_tokens"] - 1.0) < 0.05
+    assert bug["n_batches"] == 400 and bug["head_batches"] == 200
+
+
+# --------------------------------------------------------------------------- LR schedule
+def test_lr_schedule_warms_up_then_decays_by_cosine() -> None:
+    total, warmup = 1000, 30
+    assert ts.Trainer.lr_factor(1, total_steps=total, warmup_steps=warmup) == pytest.approx(1 / 30)
+    assert ts.Trainer.lr_factor(15, total_steps=total, warmup_steps=warmup) == pytest.approx(0.5)
+    assert ts.Trainer.lr_factor(30, total_steps=total, warmup_steps=warmup) == pytest.approx(1.0)
+    # cosine: halfway through the decay span the factor is 0.5, at the end it is 0
+    mid = warmup + (total - warmup) // 2
+    assert ts.Trainer.lr_factor(mid, total_steps=total, warmup_steps=warmup) == pytest.approx(
+        0.5, abs=0.02
+    )
+    assert ts.Trainer.lr_factor(total, total_steps=total, warmup_steps=warmup) == pytest.approx(0.0)
+    # monotone decrease after the warmup
+    factors = [
+        ts.Trainer.lr_factor(s, total_steps=total, warmup_steps=warmup)
+        for s in range(warmup, total + 1, 50)
+    ]
+    assert all(a >= b for a, b in pairwise(factors))
+
+
+def test_lr_schedule_applies_to_both_parameter_groups() -> None:
+    from types import SimpleNamespace
+
+    trainer = ts.Trainer.__new__(ts.Trainer)  # bypass __init__: the schedule needs no model
+    trainer.optimizer = SimpleNamespace(
+        param_groups=[
+            {"lr": 1.0e-3, "base_lr": 1.0e-3},  # the head
+            {"lr": 2.0e-4, "base_lr": 2.0e-4},  # the LoRA adapter
+        ]
+    )
+    schedule = {"total_steps": 1000, "warmup_steps": 30}
+    trainer._apply_lr(30, schedule)
+    assert [g["lr"] for g in trainer.optimizer.param_groups] == pytest.approx([1.0e-3, 2.0e-4])
+    trainer._apply_lr(515, schedule)
+    head, lora = (g["lr"] for g in trainer.optimizer.param_groups)
+    assert head < 1.0e-3 and lora < 2.0e-4
+    assert head / 1.0e-3 == pytest.approx(lora / 2.0e-4)  # the same factor on both
+    trainer._apply_lr(2, schedule)
+    assert [g["lr"] for g in trainer.optimizer.param_groups] == pytest.approx(
+        [1.0e-3 * 2 / 30, 2.0e-4 * 2 / 30]
+    )
+    before = [g["lr"] for g in trainer.optimizer.param_groups]
+    trainer._apply_lr(999, None)  # no schedule = no change (the pre-S9 behaviour)
+    assert [g["lr"] for g in trainer.optimizer.param_groups] == before
+
+
+# --------------------------------------------------------------------------- sampling
+def test_stratified_sample_by_caps_every_group_and_is_deterministic() -> None:
+    from meddecide.train.data import stratified_sample_by
+
+    items = (
+        [FakeItem(f"a{i}", template_id="tA") for i in range(10)]
+        + [FakeItem(f"b{i}", template_id="tB") for i in range(2)]
+    )
+    sample = stratified_sample_by(items, key="template_id", per_group=3, seed=0)
+    ids = [i.item_id for i in sample]
+    assert sum(1 for i in ids if i.startswith("a")) == 3
+    assert sum(1 for i in ids if i.startswith("b")) == 2  # a small group contributes all of it
+    assert ids == [i.item_id for i in stratified_sample_by(
+        items, key="template_id", per_group=3, seed=0
+    )]
+    assert ids == sorted(ids, key=ids.index)  # input order preserved
+    with pytest.raises(ValueError, match="per_group"):
+        stratified_sample_by(items, key="template_id", per_group=0, seed=0)
+    with pytest.raises(ValueError, match="no attribute"):
+        stratified_sample_by(items, key="not_a_field", per_group=1, seed=0)
