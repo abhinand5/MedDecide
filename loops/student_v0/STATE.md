@@ -31,7 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
-| S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
+| S8 | Evaluation path for trained models | yes | S7 | IN_PROGRESS | 2026-10-07T01:15:06Z | |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
 | S11 | Gate G1 evaluation | yes | S9, S3, S4 | PENDING | | |
@@ -78,17 +78,16 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S7 — training code: LoRA + pointer head** (started 2026-10-07T00:05:13Z)
-Working dir:    outputs/student_v0/S7/
+Task in flight: **S8 — evaluation path for trained models** (started 2026-10-07T01:15:06Z)
+Working dir:    outputs/student_v0/S8/
 
-- [x] 1. src/meddecide/model/{head.py,markers.py,meddecide_model.py}: frozen base + LoRA (r=16, 12 target modules, 11.6M trainable params) + per-option pointer head frozen base + LoRA (r=16, attention + MLP projections) + pointer head scoring each offered option from the hidden state at its key token and at the answer position
-- [x] 2. src/meddecide/train/{config.py,data.py,losses.py,smoke.py,temperature.py}: CE + 1.0*Brier, option shuffling, per-qtype temperature, batched inference CE + lambda*Brier loss (lambda 1.0), option-order augmentation per epoch, per-qtype temperature fitted on dev, batched inference returning the full distribution (+ expected level for score) and latency
-- [x] 3. **17 tests pass in my own run**, including all four acceptance tests; the byte-identity test carries a perturbation control so it cannot pass vacuously (1) proper distribution over offered options only, (2) option permutation permutes the output within tolerance, (3) adapter disabled -> greedy generation byte-identical to the untouched base on 20 fixed prompts, (4) overfit 64 items to >= 0.95 training accuracy
-- [x] 4. 200-step smoke run done (numbers **corrected** after the agent's interim report): raw per-step loss 2.152/0.955/0.512/1.657/1.465 at 1/50/100/150/200 is non-monotone **by construction** (length-sorted batches grow 847 -> 4,363 tokens); on a **fixed 64-item reference set** it is 2.413 -> 1.401 with accuracy 0.25 -> 0.61; **throughput 21.7 items/s over a full slice pass** (383 steps, 1.59M tokens, 94.3 s, peak 32.1 GB) -> **~163 min (2.7 h) per pass**, so S9's 4 h box fits **one pass**, not two. The earlier 73.1 items/s / 48.4 min/pass figures were measured on the short end of the plan and are retained in the artifact only as `..._optimistic` loss decreases; throughput (tokens/s, items/s) recorded to size S9's step count
-- [x] 5. acceptance check run: all six criteria PASS (the loss criterion with the non-monotonicity recorded)
-- [x] 6. self-audit written to SELF_AUDIT.md
-- [x] 7. CLAIMS rows appended (S061-S066)
-- [ ] 8. STATE updated, committed, pushed
+- [ ] 1. scripts/bench/run_student.py: score v0.2 with a trained checkpoint's pointer head, same item sets / filters / reporting as run_baselines_v0_1.py (--split test|dev, --only-template, --keep-screen, run_id, prediction log)
+- [ ] 2. metrics: accuracy, macro accuracy, Brier, ECE (per-item form, mixed option counts), expected-level error for score, latency, coverage
+- [ ] 3. D12: apply the checks that exist for this readout (accuracy CI vs chance, constant-answer) and mark the letter-readout-specific ones NOT APPLICABLE with the reason - never silently pass them
+- [ ] 4. --split dev fits per-qtype temperatures and writes them into the checkpoint dir
+- [ ] 5. acceptance: run on the S7 smoke checkpoint -> numbers come out; a dev run fits temperatures
+- [ ] 6. self-audit (R6) + CLAIMS rows
+- [ ] 7. STATE updated, committed, pushed
 ```
 
 ---
