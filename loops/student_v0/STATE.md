@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T16:02:00Z`
+Last updated (UTC): `2026-10-07T16:27:22Z`
 Iterations so far: `1`
 
 ---
@@ -242,6 +242,13 @@ Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == toke
   - **Why it matters for the divergence (hypothesis, prose, unproven):** a forward pass whose logits depend on batch composition at the 1e-2 scale means gradients inherit that batch-dependent noise, which is a plausible contributor to the grad-norm spikes; it is *not* established as the cause.
 - **Arms so far:** `arms/baseline/` and `arms/a_low_lr/` exist (2,000 steps each, `--eval-every 50`); a further arm is on the GPU now (2.1 GB footprint). Each arm reports train-loss slope, grad-norm distribution (p50/p95/max, pre-clip) and dev macro on the same fixed sample; `diag.json`/`diag.md` will hold the comparison table. `RUN_NOTES.md` is the handover doc.
 - **Not yet answered:** which batches spike and against which max length/templates (arm b), the LoRA-rank-8 arm (d), and the chosen config. Then either **run 3** (checkpoint at every dev eval, per the operator) or, if nothing is stable inside the timebox, **stop and report** so the ADVISORY section 2 fallback applies (skip S10, S11 on the best available checkpoint, diagnosis as the loop's main finding).
+
+### S9-diag — KEY FINDING: the trained head's logits depend on batch composition (padding), far beyond precision noise — 2026-10-07T16:27:22Z
+- **Padding check at the *trained* checkpoint (run 2's), tolerance 1e-3:** fresh/untrained head - bf16 **8.00e-03 FAIL**, fp32 **3.97e-04 PASS** (precision-level, as recorded earlier). **Trained head - bf16 9.45e-02 FAIL, fp32 2.51e-02 FAIL**, and the uniform-batch control is 1.40e-03 in fp32 (also above tolerance). Artifacts: `padding_check_fresh{,_fp32}.json`, `padding_check_trained{,_fp32}.json`.
+- **What it means:** for the untrained head this is a bf16 precision effect; for the **trained** head it is a **real batch-composition dependence in fp32 too** (25x the tolerance), i.e. the same item scored alone and inside a left-padded batch gives *different head logits*, and training **amplified** the discrepancy by ~60x. Mechanism not yet established (candidates: the `key_end` marker positions under left padding, or the head exploiting padded positions as a degenerate shortcut). Either way it is a **correctness bug in the padding path, not merely a numerical one**, and a plausible contributor to the divergence - stated as a hypothesis, with the numbers above as the evidence.
+- **Arm baseline (run-2 recipe on the fixed 20k subset), 2,000 steps:** loss 1.053 -> 0.954 over the last 500 steps, slope **-0.2756 +/- 0.1558** per 1k steps (decreasing, slowly), pre-clip grad **p50 6.76 / p95 36.25 / max 971.9**, **8 steps with grad > 100**, dev macro 0.599 / 0.600. Arms `baseline`, `a_low_lr`, `b_cap2048`, `d_rank8` have all run; one more job is in flight.
+- **Spiking steps are longer batches:** mean batch max-len **3,760 on spike steps vs 2,190 overall**, top templates in spikes ct_randomised_noul_v1 21 %, fda_class_choice_v1 18 %, ct_healthy_volunteers_noul_v1 18 %, medquad_routing_v1 18 % - i.e. the instability tracks **length**, which is consistent with the padding bug above.
+- **Consequence for the loop:** a stable recipe cannot be chosen while the head's logits depend on batch composition; the padding path must be fixed (or the head made padding-invariant) before run 3 is worth 4 h. The full arm table and the diag agent's verdict are still coming; `outputs/student_v0/S9_diag/{diag.md,diag.json,RUN_NOTES.md}`.
 
 ## 5. Blocked items
 
