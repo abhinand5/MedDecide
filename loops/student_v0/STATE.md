@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T21:38:28Z`
+Last updated (UTC): `2026-10-07T21:38:40Z`
 Iterations so far: `1`
 
 ---
@@ -303,6 +303,13 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **What the converged model actually does:** it is *better* on the trained structured-gold templates (ct_claim_set 0.9417 -> 0.9995, fda_route_claim 0.9595 -> 0.9975, scifact 0.6433 -> 0.9167, ct_healthy 0.6540 -> 0.8340, fda_class_v2 0.9734 -> 0.9898) and *much worse* on knowledge and held-out cells (medqa 0.3928 -> 0.2922, mmlu 0.5095 -> 0.3046, pubmedqa 0.6373 -> 0.5430, **fda_boxed_warning 0.6215 -> 0.2068 (below chance, held out)**, **pubmed_humans 0.7242 -> 0.4673 (held out)**, ct_arm_role 0.6165 -> 0.5020, pubmed_mesh_v2 0.9685 -> 0.8558). It is the more **training-mix-specialised** model; its dev accuracy/Brier win comes from the mix's frequent templates.
 - **Correction to my own earlier reasoning (important):** I twice framed the macro-first rule as "selecting an undertrained snapshot" and treated the converged model as the likely-better one. **The test battery contradicts that**: the rule's pick is better on *both* tiers and passes 4 more gates on fresh. The operator's ruling ("the selection rule is not the problem") is **confirmed on evidence**, and the ADVISORY's macro-first rule is doing exactly what it is for - finding the better-*balanced* model rather than the more mix-specialised one. My framing is superseded here, not quietly dropped.
 - **S10 (Base ablation) LAUNCHED 21:33:32Z:** `train_student.py --base-model Qwen/Qwen3.5-0.8B-Base --model-id meddecide-0.8b-base-lora-pointer --max-seconds 14798 --eval-every 500 --save-every-eval --lora-rank 8 --out outputs/student_v0/S10`, **pid 139222**, deadline **01:40Z**, checkpoints per dev eval, monitor writes `logs/poll.log`, and `run_student.py --split test --tag test` runs automatically on `best/` when training exits. Handover: `S10/RUN_NOTES.md`. New `--base-model` CLI flag; ruff clean, 279 non-GPU tests pass.
+
+### S11 — execution plan (what the real G1 run still needs) — 2026-10-07T21:38:40Z
+- **Inputs that exist:** MedDecide official = `outputs/student_v0/S9_run3/preds_meddecide-0p8b-lora-pointer__test.jsonl` (run `meddecide-0p8b-lora-pointer:2026-10-07T20:58:27Z`, 13,521 tier-1 + 23,768 fresh, coverage 1.00); Base ablation = S10's preds when it lands (`outputs/student_v0/S10/`, training now, deadline 01:40Z, its own auto test eval).
+- **Input that does NOT exist: a full-v0.2 zero-shot Qwen3.5-0.8B run.** S1/S3 hold only **per-template** logs (`outputs/student_v0/S1/preds_qwen3p5-0p8b__<template>.jsonl`, `S3/...`), so G1 cannot pair them against a model scored over the whole test set. **One GPU job is needed** after S10 exits: `uv run python scripts/bench/run_baselines_v0_1.py --model Qwen/Qwen3.5-0.8B --tier1 data/bench/v0.2/tier1 --fresh data/bench/v0.2/fresh --keep-screen data/bench/v0.2/screen.json --out outputs/student_v0/S11 --run-id s11_zeroshot0p8b` (same filters as the trained-model runs so the item sets match).
+- **JEV-9B on v0.2 is `NOT MEASURED`** unless commissioned: F7 measured it on **v0.1**, not v0.2. The ADVISORY's G1 list says "JEV-9B **where measured**", so G1 may legitimately run without it - but the report must say so explicitly rather than implying the comparison exists. If time permits, the same `run_baselines_v0_1.py` invocation with `--model` pointing at the JEV-9B checkpoint would fill it in (one more GPU job, ~30-40 min).
+- **Then:** `uv run python scripts/bench/g1.py --models meddecide=<S9 preds> --models base=<S10 preds> --models zeroshot=<S11 preds> [--models jev9b=...] --tier1 data/bench/v0.2/tier1 --seed 0 --resamples 1000 --out loops/student_v0/g1.md --json outputs/student_v0/S11/g1.json` (23 tests already pass; the strict slice reads `data/bench/v0.2/fresh/manifest.json`, the D14 held-out list is fixed, D12-failing cells are excluded from the verdict).
+- **Then S12** (byte-identity + audit read-back) and **S14** (findings, CLAIMS roll-up, `Loop status: STOPPED`).
 
 ## 5. Blocked items
 
