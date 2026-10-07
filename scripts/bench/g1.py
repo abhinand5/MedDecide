@@ -1134,14 +1134,14 @@ def render_report(report: dict[str, Any]) -> str:
         "| set | model | items | coverage | D12-excluded | micro acc | micro 95% CI | majority "
         "| macro acc | macro 95% CI | mean Brier | Brier 95% CI |",
     )
-    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|---|---|")
     for set_name, _ in ITEM_SETS:
         for model in report["models"]:
             stats = report["model_stats"][set_name][model]
             if stats is None:
                 lines.append(
                     f"| `{set_name}` | `{model}` | 0 | — | — | NOT MEASURED | — | — | — "
-                    "| — | — | — | — |"
+                    "| — | — | — |"
                 )
                 continue
             lines.append(
