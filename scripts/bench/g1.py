@@ -1556,6 +1556,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             not_measured.append(f"{source.label}: {source.missing_reason}")
     for (set_name, baseline), reason in comparison_missing.items():
         not_measured.append(f"comparison {set_name} / {baseline}: {reason}")
+    for set_name, by_baseline in comparisons.items():
+        for baseline, comparison in by_baseline.items():
+            if comparison["n_items"] == 0:
+                not_measured.append(
+                    f"comparison {set_name} / {baseline}: no items scored by both models in "
+                    f"this set (reference scored {comparison['n_reference_scored']}, baseline "
+                    f"{comparison['n_baseline_scored']}, before the intersection and D12 "
+                    "exclusions)"
+                )
 
     set_sizes = {
         set_name: (
@@ -1590,7 +1599,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     method_notes = [
         "reused: `meddecide.eval.predlog.read_prediction_log` — dedupe by `(run_id, item_id)`, "
-        "last row wins; one run per model is analysed (the run with the most distinct items).",
+        "last row wins; one run per model is analysed (the run with the most distinct items; "
+        "ties go to the lexicographically last, i.e. the later, run id).",
         "reused: `meddecide.eval.metrics.accuracy` (micro accuracy + majority baseline), "
         "`metrics.macro_accuracy` (per-template class recall), `metrics.brier_score`, "
         "`metrics.bootstrap_ci` (plain item bootstrap for the micro CI).",

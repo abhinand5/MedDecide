@@ -547,6 +547,17 @@ def test_missing_baseline_file_is_not_measured_and_the_reason_is_named(tmp_path)
     assert "| **NOT MEASURED** |" in text
 
 
+def test_two_identical_prediction_files_give_exactly_zero_difference(tmp_path):
+    """The literal acceptance case: same file twice -> difference 0, CI containing 0."""
+    items = _mini_corpus()
+    rows = [make_row(item, correct=True) for item in items]
+    base_rows = [dict(row, model_id="base") for row in rows]
+    text = run_cli(tmp_path, items, {"meddecide": rows, "zeroshot": base_rows})
+    assert "| macro accuracy | 1.0000 | 1.0000 | 0.0000 | [0.0000, 0.0000] |" in text
+    assert "| mean Brier (lower is better) | 0.0000 | 0.0000 | 0.0000 | [0.0000, 0.0000] |" in text
+    assert "accuracy CI lower bound 0.0000 is not > 0" in text
+
+
 def _dominating_corpus() -> list[dict]:
     """Two templates x 10 four-option items: enough headroom for a wide, unambiguous win."""
     items = []
