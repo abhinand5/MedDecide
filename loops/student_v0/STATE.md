@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T20:59:46Z`
+Last updated (UTC): `2026-10-07T20:59:56Z`
 Iterations so far: `1`
 
 ---
@@ -286,6 +286,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **This is the loop's core artifact:** a stable, complete full-pass 0.8B run under the fixed pipeline (chunked bucketing, warmup 3 % + cosine, LoRA r=8, macro-first selection, a checkpoint per dev eval). Post-training the CLI is writing the temperature fit and the per-template dev report (weights loading at 2026-10-07T20:44:35Z); the test evaluation follows, then S10/S11.
 - **Finalisation written (2026-10-07T20:59:46Z):** `temperature.json` -> **choice T=1.2190** (n=10,967, FITTED), **noul T=2.8959** (n=5,454, FITTED), **score `NOT FITTED - too few dev items (n=33 < 50)`** with the value beside it labelled a diagnostic on that small sample (as required - the qtype has no training items either). Note the contrast with run 2's fits (choice 4.27 / noul 11.61): run 3 needs **far less sharpening**, consistent with its much lower Brier. Also written: `dev_final.json`, `run.json`. `best.json` -> step **1000**, rule: highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) broken by lower dev Brier, then .
 - **Test evaluation running** (`run_student.py --checkpoint outputs/student_v0/S9_run3/...`): the tier-1/fresh cells with coverage and gate status land next, then S10.
+- **Selection-metric outcome, recorded not worked around (2026-10-07T20:59:56Z):** `best.json` selects **step 1000** again - the ADVISORY's macro-first rule picks an early snapshot because macro accuracy on the balanced dev sample peaks early (run 2's step-1000 macro was 0.7006, higher than anything later). The rule is **not** changed (operator ruling, R8), and the official test evaluation runs on `best/` = step 1000. Because run 3 saved **a checkpoint at every dev eval**, I have asked the agent to additionally evaluate the **converged** checkpoint (~step 41,000) on **identical item sets** and report it as an explicitly labelled **additional** analysis (R4) - never substituted for the official model. It will also quote the step-1000 vs best-late dev rows so the report shows *why* the rule chose what it chose.
 - **Attribution caveat still stands:** which single change (schedule vs rank) was decisive is **not measured** - the diag ran arms one at a time on a subset that understates length pressure. S14 states it that way.
 
 ## 5. Blocked items
