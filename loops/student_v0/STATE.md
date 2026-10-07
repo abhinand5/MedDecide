@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T20:59:56Z`
+Last updated (UTC): `2026-10-07T21:18:10Z`
 Iterations so far: `1`
 
 ---
@@ -288,6 +288,15 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Test evaluation running** (`run_student.py --checkpoint outputs/student_v0/S9_run3/...`): the tier-1/fresh cells with coverage and gate status land next, then S10.
 - **Selection-metric outcome, recorded not worked around (2026-10-07T20:59:56Z):** `best.json` selects **step 1000** again - the ADVISORY's macro-first rule picks an early snapshot because macro accuracy on the balanced dev sample peaks early (run 2's step-1000 macro was 0.7006, higher than anything later). The rule is **not** changed (operator ruling, R8), and the official test evaluation runs on `best/` = step 1000. Because run 3 saved **a checkpoint at every dev eval**, I have asked the agent to additionally evaluate the **converged** checkpoint (~step 41,000) on **identical item sets** and report it as an explicitly labelled **additional** analysis (R4) - never substituted for the official model. It will also quote the step-1000 vs best-late dev rows so the report shows *why* the rule chose what it chose.
 - **Attribution caveat still stands:** which single change (schedule vs rank) was decisive is **not measured** - the diag ran arms one at a time on a subset that understates length pressure. S14 states it that way.
+
+### S9 run 3 — OFFICIAL TEST CELLS (selected step 1000) — 2026-10-07T21:18:10Z
+- **Run facts:** full pass, `steps=44152 stopped_early=None wall=13867s items=212481 items/s=22.64 tokens/s=21478`, GPU peak 37.98 GB, **88 dev evals / 88 checkpoints**. Selection rule verbatim: *"highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) broken by lower dev Brier, then by the earlier step"*. Full-dev (16,454 items, calibrated): **acc 0.7497 / macro 0.6653 / Brier 0.3215 / NLL 0.5597**.
+- **Why step 1000, in two rows (measured):** step 1000 n=2019 acc 0.742942 / **macro 0.679832** / brier 0.349875; step 39,500 n=2019 acc **0.754829** / macro 0.665220 / brier **0.317572**. The rule picks step 1000 because 0.6798 is the **maximum macro of all 88 evals**; the converged checkpoints win on micro accuracy (+0.8 pt) and Brier (-0.032) but sit below on macro. **No rule change, no substitution.**
+- **Tier 1: 13,521 items, coverage 1.00, 7/8 gates PASS** - medmcqa 0.3619, medqa 0.3928, medquad_routing **0.9978**, mmlu 0.5095, nfcorpus_relevant_noul 0.6507, pubmedqa 0.6373 (macro 0.4849), scifact 0.6433; the single failure is `nfcorpus_graded_score_v2` = **`READOUT_FAIL - constant_answer`** (so no accuracy is presented for it).
+- **Fresh: 23,768 items, coverage 1.00, 11/11 gates PASS, 0 additional-check failures.** Held-out (D14): ct_arm_role 0.6165, **ct_phase 0.2555**, fda_boxed_warning 0.6215, pubmed_humans 0.7242. Seen: ct_claim_set 0.9417, ct_randomised 0.8500, ct_healthy 0.6540, fda_class_v2 0.9734, fda_route_claim 0.9595, pubmed_mesh_v2 0.9685, pubmed_observational 0.8786.
+- **Looks-too-good flags for S11/S14 (not gains yet):** ct_claim_set 0.9417 vs zero-shot 0.2517, fda_class_v2 0.9734 vs 0.8106, pubmed_mesh_v2 0.9685, **medquad_routing 0.9978** vs family 0.9346-0.9894. The agent's explanation (readout effect + same-template training, with the four held-out cells as the leakage control) must be **re-derived in the run-3 audit**, not asserted - and note the held-out cells are *not* uniformly improved (ct_phase 0.2555 is below its 0.3455 zero-shot), which is what a leakage-free result looks like.
+- **Instability detail recorded:** one **196,688** pre-clip grad spike at step 16,995 (a single 7,794-token `fda_route_claim_noul_v1` item, loss 15.96); clipping bounded it and the run did **not** diverge (run 2's failure was a *sustained* rise: p50 10.5 -> 40.8 after 18k; run 3's p50 fell to ~2.6). The length-driven tail is still real, just survivable under this recipe.
+- **Next:** the converged checkpoint (step 44,000) evaluation as a labelled additional analysis (running, `--tag converged`, `ADDITIONAL_ANALYSIS_note.json`), then **S10** Base ablation (Qwen3.5-0.8B-Base, same recipe, `--save-every-eval`, same dev sample, 4 h box).
 
 ## 5. Blocked items
 
