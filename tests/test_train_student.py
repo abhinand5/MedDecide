@@ -654,3 +654,82 @@ def test_stratified_sample_by_caps_every_group_and_is_deterministic() -> None:
         stratified_sample_by(items, key="template_id", per_group=0, seed=0)
     with pytest.raises(ValueError, match="no attribute"):
         stratified_sample_by(items, key="not_a_field", per_group=1, seed=0)
+
+
+# --------------------------------------------------------------------------- S9-diag additions
+def test_compare_logits_reports_the_worst_item() -> None:
+    alone = [np.array([0.0, 1.0]), np.array([2.0, 2.0, 2.0])]
+    batched = [np.array([0.0, 1.0 + 5e-4]), np.array([2.0, 2.0, 2.0 + 4e-3])]
+    out = ts.compare_logits(alone, batched)
+    assert out["n_items"] == 2
+    assert out["max_abs_delta"] == pytest.approx(4e-3)
+    assert out["per_item_max_abs_delta"][0] == pytest.approx(5e-4)
+    with pytest.raises(ValueError, match="same number of items"):
+        ts.compare_logits(alone, alone[:1])
+    with pytest.raises(ValueError, match="nothing to compare"):
+        ts.compare_logits([], [])
+
+
+def test_diag_flags_override_the_recipe_one_change_at_a_time() -> None:
+    base = ts.parse_args(["--config", str(REPO / "configs" / "student_v0.yaml")])
+    cfg = ts.build_config(base)
+    assert (cfg.lr, cfg.lora_lr, cfg.lora.r, cfg.lora.alpha) == (1e-3, 2e-4, 16, 32)
+
+    arm_a = ts.build_config(ts.parse_args([
+        "--config", str(REPO / "configs" / "student_v0.yaml"),
+        "--head-lr", "1e-4", "--lora-lr", "5e-5",
+    ]))
+    assert (arm_a.lr, arm_a.lora_lr) == (1e-4, 5e-5)
+    assert (arm_a.lora.r, arm_a.lora.alpha) == (16, 32)  # nothing else moved
+
+    arm_b = ts.build_config(ts.parse_args([
+        "--config", str(REPO / "configs" / "student_v0.yaml"),
+        "--max-prompt-tokens", "2048",
+    ]))
+    assert arm_b.max_prompt_tokens == 2048 and arm_b.max_batch_tokens == 8192
+
+    arm_d = ts.build_config(ts.parse_args([
+        "--config", str(REPO / "configs" / "student_v0.yaml"), "--lora-rank", "8",
+    ]))
+    assert arm_d.lora.r == 8 and arm_d.lora.alpha == 16  # alpha/r ratio preserved (32/16)
+    with pytest.raises(ValueError, match="lora-rank"):
+        ts.build_config(ts.parse_args([
+            "--config", str(REPO / "configs" / "student_v0.yaml"), "--lora-rank", "0",
+        ]))
+
+
+def test_save_every_eval_writes_one_checkpoint_per_dev_eval(tmp_path: Path) -> None:
+    trainer = FakeTrainer([
+        {"n": 545, "accuracy": 0.50, "macro_accuracy": 0.50, "brier": 0.40, "mean_nll": 0.7},
+        {"n": 545, "accuracy": 0.51, "macro_accuracy": 0.60, "brier": 0.39, "mean_nll": 0.7},
+    ])
+    selector = selector_for(tmp_path, trainer, save_every_eval=True,
+                            checkpoints_dir=tmp_path / "checkpoints")
+    selector(500)
+    selector(1000)
+    assert (tmp_path / "checkpoints" / "step_500").exists()
+    assert (tmp_path / "checkpoints" / "step_1000").exists()
+    assert [c["step"] for c in selector.eval_checkpoints] == [500, 1000]
+    rows = [r for r in read_jsonl(tmp_path / "logs" / "dev_evals.jsonl") if r["event"] == "dev_eval"]
+    assert [Path(r["checkpoint"]).name for r in rows] == ["step_500", "step_1000"]
+
+
+def test_step_record_carries_the_batch_composition() -> None:
+    from meddecide.train.trainer import StepRecord
+
+    record = StepRecord(
+        step=1, epoch=0, loss=1.0, ce=0.5, brier=0.5, accuracy=0.5, n_items=8, n_options=20,
+        real_tokens=1000, padded_tokens=1200, elapsed_s=0.2, grad_norm=3.0, gpu_peak_gb=20.0,
+        lr_head=1e-3, lr_lora=2e-4, max_item_tokens=400, mean_item_tokens=125.0,
+        template_ids=["t_a", "t_b"],
+    )
+    data = record.to_dict()
+    assert data["max_item_tokens"] == 400 and data["mean_item_tokens"] == 125.0
+    assert data["template_ids"] == ["t_a", "t_b"]
+    # older records (no composition) still deserialise with the defaults
+    empty = StepRecord(
+        step=1, epoch=0, loss=1.0, ce=0.5, brier=0.5, accuracy=0.5, n_items=8, n_options=20,
+        real_tokens=1000, padded_tokens=1200, elapsed_s=0.2, grad_norm=3.0, gpu_peak_gb=20.0,
+        lr_head=1e-3, lr_lora=2e-4,
+    )
+    assert empty.to_dict()["template_ids"] == []

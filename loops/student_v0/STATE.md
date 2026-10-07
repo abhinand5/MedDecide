@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T15:41:32Z`
+Last updated (UTC): `2026-10-07T16:02:00Z`
 Iterations so far: `1`
 
 ---
@@ -236,6 +236,12 @@ Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == toke
 - **Artifacts finalised (they describe a diverged run's step-1000 checkpoint, NOT the recipe):** `temperature.json` choice 4.2743 (n=10,967), noul 11.6125 (n=5,454), **score NOT FITTED (n=33 < 50) -> shipped uncalibrated**; `dev_final.json` full S6 dev 16,454 items acc 0.7283 / macro 0.7056 / Brier 0.3360; test cells tier 1 **0.6175** (13,521 items, 7/8 PASS) and fresh **0.8108** (23,768, 9/11 PASS + 1 additional-check fail), 3 cells `READOUT_FAIL - constant_answer`. Leakage control: above the zero-shot letter baseline on same-template fresh cells, **below it on all four D14 held-out templates** -> readout effect + same-template training, not leakage.
 - **Next per the operator: S9-diag** (GPU timebox **3 h**): 2,000-step runs on a fixed 20k-item subset, one change at a time, each reporting train-loss slope, grad-norm distribution and dev macro on the same dev sample - (a) head LR 1e-4 / LoRA 5e-5; (b) `max_prompt_tokens` 2048 with per-batch grad norm logged against batch max length and templates; (c) **padding check**: the same item alone vs inside a left-padded batch must give the same head logits within 1e-3 (Qwen3.5 linear-attention + left padding); (d) LoRA rank 8. Then the most stable config -> **S9 run 3 saving a checkpoint at every dev eval** -> S10 -> S11. **If no config is stable in the timebox: skip S10, run S11 on the best available checkpoint, and close the loop with the diagnosis as the main finding (ADVISORY section 2, "diagnose the recipe at 0.8B").**
 - Run 1's artifacts remain in `outputs/student_v0/S9_run1_sorted/`; run 2's in `outputs/student_v0/S9/`.
+
+### S9-diag — running (GPU timebox 3 h from ~15:45Z) — 2026-10-07T16:02:00Z
+- **Padding check (operator's probe (c)) — RESULT: it is a bf16 precision effect, not a positional bug.** Same item scored alone vs inside a left-padded batch, 8 items, tolerance 1e-3: **bf16 max |delta| = 0.0080 / mean 0.0041 -> FAILS the tolerance**; **fp32 max |delta| = 0.00040 / mean 0.00018 -> within tolerance**. So left padding with Qwen3.5's linear-attention layers is *not* semantically broken; bf16 accumulation across a padded batch perturbs head logits at the ~1e-2 scale. Artifacts: `padding_check_fresh.json`, `padding_check_fresh_fp32.json`.
+  - **Why it matters for the divergence (hypothesis, prose, unproven):** a forward pass whose logits depend on batch composition at the 1e-2 scale means gradients inherit that batch-dependent noise, which is a plausible contributor to the grad-norm spikes; it is *not* established as the cause.
+- **Arms so far:** `arms/baseline/` and `arms/a_low_lr/` exist (2,000 steps each, `--eval-every 50`); a further arm is on the GPU now (2.1 GB footprint). Each arm reports train-loss slope, grad-norm distribution (p50/p95/max, pre-clip) and dev macro on the same fixed sample; `diag.json`/`diag.md` will hold the comparison table. `RUN_NOTES.md` is the handover doc.
+- **Not yet answered:** which batches spike and against which max length/templates (arm b), the LoRA-rank-8 arm (d), and the chosen config. Then either **run 3** (checkpoint at every dev eval, per the operator) or, if nothing is stable inside the timebox, **stop and report** so the ADVISORY section 2 fallback applies (skip S10, S11 on the best available checkpoint, diagnosis as the loop's main finding).
 
 ## 5. Blocked items
 

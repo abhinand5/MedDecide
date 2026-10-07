@@ -262,6 +262,97 @@ def dev_report(scored: ScoredItems, *, temperature: dict[str, float] | None = No
     }
 
 
+def compare_logits(alone: Sequence[Any], batched: Sequence[Any]) -> dict[str, Any]:
+    """Max/mean absolute head-logit difference between two scorings of the same items.
+
+    ``alone[i]`` and ``batched[i]`` are one item's logit vector from the single-item run and from
+    the batched run; this is the arithmetic the padding probe is built on.
+    """
+    if len(alone) != len(batched):
+        raise ValueError("the two scorings must hold the same number of items")
+    if not alone:
+        raise ValueError("nothing to compare")
+    deltas = []
+    for i, (a, b) in enumerate(zip(alone, batched, strict=True)):
+        row_a = np.asarray(a, dtype=np.float64)
+        row_b = np.asarray(b, dtype=np.float64)
+        if row_a.shape != row_b.shape:
+            raise ValueError(
+                f"item {i}: {row_a.shape[0]} options in one scoring and {row_b.shape[0]} in the "
+                f"other — the two scorings are not aligned"
+            )
+        deltas.append(float(np.max(np.abs(row_a - row_b))))
+    return {
+        "n_items": len(deltas),
+        "max_abs_delta": max(deltas),
+        "mean_abs_delta": float(np.mean(deltas)),
+        "per_item_max_abs_delta": deltas,
+    }
+
+
+def padding_check(
+    model: Any,
+    items: Sequence[Any],
+    *,
+    n_items: int = 8,
+    tolerance: float = 1e-3,
+    max_prompt_tokens: int | None = None,
+) -> dict[str, Any]:
+    """Arm (c): is left padding sound for this architecture?
+
+    The same item is scored (i) alone, (ii) inside a left-padded batch of items with very
+    different lengths, and (iii) inside a *uniform-length* batch (the same item repeated), which
+    isolates batch-shape numerical noise from padding leakage. Qwen3.5 mixes softmax and
+    linear-attention layers; a masked softmax layer ignores pads, but a linear-attention mixer can
+    carry pad state into the real tokens, in which case (ii) differs from (i) far above (iii).
+    """
+    if len(items) < 2:
+        raise ValueError("the padding check needs at least two items")
+    order = sorted(range(len(items)), key=lambda i: (len(items[i].state) + len(items[i].question)))
+    picks = sorted({order[round(k * (len(order) - 1) / max(1, n_items - 1))] for k in range(n_items)})
+    sample = [items[i] for i in picks]
+    kwargs = {
+        "max_prompt_tokens": max_prompt_tokens,
+        "max_batch_tokens": 10**9,  # force one batch, so the only difference is the padding
+    }
+    alone = model.score_items(sample, batch_size=1, **kwargs)
+    together = model.score_items(sample, batch_size=len(sample), **kwargs)
+    longest = max(sample, key=lambda i: len(i.state))
+    longest_index = sample.index(longest)
+    uniform = model.score_items([longest] * len(sample), batch_size=len(sample), **kwargs)
+    padded = compare_logits(alone.logits, together.logits)
+    # the uniform batch holds one item repeated: every row is that item, so compare its alone
+    # scoring with row 0 (this is the batch-shape noise floor, not a padding effect)
+    control = compare_logits(
+        [alone.logits[longest_index]], [uniform.logits[0]]
+    )
+    verdict = "PASS" if padded["max_abs_delta"] <= tolerance else "FAIL"
+    return {
+        "task": "S9-diag",
+        "kind": "padding_check",
+        "at_utc": utcnow(),
+        "tolerance": tolerance,
+        "n_items": len(sample),
+        "items": [
+            {
+                "item_id": sample[j].item_id,
+                "template_id": sample[j].template_id,
+                "prompt_tokens": int(alone.prompt_tokens[j]),
+                "max_abs_delta_padded": padded["per_item_max_abs_delta"][j],
+            }
+            for j in range(len(sample))
+        ],
+        "alone_vs_left_padded_batch": padded,
+        "alone_vs_uniform_batch_control": control,
+        "verdict": verdict,
+        "interpretation": (
+            "PASS: left padding does not change the head logits beyond the tolerance. FAIL: the "
+            "architecture (linear-attention layers are the suspect) carries pad state into the "
+            "real tokens, so every mixed-length batch is affected."
+        ),
+    }
+
+
 def write_json(path: Path, payload: Any) -> Path:
     """Write JSON atomically (tmp + replace), so a killed process never leaves a half file."""
     path = Path(path)
@@ -370,6 +461,8 @@ class DevSelector:
         best_json_path: Path,
         eval_sample: dict[str, Any],
         model_id: str,
+        save_every_eval: bool = False,
+        checkpoints_dir: Path | None = None,
         print_fn: Callable[[str], None] = print,
     ) -> None:
         self.trainer = trainer
@@ -380,7 +473,10 @@ class DevSelector:
         self.best_json_path = Path(best_json_path)
         self.eval_sample = dict(eval_sample)
         self.model_id = model_id
+        self.save_every_eval = bool(save_every_eval)
+        self.checkpoints_dir = Path(checkpoints_dir) if checkpoints_dir else None
         self.print = print_fn
+        self.eval_checkpoints: list[dict[str, Any]] = []
         self.evals: list[dict[str, Any]] = []
         self.best_step: int | None = None
         self.best_metrics: dict[str, Any] | None = None
@@ -423,6 +519,17 @@ class DevSelector:
             "best_step_so_far": step if improved else self.best_step,
         }
         self.evals.append(row)
+        if self.save_every_eval:
+            # a checkpoint per dev eval, so a later reselection never needs a fresh run
+            target = (self.checkpoints_dir or (self.best_dir.parent / "checkpoints")) / (
+                f"step_{step}"
+            )
+            try:
+                self.trainer.save_checkpoint(target)
+                row["checkpoint"] = str(target)
+                self.eval_checkpoints.append({"step": step, "path": str(target), "metrics": metrics})
+            except Exception as exc:  # recorded, never fatal
+                row["checkpoint_error"] = f"{type(exc).__name__}: {exc}"
         append_jsonl(self.evals_path, row)
         if improved:
             error = None
@@ -541,7 +648,34 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=None,
                         help="default: the config's batch_size (8)")
     parser.add_argument("--train-limit", type=int, default=None,
-                        help="debug: read only the first N training items (recorded in run.json)")
+                        help="debug: read only N training items (recorded in run.json)")
+    parser.add_argument("--train-stride", type=int, default=1,
+                        help="read every Nth training line; with --train-limit this is the fixed "
+                             "subset the S9-diag arms share")
+    parser.add_argument("--head-lr", type=float, default=None,
+                        help="override the config's peak head LR (config.lr)")
+    parser.add_argument("--lora-lr", type=float, default=None,
+                        help="override the config's peak LoRA LR (config.lora_lr)")
+    parser.add_argument("--lora-rank", type=int, default=None,
+                        help="override LoRA r; alpha is scaled to keep the config's alpha/r ratio")
+    parser.add_argument("--max-prompt-tokens", type=int, default=None,
+                        help="override the prompt cap (config.max_prompt_tokens)")
+    parser.add_argument("--save-every-eval", action="store_true",
+                        help="write one checkpoint per dev eval into <out>/checkpoints/step_<n>")
+    parser.add_argument("--diag-note", default=None,
+                        help="free-text label recorded with the run (which diagnostic arm this is)")
+    parser.add_argument("--padding-check", action="store_true",
+                        help="arm (c): score items alone vs inside a left-padded batch, compare "
+                             "the head logits, write padding_check.json and exit")
+    parser.add_argument("--padding-check-from", type=Path, default=None,
+                        help="with --padding-check: probe this saved checkpoint instead of a "
+                             "fresh model (its weights are loaded, not retrained)")
+    parser.add_argument("--padding-check-dtype", default=None,
+                        help="with --padding-check: load the model in this dtype (e.g. float32) "
+                             "to separate bf16 batch-shape noise from a real padding leak")
+    parser.add_argument("--padding-check-out", type=Path, default=None,
+                        help="with --padding-check: where to write the JSON (default "
+                             "<out>/padding_check.json)")
     parser.add_argument("--log", type=Path, default=None,
                         help="per-step JSONL (default <out>/logs/train_steps.jsonl)")
     parser.add_argument("--dev-evals", type=Path, default=None,
@@ -588,6 +722,22 @@ def build_config(args: argparse.Namespace) -> StudentConfig:
         overrides["batch_size"] = args.batch_size
     if args.chunk_factor is not None:
         overrides["batch_chunk_factor"] = args.chunk_factor
+    if args.head_lr is not None:
+        overrides["lr"] = float(args.head_lr)
+    if args.lora_lr is not None:
+        overrides["lora_lr"] = float(args.lora_lr)
+    if args.max_prompt_tokens is not None:
+        overrides["max_prompt_tokens"] = int(args.max_prompt_tokens)
+    if args.lora_rank is not None:
+        rank = int(args.lora_rank)
+        if rank < 1:
+            raise ValueError("--lora-rank must be >= 1")
+        # keep alpha/r (the scaling that multiplies the adapter output) at the config's value:
+        # comparing ranks must not also change the adapter's effective scale
+        ratio = config.lora.alpha / config.lora.r
+        overrides["lora"] = replace(
+            config.lora, r=rank, alpha=max(1, round(rank * ratio))
+        )
     return replace(config, **overrides)
 
 
@@ -889,7 +1039,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- data -------------------------------------------------------------
     t0 = time.perf_counter()
-    train_items = read_items(config.train_path, limit=args.train_limit)
+    train_items = read_items(config.train_path, limit=args.train_limit, stride=args.train_stride)
     check_split(train_items, "train", path=config.train_path)
     dev_items_all = read_items(config.dev_path)
     check_split(dev_items_all, "dev", path=config.dev_path)
@@ -958,6 +1108,51 @@ def main(argv: list[str] | None = None) -> int:
     info = provenance(config, model)
     trainer = Trainer(model, config, log_path=log_path)
     print(f"[S9] model ready: {json.dumps(model.describe())[:400]}", flush=True)
+
+    if args.padding_check:
+        probe_model = model
+        if args.padding_check_from is not None:
+            probe_model = MedDecideModel.load(
+                args.padding_check_from,
+                device=config.device,
+                dtype=args.padding_check_dtype,
+            )
+        elif args.padding_check_dtype is not None:
+            probe_model = MedDecideModel(
+                config.base_model,
+                lora=config.lora,
+                head_settings=config.head,
+                dtype=args.padding_check_dtype,
+                device=config.device,
+                variant=config.variant,
+                revision=config.revision,
+                max_prompt_tokens=config.max_prompt_tokens,
+            )
+        probe = padding_check(
+            probe_model,
+            eval_items,
+            max_prompt_tokens=config.max_prompt_tokens,
+        )
+        probe["model"] = probe_model.describe()
+        probe["checkpoint"] = (
+            str(args.padding_check_from) if args.padding_check_from is not None else None
+        )
+        probe["command"] = " ".join(sys.argv)
+        probe_path = (
+            Path(args.padding_check_out)
+            if args.padding_check_out is not None
+            else out / "padding_check.json"
+        )
+        write_json(probe_path, probe)
+        print(
+            f"[S9] padding check: {probe['verdict']} — alone vs left-padded batch "
+            f"max|dlogit| = {probe['alone_vs_left_padded_batch']['max_abs_delta']:.3e}, "
+            f"uniform-batch control = {probe['alone_vs_uniform_batch_control']['max_abs_delta']:.3e}"
+            f" (tolerance {probe['tolerance']})",
+            flush=True,
+        )
+        pidfile.unlink(missing_ok=True)
+        return 0 if probe["verdict"] == "PASS" else 5
     write_json(
         out / "run_started.json",
         {
@@ -974,9 +1169,11 @@ def main(argv: list[str] | None = None) -> int:
                 "dev_path": config.dev_path,
                 "train_items": len(train_items),
                 "train_limit": args.train_limit,
+                "train_stride": args.train_stride,
                 "dev_items": len(dev_items_all),
                 "read_seconds": read_seconds,
             },
+            "diag_note": args.diag_note,
             "eval_sample": eval_sample,
             "selection_rule": SELECTION_RULE,
             "log_path": str(log_path),
@@ -1044,7 +1241,11 @@ def main(argv: list[str] | None = None) -> int:
         best_json_path=out / "best.json",
         eval_sample=eval_sample,
         model_id=args.model_id,
+        save_every_eval=args.save_every_eval,
+        checkpoints_dir=out / "checkpoints",
     )
+    if args.diag_note:
+        print(f"[S9] diag note: {args.diag_note}", flush=True)
 
     pre_train_seconds = time.perf_counter() - process_started
     remaining = (
@@ -1103,9 +1304,10 @@ def main(argv: list[str] | None = None) -> int:
 
     macro_best = selector.brier_best()
     run = {
-        "task": "S9",
+        "task": "S9-diag" if args.diag_note else "S9",
         "kind": "training_run",
         "model_id": args.model_id,
+        "diag_note": args.diag_note,
         "command": " ".join(sys.argv),
         "generated_at_utc": utcnow(),
         "provenance": info,
@@ -1115,6 +1317,7 @@ def main(argv: list[str] | None = None) -> int:
             "dev_path": config.dev_path,
             "train_items": len(train_items),
             "train_limit": args.train_limit,
+            "train_stride": args.train_stride,
             "dev_items": len(dev_items_all),
             "read_seconds": read_seconds,
             "plan_seconds": plan_seconds,
@@ -1154,6 +1357,9 @@ def main(argv: list[str] | None = None) -> int:
             "best_metrics_by_selection_rule": selector.best_metrics,
             "selection_rule": SELECTION_RULE,
             "additional_brier_first_rule": macro_best,
+            "checkpoints_per_eval": (
+                selector.eval_checkpoints if selector.save_every_eval else []
+            ),
         },
         "checkpoint": {
             "path": str(best_dir),

@@ -102,6 +102,11 @@ class StepRecord:
     gpu_peak_gb: float
     lr_head: float
     lr_lora: float
+    # per-batch composition: what the optimiser actually saw, so a grad spike can be attributed
+    # to a batch's length (and to which templates it held) instead of guessed at
+    max_item_tokens: int = 0
+    mean_item_tokens: float = 0.0
+    template_ids: list[str] = field(default_factory=list)
 
     @property
     def items_per_s(self) -> float:
@@ -426,6 +431,11 @@ class Trainer:
                     n_options=breakdown.n_options,
                     real_tokens=model_batch.real_tokens,
                     padded_tokens=model_batch.padded_tokens,
+                    max_item_tokens=max(e.n_tokens for e in model_batch.encoded),
+                    mean_item_tokens=float(
+                        sum(e.n_tokens for e in model_batch.encoded) / len(model_batch.encoded)
+                    ),
+                    template_ids=[str(e.template_id) for e in model_batch.encoded],
                     elapsed_s=elapsed,
                     grad_norm=grad_norm,
                     gpu_peak_gb=peak,
