@@ -32,7 +32,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
 | S8 | Evaluation path for trained models | yes | S7 | DONE | 2026-10-07T01:15:06Z | 2026-10-07T02:06:26Z |
-| S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
+| S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | IN_PROGRESS | 2026-10-07T02:06:36Z | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
 | S11 | Gate G1 evaluation | yes | S9, S3, S4 | PENDING | | |
 | S12 | Byte-identity + audit read-back | small | S9 | PENDING | | |
@@ -78,16 +78,22 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S8 — evaluation path for trained models** (started 2026-10-07T01:15:06Z)
-Working dir:    outputs/student_v0/S8/
+Task in flight: **S9 — train MedDecide-0.8B (instruct)** (started 2026-10-07T02:06:36Z)
+Working dir:    outputs/student_v0/S9/
 
-- [x] 1. scripts/bench/run_student.py written (same item sets/filters/report shape as the zero-shot runner; `--split test|dev`) score v0.2 with a trained checkpoint's pointer head, same item sets / filters / reporting as run_baselines_v0_1.py (--split test|dev, --only-template, --keep-screen, run_id, prediction log)
-- [x] 2. metrics per cell: accuracy, macro accuracy, Brier, ECE, expected-level error, latency, coverage accuracy, macro accuracy, Brier, ECE (per-item form, mixed option counts), expected-level error for score, latency, coverage
-- [x] 3. D12: the **constant-answer check fired** on the smoke model (`nfcorpus_graded_score_v2` = `READOUT_FAIL - constant_answer`) so the applicable checks are live; the NOT-APPLICABLE handling for the letter-readout checks needs my read of the agent's report (pending) apply the checks that exist for this readout (accuracy CI vs chance, constant-answer) and mark the letter-readout-specific ones NOT APPLICABLE with the reason - never silently pass them
-- [ ] 4. --split dev fits per-qtype temperatures and writes them into the checkpoint dir
-- [x] 5. acceptance: a test-split run scored **13,521 tier-1 + 23,768 fresh items, coverage 1.000** (6/8 and 10/11 cells gate-pass) and a dev-split prediction log exists; the fitted-temperature artifact and the summary are not yet confirmed by me (agent report pending) -> numbers come out; a dev run fits temperatures
-- [x] 6. self-audit written; CLAIMS rows appended (S069-S072)
-- [x] 7. STATE updated, committed, pushed
+Sizing (measured in S7, not estimated): 21.7 items/s over a real full pass -> ~163 min per pass over
+212,481 items, GPU peak 32.1 GB. The 4 h box therefore fits ONE pass + dev evals + the temperature
+fit (~15 min). The training set has no `score` items at all, so that qtype's temperature is not
+identifiable (S8 recorded `NOT FITTED`).
+
+- [ ] 1. training entry point (thin CLI over meddecide.train.Trainer) with the S9 recipe: LoRA r=16, lr 2e-4, batch 8, 8k tokens, one pass, dev eval every 500 steps, best checkpoint by dev Brier, then the dev temperature fit
+- [ ] 2. launch detached with a pidfile + log under outputs/student_v0/S9/logs/, wall-clock budget inside the 4 h box
+- [ ] 3. per-step log (loss, lr, tokens/s, GPU memory) and every dev eval recorded
+- [ ] 4. best checkpoint saved with its config and tokenizer; eval with run_student.py
+- [ ] 5. acceptance check run and passed
+- [ ] 6. self-audit (R6) written to SELF_AUDIT.md
+- [ ] 7. CLAIMS.md rows appended
+- [ ] 8. STATE updated, committed, pushed
 ```
 
 ---
