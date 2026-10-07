@@ -290,15 +290,24 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _field(record: Any, name: str) -> Any:
+    """One step record's field, whether it is a StepRecord or a row read back from the log."""
+    return record[name] if isinstance(record, dict) else getattr(record, name)
+
+
 def throughput_of(history: Sequence[Any]) -> dict[str, Any]:
-    """Items/s and tokens/s over the optimiser steps only (dev evals are not training time)."""
+    """Items/s and tokens/s over the optimiser steps only (dev evals are not training time).
+
+    Accepts :class:`~meddecide.train.trainer.StepRecord` objects and the JSON rows the run wrote,
+    so a stopped run's log can be summarised with the same arithmetic.
+    """
     if not history:
         return {"steps": 0}
-    step_seconds = float(sum(r.elapsed_s for r in history))
-    items = sum(r.n_items for r in history)
-    real = sum(r.real_tokens for r in history)
-    padded = sum(r.padded_tokens for r in history)
-    elapsed = np.asarray([r.elapsed_s for r in history], dtype=np.float64)
+    step_seconds = float(sum(_field(r, "elapsed_s") for r in history))
+    items = sum(_field(r, "n_items") for r in history)
+    real = sum(_field(r, "real_tokens") for r in history)
+    padded = sum(_field(r, "padded_tokens") for r in history)
+    elapsed = np.asarray([_field(r, "elapsed_s") for r in history], dtype=np.float64)
     return {
         "steps": len(history),
         "items": items,
@@ -311,7 +320,7 @@ def throughput_of(history: Sequence[Any]) -> dict[str, Any]:
         "items_per_s": items / step_seconds if step_seconds else None,
         "tokens_per_s": real / step_seconds if step_seconds else None,
         "padded_tokens_per_s": padded / step_seconds if step_seconds else None,
-        "gpu_peak_memory_gb": max((r.gpu_peak_gb for r in history), default=0.0),
+        "gpu_peak_memory_gb": max((_field(r, "gpu_peak_gb") for r in history), default=0.0),
     }
 
 
@@ -541,6 +550,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="best-checkpoint directory (default <out>/best)")
     parser.add_argument("--pidfile", type=Path, default=None,
                         help="default <out>/train.pid; removed on a clean exit")
+    parser.add_argument("--finalise-from", type=Path, default=None,
+                        help="write the post-training artifacts for an already-stopped run whose "
+                             "checkpoint is at this path (nothing is trained)")
+    parser.add_argument("--finalise-reason", default="stopped before the end of the pass",
+                        help="recorded as the run's exit reason in --finalise-from mode")
     parser.add_argument("--dry-run", action="store_true",
                         help="load config + data, print the plan, and exit without touching the GPU")
     return parser.parse_args(argv)
@@ -575,6 +589,282 @@ def build_config(args: argparse.Namespace) -> StudentConfig:
     if args.chunk_factor is not None:
         overrides["batch_chunk_factor"] = args.chunk_factor
     return replace(config, **overrides)
+
+
+def calibrate_and_report(
+    best_model: Any,
+    final_items: Sequence[Any],
+    *,
+    config: StudentConfig,
+    out: Path,
+    best_dir: Path,
+    best_step: int,
+    model_id: str,
+    dev_items_available: int,
+    limited_sample: bool,
+) -> dict[str, Any]:
+    """Temperature fit + per-template dev report + calibration embedded in the checkpoint.
+
+    It scores the **saved** checkpoint (not whatever is in memory), so it is valid both at the end
+    of a run and for a run that was stopped early (``--finalise-from``). Dev only; never a test
+    split. Returns the payloads it wrote so the caller can put them in ``run.json``.
+    """
+    t0 = time.perf_counter()
+    scored_final = best_model.score_items(
+        final_items,
+        batch_size=config.eval_batch_size or config.batch_size,
+        max_batch_tokens=config.eval_max_batch_tokens or config.max_batch_tokens,
+        max_prompt_tokens=config.max_prompt_tokens,
+    )
+    scored_seconds = time.perf_counter() - t0
+    fits = fit_per_qtype(scored_final)
+    # `fit_temperatures` (S8) owns the FITTED / NOT FITTED verdicts this loop uses
+    verdict = fit_temperatures(
+        split="dev",
+        logits_by_qtype=logits_by_qtype(scored_final),
+        gold_by_qtype=gold_by_qtype(scored_final),
+        seed=config.seed,
+        expected_qtypes=["choice", "noul", "score"],
+    )
+    applied = applied_temperatures(verdict)
+    temperature_payload = {
+        "task": "S9",
+        "kind": "temperature_fit",
+        "split": "dev",
+        "fitted_at_utc": utcnow(),
+        "seed": config.seed,
+        "min_items": DEFAULT_MIN_TEMPERATURE_ITEMS,
+        "bounds": list(TEMPERATURE_BOUNDS),
+        "checkpoint": str(best_dir),
+        "checkpoint_step": best_step,
+        "model_id": model_id,
+        "n_dev_items_scored": len(final_items),
+        "dev_path": config.dev_path,
+        "dev_split_sha256": sample_digest(final_items),
+        "limited_sample": limited_sample,
+        "fits": {k: v.to_dict() for k, v in sorted(fits.items())},
+        "per_qtype": verdict["per_qtype"],
+        "n_qtype_fitted": verdict["n_qtype_fitted"],
+        "n_qtype_not_fitted": verdict["n_qtype_not_fitted"],
+        "applied": applied,
+    }
+    write_json(out / "temperature.json", temperature_payload)
+
+    calibrated_report = dev_report(scored_final, temperature=applied)
+    uncalibrated_report = dev_report(scored_final, temperature={})
+    dev_final = {
+        "task": "S9",
+        "kind": "dev_report",
+        "split": "dev",
+        "checkpoint": str(best_dir),
+        "checkpoint_step": best_step,
+        "dev_path": config.dev_path,
+        "n_items": len(final_items),
+        "n_items_available": dev_items_available,
+        "sample_sha256": sample_digest(final_items),
+        "scored_seconds": scored_seconds,
+        "applied_temperatures": applied,
+        "calibrated": calibrated_report,
+        "uncalibrated": uncalibrated_report,
+        "note": (
+            "calibrated = per-qtype temperatures applied; uncalibrated = the same forward pass at "
+            "T=1 (additional). A per-qtype temperature is monotone, so accuracy/macro accuracy "
+            "are identical in both; Brier/ECE are not."
+        ),
+    }
+    write_json(out / "dev_final.json", dev_final)
+
+    # re-save the selected checkpoint with its calibration embedded (weights unchanged)
+    best_model.calibration = applied
+    best_model.save(best_dir)
+    write_json(best_dir / "temperature.json", temperature_payload)
+    reopened = json.loads((best_dir / "model.json").read_text(encoding="utf-8"))
+    return {
+        "temperature": temperature_payload,
+        "dev_final": dev_final,
+        "calibrated": calibrated_report,
+        "uncalibrated": uncalibrated_report,
+        "applied": applied,
+        "calibration_embedded": reopened.get("calibration") or {},
+        "scored_seconds": scored_seconds,
+    }
+
+
+def finalise_stopped_run(args: argparse.Namespace, out: Path) -> int:
+    """Write the post-training artifacts for a run that was stopped before its own final phase.
+
+    Everything it needs is on disk: `run_started.json` (the config actually used),
+    `planned_epoch.json` (the anti-curriculum plan), `logs/train_steps.jsonl` (per-step records),
+    `logs/dev_evals.jsonl` (the dev trajectory) and `best.json`/`best/` (the selected checkpoint).
+    It trains nothing and reads no test split. The recorded `exit` names the stop reason.
+    """
+    best_dir = (
+        Path(args.finalise_from)
+        if args.finalise_from is not None
+        else (Path(args.best) if args.best else out / "best")
+    )
+    started = json.loads((out / "run_started.json").read_text(encoding="utf-8"))
+    config = StudentConfig.from_dict(started["config"])
+    planned = json.loads((out / "planned_epoch.json").read_text(encoding="utf-8"))
+    best = json.loads((out / "best.json").read_text(encoding="utf-8"))
+    step_rows = [
+        json.loads(line)
+        for line in (out / "logs" / "train_steps.jsonl").read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    steps = [r for r in step_rows if r.get("event") == "step"]
+    if not steps:
+        print("BLOCKED — no step records to summarise", file=sys.stderr)
+        return 4
+    eval_rows = [
+        json.loads(line)
+        for line in (out / "logs" / "dev_evals.jsonl").read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    evals = [r for r in eval_rows if r.get("event") == "dev_eval"]
+    rates = throughput_of(steps)
+    items_seen = sum(r["n_items"] for r in steps)
+    tokens_seen = sum(r["real_tokens"] for r in steps)
+    train_items_total = int(started["data"]["train_items"])
+    # the schedule was laid out over the planned batch count; the run never wrote its `end`
+    # record, so reconstruct it here. The realised per-step lr_head/lr_lora in the step log are
+    # the measurement; this is the specification it was applied from.
+    total_steps = int(planned["plan"]["n_batches"])
+    schedule = {
+        "kind": "linear_warmup_cosine_decay",
+        "total_steps": total_steps,
+        "warmup_steps": round(float(config.warmup_fraction) * total_steps),
+        "warmup_fraction": float(config.warmup_fraction),
+        "peak_lr_by_group": [float(config.lr), float(config.lora_lr)],
+        "source": (
+            "reconstructed at finalisation from planned_epoch.json and the config; the per-step "
+            "lr_head/lr_lora in logs/train_steps.jsonl are the realised values"
+        ),
+    }
+
+    dev_items_all = read_items(config.dev_path)
+    check_split(dev_items_all, "dev", path=config.dev_path)
+    final_items = (
+        dev_items_all
+        if args.dev_final_per_qtype is None
+        else stratified_sample_by(
+            dev_items_all, key="qtype", per_group=args.dev_final_per_qtype, seed=config.seed
+        )
+    )
+    best_model = MedDecideModel.load(best_dir, device=config.device)
+    final = calibrate_and_report(
+        best_model,
+        final_items,
+        config=config,
+        out=out,
+        best_dir=best_dir,
+        best_step=int(best["step"]),
+        model_id=args.model_id,
+        dev_items_available=len(dev_items_all),
+        limited_sample=args.dev_final_per_qtype is not None,
+    )
+    trajectory = [
+        {
+            "step": r["step"],
+            "brier": r["metrics"]["brier"],
+            "macro_accuracy": r["metrics"]["macro_accuracy"],
+            "accuracy": r["metrics"]["accuracy"],
+            "mean_nll": r["metrics"]["mean_nll"],
+            "n": r["metrics"]["n"],
+            "seconds": r["seconds"],
+            "selected": r["selected"],
+        }
+        for r in evals
+    ]
+    run = {
+        "task": "S9",
+        "kind": "training_run",
+        "model_id": args.model_id,
+        "command": " ".join(sys.argv),
+        "generated_at_utc": utcnow(),
+        "finalised_because": args.finalise_reason,
+        "provenance": started.get("provenance"),
+        "config": config.to_dict(),
+        "data": {
+            "train_path": config.train_path,
+            "dev_path": config.dev_path,
+            "train_items": train_items_total,
+            "dev_items": len(dev_items_all),
+            "read_seconds": started["data"].get("read_seconds"),
+            "plan_seconds": planned.get("seconds"),
+            "items_seen": items_seen,
+            "fraction_of_train_seen": items_seen / train_items_total,
+            "tokens_seen": tokens_seen,
+            "fraction_of_planned_tokens": (
+                tokens_seen / planned["plan"]["real_tokens"]
+                if planned.get("plan", {}).get("real_tokens")
+                else None
+            ),
+        },
+        "training": {
+            "steps": steps[-1]["step"],
+            "epochs_completed": steps[-1]["epoch"] + 1,
+            "stopped_early": f"stopped: {args.finalise_reason}",
+            "pass_completed": False,
+            "step_seconds": rates.get("step_seconds_total"),
+            "schedule": schedule,
+            "throughput": rates,
+        },
+        "planned_epoch": {
+            "path": str(out / "planned_epoch.json"),
+            "seconds": planned.get("seconds"),
+            "plan": planned.get("plan"),
+            "length_trend": planned.get("length_trend"),
+        },
+        "dev_evals": {
+            "path": str(out / "logs" / "dev_evals.jsonl"),
+            "n_evals": len(trajectory),
+            "best_step_by_selection_rule": best["step"],
+            "best_metrics_by_selection_rule": best["dev_metrics_at_selection"],
+            "selection_rule": best["selection_rule"],
+            "additional_brier_first_rule": best.get("additional_analysis"),
+            "trajectory": trajectory,
+            "sample_sha256": best["dev_eval"].get("sample_sha256"),
+            "sample_by_template": best["dev_eval"].get("by_template"),
+        },
+        "checkpoint": {
+            "path": str(best_dir),
+            "step": best["step"],
+            "calibration_embedded": final["calibration_embedded"],
+            "best_json": str(out / "best.json"),
+        },
+        "temperature": final["temperature"],
+        "dev_final": {
+            "path": str(out / "dev_final.json"),
+            "n_items": len(final_items),
+            "calibrated_overall": final["calibrated"]["overall"],
+            "uncalibrated_overall": final["uncalibrated"]["overall"],
+            "calibrated_per_qtype": final["calibrated"]["per_qtype"],
+        },
+        "exit": f"stopped at step {steps[-1]['step']}: {args.finalise_reason}",
+    }
+    write_json(out / "run.json", run)
+    write_json(
+        out / "finalisation.json",
+        {
+            "task": "S9",
+            "kind": "finalisation_of_stopped_run",
+            "at_utc": utcnow(),
+            "command": " ".join(sys.argv),
+            "reason": args.finalise_reason,
+            "step_log_rows": len(steps),
+            "last_step": steps[-1]["step"],
+            "dev_evals": len(trajectory),
+            "checkpoint_step": best["step"],
+            "temperature_applied": final["applied"],
+        },
+    )
+    print(
+        f"[S9] finalised a stopped run at step {steps[-1]['step']}: best step {best['step']}, "
+        f"temperature {json.dumps(final['applied'])}, wrote {out / 'run.json'}",
+        flush=True,
+    )
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -646,6 +936,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[S9] periodic dev eval: {len(eval_items)} items over "
           f"{len(eval_sample['by_template'])} templates "
           f"({json.dumps(eval_sample['by_qtype'])}) sha256={eval_sample['sha256'][:16]}", flush=True)
+    if args.finalise_from is not None:
+        return finalise_stopped_run(args, out)
     if args.dry_run:
         print("[S9] dry run: config, data and the eval sample are fine; not training")
         pidfile.unlink(missing_ok=True)
@@ -792,78 +1084,22 @@ def main(argv: list[str] | None = None) -> int:
     # selected step's (the whole point of a best checkpoint), and `model.json` must carry the
     # temperatures so `run_student.py` applies them without a second fit.
     best_model = MedDecideModel.load(best_dir, device=config.device)
-    t0 = time.perf_counter()
-    # forward-only scoring: the same (bigger) batches the periodic dev eval uses
-    scored_final = best_model.score_items(
+    final = calibrate_and_report(
+        best_model,
         final_items,
-        batch_size=config.eval_batch_size or config.batch_size,
-        max_batch_tokens=config.eval_max_batch_tokens or config.max_batch_tokens,
-        max_prompt_tokens=config.max_prompt_tokens,
+        config=config,
+        out=out,
+        best_dir=best_dir,
+        best_step=selector.best_step,
+        model_id=args.model_id,
+        dev_items_available=len(dev_items_all),
+        limited_sample=args.dev_final_per_qtype is not None,
     )
-    final_scored_seconds = time.perf_counter() - t0
-    fits = fit_per_qtype(scored_final)
-    # `fit_temperatures` (S8) owns the FITTED / NOT FITTED verdicts this loop uses
-    verdict = fit_temperatures(
-        split="dev",
-        logits_by_qtype=logits_by_qtype(scored_final),
-        gold_by_qtype=gold_by_qtype(scored_final),
-        seed=config.seed,
-        expected_qtypes=["choice", "noul", "score"],
-    )
-    applied = applied_temperatures(verdict)
-    temperature_payload = {
-        "task": "S9",
-        "kind": "temperature_fit",
-        "split": "dev",
-        "fitted_at_utc": utcnow(),
-        "seed": config.seed,
-        "min_items": DEFAULT_MIN_TEMPERATURE_ITEMS,
-        "bounds": list(TEMPERATURE_BOUNDS),
-        "checkpoint": str(best_dir),
-        "checkpoint_step": selector.best_step,
-        "model_id": args.model_id,
-        "n_dev_items_scored": len(final_items),
-        "dev_path": config.dev_path,
-        "dev_split_sha256": sample_digest(final_items),
-        "limited_sample": args.dev_final_per_qtype is not None,
-        "fits": {k: v.to_dict() for k, v in sorted(fits.items())},
-        "per_qtype": verdict["per_qtype"],
-        "n_qtype_fitted": verdict["n_qtype_fitted"],
-        "n_qtype_not_fitted": verdict["n_qtype_not_fitted"],
-        "applied": applied,
-    }
-    write_json(out / "temperature.json", temperature_payload)
-
-    calibrated_report = dev_report(scored_final, temperature=applied)
-    uncalibrated_report = dev_report(scored_final, temperature={})
-    dev_final = {
-        "task": "S9",
-        "kind": "dev_report",
-        "split": "dev",
-        "checkpoint": str(best_dir),
-        "checkpoint_step": selector.best_step,
-        "dev_path": config.dev_path,
-        "n_items": len(final_items),
-        "n_items_available": len(dev_items_all),
-        "sample_sha256": sample_digest(final_items),
-        "scored_seconds": final_scored_seconds,
-        "applied_temperatures": applied,
-        "calibrated": calibrated_report,
-        "uncalibrated": uncalibrated_report,
-        "note": (
-            "calibrated = per-qtype temperatures applied; uncalibrated = the same forward pass at "
-            "T=1 (additional). A per-qtype temperature is monotone, so accuracy/macro accuracy "
-            "are identical in both; Brier/ECE are not."
-        ),
-    }
-    write_json(out / "dev_final.json", dev_final)
-
-    # re-save the selected checkpoint with its calibration embedded (weights unchanged)
-    best_model.calibration = applied
-    best_model.save(best_dir)
-    write_json(best_dir / "temperature.json", temperature_payload)
-    reopened = json.loads((best_dir / "model.json").read_text(encoding="utf-8"))
-    calibration_embedded = reopened.get("calibration") or {}
+    temperature_payload = final["temperature"]
+    applied = final["applied"]
+    calibrated_report = final["calibrated"]
+    uncalibrated_report = final["uncalibrated"]
+    calibration_embedded = final["calibration_embedded"]
 
     macro_best = selector.brier_best()
     run = {

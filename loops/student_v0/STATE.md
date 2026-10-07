@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T06:58:24Z`
+Last updated (UTC): `2026-10-07T15:41:17Z`
 Iterations so far: `1`
 
 ---
@@ -218,6 +218,15 @@ identifiable (S8 recorded `NOT FITTED`).
 - **Required fixes before any re-run:** (1) bucket by length **within shuffled chunks** (e.g. chunks of 100 x batch_size), form batches inside each chunk, then shuffle the **batch order** per epoch; unit test: Spearman |rho| between batch index and mean batch length **< 0.1** over one planned epoch. (2) **Linear warmup (3 % of steps) + cosine decay** on both param groups. (3) Selection rule per ADVISORY S9: **dev macro accuracy first, Brier as tiebreak** - run 1's `best.json` used Brier first, which I accepted without checking it against the ADVISORY; that is a miss on my part and is corrected here. (4) Enlarge the fixed dev-eval sample to **>= 2,000 items stratified by template**. (5) Re-run with a **fresh 4 h box** and record the new start time.
 - **Process rule reaffirmed:** one agent at a time on GPU work; no parallel sub-agents for GPU tasks (CPU-only sub-tasks are fine).
 - **Also my error (same class as an earlier one):** `pkill -TERM -f "train_student.py"` matched **my own shell's command line** and killed the shell, so the artifact move had to be re-run. Use explicit PIDs or `pgrep -f "[t]rain_student"`, never `pkill -f <literal>`.
+
+### QUESTION FOR THE OPERATOR (time-sensitive) — S9 run 2's selection metric picks an undertrained checkpoint — 2026-10-07T15:41:17Z
+Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == tokens %, i.e. the curriculum bug is gone), GPU peak 37.7 GB, projected finish ~09:05-09:17 against the 09:10Z deadline.
+- **Measured dev trajectory (2,019-item template-stratified sample):** step 500 macro 0.608 / acc 0.677 / Brier 0.362; **step 1000 macro 0.7006 / acc 0.7132 / Brier 0.4601 <- the current best under the ADVISORY's macro-first rule**; steps 1,500-18,500 macro oscillates **0.28-0.57**, micro accuracy 0.59-0.64, Brier improving to ~0.43.
+- **The finding:** the macro-first rule selects the **least-specialised** checkpoint (~2.5 % of a pass). A **Brier-first rule would have selected step 500** - the least-trained model of all - which is independent confirmation that run 1's Brier-first rule was wrong. Later checkpoints are better calibrated and similar on micro accuracy but have much worse **rare-class recall on the equal-weight-per-template sample**. Mechanism (hypothesis, prose): CE on the imbalanced training mix drives the model to specialise onto frequent answers, which micro accuracy tolerates and macro accuracy punishes.
+- **Why it is time-sensitive:** only checkpoints that improved under the rule were saved, so a different selection key **cannot be applied retroactively** - it needs either a fresh run or checkpoints saved from now on. The run ends ~09:10Z.
+- **What I will NOT do:** change the selection rule mid-run to get a better-looking number - that is editing a check to pass it (R8). The agent is holding the rule and `best.json` will carry the full trajectory plus the Brier-first alternative.
+- **Options put to the operator:** (a) keep the ADVISORY rule and report the trajectory finding; (b) keep the run but save every dev eval from now on so a dev-based reselection is possible later; (c) change the key and re-run fresh (another 4 h box); (d) stop and re-plan.
+- **Consequence if (a):** `outputs/student_v0/S9/best/` is a step-1000 snapshot and the post-training test cells (and therefore G1) describe that snapshot - a **selection** outcome, not a capability verdict on the recipe, and S14 must say so in exactly those terms.
 
 ## 5. Blocked items
 
