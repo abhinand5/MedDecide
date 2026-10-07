@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T00:55:37Z`
+Last updated (UTC): `2026-10-07T00:58:42Z`
 Iterations so far: `1`
 
 ---
@@ -30,7 +30,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S4 | HLE medical subset (supplementary test) | small | S1 | DONE | 2026-10-06T22:39:33Z | 2026-10-07T00:04:50Z |
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
-| S7 | Training code: LoRA + pointer head | smoke | S0 | IN_PROGRESS | 2026-10-07T00:05:13Z | |
+| S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
 | S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
@@ -83,11 +83,11 @@ Working dir:    outputs/student_v0/S7/
 
 - [x] 1. src/meddecide/model/{head.py,markers.py,meddecide_model.py}: frozen base + LoRA (r=16, 12 target modules, 11.6M trainable params) + per-option pointer head frozen base + LoRA (r=16, attention + MLP projections) + pointer head scoring each offered option from the hidden state at its key token and at the answer position
 - [x] 2. src/meddecide/train/{config.py,data.py,losses.py,smoke.py,temperature.py}: CE + 1.0*Brier, option shuffling, per-qtype temperature, batched inference CE + lambda*Brier loss (lambda 1.0), option-order augmentation per epoch, per-qtype temperature fitted on dev, batched inference returning the full distribution (+ expected level for score) and latency
-- [~] 3. tests/test_model_pointer.py exists; the four required tests have NOT yet been verified by me (the S7 agent was still running when this line was written) (1) proper distribution over offered options only, (2) option permutation permutes the output within tolerance, (3) adapter disabled -> greedy generation byte-identical to the untouched base on 20 fixed prompts, (4) overfit 64 items to >= 0.95 training accuracy
+- [x] 3. **17 tests pass in my own run**, including all four acceptance tests; the byte-identity test carries a perturbation control so it cannot pass vacuously (1) proper distribution over offered options only, (2) option permutation permutes the output within tolerance, (3) adapter disabled -> greedy generation byte-identical to the untouched base on 20 fixed prompts, (4) overfit 64 items to >= 0.95 training accuracy
 - [x] 4. 200-step smoke run done: loss 2.152 (step 1) -> 0.587 (50) -> 0.510 (100) -> **1.838 (150) -> 1.375 (200)** (decreases early, then bounces - recorded, not smoothed); 73.1 items/s, 14,096 tokens/s, peak 17.4 GB; **48.4 min per pass** extrapolated on the slice's mean 192.7 prompt tokens (the full mix has longer states, so this is a lower bound) loss decreases; throughput (tokens/s, items/s) recorded to size S9's step count
-- [ ] 5. acceptance check (four tests + smoke + throughput) NOT yet run by me
-- [ ] 6. self-audit pending
-- [ ] 7. CLAIMS rows pending
+- [x] 5. acceptance check run: all six criteria PASS (the loss criterion with the non-monotonicity recorded)
+- [x] 6. self-audit written to SELF_AUDIT.md
+- [x] 7. CLAIMS rows appended (S061-S066)
 - [ ] 8. STATE updated, committed, pushed
 ```
 
@@ -162,7 +162,7 @@ Working dir:    outputs/student_v0/S7/
 - Surprises: **PubMed pre-window = `NOT MEASURED`** (annual baseline: 1,334 files / 31.4 GB / ~1.7 h, over the 60-min box; a subset would be a silent subsample); **no `score` items in training at all** (dev has 33) — the student will face the score template untrained on that shape; S2's consistency file had 2,495 items leaking into v0.2 dev/test, caught here.
 - Next: S7 (training code: LoRA + pointer head) is unblocked.
 
-### S7 — IN PROGRESS (artifacts exist, verification pending) — 2026-10-07T00:55:37Z
+### S7 — DONE — 2026-10-07T00:55:37Z
 - What ran: the S7 implementation agent wrote `src/meddecide/model/{head,markers,meddecide_model}.py`, `src/meddecide/train/{config,data,losses,smoke,temperature}.py`, `configs/student_v0.yaml`, `tests/test_model_pointer.py`, and a 200-step smoke run (`outputs/student_v0/S7/smoke.json` + `checkpoint/`).
 - Smoke: loss 2.152 -> 0.587 (50) -> 0.510 (100) -> 1.838 (150) -> 1.375 (200); 73.1 items/s / 14,096 tokens/s / 47.1 items/s wall; peak 17.4 GB; 11.6M trainable params; dev slice accuracy 0.666 (n=545, majority 0.378) - **smoke only, not a result**.
 - Anomalies recorded for investigation: (a) the loss **bounces** after step 100 rather than falling monotonically (`loss_curve_decreased: True` in the artifact is too generous - the curve's own numbers are quoted here); (b) the `score` temperature fit hit the search bound (49.9999) on 33 dev items with NLL 1.105 -> 1.099, i.e. it did not fit - the score qtype has only 33 dev items and no training items at all.
@@ -220,3 +220,11 @@ deviation — that is a `BLOCKED`.
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
 | | | | |
+
+### S7 — DONE — 2026-10-07T00:58:42Z
+- What ran: the implementation agent's code + a 200-step smoke; I ran the test suite myself (`17 passed`) and read the two decisive tests
+- Output: `src/meddecide/model/{head,markers,meddecide_model}.py`, `src/meddecide/train/{config,data,losses,smoke,temperature}.py`, `configs/student_v0.yaml`, `tests/test_model_pointer.py`, `outputs/student_v0/S7/{smoke.json,checkpoint/,SELF_AUDIT.md}`
+- Headline: the MedDecide architecture is implemented and tested — frozen base + LoRA (11.6M trainable params) + per-option pointer head, CE + 1.0 Brier, per-qtype temperature; **throughput 73.1 items/s** (~48 min/pass lower bound for S9's 4 h box) (S061-S066).
+- Surprises: the smoke loss falls for 100 steps then **bounces** (2.152 -> 0.510 -> 1.375) and the artifact's `loss_curve_decreased: True` overstates it — recorded; the **score temperature hit the search bound** (49.9999) on 33 dev items and no score training items exist, so that qtype is unfitted.
+- Next: S8 (evaluation path for the trained model) is unblocked.
+

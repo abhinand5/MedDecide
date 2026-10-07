@@ -19,7 +19,7 @@ import json
 import platform
 import subprocess
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -189,6 +189,49 @@ class Trainer:
         overall["per_qtype"] = scored.per_qtype_metrics()
         return overall
 
+    def evaluate_loss(self, items: Sequence[Item]) -> dict[str, Any]:
+        """Forward-only loss on a fixed set of items (no optimiser step, no gradients).
+
+        This is what makes a training-loss curve comparable: raw per-step losses move with the
+        item mix (the batch plan is length-sorted, so later steps hold longer, harder items),
+        while this number is measured on the same items every time.
+        """
+        self.model.eval_mode()
+        totals = {"loss": 0.0, "ce": 0.0, "brier": 0.0}
+        n_items = 0
+        correct = 0.0
+        n_batches = 0
+        with torch.no_grad():
+            for _, batch in iter_batches(
+                self.model,
+                items,
+                batch_size=self.config.batch_size,
+                max_batch_tokens=self.config.max_batch_tokens,
+                max_prompt_tokens=self.config.max_prompt_tokens,
+                augment_options=False,
+            ):
+                model_batch = self.model.collate(batch)
+                _logits, probs = self.model.batch_logits(model_batch)
+                breakdown = ce_plus_brier(
+                    probs,
+                    model_batch.gold_flat,
+                    model_batch.marker_item,
+                    model_batch.batch_size,
+                    lam=self.config.lambda_brier,
+                )
+                totals["loss"] += float(breakdown.total) * breakdown.n_items
+                totals["ce"] += float(breakdown.ce) * breakdown.n_items
+                totals["brier"] += float(breakdown.brier) * breakdown.n_items
+                correct += breakdown.accuracy * breakdown.n_items
+                n_items += breakdown.n_items
+                n_batches += 1
+        if n_items == 0:
+            raise ValueError("evaluate_loss got no items")
+        out = {k: v / n_items for k, v in totals.items()}
+        out.update({"accuracy": correct / n_items, "n_items": n_items, "n_batches": n_batches})
+        self.model.train_mode()
+        return out
+
     def fit_calibration(
         self,
         items: Sequence[Item],
@@ -244,6 +287,7 @@ class Trainer:
         eval_items: Sequence[Item] | None = None,
         checkpoint_dir: str | Path | None = None,
         max_seconds: float | None = None,
+        on_step: Callable[[int], None] | None = None,
     ) -> TrainResult:
         """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs)."""
         config = self.config
@@ -330,6 +374,8 @@ class Trainer:
                     lr_lora=float(self.optimizer.param_groups[-1]["lr"]),
                 )
                 self.history.append(record)
+                if on_step is not None:
+                    on_step(total_steps)
                 if config.log_every and total_steps % config.log_every == 0:
                     self._log({"event": "step", **record.to_dict()})
                 if (

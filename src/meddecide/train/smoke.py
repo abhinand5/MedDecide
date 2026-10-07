@@ -29,7 +29,7 @@ import numpy as np
 
 from meddecide.model.meddecide_model import MedDecideModel
 from meddecide.train.config import DEFAULT_CONFIG_PATH, StudentConfig, load_config
-from meddecide.train.data import read_items, stratified_sample
+from meddecide.train.data import iter_batches, read_items, stratified_sample
 from meddecide.train.trainer import Trainer, provenance
 
 REPORT_STEPS = (1, 50, 100, 150, 200)
@@ -39,6 +39,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="S7 smoke run of the MedDecide training path")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
     parser.add_argument("--steps", type=int, default=200)
+    parser.add_argument("--reference-items", type=int, default=64,
+                        help="fixed set the learning curve is measured on")
     parser.add_argument("--slice", type=int, default=2048, help="training items to sample")
     parser.add_argument("--stride", type=int, default=100, help="sample every Nth JSONL line")
     parser.add_argument("--dev-per-qtype", type=int, default=256,
@@ -50,6 +52,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--train-items", type=int, default=None,
                         help="training-set size for the extrapolation (default: S6 manifest)")
     parser.add_argument("--no-save", action="store_true")
+    parser.add_argument("--no-pass", action="store_true",
+                        help="skip the whole-slice throughput pass")
     return parser.parse_args(argv)
 
 
@@ -71,6 +75,57 @@ def slice_summary(items: list[Any]) -> dict[str, Any]:
         "template_id": dict(sorted(Counter(i.template_id for i in items).items())),
         "n_options": dict(sorted(Counter(i.n_options for i in items).items())),
         "mean_state_chars": float(np.mean([len(i.state) for i in items])),
+    }
+
+
+def reference_items(items: list[Any], *, n: int = 64) -> list[Any]:
+    """``n`` items spread evenly across the slice's length order.
+
+    The batch plan is length-sorted, so a handful of the shortest items would not represent it;
+    spreading the reference set over the whole length range does.
+    """
+    order = sorted(
+        range(len(items)), key=lambda i: (len(items[i].state) + len(items[i].question))
+    )
+    picks = [order[round(k * (len(order) - 1) / max(1, n - 1))] for k in range(n)]
+    return [items[i] for i in sorted(set(picks))]
+
+
+def slice_stats(
+    model: Any,
+    items: list[Any],
+    *,
+    batch_size: int,
+    max_batch_tokens: int,
+    max_prompt_tokens: int,
+) -> dict[str, Any]:
+    """Prompt-token statistics of the **whole** slice and how many batches it makes.
+
+    Encodes every item once (no model forward). Without this, a throughput number measured on
+    the items a 200-step run happened to reach would describe only the short end of a
+    length-sorted plan — which is exactly the mistake the first smoke run made.
+    """
+    counts: list[int] = []
+    batches = 0
+    for _, batch in iter_batches(
+        model,
+        items,
+        batch_size=batch_size,
+        max_batch_tokens=max_batch_tokens,
+        max_prompt_tokens=max_prompt_tokens,
+    ):
+        batches += 1
+        counts.extend(entry.n_tokens for entry in batch)
+    arr = np.asarray(counts, dtype=np.int64)
+    return {
+        "n_items": int(arr.size),
+        "n_batches": int(batches),
+        "total_tokens": int(arr.sum()),
+        "mean_tokens": float(arr.mean()),
+        "p50_tokens": float(np.percentile(arr, 50)),
+        "p95_tokens": float(np.percentile(arr, 95)),
+        "max_tokens": int(arr.max()),
+        "share_capped": float((arr >= max_prompt_tokens).mean()),
     }
 
 
@@ -99,17 +154,80 @@ def throughput(result: Any) -> dict[str, Any]:
     }
 
 
-def extrapolate(items_per_s: float, tokens_per_s: float, mean_tokens: float,
-                train_items: int) -> dict[str, Any]:
-    """What one pass over the training set costs at the measured rates."""
-    minutes_items = train_items / items_per_s / 60.0
-    minutes_tokens = train_items * mean_tokens / tokens_per_s / 60.0
+def extrapolate(
+    result: Any,
+    *,
+    train_items: int,
+    mean_tokens_full_slice: float,
+    n_batches_slice: int,
+    slice_items: int,
+    tokens_per_s: float,
+    items_per_s: float,
+) -> dict[str, Any]:
+    """What one pass over the training set costs, three ways.
+
+    The raw items/s is measured on the items actually processed, which is the **short** end of
+    the length-sorted batch plan (1600 of 2048 items) — so it is an optimistic number and is
+    labelled as such. The other two estimates use the whole slice's token mean. The fitted
+    model regresses measured step time on real tokens per step (the run varied 847 -> 4363
+    tokens/step, which is exactly the range a fit needs) so that per-step overhead is counted.
+    """
+    step_tokens = np.asarray([r.real_tokens for r in result.history], dtype=np.float64)
+    step_seconds = np.asarray([r.elapsed_s for r in result.history], dtype=np.float64)
+    slope, intercept = np.polyfit(step_tokens, step_seconds, 1)
+    batches_per_pass = n_batches_slice * train_items / max(1, slice_items)
+    total_pass_tokens = train_items * mean_tokens_full_slice
+    fitted_seconds = intercept * batches_per_pass + slope * total_pass_tokens
+    naive_seconds = train_items / items_per_s
+    token_seconds = total_pass_tokens / tokens_per_s
     return {
         "train_items": train_items,
-        "mean_prompt_tokens_per_item": mean_tokens,
-        "minutes_per_pass_from_items_per_s": minutes_items,
-        "minutes_per_pass_from_tokens_per_s": minutes_tokens,
-        "hours_per_pass_from_items_per_s": minutes_items / 60.0,
+        "mean_prompt_tokens_per_item_processed": float(step_tokens.sum() / max(1, sum(
+            r.n_items for r in result.history))),
+        "mean_prompt_tokens_per_item_full_slice": mean_tokens_full_slice,
+        "total_pass_tokens": total_pass_tokens,
+        "batches_per_pass_estimate": batches_per_pass,
+        "step_time_model": {
+            "seconds_per_step_intercept": float(intercept),
+            "seconds_per_token_slope": float(slope),
+            "r_squared": float(np.corrcoef(step_tokens, step_seconds)[0, 1] ** 2),
+        },
+        "minutes_per_pass_from_items_per_s_optimistic": naive_seconds / 60.0,
+        "minutes_per_pass_from_tokens_per_s_full_slice": token_seconds / 60.0,
+        "minutes_per_pass_from_fitted_step_model": fitted_seconds / 60.0,
+        "hours_per_pass_from_fitted_step_model": fitted_seconds / 3600.0,
+    }
+
+
+def measure_full_pass(trainer: Any, train_items: list[Any], *, n_batches: int) -> dict[str, Any]:
+    """Time one training pass over the **whole** slice (all batches, so the long tail counts).
+
+    The 200-step run only reaches the short end of a length-sorted plan, so it cannot say what a
+    pass costs; this runs the real training step over every batch the slice makes and times it.
+    It happens after the checkpoint and the calibration are written, so the model it leaves
+    behind is not the artifact.
+    """
+    import time as _time
+
+    before = len(trainer.history)
+    started = _time.perf_counter()
+    trainer.train(train_items, steps=n_batches)
+    wall = _time.perf_counter() - started
+    records = trainer.history[before:]
+    items = sum(r.n_items for r in records)
+    tokens = sum(r.real_tokens for r in records)
+    step_seconds = float(sum(r.elapsed_s for r in records))
+    return {
+        "n_steps": len(records),
+        "n_items": items,
+        "real_tokens": tokens,
+        "padded_tokens": sum(r.padded_tokens for r in records),
+        "step_seconds_total": step_seconds,
+        "wall_clock_s": wall,
+        "items_per_s": items / wall,
+        "tokens_per_s": tokens / wall,
+        "step_seconds_mean": step_seconds / max(1, len(records)),
+        "gpu_peak_memory_gb": max((r.gpu_peak_gb for r in records), default=0.0),
     }
 
 
@@ -154,17 +272,39 @@ def main(argv: list[str] | None = None) -> int:
     info = provenance(config, model)
 
     trainer = Trainer(model, config, log_path=args.log)
+    ref_items = reference_items(train_items, n=args.reference_items)
+    fixed_losses: dict[str, Any] = {}
+
+    def hook(step: int) -> None:
+        # the raw per-step loss is not comparable across steps (length-sorted batches), so the
+        # learning curve is measured on a fixed reference set as well
+        if step in REPORT_STEPS:
+            fixed_losses[str(step)] = trainer.evaluate_loss(ref_items)
+
     result = trainer.train(
         train_items,
         steps=args.steps,
         eval_items=dev_items,
         checkpoint_dir=None if args.no_save else args.checkpoint,
+        on_step=hook,
     )
     rates = throughput(result)
-    mean_tokens = rates["real_tokens"] / max(1, rates["n_items"])
     n_train = args.train_items or train_set_size(config.train_path)
+    stats = slice_stats(
+        model,
+        train_items,
+        batch_size=config.batch_size,
+        max_batch_tokens=config.max_batch_tokens,
+        max_prompt_tokens=config.max_prompt_tokens,
+    )
     extrapolation = extrapolate(
-        rates["items_per_s"], rates["tokens_per_s"], mean_tokens, n_train
+        result,
+        train_items=n_train,
+        mean_tokens_full_slice=stats["mean_tokens"],
+        n_batches_slice=int(stats["n_batches"]),
+        slice_items=stats["n_items"],
+        tokens_per_s=rates["tokens_per_s"],
+        items_per_s=rates["items_per_s"],
     )
 
     calibration: dict[str, Any] = {}
@@ -181,6 +321,15 @@ def main(argv: list[str] | None = None) -> int:
     checkpoint = None
     if not args.no_save:
         checkpoint = str(trainer.save_checkpoint(args.checkpoint))
+
+    full_pass = None
+    if not args.no_pass:
+        full_pass = measure_full_pass(
+            trainer, train_items, n_batches=int(stats["n_batches"])
+        )
+        full_pass["minutes_per_pass_over_the_full_training_set"] = (
+            full_pass["wall_clock_s"] * n_train / max(1, stats["n_items"]) / 60.0
+        )
 
     losses = {str(step): result.loss_at(step) for step in REPORT_STEPS if step <= args.steps}
     report = {
@@ -204,6 +353,22 @@ def main(argv: list[str] | None = None) -> int:
             if len([v for v in losses.values() if v is not None]) < 2
             else losses[str(max(int(k) for k in losses))] < losses[str(min(int(k) for k in losses))]
         ),
+        # the per-step loss is measured on whichever items the step happened to hold, and the
+        # batch plan is length-sorted, so it also moves with item difficulty. The same five
+        # steps measured on a fixed reference set is the learning curve proper.
+        "losses_at_steps_fixed_reference_set": fixed_losses,
+        "loss_curve_decreased_fixed_reference_set": (
+            None
+            if len(fixed_losses) < 2
+            else fixed_losses[str(max(int(k) for k in fixed_losses))]["loss"]
+            < fixed_losses[str(min(int(k) for k in fixed_losses))]["loss"]
+        ),
+        "fixed_reference_set": {
+            "n_items": len(ref_items),
+            "mean_state_chars": float(np.mean([len(i.state) for i in ref_items])),
+            "description": "64 items spread evenly over the slice's length order",
+        },
+        "slice_tokens": stats,
         "throughput": rates,
         "extrapolation": extrapolation,
         "calibration": {
@@ -211,6 +376,7 @@ def main(argv: list[str] | None = None) -> int:
             "items_per_qtype_cap": args.temperature_items_per_qtype,
             "fits": calibration,
         },
+        "full_slice_pass": full_pass,
         "checkpoint": checkpoint,
         "wall_clock_s": result.wall_clock_s + calibration_s,
         "stopped_early": result.stopped_early,
@@ -221,7 +387,9 @@ def main(argv: list[str] | None = None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({k: report[k] for k in (
-        "steps", "losses_at_steps", "loss_curve_decreased", "throughput", "extrapolation",
+        "steps", "losses_at_steps", "loss_curve_decreased",
+        "losses_at_steps_fixed_reference_set", "loss_curve_decreased_fixed_reference_set",
+        "slice_tokens", "throughput", "extrapolation", "calibration", "full_slice_pass",
     )}, indent=2))
     print(f"[smoke] wrote {out}")
     return 0
