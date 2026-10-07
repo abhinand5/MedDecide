@@ -840,13 +840,20 @@ class MedDecideModel:
         dtype: str | None = None,
         **overrides: Any,
     ) -> MedDecideModel:
-        """Rebuild a saved model (adapter + head + calibration) from ``path``."""
+        """Rebuild a saved model (adapter + head + calibration) from ``path``.
+
+        The base is constructed **without** an adapter and the saved adapter is then wrapped
+        around it. Building an adapter first and wrapping a second one on top makes peft warn
+        about "multiple adapters in the model", which is a real hazard for a checkpoint other
+        tasks (S8, S11) load — verified by a save/load prediction-equality check.
+        """
         src = Path(path)
         meta = json.loads((src / "model.json").read_text(encoding="utf-8"))
         lora = LoraSettings.from_dict(meta["lora"]) if meta.get("lora") else None
+        adapter_dir = src / "adapter"
         model = cls(
             meta["base_model_id"],
-            lora=lora,
+            lora=None,
             head_settings=HeadSettings(**meta["head"]),
             dtype=dtype or meta.get("dtype", "bfloat16"),
             device=device,
@@ -856,16 +863,17 @@ class MedDecideModel:
             calibration=meta.get("calibration") or {},
             **overrides,
         )
+        model.lora = lora
         head_path = src / "head.pt"
         if head_path.exists():
             state = torch.load(head_path, map_location=device, weights_only=True)
             model.head.load_state_dict(state)
             model.head.to(device)
-        if model.peft_model is not None and (src / "adapter").exists():
+        if lora is not None and adapter_dir.exists():
             from peft import PeftModel
 
             model.peft_model = PeftModel.from_pretrained(
-                model.base, src / "adapter", is_trainable=False
+                model.base, adapter_dir, is_trainable=False
             )
             model.peft_model.eval()
         model.eval_mode()
