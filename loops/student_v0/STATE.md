@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T18:18:49Z`
+Last updated (UTC): `2026-10-07T18:49:01Z`
 Iterations so far: `1`
 
 ---
@@ -269,6 +269,13 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Padding check verdict (arm c):** fresh/untrained - bf16 FAIL 8.00e-3 but **fp32 PASS 3.97e-4** (so position/mask handling is sound); **trained - bf16 9.45e-2, fp32 2.51e-2, i.e. 17.9x the no-padding control -> a real train/eval batch-composition inconsistency** (linear-attention + pads). The agent's calibrated reading: magnitude is small next to a trained head's logit spread, so it is a **contributing noise source, not on its own the gradient-explosion mechanism**. Recorded as such - the earlier stronger phrasing is superseded.
 - **Caveats recorded with the pick:** the subset averages 653 tokens/item vs the full mix's 948, so the arms **understate** length pressure; and 2,000 steps is 4.5 % of a pass, so "stable" means *no spiking tail and a clean slope in that window*, not proof for a full pass.
 - **S9 run 3 LAUNCHED 16:42:39Z:** `train_student.py --max-seconds 14549 --eval-every 500 --save-every-eval --lora-rank 8 --out outputs/student_v0/S9_run3`, **pid 135436**, pidfile `outputs/student_v0/S9_run3/train.pid`, log `S9_run3/logs/train_stdout.log`, **a checkpoint at every dev eval** in `S9_run3/checkpoints/step_<n>/` (the operator's requirement, recorded in `run.json:dev_evals.checkpoints_per_eval`), **deadline 20:45Z** (4 h box), then the CLI does the temperature fit and the per-template dev report. Handover: `S9_run3/RUN_NOTES.md`. No other GPU job may run until it exits.
+
+### S9 run 3 — PAST THE DIVERGENCE WINDOW, stable — 2026-10-07T18:49:01Z
+- **Step 22,500, alive**, i.e. **past 18k-21.5k where run 2 collapsed**. Dev evals on the same 2,019-item sample: step 21500 acc 0.7276 / macro 0.6587 / brier 0.3643; step 22000 acc **0.7330** / macro **0.6670** / brier 0.3417; step 22500 acc 0.7320 / macro 0.5812 / brier **0.3337**.
+- **The contrast that carries the finding:** when run 2 was stopped at step 21,574 its dev had collapsed to acc ~0.34 / macro 0.11 with pre-clip grad spikes to ~25,000; run 3 at step 22,500 reads acc ~0.73 / macro ~0.58-0.67 / brier ~0.33-0.36.
+- **What this does and does not establish:** the combination of (i) the chunked length bucketing (curriculum fix), (ii) warmup 3 % + cosine on both groups, and (iii) **LoRA r=8** (the diag's pick) is **stable 25 % further into training than the recipe that diverged** - at the same dev sample and the same batch plan. It does **not** yet establish a full pass (deadline 20:45Z), nor which single change mattered: the diag's arms were run one at a time on a 20k subset that understates length pressure, so the attribution between schedule and rank is **not measured**.
+- Remaining risk recorded earlier still applies: the length-driven grad tail in the long openFDA/CT records (arm b localised it; `--max-prompt-tokens 2048` is the untried-in-full-run fallback).
+- Checkpoints exist at **every** dev eval (`S9_run3/checkpoints/step_<n>/`), so the ADVISORY's macro-first selection can be re-examined on dev without another 4 h run.
 
 ## 5. Blocked items
 
