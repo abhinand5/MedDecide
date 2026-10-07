@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T17:18:26Z`
+Last updated (UTC): `2026-10-07T17:48:38Z`
 Iterations so far: `1`
 
 ---
@@ -252,6 +252,7 @@ Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == toke
 
 ### S9-diag — DONE (inside the 3 h box): config picked, run 3 launched — 2026-10-07T16:48:12Z
 - **Run 3 progress (2026-10-07T17:18:26Z):** step **5,500**, alive, and **a checkpoint at every dev eval confirmed on disk** (`checkpoints/{step_500,...,step_5500}`). Dev evals on the **same 2,019-item sample as run 2** (sha256 d22d84fcd928757f, so this comparison is legitimate): step 5000 acc **0.7231** / macro **0.6545** / brier 0.3377 / nll 0.6068; step 5500 acc **0.7276** / macro **0.6632** / brier 0.3482. Run 2 on this sample at the same step count was around acc 0.63 / macro 0.4 and already sliding toward divergence; run 3 is **higher and stable 11x further into training than run 2's best-ever step (1000, macro 0.7006)** - still one window's evidence, and the deadline (20:45Z) plus the full trajectory decide the outcome.
+- **Run 3 progress (2026-10-07T17:48:38Z):** step **11,000** (of ~44k), alive. step 10500 acc **0.7261** / macro 0.5588 / brier 0.3416 / nll 0.6480, step 11000 acc **0.7335** / macro 0.6079 / brier 0.3435. Same dev sample as run 2, and run 2 at this step count was acc ~0.63 / macro ~0.41 / brier ~0.44 and heading for divergence at ~18k - run 3 is higher, better calibrated (brier ~0.34 vs ~0.44) and stable. **The decisive window is ~18k, where run 2 broke**; macro is the noisier of the two series (0.56-0.66 here).
 Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stratified dev sample (sha256 `d22d84fcd928757f`), 2,000 steps each, eval every 500, warmup 3 % + cosine, pre-clip grad norms, sequential on the GPU. Artifacts `outputs/student_v0/S9_diag/{diag.md,diag.json,arms/,RUN_NOTES.md}`.
 
 | arm | change | loss (first->last 500) | slope/1k (CI) | grad p50 / p95 / max | #>100 | dev macro @500/1000/1500/2000 |
