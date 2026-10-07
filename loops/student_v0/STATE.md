@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T19:49:17Z`
+Last updated (UTC): `2026-10-07T20:24:25Z`
 Iterations so far: `1`
 
 ---
@@ -276,6 +276,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **What this does and does not establish:** the combination of (i) the chunked length bucketing (curriculum fix), (ii) warmup 3 % + cosine on both groups, and (iii) **LoRA r=8** (the diag's pick) is **stable 25 % further into training than the recipe that diverged** - at the same dev sample and the same batch plan. It does **not** yet establish a full pass (deadline 20:45Z), nor which single change mattered: the diag's arms were run one at a time on a 20k subset that understates length pressure, so the attribution between schedule and rank is **not measured**.
 - **Run 3 progress (2026-10-07T19:19:09Z):** step **28,500** (~65 %), alive, still stable - step 27500 acc 0.7251 / macro 0.5788 / brier 0.3498, step 28000 0.7301 / 0.5755 / 0.3263, step 28500 acc **0.7370** / macro 0.5695 / brier 0.3378. No sign of the run-2 tail; deadline 20:45Z, then the CLI's temperature fit + per-template dev report, then the test evaluation.
 - **Run 3 progress (2026-10-07T19:49:17Z):** step **34,000** (~77 %), alive, and the best numbers so far - step 33000 acc 0.7395 / macro 0.6129 / brier 0.3275, step 33500 acc **0.7464** / macro **0.6607** / brier **0.3241**, step 34000 acc 0.7311 / macro 0.6574 / brier 0.3290. `best/` + `best.json` exist (selection tracking under the ADVISORY macro-first rule). Deadline 20:45Z (~55 min), after which the CLI writes the temperature fit and the per-template dev report.
+- **Run 3 near the end of the pass (2026-10-07T20:24:25Z):** step **41,000 of 44,152 (93 %)**, alive, and the **best and most stable readings of the whole loop** - step 39500 acc **0.7548** / macro 0.6652 / brier 0.3176, step 40000 0.7494 / 0.6633 / 0.3169, step 40500 0.7499 / 0.6634 / 0.3182, step 41000 0.7479 / 0.6631 / 0.3182. For contrast, run 2 (diverged) read acc ~0.34-0.45 / macro 0.11-0.18 in this region. Deadline 20:45Z. `best.json`/`best/` present; the temperature fit + per-template dev report are written by the CLI at the end of the run.
 - Remaining risk recorded earlier still applies: the length-driven grad tail in the long openFDA/CT records (arm b localised it; `--max-prompt-tokens 2048` is the untried-in-full-run fallback).
 - Checkpoints exist at **every** dev eval (`S9_run3/checkpoints/step_<n>/`), so the ADVISORY's macro-first selection can be re-examined on dev without another 4 h run.
 
