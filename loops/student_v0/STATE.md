@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T21:18:10Z`
+Last updated (UTC): `2026-10-07T21:38:28Z`
 Iterations so far: `1`
 
 ---
@@ -297,6 +297,12 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Looks-too-good flags for S11/S14 (not gains yet):** ct_claim_set 0.9417 vs zero-shot 0.2517, fda_class_v2 0.9734 vs 0.8106, pubmed_mesh_v2 0.9685, **medquad_routing 0.9978** vs family 0.9346-0.9894. The agent's explanation (readout effect + same-template training, with the four held-out cells as the leakage control) must be **re-derived in the run-3 audit**, not asserted - and note the held-out cells are *not* uniformly improved (ct_phase 0.2555 is below its 0.3455 zero-shot), which is what a leakage-free result looks like.
 - **Instability detail recorded:** one **196,688** pre-clip grad spike at step 16,995 (a single 7,794-token `fda_route_claim_noul_v1` item, loss 15.96); clipping bounded it and the run did **not** diverge (run 2's failure was a *sustained* rise: p50 10.5 -> 40.8 after 18k; run 3's p50 fell to ~2.6). The length-driven tail is still real, just survivable under this recipe.
 - **Next:** the converged checkpoint (step 44,000) evaluation as a labelled additional analysis (running, `--tag converged`, `ADDITIONAL_ANALYSIS_note.json`), then **S10** Base ablation (Qwen3.5-0.8B-Base, same recipe, `--save-every-eval`, same dev sample, 4 h box).
+
+### S9 run 3 — ADDITIONAL ANALYSIS: the rule's pick BEATS the converged checkpoint, and my earlier framing was wrong — 2026-10-07T21:38:28Z
+- **Official (rule's pick, step 1000) vs converged (step 44,000), identical item sets, coverage 1.00, same filters/metrics:** tier 1 **0.6505 vs 0.6141** (gates 7/8 vs 5/8, converged has 3 `READOUT_FAIL`); fresh **0.8227 vs 0.7767** (gates **11/11 vs 7/11**, converged has 3 constant-answer + 1 flip failure). The additional run is labelled in `S9_run3/ADDITIONAL_ANALYSIS_note.json`; the official model remains the rule's selection.
+- **What the converged model actually does:** it is *better* on the trained structured-gold templates (ct_claim_set 0.9417 -> 0.9995, fda_route_claim 0.9595 -> 0.9975, scifact 0.6433 -> 0.9167, ct_healthy 0.6540 -> 0.8340, fda_class_v2 0.9734 -> 0.9898) and *much worse* on knowledge and held-out cells (medqa 0.3928 -> 0.2922, mmlu 0.5095 -> 0.3046, pubmedqa 0.6373 -> 0.5430, **fda_boxed_warning 0.6215 -> 0.2068 (below chance, held out)**, **pubmed_humans 0.7242 -> 0.4673 (held out)**, ct_arm_role 0.6165 -> 0.5020, pubmed_mesh_v2 0.9685 -> 0.8558). It is the more **training-mix-specialised** model; its dev accuracy/Brier win comes from the mix's frequent templates.
+- **Correction to my own earlier reasoning (important):** I twice framed the macro-first rule as "selecting an undertrained snapshot" and treated the converged model as the likely-better one. **The test battery contradicts that**: the rule's pick is better on *both* tiers and passes 4 more gates on fresh. The operator's ruling ("the selection rule is not the problem") is **confirmed on evidence**, and the ADVISORY's macro-first rule is doing exactly what it is for - finding the better-*balanced* model rather than the more mix-specialised one. My framing is superseded here, not quietly dropped.
+- **S10 (Base ablation) LAUNCHED 21:33:32Z:** `train_student.py --base-model Qwen/Qwen3.5-0.8B-Base --model-id meddecide-0.8b-base-lora-pointer --max-seconds 14798 --eval-every 500 --save-every-eval --lora-rank 8 --out outputs/student_v0/S10`, **pid 139222**, deadline **01:40Z**, checkpoints per dev eval, monitor writes `logs/poll.log`, and `run_student.py --split test --tag test` runs automatically on `best/` when training exits. Handover: `S10/RUN_NOTES.md`. New `--base-model` CLI flag; ruff clean, 279 non-GPU tests pass.
 
 ## 5. Blocked items
 
