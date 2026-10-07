@@ -168,6 +168,10 @@ Working dir:    outputs/student_v0/S7/
 - Anomalies recorded for investigation: (a) the loss **bounces** after step 100 rather than falling monotonically (`loss_curve_decreased: True` in the artifact is too generous - the curve's own numbers are quoted here); (b) the `score` temperature fit hit the search bound (49.9999) on 33 dev items with NLL 1.105 -> 1.099, i.e. it did not fit - the score qtype has only 33 dev items and no training items at all.
 - Next: I must independently run the four acceptance tests (distribution-only, permutation, adapter-disabled byte-identity, 64-item overfit >= 0.95) and check the byte-identity test really compares against the untouched base, then write SELF_AUDIT + CLAIMS.
 
+### S7 — follow-up running — 2026-10-07T01:14:52Z
+- The S7 implementation agent is **still running** (session `14b8a3dc-bb6d-4b92-9264-783dcd23f866`) finishing its test suites and full report. Its code is already in the tree and committed (`e994a8d`, `c089537`); `uv run ruff check .` is clean and `uv run pytest -q tests/test_model_pointer.py` is **17 passed** at those commits.
+- If it edits `src/meddecide/{model,train}/` again: re-run ruff + that test file, then re-read `outputs/student_v0/S7/smoke.json` before S9 sizes its step count from it. Nothing else in the loop depends on its report.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
