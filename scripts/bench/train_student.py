@@ -793,10 +793,11 @@ def main(argv: list[str] | None = None) -> int:
     # temperatures so `run_student.py` applies them without a second fit.
     best_model = MedDecideModel.load(best_dir, device=config.device)
     t0 = time.perf_counter()
+    # forward-only scoring: the same (bigger) batches the periodic dev eval uses
     scored_final = best_model.score_items(
         final_items,
-        batch_size=config.batch_size,
-        max_batch_tokens=config.max_batch_tokens,
+        batch_size=config.eval_batch_size or config.batch_size,
+        max_batch_tokens=config.eval_max_batch_tokens or config.max_batch_tokens,
         max_prompt_tokens=config.max_prompt_tokens,
     )
     final_scored_seconds = time.perf_counter() - t0
