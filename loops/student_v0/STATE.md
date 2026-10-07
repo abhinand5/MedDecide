@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T04:37:13Z`
+Last updated (UTC): `2026-10-07T04:47:29Z`
 Iterations so far: `1`
 
 ---
@@ -199,6 +199,14 @@ identifiable (S8 recorded `NOT FITTED`).
 - **S11 machinery done (CPU-only):** `scripts/bench/g1.py` + `tests/test_g1.py` (23 tests - I ran them: pass in 0.73 s; ruff clean), dry run `outputs/student_v0/S11/g1_dryrun.{md,json}`, independent re-derivation `audit_g1.py` (ALL CHECKS PASS). The **real** verdict still needs (a) S9's checkpoint scored over all v0.2 test items, (b) zero-shot 0.8B v0.2 predictions, (c) JEV-9B v0.2 predictions (does not exist yet - a GPU job for after S9). `loops/student_v0/g1.md` is deliberately unwritten.
 - **Handover items from S8's final report (for S11/S14):** (1) `ct_claim_set_choice_v1` 0.9165 on the smoke checkpoint needs the S11 construction-cue check (seen template, 19,997 pre-window training items); (2) the strict slice reads `strict_slice_start` from `data/bench/v0.2/fresh/manifest.json`, **not** `acceptance.json` - g1.py walks acceptance -> fresh manifest -> bench manifest and records the source; (3) pointer-head rows carry `label_mass = 1.0` as a **convention, not a measurement** (the softmax lies on the offered options), so the mass check is never evaluated - flag if a different convention is wanted; (4) the checkpoint's stored `noul` T=0.039 **degrades** test calibration vs T=1, so S8 reports an additional `uncalibrated` (T=1) block per cell; (5) **S9 must fit `score` on the S6 dev mix (33 items) or ship it uncalibrated** - the screened dev split has no score item; (6) S7's report calls `noul` T=0.039 a "search bound" hit, but the bounds are (0.02, 50) - a documentation error to correct in S14.
 - Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
+
+### DEVIATION — S9 run 1 stopped by operator instruction: failed by pipeline, not by recipe — 2026-10-07T04:47:29Z
+- **Instruction (operator, advisor-reviewed):** S9 run 1 is **invalid due to a pipeline bug**. Stop it, keep its artifacts under `outputs/student_v0/S9_run1_sorted/`, and record it here as failed-by-pipeline, **not as evidence about the recipe**.
+- **Done:** killed training PID 119600 and launchers 119582/119592 (SIGTERM; all three stopped, no `train_student` process remains, GPU back to 0 MiB); moved `outputs/student_v0/S9/` -> **`outputs/student_v0/S9_run1_sorted/`** (RUN_NOTES.md, best/, best.json, run_started.json, dev_eval_ids.json, logs/, train.pid all preserved).
+- **Root cause (operator's diagnosis):** `src/meddecide/train/data.py::iter_batches()` sorts the whole epoch by `char_proxy` **after** shuffling, so training ran shortest -> longest - an **accidental length curriculum**. The dev curve peaked ~step 17.5k and then degraded as batches got long. My own recorded watch items (the flat 0.41-0.49 band, the late decline to brier 0.79) were symptoms of this, and my "lr too high / overfitting" hypotheses were **wrong in mechanism** - the operator's diagnosis supersedes them.
+- **Required fixes before any re-run:** (1) bucket by length **within shuffled chunks** (e.g. chunks of 100 x batch_size), form batches inside each chunk, then shuffle the **batch order** per epoch; unit test: Spearman |rho| between batch index and mean batch length **< 0.1** over one planned epoch. (2) **Linear warmup (3 % of steps) + cosine decay** on both param groups. (3) Selection rule per ADVISORY S9: **dev macro accuracy first, Brier as tiebreak** - run 1's `best.json` used Brier first, which I accepted without checking it against the ADVISORY; that is a miss on my part and is corrected here. (4) Enlarge the fixed dev-eval sample to **>= 2,000 items stratified by template**. (5) Re-run with a **fresh 4 h box** and record the new start time.
+- **Process rule reaffirmed:** one agent at a time on GPU work; no parallel sub-agents for GPU tasks (CPU-only sub-tasks are fine).
+- **Also my error (same class as an earlier one):** `pkill -TERM -f "train_student.py"` matched **my own shell's command line** and killed the shell, so the artifact move had to be re-run. Use explicit PIDs or `pgrep -f "[t]rain_student"`, never `pkill -f <literal>`.
 
 ## 5. Blocked items
 
