@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T00:04:50Z`
+Last updated (UTC): `2026-10-07T00:05:13Z`
 Iterations so far: `1`
 
 ---
@@ -30,7 +30,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S4 | HLE medical subset (supplementary test) | small | S1 | DONE | 2026-10-06T22:39:33Z | 2026-10-07T00:04:50Z |
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
-| S7 | Training code: LoRA + pointer head | smoke | S0 | PENDING | | |
+| S7 | Training code: LoRA + pointer head | smoke | S0 | IN_PROGRESS | 2026-10-07T00:05:13Z | |
 | S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
@@ -78,16 +78,16 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S4 — HLE medical subset (supplementary test)** (started 2026-10-06T22:39:33Z)
-Working dir:    outputs/student_v0/S4/
+Task in flight: **S7 — training code: LoRA + pointer head** (started 2026-10-07T00:05:13Z)
+Working dir:    outputs/student_v0/S7/
 
-- [x] 1. cais/hle loads (terms accepted): 2,500 test rows, revision 5a81a4c7271a, licence mit
-- [x] 2. built data/bench/v0.2/supplementary/hle_med.jsonl: **141 items** (166 Biology/Medicine multipleChoice minus 19 with images, 6 unparseable), 5-16 options each: category Biology/Medicine, answer type multiple-choice, no image, as `choice` items; record count, revision, licence
-- [x] 3. manifest written with count/revision/licence/drop reasons; checks PASS (choice, gold in options, no images)
-- [~] 4. zero-shot 0.8B/9B **QUEUED**: chain job `outputs/student_v0/S4/logs/hle.pid` waits for the S3 9B job then runs both cells (log `logs/run_hle.log`); numbers to be appended as a CLAIMS row
-- [x] 5. recorded as supplementary only (manifest `role`), never trained on; chance is 1/n_options per item (5-16 options, so the gate's single `chance`=1/16 is conservative)
-- [ ] 6. acceptance check run and passed
-- [ ] 7. self-audit (R6) + CLAIMS rows
+- [ ] 1. src/meddecide/model/: frozen base + LoRA (r=16, attention + MLP projections) + pointer head scoring each offered option from the hidden state at its key token and at the answer position
+- [ ] 2. src/meddecide/train/: CE + lambda*Brier loss (lambda 1.0), option-order augmentation per epoch, per-qtype temperature fitted on dev, batched inference returning the full distribution (+ expected level for score) and latency
+- [ ] 3. tests: (1) proper distribution over offered options only, (2) option permutation permutes the output within tolerance, (3) adapter disabled -> greedy generation byte-identical to the untouched base on 20 fixed prompts, (4) overfit 64 items to >= 0.95 training accuracy
+- [ ] 4. 200-step smoke run: loss decreases; throughput (tokens/s, items/s) recorded to size S9's step count
+- [ ] 5. acceptance check run and passed
+- [ ] 6. self-audit (R6) written to SELF_AUDIT.md
+- [ ] 7. CLAIMS.md rows appended
 - [ ] 8. STATE updated, committed, pushed
 ```
 
