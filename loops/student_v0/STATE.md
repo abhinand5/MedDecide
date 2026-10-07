@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T02:07:02Z`
+Last updated (UTC): `2026-10-07T02:22:41Z`
 Iterations so far: `1`
 
 ---
@@ -187,6 +187,7 @@ identifiable (S8 recorded `NOT FITTED`).
 - **To resume:** read `outputs/student_v0/S9/RUN_NOTES.md` first; check the pidfile with `kill -0`; if the process is gone, check the step log's completeness and whether `outputs/student_v0/S9/best/` and `best.json` exist **before** relaunching anything. One GPU job at a time - do not start S10/S11 work on the GPU while this runs.
 - Expected artifacts: `outputs/student_v0/S9/{logs/*.jsonl,best/,best.json,temperature.json,model_*.json,SELF_AUDIT.md}`.
 - **GPU serialisation (2026-10-07T02:07:02Z).** The S8 agent was still re-running its own acceptance evaluation (`scripts/bench/run_student.py --split test`, PID 112270, ~17 GB) when S9 started. The S9 agent has been told to finish CPU-only work, wait for that PID to exit, and only then launch the training pass - one GPU job at a time. If a future round finds two GPU jobs running, kill the redundant one and record it as a deviation (bench_v0_fix0's lesson: concurrent GPU jobs cost ~1 h of OOM re-runs).
+- **GPU contention, measured (2026-10-07T02:22:41Z):** `nvidia-smi --query-compute-apps` shows **two** GPU processes and **no training run**: PID 112270 `run_student.py --split test` (S8 agent's redundant re-check of its post-edit code, 23,488 MiB, 18 min in) and PID 116048 `pytest -q --ignore=tests/test_train_student.py` (53,464 MiB - the repo's suite includes GPU-marked model tests, so running it *is* a GPU job). Total 77 GB of 96 GB. `outputs/student_v0/S9/RUN_NOTES.md` confirms **S9's training had not been launched** and the agent was waiting, so the timebox is intact but the "one GPU job at a time" rule is being bent by two *transient* jobs. Not killed: both are verification runs whose output is wanted, and neither is the training pass; recorded here as a deviation rather than hidden. If S9's launch ever overlaps a live job, kill the redundant one first.
 - Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
 
 ## 5. Blocked items
