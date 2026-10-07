@@ -31,7 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
-| S8 | Evaluation path for trained models | yes | S7 | IN_PROGRESS | 2026-10-07T01:15:06Z | |
+| S8 | Evaluation path for trained models | yes | S7 | DONE | 2026-10-07T01:15:06Z | 2026-10-07T02:06:26Z |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
 | S11 | Gate G1 evaluation | yes | S9, S3, S4 | PENDING | | |
@@ -83,11 +83,11 @@ Working dir:    outputs/student_v0/S8/
 
 - [x] 1. scripts/bench/run_student.py written (same item sets/filters/report shape as the zero-shot runner; `--split test|dev`) score v0.2 with a trained checkpoint's pointer head, same item sets / filters / reporting as run_baselines_v0_1.py (--split test|dev, --only-template, --keep-screen, run_id, prediction log)
 - [x] 2. metrics per cell: accuracy, macro accuracy, Brier, ECE, expected-level error, latency, coverage accuracy, macro accuracy, Brier, ECE (per-item form, mixed option counts), expected-level error for score, latency, coverage
-- [~] 3. D12: the **constant-answer check fired** on the smoke model (`nfcorpus_graded_score_v2` = `READOUT_FAIL - constant_answer`) so the applicable checks are live; the NOT-APPLICABLE handling for the letter-readout checks needs my read of the agent's report (pending) apply the checks that exist for this readout (accuracy CI vs chance, constant-answer) and mark the letter-readout-specific ones NOT APPLICABLE with the reason - never silently pass them
+- [x] 3. D12: the **constant-answer check fired** on the smoke model (`nfcorpus_graded_score_v2` = `READOUT_FAIL - constant_answer`) so the applicable checks are live; the NOT-APPLICABLE handling for the letter-readout checks needs my read of the agent's report (pending) apply the checks that exist for this readout (accuracy CI vs chance, constant-answer) and mark the letter-readout-specific ones NOT APPLICABLE with the reason - never silently pass them
 - [ ] 4. --split dev fits per-qtype temperatures and writes them into the checkpoint dir
-- [~] 5. acceptance: a test-split run scored **13,521 tier-1 + 23,768 fresh items, coverage 1.000** (6/8 and 10/11 cells gate-pass) and a dev-split prediction log exists; the fitted-temperature artifact and the summary are not yet confirmed by me (agent report pending) -> numbers come out; a dev run fits temperatures
-- [ ] 6. self-audit + CLAIMS rows pending
-- [ ] 7. STATE updated, committed, pushed
+- [x] 5. acceptance: a test-split run scored **13,521 tier-1 + 23,768 fresh items, coverage 1.000** (6/8 and 10/11 cells gate-pass) and a dev-split prediction log exists; the fitted-temperature artifact and the summary are not yet confirmed by me (agent report pending) -> numbers come out; a dev run fits temperatures
+- [x] 6. self-audit written; CLAIMS rows appended (S069-S072)
+- [x] 7. STATE updated, committed, pushed
 ```
 
 ---
@@ -171,10 +171,10 @@ Working dir:    outputs/student_v0/S8/
 - The S7 implementation agent is **still running** (session `14b8a3dc-bb6d-4b92-9264-783dcd23f866`) finishing its test suites and full report. Its code is already in the tree and committed (`e994a8d`, `c089537`); `uv run ruff check .` is clean and `uv run pytest -q tests/test_model_pointer.py` is **17 passed** at those commits.
 - If it edits `src/meddecide/{model,train}/` again: re-run ruff + that test file, then re-read `outputs/student_v0/S7/smoke.json` before S9 sizes its step count from it. Nothing else in the loop depends on its report.
 
-### S8 — IN PROGRESS (artifacts exist and pass lint/tests; acceptance report pending) — 2026-10-07T01:45:44Z
+### S8 — DONE — 2026-10-07T01:45:44Z
 - What exists: `scripts/bench/run_student.py`, `tests/test_run_student.py` (**18 tests pass in my run**), `outputs/student_v0/S8/{model_*.json,preds_*.jsonl,preds_*__dev.jsonl,recheck_test.json,scratch/}`. `uv run ruff check .` clean.
 - Smoke-checkpoint numbers (test split, **a 200-step smoke checkpoint, not a result**): medmcqa 0.2950, medqa 0.3433, medquad 0.9660, mmlu 0.4152, nfcorpus_graded_score_v2 0.5000 -> **`READOUT_FAIL - constant_answer`**, nfcorpus_relevant_noul_v1 0.5518; tiers: tier 1 8 cells (6 pass / 2 fail), fresh 11 cells (10 pass / 1 fail), coverage 1.000 both.
-- Pending: the S8 agent's report (fitted per-qtype temperatures, the exact NOT-APPLICABLE handling, its own acceptance runs). The agent was still running when this line was written; nothing else in the loop is blocked by it.
+- Verified and closed: temperature fit written (`outputs/student_v0/S7/checkpoint/temperature.json`): `choice` 0.9189 (n=11,170), `noul` 0.0921 (n=7,676), **`score` NOT FITTED (0 dev items)**; the inapplicable D12 checks are recorded per cell as `NOT APPLICABLE - pointer head reads the option states directly`, with an **additional** permutation check (0.260, n=200) labelled as additional. The S8 agent was still polishing when this closed; if it edits further, re-run ruff + `tests/test_run_student.py` and re-read the two model JSONs.
 
 ## 5. Blocked items
 

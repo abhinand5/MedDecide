@@ -337,6 +337,28 @@ def test_score_expected_level_error_hand_computed() -> None:
     assert out["mean_gold_level"] == pytest.approx(2.0)
 
 
+def test_unmeasurable_cell_reads_not_measured_with_its_reason() -> None:
+    cell = rs.summarise_cell(
+        model_id="m", tier="tier1", template_id="t", split="test", predictions=[],
+        template_total=100, template_available=100, sampled=False, strict_ids=None, seed=0,
+        shuffle_flip=None, shuffle_n=0, shuffle_error=None, temperature={},
+        uncalibrated=None, wall_seconds=0.0,
+    )
+    assert str(cell["gate_status"]).startswith("NOT MEASURED — ")
+    assert cell["accuracy"] is None
+    assert cell["n"] == 0 and cell["coverage"] == 0.0
+    assert cell["gate"] is None
+    assert cell["gate_notes"] == [cell["gate_status"]]
+    # and the direct helper agrees
+    direct = rs.empty_cell(
+        model_id="m", tier="tier1", template_id="t", split="test", template_total=100,
+        reason="the model could not take any item of this template",
+    )
+    assert direct["gate_status"] == (
+        "NOT MEASURED — the model could not take any item of this template"
+    )
+
+
 def test_score_expected_level_error_is_absent_from_choice_cells() -> None:
     choice = _item(seed=0)
     pred = _prediction(choice, [0.25, 0.25, 0.25, 0.25])
@@ -415,10 +437,20 @@ def test_temperature_fit_reports_too_few_items_and_bound_hits() -> None:
     assert rs.TEMPERATURE_BOUNDS[0] < good["temperature"] < rs.TEMPERATURE_BOUNDS[1]
     assert good["nll_after"] <= good["nll_before"]
 
-    # an empty qtype is not fitted either
+    # an empty qtype is not fitted either, and an expected-but-absent qtype is reported rather
+    # than omitted (the screened dev split has no `score` item)
     empty = rs.fit_temperatures(split="dev", logits_by_qtype={}, gold_by_qtype={}, seed=0)
     assert empty["per_qtype"] == {}
     assert empty["n_qtype_fitted"] == 0
+    absent = rs.fit_temperatures(
+        split="dev", logits_by_qtype={"choice": logits}, gold_by_qtype={"choice": gold}, seed=0,
+        expected_qtypes=["choice", "noul", "score"],
+    )
+    assert sorted(absent["per_qtype"]) == ["choice", "noul", "score"]
+    assert absent["per_qtype"]["score"]["fitted"] is False
+    assert absent["per_qtype"]["score"]["n_items"] == 0
+    assert absent["per_qtype"]["score"]["status"].startswith("NOT FITTED — no dev items")
+    assert absent["n_qtype_not_fitted"] == 2
 
 
 def test_temperature_file_only_applies_fitted_entries(tmp_path) -> None:

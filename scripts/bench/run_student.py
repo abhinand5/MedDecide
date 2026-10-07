@@ -744,26 +744,30 @@ def fit_temperatures(
     seed: int,
     min_items: int = DEFAULT_MIN_TEMPERATURE_ITEMS,
     bounds: tuple[float, float] = TEMPERATURE_BOUNDS,
+    expected_qtypes: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """Fit one temperature per qtype on **dev** items.
 
     Refuses any split other than ``dev``: temperatures are fitted on dev, never on test
     (AGENTS.md data rules). A qtype with fewer than ``min_items`` items, or a fit that lands on
     the search bound, is reported with an explicit status; the measured numbers are kept beside
-    it as a diagnostic and are never presented as a fitted value.
+    it as a diagnostic and are never presented as a fitted value. ``expected_qtypes`` makes the
+    report carry a qtype the run has **no** items for (``score`` on the screened dev split) as
+    an explicit ``NOT FITTED`` entry instead of silently omitting it.
     """
     if split != "dev":
         raise ValueError(
             f"refusing to fit temperatures on split {split!r}: temperature fitting is dev-only"
         )
     per_qtype: dict[str, Any] = {}
-    for qtype in sorted(logits_by_qtype):
-        logits = logits_by_qtype[qtype]
-        gold = gold_by_qtype[qtype]
+    for qtype in sorted(set(logits_by_qtype) | set(expected_qtypes or ())):
+        logits = logits_by_qtype.get(qtype, [])
+        gold = gold_by_qtype.get(qtype, [])
         if not logits:
             per_qtype[qtype] = {
-                "status": "NOT FITTED — no dev items of this qtype",
+                "status": "NOT FITTED — no dev items of this qtype in this run",
                 "n_items": 0,
+                "fitted": False,
             }
             continue
         fits = fit_per_qtype(
@@ -998,6 +1002,25 @@ def run(args: argparse.Namespace) -> int:
         "cells": [],
     }
     started = time.time()
+    # built BEFORE the scoring loop: `started_at` is when the run started, not when the report was
+    # written (the first version constructed it at the end, so the file read wall_clock_s = 0.0)
+    prov = Provenance(
+        run_name=f"S8_student_{slug(args.model_id)}",
+        command=" ".join([sys.executable, *sys.argv]),
+        gpu=report["gpu"],
+        seed=args.seed,
+        config={
+            "checkpoint": str(checkpoint),
+            "split": args.split,
+            "model_id": args.model_id,
+            "batch_size": args.batch_size,
+            "max_batch_tokens": args.max_batch_tokens,
+            "shuffle_items": args.shuffle_items,
+        },
+        models=[{"model_id": args.model_id, "checkpoint": str(checkpoint)}],
+        datasets=[{"name": "MedDecide-Bench v0.2", "tier1": str(args.tier1),
+                   "fresh": str(args.fresh), "split": args.split}],
+    )
     logits_by_qtype: dict[str, list[np.ndarray]] = defaultdict(list)
     gold_by_qtype: dict[str, list[int]] = defaultdict(list)
     any_limited = False
@@ -1119,6 +1142,9 @@ def run(args: argparse.Namespace) -> int:
             gold_by_qtype=dict(gold_by_qtype),
             seed=args.seed,
             min_items=args.min_temperature_items,
+            # every qtype the schema defines is reported, so a qtype this split has no items for
+            # (the screened dev split has no `score` item) reads NOT FITTED instead of vanishing
+            expected_qtypes=[q.value for q in QuestionType],
         )
         temperature_out = (
             Path(args.temperature_out) if args.temperature_out is not None
@@ -1143,23 +1169,6 @@ def run(args: argparse.Namespace) -> int:
 
     out_path = out_dir / f"model_{slug(args.model_id)}{suffix}.json"
     out_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    prov = Provenance(
-        run_name=f"S8_student_{slug(args.model_id)}",
-        command=" ".join([sys.executable, *sys.argv]),
-        gpu=gpu_name(),
-        seed=args.seed,
-        config={
-            "checkpoint": str(checkpoint),
-            "split": args.split,
-            "model_id": args.model_id,
-            "batch_size": args.batch_size,
-            "max_batch_tokens": args.max_batch_tokens,
-            "shuffle_items": args.shuffle_items,
-        },
-        models=[{"model_id": args.model_id, "checkpoint": str(checkpoint)}],
-        datasets=[{"name": "MedDecide-Bench v0.2", "tier1": str(args.tier1),
-               "fresh": str(args.fresh), "split": args.split}],
-    )
     prov.finish().write(out_dir / f"model_{slug(args.model_id)}{suffix}_provenance.json")
     print(json.dumps(report["tiers"], indent=2))
     print(f"wall: {report['wall_seconds']:.1f}s; wrote {out_path}")
