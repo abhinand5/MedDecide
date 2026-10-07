@@ -182,6 +182,12 @@ identifiable (S8 recorded `NOT FITTED`).
 - Smoke-checkpoint numbers (test split, **a 200-step smoke checkpoint, not a result**): medmcqa 0.2950, medqa 0.3433, medquad 0.9660, mmlu 0.4152, nfcorpus_graded_score_v2 0.5000 -> **`READOUT_FAIL - constant_answer`**, nfcorpus_relevant_noul_v1 0.5518; tiers: tier 1 8 cells (6 pass / 2 fail), fresh 11 cells (10 pass / 1 fail), coverage 1.000 both.
 - Verified and closed: temperature fit written (`outputs/student_v0/S7/checkpoint/temperature.json`): `choice` 0.9189 (n=11,170), `noul` 0.0921 (n=7,676), **`score` NOT FITTED (0 dev items)**; the inapplicable D12 checks are recorded per cell as `NOT APPLICABLE - pointer head reads the option states directly`, with an **additional** permutation check (0.260, n=200) labelled as additional. The S8 agent was still polishing when this closed; if it edits further, re-run ruff + `tests/test_run_student.py` and re-read the two model JSONs.
 
+### S9 — running — 2026-10-07T02:06:44Z
+- The S9 training agent is **running** (session `887043c8-04e7-469f-9e13-cbc8116f1da9`): it writes `scripts/bench/train_student.py`, launches the real ~2.7 h pass detached with a pidfile + log under `outputs/student_v0/S9/logs/`, and maintains **`outputs/student_v0/S9/RUN_NOTES.md`** as the handover document (exact command, pidfile, log path, current step).
+- **To resume:** read `outputs/student_v0/S9/RUN_NOTES.md` first; check the pidfile with `kill -0`; if the process is gone, check the step log's completeness and whether `outputs/student_v0/S9/best/` and `best.json` exist **before** relaunching anything. One GPU job at a time - do not start S10/S11 work on the GPU while this runs.
+- Expected artifacts: `outputs/student_v0/S9/{logs/*.jsonl,best/,best.json,temperature.json,model_*.json,SELF_AUDIT.md}`.
+- Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
