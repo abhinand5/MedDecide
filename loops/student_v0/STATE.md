@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T16:27:22Z`
+Last updated (UTC): `2026-10-07T16:48:12Z`
 Iterations so far: `1`
 
 ---
@@ -249,6 +249,23 @@ Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == toke
 - **Arm baseline (run-2 recipe on the fixed 20k subset), 2,000 steps:** loss 1.053 -> 0.954 over the last 500 steps, slope **-0.2756 +/- 0.1558** per 1k steps (decreasing, slowly), pre-clip grad **p50 6.76 / p95 36.25 / max 971.9**, **8 steps with grad > 100**, dev macro 0.599 / 0.600. Arms `baseline`, `a_low_lr`, `b_cap2048`, `d_rank8` have all run; one more job is in flight.
 - **Spiking steps are longer batches:** mean batch max-len **3,760 on spike steps vs 2,190 overall**, top templates in spikes ct_randomised_noul_v1 21 %, fda_class_choice_v1 18 %, ct_healthy_volunteers_noul_v1 18 %, medquad_routing_v1 18 % - i.e. the instability tracks **length**, which is consistent with the padding bug above.
 - **Consequence for the loop:** a stable recipe cannot be chosen while the head's logits depend on batch composition; the padding path must be fixed (or the head made padding-invariant) before run 3 is worth 4 h. The full arm table and the diag agent's verdict are still coming; `outputs/student_v0/S9_diag/{diag.md,diag.json,RUN_NOTES.md}`.
+
+### S9-diag — DONE (inside the 3 h box): config picked, run 3 launched — 2026-10-07T16:48:12Z
+Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stratified dev sample (sha256 `d22d84fcd928757f`), 2,000 steps each, eval every 500, warmup 3 % + cosine, pre-clip grad norms, sequential on the GPU. Artifacts `outputs/student_v0/S9_diag/{diag.md,diag.json,arms/,RUN_NOTES.md}`.
+
+| arm | change | loss (first->last 500) | slope/1k (CI) | grad p50 / p95 / max | #>100 | dev macro @500/1000/1500/2000 |
+|---|---|---|---|---|---|---|
+| baseline | run-2 recipe | 1.053 -> 0.797 | -0.192 +/- 0.061 | 5.79 / 31.07 / **971.9** | 14 | .599/.600/.613/.570 |
+| a_low_lr | head 1e-4, LoRA 5e-5 | 1.006 -> 0.695 | -0.229 +/- 0.055 | 10.00 / 33.35 / 615.2 | 10 | .556/.627/.592/.582 |
+| b_cap2048 | prompt cap 2048 | 1.252 -> 0.939 | -0.217 +/- 0.053 | 8.65 / 31.90 / **325.4** | 10 | .519/.585/.622/.650 (different rendering) |
+| **d_rank8 <- PICKED** | **LoRA r=8, alpha 16** | 1.080 -> 0.735 | -0.250 +/- 0.061 | 6.10 / **29.47** / 457.8 | 10 | **.649/.655/.681/.666** |
+| e_rank8_lowlr | r=8 + low LRs | 1.027 -> 0.687 | -0.247 +/- 0.054 | 9.65 / 32.86 / **310.0** | **7** | .569/.594/.605/.569 |
+
+- **Why d_rank8:** best dev macro at *every* eval among cap-comparable arms (peak .681 / final .666 vs baseline .613/.570), lowest grad p95, worst-case grad less than half the baseline's, loss decreasing with a CI excluding zero. Rejected: `e_rank8_lowlr` (lowest max grad but clearly worse dev macro), `b_cap2048` (truncating to 2048 would remove the long-record capability S3/S11 measure), `a_low_lr` (best subset fit but no dev/tail win).
+- **Spiking steps are length-driven (arm b's question answered):** baseline spike steps carry mean batch max length **5,126 vs 2,217 overall (2.3x)**; `fda_class_choice_v1` is 6.3 % of batches but **22.2 % of spikes** (44.8 % in arm b), `fda_class_choice_v2` 4.3 % -> 11.1 %, while short `medmcqa_4opt_v1` (29.8 % of batches) is only 8.3 % of spikes. Capping at 2048 removes the worst tail (max 971.9 -> 325.4) without moving the bulk (p95 31.07 -> 31.90).
+- **Padding check verdict (arm c):** fresh/untrained - bf16 FAIL 8.00e-3 but **fp32 PASS 3.97e-4** (so position/mask handling is sound); **trained - bf16 9.45e-2, fp32 2.51e-2, i.e. 17.9x the no-padding control -> a real train/eval batch-composition inconsistency** (linear-attention + pads). The agent's calibrated reading: magnitude is small next to a trained head's logit spread, so it is a **contributing noise source, not on its own the gradient-explosion mechanism**. Recorded as such - the earlier stronger phrasing is superseded.
+- **Caveats recorded with the pick:** the subset averages 653 tokens/item vs the full mix's 948, so the arms **understate** length pressure; and 2,000 steps is 4.5 % of a pass, so "stable" means *no spiking tail and a clean slope in that window*, not proof for a full pass.
+- **S9 run 3 LAUNCHED 16:42:39Z:** `train_student.py --max-seconds 14549 --eval-every 500 --save-every-eval --lora-rank 8 --out outputs/student_v0/S9_run3`, **pid 135436**, pidfile `outputs/student_v0/S9_run3/train.pid`, log `S9_run3/logs/train_stdout.log`, **a checkpoint at every dev eval** in `S9_run3/checkpoints/step_<n>/` (the operator's requirement, recorded in `run.json:dev_evals.checkpoints_per_eval`), **deadline 20:45Z** (4 h box), then the CLI does the temperature fit and the per-template dev report. Handover: `S9_run3/RUN_NOTES.md`. No other GPU job may run until it exits.
 
 ## 5. Blocked items
 
