@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T15:41:17Z`
+Last updated (UTC): `2026-10-07T15:41:32Z`
 Iterations so far: `1`
 
 ---
@@ -219,7 +219,7 @@ identifiable (S8 recorded `NOT FITTED`).
 - **Process rule reaffirmed:** one agent at a time on GPU work; no parallel sub-agents for GPU tasks (CPU-only sub-tasks are fine).
 - **Also my error (same class as an earlier one):** `pkill -TERM -f "train_student.py"` matched **my own shell's command line** and killed the shell, so the artifact move had to be re-run. Use explicit PIDs or `pgrep -f "[t]rain_student"`, never `pkill -f <literal>`.
 
-### QUESTION FOR THE OPERATOR (time-sensitive) — S9 run 2's selection metric picks an undertrained checkpoint — 2026-10-07T15:41:17Z
+### QUESTION FOR THE OPERATOR — ANSWERED: run 2 diverged; the selection rule was NOT the problem — 2026-10-07T15:41:17Z
 Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == tokens %, i.e. the curriculum bug is gone), GPU peak 37.7 GB, projected finish ~09:05-09:17 against the 09:10Z deadline.
 - **Measured dev trajectory (2,019-item template-stratified sample):** step 500 macro 0.608 / acc 0.677 / Brier 0.362; **step 1000 macro 0.7006 / acc 0.7132 / Brier 0.4601 <- the current best under the ADVISORY's macro-first rule**; steps 1,500-18,500 macro oscillates **0.28-0.57**, micro accuracy 0.59-0.64, Brier improving to ~0.43.
 - **The finding:** the macro-first rule selects the **least-specialised** checkpoint (~2.5 % of a pass). A **Brier-first rule would have selected step 500** - the least-trained model of all - which is independent confirmation that run 1's Brier-first rule was wrong. Later checkpoints are better calibrated and similar on micro accuracy but have much worse **rare-class recall on the equal-weight-per-template sample**. Mechanism (hypothesis, prose): CE on the imbalanced training mix drives the model to specialise onto frequent answers, which micro accuracy tolerates and macro accuracy punishes.
@@ -227,6 +227,15 @@ Raised by the S9 agent at 07:08Z, at step 18,864/44,152 (42.7 %; items % == toke
 - **What I will NOT do:** change the selection rule mid-run to get a better-looking number - that is editing a check to pass it (R8). The agent is holding the rule and `best.json` will carry the full trajectory plus the Brier-first alternative.
 - **Options put to the operator:** (a) keep the ADVISORY rule and report the trajectory finding; (b) keep the run but save every dev eval from now on so a dev-based reselection is possible later; (c) change the key and re-run fresh (another 4 h box); (d) stop and re-plan.
 - **Consequence if (a):** `outputs/student_v0/S9/best/` is a step-1000 snapshot and the post-training test cells (and therefore G1) describe that snapshot - a **selection** outcome, not a capability verdict on the recipe, and S14 must say so in exactly those terms.
+
+### DEVIATION — S9 run 2 DIVERGED (stopped 07:21:43Z) — operator ruling — 2026-10-07T15:41:32Z
+- **Operator ruling:** the selection rule is **not** the problem. Run 2 **diverged**: train loss never falls meaningfully (0.91 at steps 0-2k, best 0.84, 1.78 at 20k), **pre-clip grad norm averages 20-95 with clip 1.0 and spikes to ~25,000 at step 18k**, and dev collapses to acc 0.34 / macro 0.11 by step 21.5k. Keep the ADVISORY selection rule unchanged. **Record run 2 here as diverged - not a result about the recipe.**
+- **My earlier reading was wrong:** I framed it as a selection-metric problem (macro-first picking a step-1000 snapshot). The metric observation is real but secondary; the run was diverging. Superseded.
+- **It was not the curriculum:** planned epoch rho = **-0.00023** over 44,152 batches, and items % equalled tokens % to 0.1 pt for the whole run.
+- **Run 2 chronology:** launched 05:22:33Z (pid 126700, deadline 09:10Z) -> stopped **07:21:43Z at step 21,574 / 44,152 (104,134 items, 98.5 M of 201.5 M tokens, 48.9 %)** by the agent's stop-and-report rule (the rule I put in its brief: stop rather than burn the box when the dev pattern looks wrong). Throughput **22.69 items/s / 21,474 tokens/s**, GPU peak 37.72 GB; the planned epoch held **201.5 M tokens** (S7 extrapolated 165 M from a stride slice), so the 4 h box could never have held a full pass.
+- **Artifacts finalised (they describe a diverged run's step-1000 checkpoint, NOT the recipe):** `temperature.json` choice 4.2743 (n=10,967), noul 11.6125 (n=5,454), **score NOT FITTED (n=33 < 50) -> shipped uncalibrated**; `dev_final.json` full S6 dev 16,454 items acc 0.7283 / macro 0.7056 / Brier 0.3360; test cells tier 1 **0.6175** (13,521 items, 7/8 PASS) and fresh **0.8108** (23,768, 9/11 PASS + 1 additional-check fail), 3 cells `READOUT_FAIL - constant_answer`. Leakage control: above the zero-shot letter baseline on same-template fresh cells, **below it on all four D14 held-out templates** -> readout effect + same-template training, not leakage.
+- **Next per the operator: S9-diag** (GPU timebox **3 h**): 2,000-step runs on a fixed 20k-item subset, one change at a time, each reporting train-loss slope, grad-norm distribution and dev macro on the same dev sample - (a) head LR 1e-4 / LoRA 5e-5; (b) `max_prompt_tokens` 2048 with per-batch grad norm logged against batch max length and templates; (c) **padding check**: the same item alone vs inside a left-padded batch must give the same head logits within 1e-3 (Qwen3.5 linear-attention + left padding); (d) LoRA rank 8. Then the most stable config -> **S9 run 3 saving a checkpoint at every dev eval** -> S10 -> S11. **If no config is stable in the timebox: skip S10, run S11 on the best available checkpoint, and close the loop with the diagnosis as the main finding (ADVISORY section 2, "diagnose the recipe at 0.8B").**
+- Run 1's artifacts remain in `outputs/student_v0/S9_run1_sorted/`; run 2's in `outputs/student_v0/S9/`.
 
 ## 5. Blocked items
 
