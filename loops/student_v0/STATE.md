@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-06T23:19:43Z`
+Last updated (UTC): `2026-10-07T00:04:50Z`
 Iterations so far: `1`
 
 ---
@@ -27,9 +27,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S1 | Benchmark v0.2 fixes | small | S0 | DONE | 2026-10-06T18:25:57Z | 2026-10-06T20:37:00Z |
 | S2 | Record–claim consistency templates | small | S1 | DONE | 2026-10-06T20:38:06Z | 2026-10-06T21:47:41Z |
 | S3 | Long-record slice + shared-prefix measurement | yes | S2 | DONE | 2026-10-06T21:48:05Z | 2026-10-06T22:40:00Z |
-| S4 | HLE medical subset (supplementary test) | small | S1 | IN_PROGRESS | 2026-10-06T22:39:33Z | |
+| S4 | HLE medical subset (supplementary test) | small | S1 | DONE | 2026-10-06T22:39:33Z | 2026-10-07T00:04:50Z |
 | S5 | Tier-1 train-split builders | no | S1 | DONE | 2026-10-06T22:42:40Z | 2026-10-06T23:00:21Z |
-| S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | IN_PROGRESS | 2026-10-06T23:19:43Z | |
+| S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | PENDING | | |
 | S8 | Evaluation path for trained models | yes | S7 | PENDING | | |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | PENDING | | |
@@ -147,6 +147,20 @@ Working dir:    outputs/student_v0/S4/
 - What runs: pre-window ClinicalTrials.gov / openFDA / PubMed items (2023-01-01 -> 2026-02-28, balanced, cap 20k/template, held-out templates excluded) + the training mix (tier1_train + prefwindow_structured, dev = v0.2 tier-1 dev + fresh dev on non-held-out templates) + the four-part mechanical leakage check on the written files.
 - Inputs reused: data/train/student_v0/{tier1_train.jsonl,prewindow_consistency.jsonl}.
 - Output: data/train/student_v0/{train.jsonl,dev.jsonl,manifest.json} (gitignored); scripts/bench/build_training_mix.py; tests/test_training_mix.py
+
+### S4 — DONE — 2026-10-07T00:04:50Z
+- What ran: `build_hle_med.py`; two zero-shot cells (0.8B, 9B) after a harness fix (`ece_from_confidence` for mixed option counts — the runner crashed on 5-16-option items)
+- Output: `data/bench/v0.2/supplementary/hle_med.jsonl` + manifest; `outputs/student_v0/S4/{model_*.json,results.json,SELF_AUDIT.md}`
+- Headline: **141 HLE Biology/Medicine multiple-choice items** (no images, licence mit, revision `5a81a4c7`); zero-shot **0.1560 (22/141) for both 0.8B and 9B** — **at or below chance** (mean per-item 1/n_options **0.1706**, majority 0.2128), so **no skill claim** (S049-S052).
+- Surprises: the D12 gate reads `chance = 0.0625` because it uses the template's *maximum* option count, so a mixed-count cell can be below its real chance and still pass — recorded as a gate gap, thresholds untouched (S051). Both models hitting exactly 22/141 is a coincidence of different error patterns (their picked-letter profiles differ).
+- Next: S9 has its training mix.
+
+### S6 — DONE — 2026-10-07T00:04:50Z
+- What ran: `build_training_mix.py --stage all` (pre-window CT.gov + openFDA builds, mix, independent audit), CPU/network only
+- Output: `data/train/student_v0/{train.jsonl,dev.jsonl,manifest.json,prewindow_*}` (gitignored); `scripts/bench/build_training_mix.py`; `tests/test_training_mix.py`
+- Headline: **train 212,481 items** (tier1 106,184 + consistency 35,655 + pre-window structured 70,642; sha256 `2535d46d…`) and **dev 16,454** (sha256 `351cdeb0…`); the four-part leakage check is **0 on all four kinds** (7,711 removals counted), train ∩ dev = 0 (S053-S059).
+- Surprises: **PubMed pre-window = `NOT MEASURED`** (annual baseline: 1,334 files / 31.4 GB / ~1.7 h, over the 60-min box; a subset would be a silent subsample); **no `score` items in training at all** (dev has 33) — the student will face the score template untrained on that shape; S2's consistency file had 2,495 items leaking into v0.2 dev/test, caught here.
+- Next: S7 (training code: LoRA + pointer head) is unblocked.
 
 ## 5. Blocked items
 

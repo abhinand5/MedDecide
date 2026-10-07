@@ -103,3 +103,29 @@ def test_label_mass_reports_token_mass_and_top_probability() -> None:
     out = label_mass(probs, masses)
     assert out["mean_option_token_mass"] == pytest.approx(0.1)
     assert out["mean_top_prob"] == pytest.approx(0.6)
+
+
+def test_ece_from_confidence_equals_ece_on_rectangular_input() -> None:
+    """The per-item form must be exactly the number `ece` computes for a rectangular cell."""
+    import numpy as np
+
+    from meddecide.eval.metrics import ece, ece_from_confidence
+
+    rng = np.random.default_rng(0)
+    probs = rng.dirichlet(np.ones(4), size=200)
+    gold = rng.integers(0, 4, size=200)
+    assert ece(probs, gold) == pytest.approx(
+        ece_from_confidence(probs.max(axis=1), probs.argmax(axis=1) == gold), abs=1e-12
+    )
+
+
+def test_ece_from_confidence_accepts_mixed_option_counts() -> None:
+    """Items with different option counts cannot form a rectangular array; this form can."""
+    from meddecide.eval.metrics import ece_from_confidence
+
+    conf = [0.9, 0.8, 0.3, 0.55]
+    correct = [True, False, False, True]
+    value = ece_from_confidence(conf, correct)
+    assert 0.0 <= value <= 1.0
+    with pytest.raises(ValueError):
+        ece_from_confidence([0.5, 0.5], [True])

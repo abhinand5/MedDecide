@@ -99,6 +99,38 @@ def ece(probs: np.ndarray, gold_index: Sequence[int], *, n_bins: int = 15) -> fl
     return ece_detail(probs, gold_index, n_bins=n_bins)["ece"]
 
 
+def ece_from_confidence(
+    confidence: Sequence[float], correct: Sequence[bool | float], *, n_bins: int = 15
+) -> float:
+    """Top-label ECE from per-item confidence and correctness, with no rectangular array.
+
+    This is the same quantity :func:`ece` computes — ``ece`` only ever uses the maximum
+    probability and whether the argmax was right — but it accepts items with **different
+    option counts**, where a rectangular ``(items x options)`` array cannot be built (the HLE
+    supplementary set mixes 5- to 16-option items, which made the earlier code raise).
+    ``test_metrics.py`` asserts the two agree exactly on rectangular input.
+    """
+    confidence = np.asarray(confidence, dtype=np.float64)
+    correct = np.asarray(correct, dtype=np.float64)
+    if confidence.ndim != 1 or confidence.shape != correct.shape:
+        raise ValueError("confidence and correct must be 1-D and the same length")
+    if not 0 < n_bins <= 1000:
+        raise ValueError("n_bins must be in (0, 1000]")
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    idx = np.clip(np.digitize(confidence, edges[1:-1], right=False), 0, n_bins - 1)
+    n = len(confidence)
+    if n == 0:
+        return 0.0
+    ece_value = 0.0
+    for b in range(n_bins):
+        mask = idx == b
+        count = int(mask.sum())
+        if count == 0:
+            continue
+        ece_value += (count / n) * abs(correct[mask].mean() - confidence[mask].mean())
+    return float(ece_value)
+
+
 def ece_detail(probs: np.ndarray, gold_index: Sequence[int], *, n_bins: int = 15) -> dict:
     """ECE plus the bin table it was computed from (so the number can be checked by eye)."""
     probs = np.asarray(probs, dtype=np.float64)

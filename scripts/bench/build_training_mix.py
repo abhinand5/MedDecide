@@ -732,7 +732,7 @@ def measure_pubmed_prewindow(
     window_end: date = PREWINDOW_END,
     cache_dir: Path = CACHE_DIR,
     timebox_minutes: float = PUBMED_TIMEBOX_MINUTES,
-    sample_size: int = 1,
+    sample_size: int = 4,
 ) -> dict[str, Any]:
     """Measure whether the prescribed PubMed build fits its box; never silently subsample.
 
@@ -772,7 +772,15 @@ def measure_pubmed_prewindow(
             "last": baseline_names[-2:],
             "url": PUBMED_BASELINE_BASE,
         }
-        samples = baseline_names[:sample_size]
+        # Baseline files are ordered by record date: pubmed26n0001 holds 1975-79. Sampling only
+        # the first file would report zero pre-window records and a too-small file size, so the
+        # sample is spread across the listing (first / middle / last).
+        if sample_size >= 3:
+            positions = sorted({0, len(baseline_names) // 2, len(baseline_names) - 1})
+        else:
+            positions = list(range(min(sample_size, len(baseline_names))))
+        samples = [baseline_names[i] for i in positions]
+        report["sample_positions"] = positions
         report["sample"] = []
         total_bytes = 0
         total_download_s = 0.0
@@ -795,8 +803,14 @@ def measure_pubmed_prewindow(
             download_s = time.perf_counter() - dl0
             parse0 = time.perf_counter()
             n_records = n_in_window = 0
+            first_date: date | None = None
+            last_date: date | None = None
             for record in pubmed.iter_records([path]):
                 n_records += 1
+                if first_date is None or record.entrez_date < first_date:
+                    first_date = record.entrez_date
+                if last_date is None or record.entrez_date > last_date:
+                    last_date = record.entrez_date
                 if window_start <= record.entrez_date <= window_end:
                     n_in_window += 1
             parse_s = time.perf_counter() - parse0
@@ -813,6 +827,8 @@ def measure_pubmed_prewindow(
                     "parse_s": round(parse_s, 1),
                     "n_records": n_records,
                     "n_records_in_prewindow": n_in_window,
+                    "first_entrez_date": first_date.isoformat() if first_date else None,
+                    "last_entrez_date": last_date.isoformat() if last_date else None,
                 }
             )
 
@@ -834,9 +850,10 @@ def measure_pubmed_prewindow(
         report["reason"] = (
             f"PubMed update files covering 2023-01-01..2026-02-28 no longer exist on the FTP "
             f"(the updatefiles listing holds {len(update_names)} files, all of them the "
-            f"current year); "
-            f"the only remaining source is the {n_files}-file annual baseline, and a measured "
-            f"sample of {len(samples)} file(s) projects "
+            f"current year); the only remaining source is the {n_files}-file annual baseline, "
+            f"whose files are date-ordered (sampled positions {positions}: "
+            f"{', '.join(f'{s['name']} = {s['first_entrez_date']}..{s['last_entrez_date']}' for s in report['sample'])}). "
+            f"A measured sample of {len(samples)} file(s) projects "
             f"{report['projection']['projected_download_and_parse_hours']} h "
             f"({report['projection']['projected_total_gb']} GB down + parse) for all of them, "
             f"over the {timebox_minutes:.0f}-minute box. Reading a subset would be a silent "

@@ -38,7 +38,7 @@ import numpy as np
 from meddecide.bench.schema import Item, QuestionType
 from meddecide.eval.harness import Harness, ModelSpec, Prediction, greedy_first_token
 from meddecide.eval.health import evaluate_cell
-from meddecide.eval.metrics import bootstrap_ci, ece, macro_accuracy
+from meddecide.eval.metrics import bootstrap_ci, ece_from_confidence, macro_accuracy
 from meddecide.eval.predlog import read_prediction_log
 from meddecide.eval.probes import shuffle_options
 from meddecide.eval.readout import canonicalise_options, render_prompt
@@ -121,9 +121,12 @@ def summarise_cell(
     gold_probs = np.asarray(
         [p.option_probs[p.option_keys.index(p.gold_key)] for p in predictions], dtype=np.float64
     )
-    calibration_error = ece(
-        np.asarray([p.option_probs for p in predictions], dtype=np.float64),
-        [p.option_keys.index(p.gold_key) for p in predictions],
+    # Top-label ECE from per-item values: items of one template need not share an option count
+    # (the HLE supplementary set mixes 5-16), and `ece` only ever uses the max probability and
+    # whether the argmax was right, so this is the same number for a rectangular cell.
+    calibration_error = ece_from_confidence(
+        [max(p.option_probs) for p in predictions],
+        [bool(p.correct) for p in predictions],
     )
     health = evaluate_cell(
         model_id=model_id,
