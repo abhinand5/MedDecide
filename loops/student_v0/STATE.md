@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T05:58:07Z`
+Last updated (UTC): `2026-10-07T06:28:17Z`
 Iterations so far: `1`
 
 ---
@@ -202,6 +202,7 @@ identifiable (S8 recorded `NOT FITTED`).
 
 ### S9 run 2 — LAUNCHED with the operator's fixes — 2026-10-07T05:32:56Z
 - **Run 2 progress (2026-10-07T05:58:07Z):** step **5,500** of 44,152 (~12 %), alive, 13 dev evals. Dev evals on the **new 2,019-item stratified sample** (n=2019, eval 44.5 s each): step 5000 acc **0.6315** / macro 0.4065 / brier 0.4266 / nll 0.7714, step 5500 **0.5835** / 0.3494 / 0.5134 / 1.0064. **Not comparable to run 1's or the smoke model's dev numbers**: those used a 545-item sample, this uses 2,019 stratified by template - any run-1-vs-run-2 dev comparison is invalid and must not be made.
+- **Run 2 progress (2026-10-07T06:28:17Z):** step **11,000** of 44,152 (25 %), alive. Dev evals step 10500 acc **0.6275** / macro 0.4331 / brier 0.4279, step 11000 **0.6369** / 0.4089 / 0.4428 - **stable ~0.63 with no sign of run 1's monotone decline**, which is the outcome the curriculum fix was meant to produce (still a single interval's evidence, not a trend claim).
 - **Started 05:22:33Z**, training pid **126700**, `outputs/student_v0/S9/train.pid`; log `outputs/student_v0/S9/logs/train_stdout.log`, per-step `logs/train_steps.jsonl`, per-eval `logs/dev_evals.jsonl`; **deadline 09:10Z** (fresh 4 h box, GPU empty at launch). GPU ~45 GB (higher than run 1's 32 GB peak: eval batches are now 16 items / 32k tokens).
 - **All five operator requirements are in the code, not just in prose:** (1) `iter_batches` cuts the epoch into chunks of 100 x batch_size, length-buckets **inside** a chunk, and shuffles the batch order per (seed, epoch) - bucketing decides membership (padding) only, never order; module docstring records the bug. (2) opt-in linear **warmup 3 % + cosine decay to zero on both** param groups, per-step `lr_head`/`lr_lora` logged, schedule in `run.json:training.schedule`. (3) selection = ADVISORY's **macro accuracy first, Brier tie-break, then earlier step**, verbatim in `best.json`. (4) dev-eval sample **2,019 items over 19 templates** (choice 1286 / noul 700 / score 33), sha256 `d22d84fcd928757f`, and the sampler **raises below 2,000**. (5) **the CLI refuses to start if Spearman |rho| >= 0.1** - run 2's planned epoch reports **rho = -0.0002** over 44,152 batches / 201,539,105 tokens, and the regression test shows the same statistic is ~+1 on a length-ordered epoch, so it can detect the bug it guards against.
 - **Verification:** ruff clean; `pytest -o addopts=""` **279 passed** (the 23 new tests incl. the curriculum regression test, plus the 4 GPU tests); a 30-step GPU smoke of the full CLI path showed the warmup/cosine ramp (lr_head 5e-4 -> 1e-3 -> 5.8e-4) and macro-first selection.
