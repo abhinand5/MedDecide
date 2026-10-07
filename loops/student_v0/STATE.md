@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T20:24:25Z`
+Last updated (UTC): `2026-10-07T20:44:35Z`
 Iterations so far: `1`
 
 ---
@@ -279,6 +279,12 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Run 3 near the end of the pass (2026-10-07T20:24:25Z):** step **41,000 of 44,152 (93 %)**, alive, and the **best and most stable readings of the whole loop** - step 39500 acc **0.7548** / macro 0.6652 / brier 0.3176, step 40000 0.7494 / 0.6633 / 0.3169, step 40500 0.7499 / 0.6634 / 0.3182, step 41000 0.7479 / 0.6631 / 0.3182. For contrast, run 2 (diverged) read acc ~0.34-0.45 / macro 0.11-0.18 in this region. Deadline 20:45Z. `best.json`/`best/` present; the temperature fit + per-template dev report are written by the CLI at the end of the run.
 - Remaining risk recorded earlier still applies: the length-driven grad tail in the long openFDA/CT records (arm b localised it; `--max-prompt-tokens 2048` is the untried-in-full-run fallback).
 - Checkpoints exist at **every** dev eval (`S9_run3/checkpoints/step_<n>/`), so the ADVISORY's macro-first selection can be re-examined on dev without another 4 h run.
+
+### S9 run 3 — COMPLETED THE FULL PASS (no early stop) — 2026-10-07T20:44:35Z
+- **`[S9] training done: steps=44152 epochs=1 stopped_early=None wall=13867s items=212481 items/s=22.64`** - the **entire planned epoch** (44,152 batches / 212,481 items), **not** a budget cut, in **3 h 51 m** against the 14,549 s (4 h) budget. Measured throughput 22.64 items/s (the S7 estimate was 21.7).
+- **Final dev trajectory (2,019-item sample):** converged and flat at the end - step 39500 acc **0.7548** / macro 0.6652 / brier 0.3176, step 40000 0.7494 / 0.6633 / 0.3169, step 40500 0.7499 / 0.6634 / 0.3182, step 41000 0.7479 / 0.6631 / 0.3182. Run 2 (diverged) read acc 0.34-0.45 / macro 0.11-0.18 in the same region.
+- **This is the loop's core artifact:** a stable, complete full-pass 0.8B run under the fixed pipeline (chunked bucketing, warmup 3 % + cosine, LoRA r=8, macro-first selection, a checkpoint per dev eval). Post-training the CLI is writing the temperature fit and the per-template dev report (weights loading at 2026-10-07T20:44:35Z); the test evaluation follows, then S10/S11.
+- **Attribution caveat still stands:** which single change (schedule vs rank) was decisive is **not measured** - the diag ran arms one at a time on a subset that understates length pressure. S14 states it that way.
 
 ## 5. Blocked items
 
