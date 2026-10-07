@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T22:08:50Z`
+Last updated (UTC): `2026-10-07T22:19:08Z`
 Iterations so far: `1`
 
 ---
@@ -305,6 +305,8 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **S10 (Base ablation) LAUNCHED 21:33:32Z:** `train_student.py --base-model Qwen/Qwen3.5-0.8B-Base --model-id meddecide-0.8b-base-lora-pointer --max-seconds 14798 --eval-every 500 --save-every-eval --lora-rank 8 --out outputs/student_v0/S10`, **pid 139222**, deadline **01:40Z**, checkpoints per dev eval, monitor writes `logs/poll.log`, and `run_student.py --split test --tag test` runs automatically on `best/` when training exits. Handover: `S10/RUN_NOTES.md`. New `--base-model` CLI flag; ruff clean, 279 non-GPU tests pass.
 
 ### S10 (Base ablation) — running — 2026-10-07T22:08:50Z
+- **Handover (2026-10-07T22:19:08Z), S9/S10 agent's context exhausted - all state is on disk.** S10 at 22:03Z: step 4,671 (11 %), 21.6k tokens/s, loss (last 500) **0.663 falling**, grad p50 **4.57** / p95 38.4 / max 1,357 (one step > 1000) - the run-3 stability regime. **9 evals, dev macro best 0.7109 at step 2000** (instruct run 3's peak was 0.6798 at step 1000) - the agent flagged, correctly, that this may mean the Base ablation beats the instruct model on the balanced dev sample; it is also the same early-peak shape, so the converged checkpoint will likely differ again. **Nothing claimed from a flag.** Automatic from here: at the 01:40Z deadline the CLI writes `run.json`/`temperature.json`/`dev_final.json`, then the monitor `/workspace/tmp/s10_monitor.sh` (log `S10/logs/poll.log`) sees the exit and runs `run_student.py --split test --checkpoint outputs/student_v0/S10/best --tag test` (~17 min) -> artifacts expected by ~02:10Z.
+- **A fresh agent now owns**: S10's wrap-up (confirm completed-vs-budget from `run.json:training.stopped_early`, quote the rule's selected step and the dev rows for it vs the late evals, report tier-1/fresh cells with coverage + gate status, run the labelled `--tag converged` comparison on the last checkpoint - the same side-by-side that mattered for run 3 - and write `S10/SELF_AUDIT.md`), **then the missing S11 input: the full-v0.2 zero-shot Qwen3.5-0.8B run** (command in the S11 plan above), one GPU job at a time. It must **not** run `g1.py` itself.
 `--base-model Qwen/Qwen3.5-0.8B-Base`, pid 139222, deadline 01:40Z, checkpoints per dev eval. Early dev evals on the **same 2,019-item sample**: step 5000 acc 0.6929 / macro 0.6225 / brier 0.3730, step 5500 acc 0.7207 / macro 0.5754 / brier 0.3552. Run 3 (instruct) at the same steps read acc 0.7231-0.7276 / macro 0.6545-0.6632 / brier 0.3377-0.3482 - so the Base ablation tracks slightly below at this point, which is the expected shape for an ablation that isolates the recipe from the instruct tuning. No intervention; its test cells land automatically on exit.
 
 ### S11 — execution plan (what the real G1 run still needs) — 2026-10-07T21:38:40Z
