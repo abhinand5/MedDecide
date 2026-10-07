@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T00:58:42Z`
+Last updated (UTC): `2026-10-07T02:07:02Z`
 Iterations so far: `1`
 
 ---
@@ -186,6 +186,7 @@ identifiable (S8 recorded `NOT FITTED`).
 - The S9 training agent is **running** (session `887043c8-04e7-469f-9e13-cbc8116f1da9`): it writes `scripts/bench/train_student.py`, launches the real ~2.7 h pass detached with a pidfile + log under `outputs/student_v0/S9/logs/`, and maintains **`outputs/student_v0/S9/RUN_NOTES.md`** as the handover document (exact command, pidfile, log path, current step).
 - **To resume:** read `outputs/student_v0/S9/RUN_NOTES.md` first; check the pidfile with `kill -0`; if the process is gone, check the step log's completeness and whether `outputs/student_v0/S9/best/` and `best.json` exist **before** relaunching anything. One GPU job at a time - do not start S10/S11 work on the GPU while this runs.
 - Expected artifacts: `outputs/student_v0/S9/{logs/*.jsonl,best/,best.json,temperature.json,model_*.json,SELF_AUDIT.md}`.
+- **GPU serialisation (2026-10-07T02:07:02Z).** The S8 agent was still re-running its own acceptance evaluation (`scripts/bench/run_student.py --split test`, PID 112270, ~17 GB) when S9 started. The S9 agent has been told to finish CPU-only work, wait for that PID to exit, and only then launch the training pass - one GPU job at a time. If a future round finds two GPU jobs running, kill the redundant one and record it as a deviation (bench_v0_fix0's lesson: concurrent GPU jobs cost ~1 h of OOM re-runs).
 - Nothing else in the loop is blocked by it: S10/S11/S12 depend on S9, S14 depends on all.
 
 ## 5. Blocked items
