@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T02:26:51Z`
+Last updated (UTC): `2026-10-08T02:57:48Z`
 Iterations so far: `1`
 
 ---
@@ -33,8 +33,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
 | S8 | Evaluation path for trained models | yes | S7 | DONE | 2026-10-07T01:15:06Z | 2026-10-07T02:06:26Z |
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | IN_PROGRESS | 2026-10-07T02:06:36Z | |
-| S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | PENDING | | |
-| S11 | Gate G1 evaluation | yes | S9, S3, S4 | PENDING | | |
+| S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | DONE | 2026-10-07T21:33:32Z | 2026-10-08T02:50:00Z |
+| S11 | Gate G1 evaluation | yes | S9, S3, S4 | IN_PROGRESS (zero-shot input DONE; `g1.py` left to the operator) | 2026-10-08T02:16:16Z | |
 | S12 | Byte-identity + audit read-back | small | S9 | PENDING | | |
 | S13 | Candidate dataset catalog | no | S0 | DONE | 2026-10-06T18:42:26Z | 2026-10-06T18:57:22Z |
 | S14 | Findings and closure — HARD STOP | no | all | PENDING | | |
@@ -333,12 +333,33 @@ Gate counts on **identical item sets** (tier 1 13,521 / fresh 23,768):
 
 | model | rule-selected checkpoint | converged checkpoint |
 |---|---|---|
-| run 3 (instruct) | **7/8 + 11/11 = 18/19** | 6/8 + 7/11 = 13/19 -> *rule better* |
+| run 3 (instruct) | **7/8 + 11/11 = 18/19** | 5/8 + 7/11 = **12/19** -> *rule better* |
 | S10 (Base ablation) | 5/8 + 6/11 = **11/19** | **7/8 + 9/11 = 16/19** -> *converged better* |
 
 - **So the ADVISORY's macro-first rule is not uniformly good**: on the instruct run it picked the checkpoint with better readout health, on the Base ablation it picked a **worse** one (11/19 vs 16/19 gates). The rule is unchanged (operator ruling, R8) and both rows are reported as measured; but S11/S14 must state that **the rule's selection was validated on run 3 and not on S10**, rather than generalising from the one case where it worked. My earlier "rule vindicated" note is true **for the instruct model** and is now bounded that way.
 - The converged S10 numbers (7/8 + 9/11) are still below the instruct model's official cells (7/8 + 11/11), so the ablation conclusion stands: instruct tuning helps readout health.
 - **Zero-shot job has started** (S11 dir has its first predictions; launcher pid 144569) - the last G1 input.
+
+### S11 — zero-shot v0.2 baseline **DONE**; G1 verdict deliberately not run — 2026-10-08T02:50:00Z
+- **The last missing G1 input now exists.** `run_baselines_v0_1.py --model Qwen/Qwen3.5-0.8B --tier1 data/bench/v0.2/tier1 --fresh data/bench/v0.2/fresh --keep-screen data/bench/v0.2/screen.json --out outputs/student_v0/S11 --run-id s11_zeroshot0p8b`, launched 02:16:16Z, worker pid 144577, finished 02:39:12Z, wall **1,376.2 s**, log `S11/logs/run_baselines_zeroshot0p8b.log`. Artifacts `S11/model_qwen3p5-0p8b.json`, `S11/preds_qwen3p5-0p8b.jsonl` (37,289 rows, one run_id, 0 duplicates); report `S11/ZEROSHOT_V0_2_REPORT.md`, job record `S11/RUN_NOTES.md`.
+- **Cells**: tier 1 **13,521 items / 8 cells, micro 0.6260**, macro mean 0.5522, **8/8 D12 PASS**; fresh **23,768 / 11 cells, micro 0.6771**, macro mean 0.6701, **11/11 PASS**; coverage 1.000 everywhere; no `READOUT_FAIL` cell. Re-derived from the prediction log: identical.
+- **Item sets match S9/S10 exactly**: 37,289 shared item ids, **0** only-zero-shot, **0** only-trained, **0** template disagreements; independently derived expectation from the benchmark + screen is the same 13,521 + 23,768. G1 pairing is therefore valid.
+- **Ready for the verdict**: `meddecide=` `S9_run3/preds_meddecide-0p8b-lora-pointer__test.jsonl`, `base=` `S10/preds_meddecide-0p8b-lora-pointer__test.jsonl`, `zeroshot=` `S11/preds_qwen3p5-0p8b.jsonl`. **`g1.py` was NOT run here** (operator runs it). JEV-9B on v0.2 stays `NOT MEASURED` (F7 measured v0.1).
+- **Two things G1 must not trip on:** (1) S10's two reports carry the **instruct** `model_id` and its file names (the monitor did not pass `--model-id`; `run_student.py:91 DEFAULT_MODEL_ID`) although the checkpoint is Base - pair inputs **by path**, or by `checkpoint_meta.base_model_id` (`SELF_AUDIT.md` §1, CLAIMS S078); (2) `fda_route_claim_noul_v1` zero-shot is **0.9525** - S2's pre-truncation-fix 0.8875 is superseded (CLAIMS S083).
+- **S10 wrap-up is complete** and written up in `S10/SELF_AUDIT.md` + `S10/RUN_NOTES.md`: full pass (not a budget cut); rule picked step 17,000 by a 0.00069 margin over step 2,000; official cells tier 1 0.5782 (5/8 gates) / fresh 0.7577 (6/11); the converged step-44,000 checkpoint is better on both tiers (0.6090 / 0.7894, 16/19 gates) - the opposite of run 3; dev macro inverted the run-3-vs-S10 test ranking (0.7180 vs 0.6653); grad p50 2.51 / p95 56.51 / max 245,627 with a transient 16k-24k episode that recovered.
+- **CLAIMS rows S073-S083 added** for S10 + this run, including a backfill (S082) of S9 run 3's official/converged cells, which were missing from CLAIMS.
+
+### S11 — G1 VERDICT: FAIL (all four rules) — 2026-10-08T02:57:48Z
+- **Artifacts:** `loops/student_v0/g1.md` (aggregate only, no item text/predictions) + `outputs/student_v0/S11/g1.json`; generated by `scripts/bench/g1.py` at 02:57:24Z, git commit `2596affb`, seed 0, 1,000 resamples, alpha 0.05, reference `meddecide`, baselines `base` + `zeroshot`.
+- **Verdict (D16 rule: PASS iff, against BOTH baselines, the accuracy-difference CI lower bound is > 0 AND the Brier-difference CI upper bound is < 0):**
+  - **G1 on seen templates (the rule that decides the branch of ADVISORY section 2): `FAIL`** - *"base: accuracy CI lower bound -0.0176 is not > 0"*.
+  - G1 on held-out templates (D14, reported separately): **`FAIL`** - *"base: no items scored by both models in this set; zeroshot: accuracy CI lower bound -0.0301 is not > 0"*.
+  - strict slice, seen templates (additional): **`FAIL`** - *"base: accuracy CI lower bound -0.0589 is not > 0"*.
+  - strict slice, held-out templates (additional): **`FAIL`** - *"base: no items scored by both models in this set; zeroshot: accuracy CI lower bound -0.0181 is not > 0"*.
+- **Inputs, all 37,289 rows each and paired by path** (S10's report filenames carry the **instruct** model_id because the monitor omitted `--model-id`, so paths - not model_id - are the pairing key; recorded as a question for the operator): `meddecide` = S9_run3 official (run `...20:58:27Z`), `base` = S10 official (run `...01:35:06Z`, checkpoint_meta confirms `Qwen/Qwen3.5-0.8B-Base`), `zeroshot` = S11 full-v0.2 Qwen3.5-0.8B (`s11_zeroshot0p8b`).
+- **How to read this:** the first trained MedDecide model **does not pass gate G1** - it is not significantly better than both baselines on the fresh sets by the pre-registered paired-CI rule. The detailed paired tables (differences, CIs, item counts, seen vs held-out separately, with D12-failing cells excluded and named) are in `g1.md`; the failure detail is quoted verbatim above so the verdict cannot be softened. **This is the loop's headline result and S14 must state it as FAIL, not as a near-miss.**
+- **Why it is not a pipeline artefact this time (all measured earlier in this loop):** the recipe was fixed after the run-2 divergence (chunked bucketing rho=-0.00023, warmup+cosine, LoRA r=8), run 3 completed the full pass with stable dev, the leakage controls held (held-out cells below zero-shot on ct_phase 0.2555), and the D12 gate excluded failing cells rather than flattering them. The comparison uses identical item sets (37,289 shared ids, 0 disagreements - verified independently).
+- **Caveats S14 must carry:** JEV-9B on v0.2 is `NOT MEASURED` (F7 measured v0.1); the macro-first selection rule behaved differently by model (validated on run 3, **not** on S10); `score` has no training items and its temperature is unfitted; and the dev sample **inverted** the S10-vs-S9 test ranking (S10's pick had higher dev macro 0.7180 vs 0.6653 while its test cells are ~7 pts worse).
 
 ## 5. Blocked items
 
@@ -357,6 +378,28 @@ Gate counts on **identical item sets** (tier 1 13,521 / fresh 23,768):
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+1. **S10's reports carry the instruct `model_id`.** The auto-launched official evaluation (and the
+   converged one that followed it) omitted `--model-id`, so both write
+   `model_id=meddecide-0.8b-lora-pointer`, `run_id=meddecide-0p8b-lora-pointer:*` and the file names
+   `model_meddecide-0p8b-lora-pointer__{test,converged}.json`, although the checkpoint is the Base
+   ablation (`checkpoint_meta.base_model_id=Qwen/Qwen3.5-0.8B-Base`; training run.json says
+   `meddecide-0.8b-base-lora-pointer`). Options: (a) leave as written and pair G1/S12/S14 inputs
+   **by path** (my pick: the numbers are unaffected and raw outputs are immutable, R9 — this is
+   documented in `S10/SELF_AUDIT.md` §1 and CLAIMS S078); (b) re-run the official evaluation with
+   `--model-id meddecide-0.8b-base-lora-pointer` (~17 min GPU) to create correctly named copies and
+   declare which is authoritative; (c) change `run_student.py` to read the id from the checkpoint's
+   training `run.json` (a code change made after the fact; it cannot alter these artifacts).
+2. **The S9 row is still `IN_PROGRESS`** although run 3 completed its full pass, its cells are
+   reported (STATE 292-305) and now claimed (S082). `outputs/student_v0/S9/SELF_AUDIT.md` audits
+   **run 2**, not run 3. Options: (a) close S9 and let §8/S14 carry run 3, whose write-up exists in
+   `S9_run3/RUN_NOTES.md` + STATE + CLAIMS (my pick); (b) commission a run-3 SELF_AUDIT first.
+3. **Should S10 step 39,000 be evaluated on test?** The superseded Brier-first rule would have
+   picked it (dev Brier 0.3296 vs the selected step's 0.3851, dev acc 0.7365 vs 0.7107). One test
+   pass (~17 min GPU) would show whether the S10 selection loss is specific to macro-first or
+   general to this run's dev sample. Not needed for G1; my pick is to do it only if S14 wants the
+   selection diagnosis on firmer ground - the converged result (step 44,000 better than step 17,000)
+   already suggests the direction.
 
 ---
 
@@ -380,6 +423,22 @@ deviation — that is a `BLOCKED`.
    measurement was single-shot and reported a 36× slowdown; it was re-measured with a warmup
    pass at the measured length to remove the JIT cost. The single-shot artifact is kept
    under `logs/`, not deleted, and the change is recorded in SELF_AUDIT §3 and CLAIMS S007.
+4. **S10 — the converged evaluation was launched by hand because a chained launcher's name gate
+   was wrong.** The chained launcher (`/workspace/tmp/s10_chained_converged.sh`) waited for the
+   official evaluation to exit and then required `model_meddecide-0p8b-base-lora-pointer__test.json`
+   to exist; `run_student.py` writes `model_meddecide-0p8b-lora-pointer__test.json` (its default
+   id), so the gate reported "incomplete" and declined to launch. I verified the official artifacts
+   directly (19 cells, 37,289 unique rows, tier totals 13,521 + 23,768, coverage 1.000) and launched
+   the identical command with `--tag converged` manually at 01:56:16Z. No number changed; the
+   underlying label defect is question 1 above and CLAIMS S078.
+5. **S10 — the official evaluation and the converged evaluation both ran without `--model-id`**
+   (the monitor's command and my manual mirror of it). Numbers are unaffected — `--model-id` is a
+   label on every prediction row — but the artifact names say "instruct", which is recorded rather
+   than patched (R9) and raised as question 1.
+6. **S10 — the S10 files were edited after the run only in `outputs/` and in loop documents.**
+   `S10/SELF_AUDIT.md`, `S10/RUN_NOTES.md`, `S10/ADDITIONAL_ANALYSIS_note.json`,
+   `S11/{RUN_NOTES.md,ZEROSHOT_V0_2_REPORT.md}`, `CLAIMS.md` and this file are the only writes; no
+   raw prediction, report or data file was modified.
 
 ---
 
