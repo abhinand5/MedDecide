@@ -1,5 +1,25 @@
 # FINDINGS — student_v0: benchmark v0.2, a structured-gold training set, and the first trained MedDecide (0.8B)
 
+> **Advisor note (2026-10-08, added after closure).** Three corrections; the rest of this file is
+> left as the loop wrote it.
+>
+> 1. **G1 was computed against the wrong baseline set.** D16 fixes the G1 baselines as
+>    **zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B**. `g1.md` used the **Base ablation** (S10) in
+>    place of JEV-9B. The Base ablation is itself a trained MedDecide (same recipe and data), so
+>    "seen templates FAIL: base accuracy CI lower bound −0.0176" compares two MedDecide variants;
+>    it is not a G1 result. Read per D16: **seen templates vs zero-shot PASS** (macro +0.1633
+>    [+0.1530, +0.1741], Brier −0.2298 [−0.2345, −0.2253]); **seen vs JEV-9B NOT MEASURED**;
+>    **held-out vs zero-shot FAIL on accuracy** (macro −0.0176 [−0.0301, −0.0048]). So G1 is
+>    **incomplete on seen templates and FAIL on held-out templates**, which is ADVISORY §2's
+>    **second** branch ("learned templates, not decisions; data diversity first"), not the third.
+>    `student_v1` V1 re-runs G1 with the D16 baselines.
+> 2. **The evaluated MedDecide is the step-1,000 checkpoint** (≈2 % of the pass, ~8,000 items
+>    seen); the converged checkpoint scores lower on test (tier 1 0.6141 vs 0.6505; fresh 0.7767
+>    vs 0.8227). Most of the gain is acquired in the first ~1,000 steps.
+> 3. **Closure gaps:** S9 and S11 are left `IN_PROGRESS` in STATE.md, and §7's five-claim
+>    spot-check was never appended. Both are carried into `student_v1`'s closure requirements.
+
+
 **Loop:** `student_v0` (loop 1 — the first trained MedDecide) · **Branch:** `loop/student_v0`
 **Run window:** 2026-10-06T18:06:22Z → 2026-10-08 (S14 hard stop) · **Status:** `STOPPED`
 **Committed here:** this file, `g1.md`, `CLAIMS.md`, `STATE.md`, `NEXT.md`, the loop's markdown
