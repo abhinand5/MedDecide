@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V1 | JEV-9B on v0.2 + G1 recomputed per D16 | yes | V0 | DONE | 2026-10-08T04:30:39Z | 2026-10-08T05:28:00Z |
 | V2 | Padding fix + measured effect | small | V0 | BLOCKED — acceptance item 1 (padded-batch test ≤ 1e-3, fp32) fails at 1.92e-3 with the fix; tolerance not changed; no-padding batch-1 path adopted and measured (`loops/student_v1/V2_padding.md`); operator question 1 | 2026-10-08T05:30:03Z | 2026-10-08T07:20:00Z |
 | V3 | Checkpoint trajectory (seen vs held-out) | yes | V2 | IN_PROGRESS — runs on V2's adopted no-padding path while V2 is BLOCKED (deviation D2) | 2026-10-08T07:11:32Z | |
-| V4 | Training data v1 (diversity) | no | V0 | DONE — 10 screen-passing new templates; 818,863 train / 5,619 dev rows; leakage 0; NOT MEASURED: ≥ 2 consistency designs and catalog sources (D4); seen-template score dev 33 < 200 (D9) | 2026-10-08T06:09:26Z | 2026-10-08T07:20:00Z |
+| V4 | Training data v1 (diversity) | no | V0 | DONE — 10 screen-passing new templates; 482,889 train / 5,619 dev rows (class-balanced noul, D10); leakage 0; NOT MEASURED: ≥ 2 consistency designs and catalog sources (D4); seen-template score dev 33 < 200 (D9) | 2026-10-08T06:09:26Z | 2026-10-08T07:20:00Z |
 | V5 | Unsloth validation + converter + evaluator | small | V0, V4 | PENDING | | |
 | V6 | Arm A: pointer head | yes | V2, V4 | PENDING | | |
 | V7 | Arm B: letter-readout LoRA | yes | V4 | PENDING | | |
@@ -55,7 +55,7 @@ recomputing or guessing.
 | padding effect on student_v0 test accuracy (max per-template Δ) | adopted path (batch 1, no padding) minus original batched run: max per-template Δ −1.048 pts (pubmedqa_ynm_v1, 95% CI −2.10 to −0.21, n=477, 5 items); micro accuracy +0.008 pts (CI −0.043 to +0.062) over 37,289 items; 151 predictions changed; micro Brier −0.00003 (CI −0.00009 to +0.00003) | `outputs/student_v1/V2/effect.json`; report `loops/student_v1/V2_padding.md`; claims V026–V036 | V2 |
 | padded-batch residual, strict fp32, 8 dev items (ADVISORY tolerance 1e-3) | original code 3.103e-3; fixed code 1.925e-3 (FAIL); shape-only control (alone vs alone + 64 pads) 1.495e-3; uniform-batch control 3.381e-4 | `outputs/student_v1/V2/probe_*_fp32.json`, `logit_control_strict_fp32.json`; claims V019–V025 | V2 |
 | Spearman(step, held-out dev accuracy) with CI | | `loops/student_v1/trajectory.md` | V3 |
-| training mix v1: items, distinct templates (vs student_v0), max template share | 818,863 train rows, 24 distinct templates (student_v0: 14; ratio 1.714); max template share 0.0800 (cap 65,509); selection dev 5,619 rows over 28 templates | `data/train/student_v1/manifest.json` (aggregate `loops/student_v1/mix_summary.json`); claims V040–V042 | V4 |
+| training mix v1: items, distinct templates (vs student_v0), max template share | 482,889 train rows, 24 distinct templates (student_v0: 14; ratio 1.714); max template share 0.0800 (cap 38,631); selection dev 5,619 rows over 28 templates; new noul templates class-balanced (D10) | `data/train/student_v1/manifest.json` (aggregate `loops/student_v1/mix_summary.json`); claims V048–V049 (supersede V040, V042) | V4 |
 | leakage check result | 0 hits in the final train rows (818,863) and dev rows (index, date, held-out template and question); 3,294 train and 835 dev pre-window rows removed by the counted check (student_v0 base checked clean) | manifest `leakage`; claims V043–V045 | V4 |
 | Unsloth typed-decisions validation (before → after) | | | V5 |
 | arm A / B / C: selected step, dev macro, wall-clock, grad p95 / max | | | V6–V8 |
@@ -132,6 +132,11 @@ Working dir:    outputs/student_v1/V3/   (log: outputs/student_v1/V3/logs/v3_tra
 - Surprises: the first leakage check failed (3,294 train rows duplicated benchmark text or record ids; removed and counted, not hidden); a manifest dev-count merge bug was found and fixed (files unchanged); the openFDA product type is written without the word LABEL.
 - Not done: ≥ 2 record–claim consistency designs and the catalog train-candidate sources (NOT MEASURED, D4); seen-template score dev is 33, below 200 (D9). The mix is ready for V5–V8.
 
+### V4 addendum — class balance of the new noul templates (D10) — 2026-10-08T07:30:00Z
+- What ran: the same assembly with `balance_classes` on the five new noul templates (train, before the cap) and `balanced_sample` on their dev items (125 per class). Rerun: `scripts/student/v1_assemble_mix.py`; check: `scripts/student/v1_check_mix.py` (16 OK).
+- Why: the new noul templates had yes-rates of 0.038 to 0.735 (child tag 3.8 %), so the model would learn the prior. Decided before any arm trained, from pre-window counts only.
+- Result: train 482,889 rows (was 818,863), cap 38,631, dev 5,619 rows. Superseded CLAIMS rows V040, V042, V046, V047 are kept as history; V048–V053 replace them.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -179,6 +184,8 @@ deviation — that is a `BLOCKED`.
 - **D7 (V4 screen rule):** the decision uses BoW macro < 0.90 (ADVISORY), not the benchmark's micro rule; the micro value is reported beside it. One template dropped (openFDA product type, 0.9953).
 - **D8 (V4 leakage removals):** 3,294 train and 835 dev pre-window rows that matched a v0.2 test/dev record id or state hash were removed by the counted check (openFDA label-text duplicates 3,215 / 794). The student_v0 base was checked first and is clean.
 - **D9 (V4 score-item target):** seen-template score dev items are 33 (target 200): NOT MET. The new score template has 65,509 train rows (target 5,000: met) and 250 dev rows. No benchmark change.
+
+- **D10 (V4 class balance):** the five new noul templates are balanced per class (train: the smaller class's count; dev: 125 per class). Source yes-rates were 0.038 to 0.735, and an unbalanced template would teach its prior. Decided before any arm trained, from pre-window counts only. Superseded V-rows are kept in CLAIMS.
 
 ## 8. Closure summary feed
 

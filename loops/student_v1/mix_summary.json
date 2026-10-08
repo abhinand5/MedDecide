@@ -1,0 +1,66 @@
+{
+  "cap": {
+    "per_template_cap": 38631,
+    "rule": "fixed point of cap = floor(0.08 * sum(min(n_t, cap)))",
+    "share": 0.08
+  },
+  "dev": {
+    "rows": 5619,
+    "templates": 28
+  },
+  "distinct_training_templates_student_v0": 14,
+  "distinct_training_templates_student_v1": 24,
+  "final_leakage": {
+    "held_out_hits": 0,
+    "train_index_or_date_hits": 0
+  },
+  "git_commit": "0423c01fc6bef94680d5479cfee8ccc070c69783",
+  "kind": "student_v1_training_mix",
+  "new_dev_removed_by_leak_check_total": 835,
+  "new_templates_kept": [
+    "ct_eligibility_sex_choice_v1",
+    "ct_enrollment_band_score_v1",
+    "ct_interventional_noul_v1",
+    "ct_masking_choice_v1",
+    "fda_application_family_choice_v1",
+    "pubmed_check_adult_noul_v1",
+    "pubmed_check_child_noul_v1",
+    "pubmed_check_female_noul_v1",
+    "pubmed_check_male_noul_v1",
+    "pubmed_pubtype_choice_v1"
+  ],
+  "new_train_removed_by_leak_check_total": 3294,
+  "ratio_to_student_v0": 1.7142857142857142,
+  "train": {
+    "max_template_share": 0.07999975149568535,
+    "rows": 482889,
+    "templates": 24,
+    "total": 482889
+  },
+  "train_counts_after_cap": {
+    "ct_claim_set_choice_v1": 19997,
+    "ct_eligibility_sex_choice_v1": 38631,
+    "ct_enrollment_band_score_v1": 38631,
+    "ct_healthy_volunteers_noul_v1": 20000,
+    "ct_intervention_type_choice_v1": 5687,
+    "ct_interventional_noul_v1": 38631,
+    "ct_masking_choice_v1": 38631,
+    "ct_primary_purpose_choice_v1": 3860,
+    "ct_randomised_noul_v1": 19997,
+    "fda_application_family_choice_v1": 16801,
+    "fda_class_choice_v1": 12133,
+    "fda_class_choice_v2": 8822,
+    "fda_route_choice_v1": 143,
+    "fda_route_claim_noul_v1": 15658,
+    "medmcqa_4opt_v1": 38631,
+    "medqa_usmle4_v1": 8174,
+    "medquad_routing_v1": 31400,
+    "nfcorpus_relevant_noul_v1": 4995,
+    "pubmed_check_adult_noul_v1": 17220,
+    "pubmed_check_child_noul_v1": 5690,
+    "pubmed_check_female_noul_v1": 30664,
+    "pubmed_check_male_noul_v1": 28246,
+    "pubmed_pubtype_choice_v1": 38631,
+    "scifact_relevant_noul_train_v1": 1616
+  }
+}
