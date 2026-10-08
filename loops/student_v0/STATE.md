@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-07T23:39:40Z`
+Last updated (UTC): `2026-10-08T00:19:51Z`
 Iterations so far: `1`
 
 ---
@@ -309,6 +309,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **A fresh agent now owns**: S10's wrap-up (confirm completed-vs-budget from `run.json:training.stopped_early`, quote the rule's selected step and the dev rows for it vs the late evals, report tier-1/fresh cells with coverage + gate status, run the labelled `--tag converged` comparison on the last checkpoint - the same side-by-side that mattered for run 3 - and write `S10/SELF_AUDIT.md`), **then the missing S11 input: the full-v0.2 zero-shot Qwen3.5-0.8B run** (command in the S11 plan above), one GPU job at a time. It must **not** run `g1.py` itself.
 - **S10 progress (2026-10-07T22:59:29Z):** step **15,000** (34 %), alive; dev eval acc 0.6924 / macro 0.6206 / brier 0.3827. Run 3 (instruct) at the same step was acc ~0.71-0.73 / brier ~0.33-0.36, so the Base ablation now sits **below** the instruct run - consistent with the handover flag that its dev-macro advantage was an early peak (0.7109 at step 2,000) rather than a sustained lead. Not a claim: the run has 66 % to go and the rule selects on the whole trajectory.
 - **S10 progress (2026-10-07T23:39:40Z):** step **23,000** (52 %), alive; dev eval acc 0.6756 / macro 0.4173 / brier 0.3886. Run 3 (instruct) at the same step was acc ~0.73 / macro ~0.6 / brier ~0.33, so the ablation is now clearly behind on all three - the expected direction for a Base-vs-instruct comparison. It is **not** diverging (no collapse, unlike run 2 at this step), so the fixed recipe is holding on the Base model too.
+- **S10 progress (2026-10-08T00:19:51Z):** step **30,500** (69 %), alive, and it **recovered from the mid-run dip** - step 30000 acc 0.7197 / macro 0.5911 / brier 0.3529, step 30500 acc 0.7211 / macro 0.5785 / brier 0.3503 (was acc 0.6756 / brier 0.3886 at step 23,000). Same non-monotone shape as run 3, and now close to the instruct run again (run 3 at 30k: acc ~0.73 / brier ~0.32-0.33). The Base-vs-instruct gap is therefore **step-dependent**, which is exactly why the final comparison has to be on test cells at each run's rule-selected checkpoint rather than on mid-run dev readings.
 `--base-model Qwen/Qwen3.5-0.8B-Base`, pid 139222, deadline 01:40Z, checkpoints per dev eval. Early dev evals on the **same 2,019-item sample**: step 5000 acc 0.6929 / macro 0.6225 / brier 0.3730, step 5500 acc 0.7207 / macro 0.5754 / brier 0.3552. Run 3 (instruct) at the same steps read acc 0.7231-0.7276 / macro 0.6545-0.6632 / brier 0.3377-0.3482 - so the Base ablation tracks slightly below at this point, which is the expected shape for an ablation that isolates the recipe from the instruct tuning. No intervention; its test cells land automatically on exit.
 
 ### S11 — execution plan (what the real G1 run still needs) — 2026-10-07T21:38:40Z
