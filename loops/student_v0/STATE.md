@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T00:19:51Z`
+Last updated (UTC): `2026-10-08T01:40:34Z`
 Iterations so far: `1`
 
 ---
@@ -318,6 +318,12 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **JEV-9B on v0.2 is `NOT MEASURED`** unless commissioned: F7 measured it on **v0.1**, not v0.2. The ADVISORY's G1 list says "JEV-9B **where measured**", so G1 may legitimately run without it - but the report must say so explicitly rather than implying the comparison exists. If time permits, the same `run_baselines_v0_1.py` invocation with `--model` pointing at the JEV-9B checkpoint would fill it in (one more GPU job, ~30-40 min).
 - **Then:** `uv run python scripts/bench/g1.py --models meddecide=<S9 preds> --models base=<S10 preds> --models zeroshot=<S11 preds> [--models jev9b=...] --tier1 data/bench/v0.2/tier1 --seed 0 --resamples 1000 --out loops/student_v0/g1.md --json outputs/student_v0/S11/g1.json` (23 tests already pass; the strict slice reads `data/bench/v0.2/fresh/manifest.json`, the D14 held-out list is fixed, D12-failing cells are excluded from the verdict).
 - **Then S12** (byte-identity + audit read-back) and **S14** (findings, CLAIMS roll-up, `Loop status: STOPPED`).
+
+### S10 (Base ablation) — COMPLETED THE FULL PASS — 2026-10-08T01:40:34Z
+- **`training done: steps=44152 epochs=1 stopped_early=None wall=13760s items=212481 items/s=22.80`** - the **entire epoch**, no budget cut, in 3 h 49 m of a 4 h box, at 22.80 items/s (run 3: 44,152 steps / 13,867 s / 22.64 items/s - the two runs are a **matched pair**: same recipe, same data, same dev sample, same step count, one difference = instruct vs Base).
+- Artifacts on disk: `best/`, `best.json` (**step 17000**, rule: highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) broken by lower dev Br), `dev_final.json`{, `temperature.json` fits {"choice": {"temperature": 4.138178516811879, "n_items": 10967, "status": "FITTED"}, "noul": {"temperature": 3.63202836193281, "n_items": 5454, "status": "FITTED"}, "score": {"temperature": 17.0324787}, `run.json`, and `preds_medecide-0p8b-lora-pointer__test.jsonl` (the monitor's automatic test evaluation has run).
+- **For S11:** MedDecide-instruct (S9 run 3) and Base-ablation (S10) predictions now both exist on the **same item sets**; the only missing G1 input is the full-v0.2 **zero-shot Qwen3.5-0.8B** run, which the fresh agent is queued to do next. JEV-9B on v0.2 stays `NOT MEASURED` (F7 measured v0.1).
+- The fresh agent (`40cff25f`) owns the wrap-up: cells with gate status, the labelled `--tag converged` side-by-side, `SELF_AUDIT.md`, then the zero-shot job.
 
 ## 5. Blocked items
 
