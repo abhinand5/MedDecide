@@ -93,6 +93,45 @@ DEFAULT_LORA = LoraSettings()
 LINEAR_ATTENTION_CHUNK = 64
 
 
+def segment_softmax(flat: Tensor, n_options: Sequence[int]) -> Tensor:
+    """Softmax over each item's options, for flat per-option logits laid out item by item."""
+    if int(flat.numel()) != int(sum(n_options)):
+        raise ValueError("flat logits do not match the per-item option counts")
+    pieces, start = [], 0
+    for n in n_options:
+        pieces.append(torch.softmax(flat[start : start + int(n)], dim=0))
+        start += int(n)
+    return torch.cat(pieces) if pieces else flat
+
+
+def letter_positions(n_options: Sequence[int]) -> list[int]:
+    """Within-item option index of every flat option (0 for A, 1 for B, ...)."""
+    out: list[int] = []
+    for n in n_options:
+        out.extend(range(int(n)))
+    return out
+
+
+def exact_length_batches(lengths: Sequence[int], *, batch_size: int) -> list[list[int]]:
+    """Group item positions so that every batch holds items of one exact length.
+
+    A batch of equal-length rows has no padding at all, so each item is computed as it would be alone
+    (up to batch-dimension noise). Items are grouped by length, longest group first, and each group is
+    split into batches of at most ``batch_size``. Every position appears exactly once.
+    """
+    if batch_size < 1:
+        raise ValueError("batch_size must be at least 1")
+    groups: dict[int, list[int]] = {}
+    for position, length in enumerate(lengths):
+        groups.setdefault(int(length), []).append(position)
+    batches: list[list[int]] = []
+    for length in sorted(groups, reverse=True):
+        members = groups[length]
+        for start in range(0, len(members), batch_size):
+            batches.append(members[start : start + batch_size])
+    return batches
+
+
 def reorder_options(item: Item, permutation: Sequence[int]) -> Item:
     """Copy of ``item`` with options permuted; the gold **follows its content**.
 
@@ -357,8 +396,13 @@ class MedDecideModel:
         max_prompt_tokens: int = 16384,
         head: PointerHead | None = None,
         calibration: dict[str, float] | None = None,
+        readout: str = "pointer",
     ) -> None:
         from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        if readout not in ("pointer", "letter"):
+            raise ValueError(f"readout must be 'pointer' or 'letter', got {readout!r}")
+        self.readout = readout
 
         self.base_model_id = base_model_id
         self.revision = revision
@@ -401,9 +445,16 @@ class MedDecideModel:
             self.peft_model = get_peft_model(self.base, lora_config)
             self.peft_model.eval()
         d_model = int(self.get_decoder().config.hidden_size)
-        self.head = head if head is not None else PointerHead(d_model, self.head_settings)
-        self.head.to(device)
-        self.head.eval()
+        if readout == "pointer":
+            self.head = head if head is not None else PointerHead(d_model, self.head_settings)
+            self.head.to(device)
+            self.head.eval()
+        else:
+            # the letter readout has no head: the answer's LM-head logits for the option letters are
+            # the scores, and the LoRA adapter is the only trainable part (ADVISORY student_v1 V7)
+            if head is not None:
+                raise ValueError("a letter readout takes no head")
+            self.head = None
         self._key_token_cache: dict[str, int] = {}
 
     # ---- structure ----------------------------------------------------------
@@ -414,11 +465,15 @@ class MedDecideModel:
 
     @property
     def d_model(self) -> int:
+        if self.head is None:
+            return int(self.get_decoder().config.hidden_size)
         return int(self.head.d_model)
 
     @property
     def trainable_parameter_count(self) -> int:
-        return int(sum(p.numel() for p in self.head.parameters() if p.requires_grad)) + (
+        head_params = 0 if self.head is None else int(
+            sum(p.numel() for p in self.head.parameters() if p.requires_grad))
+        return head_params + (
             int(sum(p.numel() for p in self.peft_model.parameters() if p.requires_grad))
             if self.peft_model is not None
             else 0
@@ -433,10 +488,10 @@ class MedDecideModel:
         because the head is randomly initialised and the adapter starts at zero, so they
         tolerate different step sizes.
         """
-        groups: list[dict[str, Any]] = [
-            {"params": [p for p in self.head.parameters() if p.requires_grad], "lr": lr,
-             "weight_decay": weight_decay, "name": "head"}
-        ]
+        groups: list[dict[str, Any]] = []
+        if self.head is not None:
+            groups.append({"params": [p for p in self.head.parameters() if p.requires_grad], "lr": lr,
+                           "weight_decay": weight_decay, "name": "head"})
         if self.peft_model is not None:
             groups.append(
                 {
@@ -473,13 +528,15 @@ class MedDecideModel:
             for name, module in self.peft_model.named_modules():
                 if "lora_" in name:
                     module.train(adapter)
-        self.head.train(adapter)
+        if self.head is not None:
+            self.head.train(adapter)
 
     def eval_mode(self) -> None:
         if self.peft_model is not None:
             self.peft_model.eval()
         self.base.eval()
-        self.head.eval()
+        if self.head is not None:
+            self.head.eval()
 
     # ---- encoding -----------------------------------------------------------
     def _key_token(self, key: str) -> int:
@@ -639,6 +696,8 @@ class MedDecideModel:
         """``(flat logits, flat probabilities)`` over exactly the batch's offered options."""
         dev = self.device
         batch = batch.to(dev)
+        if self.head is None:
+            return self._letter_logits(batch)
         hidden = self.hidden_states(batch)
         return self.head.option_logits(
             hidden,
@@ -648,6 +707,26 @@ class MedDecideModel:
             batch.batch_size,
             batch.option_end_positions,
         )
+
+    def _letter_logits(self, batch: ModelBatch) -> tuple[Tensor, Tensor]:
+        """Letter readout: per offered option, the LM-head logit of its letter at the answer position.
+
+        The softmax is restricted to the offered letters, per item. The flat layout and the return
+        shape match the pointer head's, so the same CE + Brier loss and the same metrics apply.
+        """
+        hidden = self.hidden_states(batch)
+        rows = torch.arange(batch.batch_size, device=hidden.device)
+        answer = batch.answer_positions.to(hidden.device)
+        h = hidden[rows, answer]
+        causal = self.peft_model.get_base_model() if self.peft_model is not None else self.base
+        vocab = causal.lm_head(h).float()
+        n_options = [int(n) for n in batch.n_options.tolist()]
+        letters = torch.tensor(
+            [self._key_token(chr(ord("A") + j)) for j in letter_positions(n_options)],
+            device=vocab.device, dtype=torch.long,
+        )
+        flat = vocab[batch.marker_item.to(vocab.device), letters]
+        return flat, segment_softmax(flat, n_options)
 
     @torch.no_grad()
     def score_items(
@@ -659,11 +738,14 @@ class MedDecideModel:
         max_prompt_tokens: int | None = None,
         allow_marker_mismatch: bool = False,
         round_to_chunk: bool = True,
+        length_buckets: bool = False,
     ) -> ScoredItems:
         """Score items in batches; returns raw logits and probabilities per item.
 
         ``round_to_chunk`` is passed to :meth:`collate`; ``batch_size=1, round_to_chunk=False``
-        scores every item with no padding (the V2 evaluation path).
+        scores every item with no padding (the V2 evaluation path). ``length_buckets=True`` batches
+        only items of one exact length (:func:`exact_length_batches`): also padding-free, and faster
+        for the same computation. It needs ``round_to_chunk=False``.
 
         ``latency_s`` is measured wall-clock per item (batch time / batch size), the same
         convention the zero-shot harness uses, so the two paths' latencies are comparable.
@@ -677,11 +759,16 @@ class MedDecideModel:
             for item in items
         ]
         canonical = [canonicalise_options(item) for item in items]
-        batches = plan_batches(
-            [e.n_tokens for e in encoded],
-            batch_size=batch_size,
-            max_batch_tokens=max_batch_tokens,
-        )
+        if length_buckets:
+            if round_to_chunk:
+                raise ValueError("length_buckets needs round_to_chunk=False (equal-length rows unpadded)")
+            batches = exact_length_batches([e.n_tokens for e in encoded], batch_size=batch_size)
+        else:
+            batches = plan_batches(
+                [e.n_tokens for e in encoded],
+                batch_size=batch_size,
+                max_batch_tokens=max_batch_tokens,
+            )
         logits: list[np.ndarray | None] = [None] * len(encoded)
         probs: list[np.ndarray | None] = [None] * len(encoded)
         latency: list[float] = [0.0] * len(encoded)
@@ -839,8 +926,10 @@ class MedDecideModel:
         out.mkdir(parents=True, exist_ok=True)
         if self.peft_model is not None:
             self.peft_model.save_pretrained(out / "adapter")
-        torch.save(self.head.state_dict(), out / "head.pt")
+        if self.head is not None:
+            torch.save(self.head.state_dict(), out / "head.pt")
         meta = {
+            "readout": self.readout,
             "base_model_id": self.base_model_id,
             "revision": self.revision,
             "dtype": self.dtype_name,
@@ -878,6 +967,7 @@ class MedDecideModel:
             meta["base_model_id"],
             lora=None,
             head_settings=HeadSettings(**meta["head"]),
+            readout=meta.get("readout", "pointer"),
             dtype=dtype or meta.get("dtype", "bfloat16"),
             device=device,
             variant=meta.get("variant", "bare"),
@@ -888,7 +978,7 @@ class MedDecideModel:
         )
         model.lora = lora
         head_path = src / "head.pt"
-        if head_path.exists():
+        if head_path.exists() and model.head is not None:
             state = torch.load(head_path, map_location=device, weights_only=True)
             model.head.load_state_dict(state)
             model.head.to(device)

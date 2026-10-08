@@ -769,6 +769,8 @@ def calibrate_and_report(
         batch_size=config.eval_batch_size or config.batch_size,
         max_batch_tokens=config.eval_max_batch_tokens or config.max_batch_tokens,
         max_prompt_tokens=config.max_prompt_tokens,
+        round_to_chunk=config.eval_round_to_chunk,
+        length_buckets=config.eval_length_buckets,
     )
     scored_seconds = time.perf_counter() - t0
     fits = fit_per_qtype(scored_final)
@@ -1108,6 +1110,7 @@ def main(argv: list[str] | None = None) -> int:
         variant=config.variant,
         revision=config.revision,
         max_prompt_tokens=config.max_prompt_tokens,
+        readout=config.readout,
     )
     info = provenance(config, model)
     trainer = Trainer(model, config, log_path=log_path)
@@ -1267,7 +1270,9 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint_dir=None,
         max_seconds=remaining,
         on_step=selector,
-        schedule_steps=detail.plan.n_batches,
+        # with an explicit step budget the cosine schedule is laid over that budget (student_v1 V6-V8);
+        # without one it covers the planned epoch, as in student_v0
+        schedule_steps=args.steps if args.steps is not None else detail.plan.n_batches,
     )
     train_seconds = time.perf_counter() - train_started
     rates = throughput_of(list(result.history))

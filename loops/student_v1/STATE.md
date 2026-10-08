@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-08T03:59:12Z`
-Last updated (UTC): `2026-10-08T07:20:00Z`
-Iterations so far: `4`
+Last updated (UTC): `2026-10-08T08:40:00Z`
+Iterations so far: `5`
 
 ---
 
@@ -26,10 +26,10 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V0 | Orientation, snapshot, Unsloth environment | smoke | — | DONE | 2026-10-08T03:59:12Z | 2026-10-08T04:17:00Z |
 | V1 | JEV-9B on v0.2 + G1 recomputed per D16 | yes | V0 | DONE | 2026-10-08T04:30:39Z | 2026-10-08T05:28:00Z |
 | V2 | Padding fix + measured effect | small | V0 | BLOCKED — acceptance item 1 (padded-batch test ≤ 1e-3, fp32) fails at 1.92e-3 with the fix; tolerance not changed; no-padding batch-1 path adopted and measured (`loops/student_v1/V2_padding.md`); operator question 1 | 2026-10-08T05:30:03Z | 2026-10-08T07:20:00Z |
-| V3 | Checkpoint trajectory (seen vs held-out) | yes | V2 | IN_PROGRESS — runs on V2's adopted no-padding path while V2 is BLOCKED (deviation D2) | 2026-10-08T07:11:32Z | |
+| V3 | Checkpoint trajectory (seen vs held-out) | yes | V2 | DONE — held-out per-template macro falls 0.550 → 0.332 over 22 checkpoints (Spearman −0.637, CI [−0.862, −0.223]); seen flat; runs on V2's adopted path (D2) | 2026-10-08T07:11:32Z | 2026-10-08T08:24:30Z |
 | V4 | Training data v1 (diversity) | no | V0 | DONE — 10 screen-passing new templates; 482,889 train / 5,619 dev rows (class-balanced noul, D10); leakage 0; NOT MEASURED: ≥ 2 consistency designs and catalog sources (D4); seen-template score dev 33 < 200 (D9) | 2026-10-08T06:09:26Z | 2026-10-08T07:20:00Z |
-| V5 | Unsloth validation + converter + evaluator | small | V0, V4 | PENDING | | |
-| V6 | Arm A: pointer head | yes | V2, V4 | PENDING | | |
+| V5 | Unsloth validation + converter + evaluator | small | V0, V4 | IN_PROGRESS — Unsloth recipe (300 steps) on typed-decisions, round trip of MedDecide rows, chance check; converter tested (`src/meddecide/train/unsloth_rows.py`) | 2026-10-08T08:27:48Z | |
+| V6 | Arm A: pointer head | yes | V2, V4 | QUEUED behind V5 (pointer regression check exact: max Δ 0.0) — runs on the V2 adopted path (D2) | | |
 | V7 | Arm B: letter-readout LoRA | yes | V4 | PENDING | | |
 | V8 | Arm C: Clef-style head via Unsloth | yes | V5 | PENDING | | |
 | V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | PENDING | | |

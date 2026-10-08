@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" font-family="sans-serif" font-size="12">
+<rect width="760" height="380" fill="white"/>
+<text x="60" y="24" font-size="14" font-weight="bold">student_v0 run 3: Brier vs training step (dev, uncalibrated)</text>
+<line x1="60" y1="320" x2="700" y2="320" stroke="#333"/>
+<line x1="60" y1="60" x2="60" y2="320" stroke="#333"/>
+<text x="60.0" y="336" text-anchor="middle">1k</text>
+<text x="89.8" y="336" text-anchor="middle">3k</text>
+<text x="119.5" y="336" text-anchor="middle">5k</text>
+<text x="149.3" y="336" text-anchor="middle">7k</text>
+<text x="179.1" y="336" text-anchor="middle">9k</text>
+<text x="208.8" y="336" text-anchor="middle">11k</text>
+<text x="238.6" y="336" text-anchor="middle">13k</text>
+<text x="268.4" y="336" text-anchor="middle">15k</text>
+<text x="298.1" y="336" text-anchor="middle">17k</text>
+<text x="327.9" y="336" text-anchor="middle">19k</text>
+<text x="357.7" y="336" text-anchor="middle">21k</text>
+<text x="387.4" y="336" text-anchor="middle">23k</text>
+<text x="417.2" y="336" text-anchor="middle">25k</text>
+<text x="447.0" y="336" text-anchor="middle">27k</text>
+<text x="476.7" y="336" text-anchor="middle">29k</text>
+<text x="506.5" y="336" text-anchor="middle">31k</text>
+<text x="536.3" y="336" text-anchor="middle">33k</text>
+<text x="566.0" y="336" text-anchor="middle">35k</text>
+<text x="595.8" y="336" text-anchor="middle">37k</text>
+<text x="625.6" y="336" text-anchor="middle">39k</text>
+<text x="655.3" y="336" text-anchor="middle">41k</text>
+<text x="700.0" y="336" text-anchor="middle">44k</text>
+<polyline points="60.0,307.7 89.8,307.9 119.5,312.4 149.3,311.6 179.1,272.7 208.8,310.1 238.6,316.2 268.4,301.8 298.1,304.7 327.9,300.3 357.7,312.1 387.4,312.6 417.2,302.2 447.0,311.5 476.7,312.7 506.5,313.8 536.3,316.1 566.0,317.0 595.8,316.9 625.6,320.0 655.3,319.7 700.0,319.5" fill="none" stroke="#555" stroke-width="2"/>
+<circle cx="60.0" cy="307.7" r="3" fill="#555"/>
+<circle cx="89.8" cy="307.9" r="3" fill="#555"/>
+<circle cx="119.5" cy="312.4" r="3" fill="#555"/>
+<circle cx="149.3" cy="311.6" r="3" fill="#555"/>
+<circle cx="179.1" cy="272.7" r="3" fill="#555"/>
+<circle cx="208.8" cy="310.1" r="3" fill="#555"/>
+<circle cx="238.6" cy="316.2" r="3" fill="#555"/>
+<circle cx="268.4" cy="301.8" r="3" fill="#555"/>
+<circle cx="298.1" cy="304.7" r="3" fill="#555"/>
+<circle cx="327.9" cy="300.3" r="3" fill="#555"/>
+<circle cx="357.7" cy="312.1" r="3" fill="#555"/>
+<circle cx="387.4" cy="312.6" r="3" fill="#555"/>
+<circle cx="417.2" cy="302.2" r="3" fill="#555"/>
+<circle cx="447.0" cy="311.5" r="3" fill="#555"/>
+<circle cx="476.7" cy="312.7" r="3" fill="#555"/>
+<circle cx="506.5" cy="313.8" r="3" fill="#555"/>
+<circle cx="536.3" cy="316.1" r="3" fill="#555"/>
+<circle cx="566.0" cy="317.0" r="3" fill="#555"/>
+<circle cx="595.8" cy="316.9" r="3" fill="#555"/>
+<circle cx="625.6" cy="320.0" r="3" fill="#555"/>
+<circle cx="655.3" cy="319.7" r="3" fill="#555"/>
+<circle cx="700.0" cy="319.5" r="3" fill="#555"/>
+<text x="696" y="76" text-anchor="end" fill="#555">seen (micro Brier, uncalibrated)</text>
+<polyline points="60.0,236.4 89.8,186.7 119.5,183.8 149.3,149.8 179.1,185.5 208.8,89.6 238.6,113.2 268.4,100.9 298.1,118.8 327.9,83.1 357.7,77.1 387.4,70.6 417.2,64.3 447.0,94.1 476.7,60.0 506.5,77.3 536.3,98.6 566.0,78.6 595.8,60.0 625.6,89.9 655.3,81.8 700.0,79.0" fill="none" stroke="#555" stroke-width="2"/>
+<circle cx="60.0" cy="236.4" r="3" fill="#555"/>
+<circle cx="89.8" cy="186.7" r="3" fill="#555"/>
+<circle cx="119.5" cy="183.8" r="3" fill="#555"/>
+<circle cx="149.3" cy="149.8" r="3" fill="#555"/>
+<circle cx="179.1" cy="185.5" r="3" fill="#555"/>
+<circle cx="208.8" cy="89.6" r="3" fill="#555"/>
+<circle cx="238.6" cy="113.2" r="3" fill="#555"/>
+<circle cx="268.4" cy="100.9" r="3" fill="#555"/>
+<circle cx="298.1" cy="118.8" r="3" fill="#555"/>
+<circle cx="327.9" cy="83.1" r="3" fill="#555"/>
+<circle cx="357.7" cy="77.1" r="3" fill="#555"/>
+<circle cx="387.4" cy="70.6" r="3" fill="#555"/>
+<circle cx="417.2" cy="64.3" r="3" fill="#555"/>
+<circle cx="447.0" cy="94.1" r="3" fill="#555"/>
+<circle cx="476.7" cy="60.0" r="3" fill="#555"/>
+<circle cx="506.5" cy="77.3" r="3" fill="#555"/>
+<circle cx="536.3" cy="98.6" r="3" fill="#555"/>
+<circle cx="566.0" cy="78.6" r="3" fill="#555"/>
+<circle cx="595.8" cy="60.0" r="3" fill="#555"/>
+<circle cx="625.6" cy="89.9" r="3" fill="#555"/>
+<circle cx="655.3" cy="81.8" r="3" fill="#555"/>
+<circle cx="700.0" cy="79.0" r="3" fill="#555"/>
+<text x="696" y="92" text-anchor="end" fill="#555">held-out (micro Brier, uncalibrated)</text>
+<text x="380.0" y="368" text-anchor="middle">training step</text>
+</svg>

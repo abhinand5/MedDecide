@@ -30,6 +30,7 @@ _TOP_LEVEL_KEYS = {
     "variant",
     "lora",
     "head",
+    "readout",
     "lambda_brier",
     "lr",
     "lora_lr",
@@ -44,6 +45,8 @@ _TOP_LEVEL_KEYS = {
     "eval_items",
     "eval_batch_size",
     "eval_max_batch_tokens",
+    "eval_round_to_chunk",
+    "eval_length_buckets",
     "log_every",
     "lr_schedule",
     "warmup_fraction",
@@ -70,6 +73,8 @@ class StudentConfig:
     variant: str = "bare"
     lora: LoraSettings = field(default_factory=LoraSettings)
     head: HeadSettings = field(default_factory=HeadSettings)
+    # "pointer" (student_v0's head) or "letter" (student_v1 arm B: no head, LM logits of option letters)
+    readout: str = "pointer"
     # cross-entropy + lambda * Brier; 1.0 is the plan's starting value
     lambda_brier: float = 1.0
     lr: float = 1.0e-3
@@ -87,6 +92,11 @@ class StudentConfig:
     # None falls back to batch_size / max_batch_tokens
     eval_batch_size: int | None = None
     eval_max_batch_tokens: int | None = None
+    # True (the student_v0 behaviour) rounds the dev batch length to the chunk; False scores each
+    # item with no padding at batch size 1 (the V2 evaluation path, ADVISORY student_v1 V2)
+    eval_round_to_chunk: bool = True
+    # True batches dev items of one exact length (no padding; the faster route to the same computation)
+    eval_length_buckets: bool = False
     log_every: int = 10
     # LR schedule, applied by Trainer.train only when it is given an explicit schedule_steps
     # total (S9 passes the planned batch count of its one epoch). "cosine" = linear warmup over

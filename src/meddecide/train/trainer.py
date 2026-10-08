@@ -202,6 +202,8 @@ class Trainer:
                 self.config.eval_max_batch_tokens or self.config.max_batch_tokens
             ),
             max_prompt_tokens=self.config.max_prompt_tokens,
+            round_to_chunk=self.config.eval_round_to_chunk,
+            length_buckets=self.config.eval_length_buckets,
         )
         overall = scored.metrics()
         overall["per_qtype"] = scored.per_qtype_metrics()

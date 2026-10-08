@@ -47,3 +47,15 @@ def test_single_rounded_item_shifts_markers_by_its_own_padding() -> None:
     assert batch.input_ids.shape == (1, 2 * LINEAR_ATTENTION_CHUNK)
     assert batch.marker_positions.tolist() == [2 + shift, 67 + shift]
     assert batch.answer_positions.tolist() == [2 * LINEAR_ATTENTION_CHUNK - 1]
+
+
+def test_exact_length_batches_cover_every_position_once_and_never_mix_lengths() -> None:
+    from meddecide.model.meddecide_model import exact_length_batches
+
+    lengths = [70, 120, 70, 70, 9, 120, 70]
+    batches = exact_length_batches(lengths, batch_size=2)
+    assert sorted(p for b in batches for p in b) == list(range(len(lengths)))
+    for batch in batches:
+        assert len({lengths[p] for p in batch}) == 1
+        assert len(batch) <= 2
+    assert [lengths[b[0]] for b in batches] == [120, 70, 70, 9]
