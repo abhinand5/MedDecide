@@ -262,8 +262,8 @@ D12 for B; the V5 evaluator for C). Then:
 Write `loops/student_v1/FINDINGS.md` (Summary first; state which §2 outcome applies, per arm),
 `NEXT.md` (proposals), fill STATE's closure feed. **Closure requirements — check each before
 stopping:** (1) every STATE row is `DONE` or `BLOCKED — <reason>` (student_v0 left two rows
-`IN_PROGRESS`); (2) the five-claim spot-check is **appended with re-run outputs** (student_v0
-never appended it); (3) every number has a CLAIMS row. Set `Loop status: STOPPED`, commit, push,
+`IN_PROGRESS`); (2) the five-claim spot-check is **appended with re-run outputs**; (3) every
+number has a CLAIMS row. Set `Loop status: STOPPED`, commit, push,
 stop.
 
 ## 5. Definition of done
@@ -320,8 +320,7 @@ GPU. A BLOCKED V8 (Unsloth) never blocks V9 for arms A and B, or V10.
 5. **Divergence again.** Keep the grad-norm/length log; apply the V6–V8 tripwire.
 6. **Diversity without screening.** Every new training template passes the screen on its dev
    split; a template a string rule solves teaches a shortcut.
-7. **Closure gaps (student_v0's error).** Rows left `IN_PROGRESS`, a spot-check promised and
-   not appended.
+7. **Closure gaps (student_v0's error).** Rows left `IN_PROGRESS` at the hard stop.
 8. **Parallel GPU agents** (student_v0: OOMs, contention, cost). One GPU job; no GPU sub-agents.
 9. **Relabelling an unwelcome result (R4); citing artifacts that do not exist (R2); impossible
    arithmetic (R5).**

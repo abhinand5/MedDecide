@@ -16,8 +16,9 @@
 > 2. **The evaluated MedDecide is the step-1,000 checkpoint** (≈2 % of the pass, ~8,000 items
 >    seen); the converged checkpoint scores lower on test (tier 1 0.6141 vs 0.6505; fresh 0.7767
 >    vs 0.8227). Most of the gain is acquired in the first ~1,000 steps.
-> 3. **Closure gaps:** S9 and S11 are left `IN_PROGRESS` in STATE.md, and §7's five-claim
->    spot-check was never appended. Both are carried into `student_v1`'s closure requirements.
+> 3. **Closure gap:** S9 and S11 are left `IN_PROGRESS` in STATE.md (the five-claim spot-check
+>    *was* appended, in §8 of the final closure commit). `student_v1`'s closure requires every
+>    row to be terminal.
 
 
 **Loop:** `student_v0` (loop 1 — the first trained MedDecide) · **Branch:** `loop/student_v0`
@@ -47,7 +48,9 @@ same recipe and data, one full pass each: **MedDecide-0.8B on the instruct base*
 steps / 13,867.5 s; S084) and a **Base ablation** (44,152 steps / 13,760.4 s; S073). Added the
 missing baseline — a **full-v0.2 zero-shot `Qwen/Qwen3.5-0.8B`** run (S080) — and applied the
 pre-registered **D16** paired-CI rule (S092) on **identical item sets** (37,289 shared ids,
-0 differences; S097).
+0 differences; S097). Re-checked that the shipped checkpoints are adapter-clean by re-running
+S7's byte-identity test against them (S098), and read back the operator's audit file, which is
+still pending (S099).
 
 **What we found.**
 
@@ -68,8 +71,9 @@ pre-registered **D16** paired-CI rule (S092) on **identical item sets** (37,289 
    (`fda_boxed_warning` +0.0068, `pubmed_humans` +0.0912), two are clearly below
    (`ct_arm_role` −0.0785, `ct_phase` −0.0900; S094). The pattern is a **readout effect plus
    same-template training**, not leakage: the four D14 templates have **0** training items
-   (S100) and the leakage check removed 2,188 duplicate rows with 0 collisions on re-check
-   (S044, S055).
+   (S100), the tier-1 builder removed 2,188 rows by normalised `(state+question)` hash with
+   **0 collisions** on an independent re-check (S044), and the training mix's own four-part
+   check is 0 on all four kinds after 7,711 removals counted (S055).
 3. **The instruct base materially improves pointer-head readout health**: on identical item
    sets, the instruct model passes **18 of 19** D12 cells (7/8 tier-1 + 11/11 fresh) and the
    Base ablation **11 of 19** (5/8 + 6/11) (S096; S082, S075).
@@ -90,6 +94,10 @@ pre-registered **D16** paired-CI rule (S092) on **identical item sets** (37,289 
 8. **`score` is not a working qtype**: the training mix contains **0** score items (S053), the
    dev split has 33 (< the 50-item fit floor) so its temperature is `NOT FITTED` (S085,
    S046), and its one tier-1 cell reads `READOUT_FAIL — constant_answer` (S092).
+9. **The shipped checkpoints are adapter-clean**: with the adapter disabled, each reproduces an
+   untouched base **byte-for-byte** on a fixed greedy prompt set, with both controls positive
+   (S098); the operator's human audit, however, is still pending, so the label-quality
+   read-back is `NOT MEASURED` (S099).
 
 **What it means.** ADVISORY §2's **third branch applies: G1 FAIL everywhere → diagnose the
 recipe (readout, capacity, loss, data) at 0.8B before spending anything larger.** The failure
@@ -161,7 +169,7 @@ from every comparison; the excluded cells are listed by name in `g1.md` and S092
 | model | pass | wall / throughput | rule-selected checkpoint | tier-1 (13,521 items) | fresh (23,768 items) |
 |---|---|---|---|---|---|
 | **MedDecide-0.8B** (instruct `Qwen/Qwen3.5-0.8B`) | full pass, 44,152 steps / 212,481 items / 201,539,105 tokens; 13,867.5 s of a 14,174.0 s budget; 22.64 items/s; GPU peak 38.39 GB; **88 dev evals, a checkpoint at every eval** (S084) | `best/` = **step 1,000** by "highest dev macro accuracy" — 0.6798 macro, the maximum of all 88 evals (S084, S086) | micro **0.6505**, 7/8 D12 gates (S082) | micro **0.8227**, 11/11 gates (S082) |
-| **Base ablation** (`Qwen/Qwen3.5-0.8B-Base`, same recipe/data/steps) | full pass, 44,152 steps; 13,760.4 s; 22.80 items/s; GPU peak 38.39 GB (S073) | `best/` = **step 17,000** by the same rule (margin 0.000691 over step 2,000; S074) | micro **0.5782**, 5/8 gates (S075) | micro **0.7577**, 6/11 gates (S075) |
+| **Base ablation** (`Qwen/Qwen3.5-0.8B-Base`, same recipe/data/steps) | full pass, 44,152 steps; 13,760.4 s; 22.80 items/s; GPU peak 38.39 GB; **88 dev evals** (S073, S103) | `best/` = **step 17,000** by the same rule (margin 0.000691 over step 2,000; S074) | micro **0.5782**, 5/8 gates (S075) | micro **0.7577**, 6/11 gates (S075) |
 | **Zero-shot `Qwen/Qwen3.5-0.8B`** (letter readout, D12 applied) | one pass over v0.2 test, 1,376.2 s (S080) | n/a | micro **0.6260**, 8/8 gates (S080) | micro **0.6771**, 11/11 gates (S080) |
 
 Additional, explicitly labelled additional analyses (never substituted for the official model):
@@ -179,7 +187,7 @@ Summary; S079).
 **Temperatures** (fit on dev, S085): instruct `choice` **1.2190** (n=10,967, FITTED) and `noul`
 **2.8959** (n=5,454, FITTED), `score` **`NOT FITTED — too few dev items (n=33 < 50)`** (with
 1.1131 recorded beside it as a diagnostic, not a fitted value). The Base ablation's fits are
-4.1382 / 3.6320 / `NOT FITTED` (S073 artifact; `s10_temperature`). `score` has **no training
+`choice` **4.1382** / `noul` **3.6320** / `score` `NOT FITTED` (S102). `score` has **no training
 items at all** (S053), so its temperature is not identifiable from this mix.
 
 ---
@@ -275,8 +283,9 @@ Five arms, 2,000 steps each, on a fixed 20k-item subset (`limit=20000, stride=10
 `d_rank8` was picked for the best dev macro at every eval among cap-comparable arms, the lowest
 p95 and a worst-case norm less than half the baseline's. Run 3 then used it and completed the
 full pass (S084). **Attribution caveat:** the arms were run one at a time on a subset that
-averages 653 tokens/item against the full mix's 948, so *which* change (rank vs warmup+cosine)
-was decisive is **not measured**; the pick bundles them.
+averages 653 tokens/item (S089) against the full mix's 948 (201,539,105 tokens / 212,481 items;
+S084), so *which* change (rank vs warmup+cosine) was decisive is **not measured**; the pick
+bundles them.
 
 **The spiking tail is length-driven (S090).** Baseline spike steps (pre-clip grad > 100) carry a
 mean batch max length of **5,126** tokens against **2,217** overall (2.31×);
@@ -354,28 +363,92 @@ correctness bug in the padding path**, not on its own the divergence mechanism.
 
 ---
 
-## 7. Spot-check — five claims re-run in fresh processes
+## 7. S12 — generation byte-identity and the audit read-back
 
-(To be appended in the S14 self-audit; the five commands and their outputs are recorded below
-once re-run.)
+**Byte-identity (S098).** With its adapter **disabled**, each *shipped* checkpoint reproduces a
+separately loaded, untouched base **byte-for-byte** on greedy generation: `S9_run3/best`
+(instruct, step 1,000) is 20/20 token-identical and 20/20 decoded-identical on S7's fixed
+20-prompt set, and 18/18 on an additional one-short-item-per-template set (18 templates);
+`S10/best` (Base ablation, step 17,000) is 20/20 and 18/18 on the same sets. Both controls are
+positive on **every** prompt: the trained adapter changes generation (20/20 + 18/18 per
+checkpoint) and a perturbed `lora_B` changes it too — i.e. the comparison can detect a changed
+adapter, so the identity is not vacuous. Checkpoint file hashes are recorded in the artifact.
+
+**Caveats, recorded with the claim.** The check ran **CPU-only**, where the shipped fused
+kernels (`causal_conv1d`, `flash-linear-attention`) cannot run, so transformers' reference
+PyTorch path was used on both sides (`kernel_path` in the artifact; a GPU re-run is proposed in
+`NEXT.md` §7). The S7 prompt set is single-template (all `medmcqa_4opt_v1`, 2,456 prompt
+tokens) — the 18-template spread set is the mitigation. Every greedy continuation ended at EOS
+after 4 tokens, so the identity statement is exact but narrow (4 tokens × 76 prompt-slots).
+Full detail: `outputs/student_v0/S12/SELF_AUDIT.md`.
+
+**Audit read-back (S099).** The operator's completed audit file
+`outputs/bench_v0_fix0/F10/audit_v0.jsonl` **does not exist** (`test -f` false; only the staged
+`audit_sample.jsonl`, 150 rows, is present). Per ADVISORY S12 this is recorded as
+**`NOT MEASURED — audit pending`** — no accept/reject/note counts were invented, and the
+templates-with-reject-rate question is therefore unanswerable this loop.
 
 ---
 
-## 8. Method, provenance and what the next loop inherits
+## 8. Spot-check — five claims re-run in fresh processes
 
-* **Benchmark v0.2**: 45,009 items, manifest sha256 `a81f2a03…9ed0db60b`; 11/11 independent
-  verification checks PASS (S014, S015). The three repairs (score level set, MeSH near-miss
-  distractors, mechanism-sharing FDA class distractors) are described in
-  `loops/student_v0/bench_v0_2.md` and `template_screen_v0_2.md`.
+Five claims spanning the loop (benchmark build → training data → trained run → baseline →
+verdict) were re-derived from their artifacts in fresh processes; raw outputs and checks were
+not touched. Command outputs are saved under `outputs/student_v0/S14/spotcheck/`.
+
+**1. S014 — benchmark v0.2 counts** (`01_bench_v0_2.txt`). `acceptance.json`: verdict **PASS**,
+**8/8** checks; **45,009** items = **35,263** carried + **9,746** new. Re-derived arithmetic:
+v0.1 tier-1 22,594 + fresh 23,582 = **46,176**; superseded in v0.2 4,536 (`fda_class_choice_v1`)
++ 429 (`nfcorpus_graded_score_v1`) + 5,948 (`pubmed_mesh_major_choice_v1`) = **10,913**;
+46,176 − 10,913 + 9,746 = **45,009 ✓** (R5).
+**Caveat this spot-check found:** S014 also quotes a manifest sha256 `a81f2a03…` that is *not*
+the current file's hash (`363c037e…`): the manifest was updated by the S2/S3 builders after the
+S1 build (`built_at_utc` 19:44:26Z → `updated_at_utc` 20:53:59Z). Added as correction row
+**S101**; the counts are unaffected.
+
+**2. S053/S055 — training mix** (`02_training_mix.txt`). `wc -l` = **212,481** =
+`manifest.totals.train`; sha256 `2535d46d…` equals `files_sha256.train`; the components close
+(106,184 tier-1 + 35,655 consistency + 70,642 pre-window structured = 212,481 ✓); the leakage
+re-check on the written file is **0 of 212,481**; the mix contains **0** `score` items (S046,
+S053).
+
+**3. S084/S082 — the trained run** (`03_s9_run3.txt`). `run.json`: `completed one pass`,
+`stopped_early=None`, 44,152 steps, 212,481 items, 201,539,105 tokens, 13,867.5 s of a
+14,174.0 s budget, 22.64 items/s, GPU peak 38.39 GB; **88 dev evals / 0 errors / 88
+checkpoints**; selected step 1,000 (dev macro 0.679832, the max of all 88 evals); full dev
+0.7497 / 0.6653 / 0.3215; official cells 0.6505 (7/8) + 0.8227 (11/11); converged 0.6141 (5/8)
++ 0.7767 (7/11) — all match S084/S082/S079.
+
+**4. S080 — the zero-shot baseline** (`04_zeroshot.txt`). 37,289 rows, run `s11_zeroshot0p8b`,
+1,376.2 s; tier-1 13,521 items micro **0.6260** (8/8 gates); fresh 23,768 items micro **0.6771**
+(11/11 gates); coverage 1.000.
+
+**5. S092/S093 — the verdict, re-computed end to end** (`05_g1_diff.txt`). `scripts/bench/g1.py`
+re-run with the identical arguments, its outputs redirected to scratch so the operator's
+`g1.md`/`g1.json` were not touched (R9): **4/4 verdicts identical**, all **466** compared
+comparison fields identical (no difference > 1e-12), and the headline paired differences
+reproduce to 6 dp (`fresh_seen|base` −0.011462 [−0.017588, −0.006034]; `fresh_heldout|zeroshot`
+−0.017627 [−0.030084, −0.004800]).
+
+---
+
+## 9. Method, provenance and what the next loop inherits
+
+* **Benchmark v0.2**: 45,009 items (S014); 11/11 independent verification checks PASS (S015).
+  Note: the S2/S3 builders appended blocks to `manifest.json` after the S1 build, so S014's
+  quoted manifest sha256 no longer matches the file — correction row **S101**, spot-check 1 in
+  §8. The three repairs (score level set, MeSH near-miss distractors, mechanism-sharing FDA
+  class distractors) are described in `loops/student_v0/bench_v0_2.md` and
+  `template_screen_v0_2.md`.
 * **Training mix**: 212,481 train items (tier-1 official train splits + pre-window
   structured-gold), 16,454 dev, 0 score items, four D14 templates excluded with counts (S053,
   S054, S056, S100).
 * **Recipe**: frozen base + LoRA r=8/alpha 16 on 12 projections + per-option pointer head
-  (`option_state=key_end`, 793,089 trainable params — S061/S067 plus the rank change in S089),
-  CE + 1.0×Brier, linear warmup 3 % + cosine decay to zero on both groups, batch 8 / 8,192-token
-  prompt cap, one epoch (S084).
+  (`option_state=key_end`, **793,089** trainable params — S104; the architecture is S061/S067,
+  the rank change to r=8 is S089), CE + 1.0×Brier, linear warmup 3 % + cosine decay to zero on
+  both groups, batch 8 / 8,192-token prompt cap, one epoch (S084).
 * **Hardware / cost**: one RTX PRO 6000 96 GB, one GPU job at a time; the two full passes cost
-  13,867.5 s + 13,760.4 s of training (plus 88 dev evals each) (S084, S073).
+  13,867.5 s + 13,760.4 s of training (plus 88 dev evals each) (S084, S103).
 * **Process lessons this loop paid for** (recorded so they are not re-learned): a batching bug
   can masquerade as a recipe result (run 1, S087); a diverging run must be stopped and recorded,
   not re-labelled (run 2, S088); a selection rule can be "not the problem" and still not
