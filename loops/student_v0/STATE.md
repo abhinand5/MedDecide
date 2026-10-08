@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T01:40:52Z`
+Last updated (UTC): `2026-10-08T01:56:21Z`
 Iterations so far: `1`
 
 ---
@@ -325,6 +325,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **For S11:** MedDecide-instruct (S9 run 3) and Base-ablation (S10) predictions now both exist on the **same item sets**; the only missing G1 input is the full-v0.2 **zero-shot Qwen3.5-0.8B** run, which the fresh agent is queued to do next. JEV-9B on v0.2 stays `NOT MEASURED` (F7 measured v0.1).
 - The fresh agent (`40cff25f`) owns the wrap-up: cells with gate status, the labelled `--tag converged` side-by-side, `SELF_AUDIT.md`, then the zero-shot job.
 - **Status (2026-10-08T01:40:52Z):** S10's test evaluation is running (pid 143607; `preds_..._test.jsonl` is being written, the summary `model_...__test.json` lands when it finishes ~17 min). No cells are quoted until that file exists - predictions alone are not a result. Then the agent's wrap-up (cells + `--tag converged` side-by-side + `SELF_AUDIT.md`) and the **zero-shot 0.8B** job that G1 still needs.
+- **S10 test cells (2026-10-08T01:56:21Z) - the ablation separates sharply on readout health:** rule-selected checkpoint (step 17000): tier 1 13,521 items **5/8 gates PASS (3 fail)**, fresh 23,768 items **6/11 gates PASS (5 fail)**. Run 3 (instruct, same recipe/data/steps) scored **7/8** and **11/11**. So the Base ablation is healthy on fewer than two-thirds of the fresh templates while the instruct model is healthy on all of them - i.e. **the instruct tuning is doing real work for the pointer-head readout**, not just for accuracy. Per-template accuracies are suppressed in the failing cells (D12: no accuracy is presented for a cell that fails its readout check), so the honest headline is the gate counts, not a mean accuracy. The agent's wrap-up will give the per-template detail, the labelled converged comparison, and why each cell failed.
 
 ## 5. Blocked items
 
