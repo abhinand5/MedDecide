@@ -170,7 +170,7 @@ def main() -> None:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
     (args.out_dir / "d12_cells.json").write_text(json.dumps({"model_id": args.model_id, "cells": cells},
                                                             indent=2, default=str) + "\n", encoding="utf-8")
-    print(json.dumps({"items": len(rows), "cells": len(cells), "preds": str(preds_path.relative_to(ROOT)),
+    print(json.dumps({"items": len(rows), "cells": len(cells), "preds": str(preds_path),
                       "seconds": round(time.time() - started, 1)}), flush=True)
 
 

@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-08T03:59:12Z`
-Last updated (UTC): `2026-10-08T14:02:00Z`
+Last updated (UTC): `2026-10-08T15:55:00Z`
 Iterations so far: `8`
 
 ---
@@ -31,8 +31,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V5 | Unsloth validation + converter + evaluator | small | V0, V4 | DONE — typed-decisions accuracy 0.361 → 0.801 (300 steps; integration only); round trip 2,000 rows, 0 skipped; untrained head at chance on 200 dev items (0.345 vs 0.337); row converters tested; the GPU evaluator run is part of V9 | 2026-10-08T08:27:48Z | 2026-10-08T08:36:00Z |
 | V6 | Arm A: pointer head | yes | V2, V4 | DONE (on V2's adopted path, D2) — selected step 12,500 by dev pooled macro (0.7603; dev acc 0.7999, Brier 0.2729 / 0.2698 calibrated); 15,000 steps, 30 dev evals; no divergence tripwire | 2026-10-08T08:39:05Z | 2026-10-08T11:02:36Z |
 | V7 | Arm B: letter-readout LoRA | yes | V4 | DONE (diverged by the grad-norm tripwire at step 13,254; recorded per the ADVISORY rule; verdict checkpoint step 5,000 by dev pooled macro 0.6997; unrestricted best 14,000 shown as additional; claims V072–V078) | 2026-10-08T11:02:36Z | 2026-10-08T13:28:04Z |
-| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | IN_PROGRESS — training restarted 13:58 with length-grouped batches and per-step logs (D12); dataset 482,889 items, 0 skipped, 15,344 truncated at 8,192 (3.2%); then dev predictions per checkpoint and selection | 2026-10-08T13:58:03Z | |
-| V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | IN_PROGRESS — queued: arm A test (best/ = 12,500), arm B test at step 5,000 with refitted temperatures (D14), arm C finalize at its selected step (by hand, after the tripwire check); G1 and arm pairs on CPU | | |
+| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | IN_PROGRESS — restarted 15:25 with arms A/B's batch order (D15) and option-order augmentation (D16). The 14:50 run stopped at sampler construction (`group_by_length` reads a `pixel_values` key for list datasets; D12 superseded). Gated chain `chain_c4`: ruff and full pytest, 30-step smoke test, 15,000 steps, dev predictions every 500 steps, selection (unrestricted; tripwire applied by hand) | 2026-10-08T13:58:03Z | |
+| V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | IN_PROGRESS — arm A test and G1 done (`g1_arm_a.md`, V079–V084). Arm B: letter test done 15:42Z (outputs complete, 37,289 rows; the script then exited 1 on its final print, fixed; see Surprises); D12 on the fresh set: 3 of 11 templates PASS, all 4 held-out cells FAIL (V089–V092); G1 seen PASS on those 3 templates against zero-shot and JEV-9B (V090–V091); held-out NOT MEASURED. Arm C: finalize at its selected step (by hand, after the tripwire check). Then G1 for C and the arm pairs | | |
 | V10 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exception in ADVISORY §6:
@@ -58,8 +58,8 @@ recomputing or guessing.
 | training mix v1: items, distinct templates (vs student_v0), max template share | 482,889 train rows, 24 distinct templates (student_v0: 14; ratio 1.714); max template share 0.0800 (cap 38,631); selection dev 5,619 rows over 28 templates; new noul templates class-balanced (D10) | `data/train/student_v1/manifest.json` (aggregate `loops/student_v1/mix_summary.json`); claims V048–V049 (supersede V040, V042) | V4 |
 | leakage check result | 0 hits in the final train rows (818,863) and dev rows (index, date, held-out template and question); 3,294 train and 835 dev pre-window rows removed by the counted check (student_v0 base checked clean) | manifest `leakage`; claims V043–V045 | V4 |
 | Unsloth typed-decisions validation (before → after) | | | V5 |
-| arm A / B / C: selected step, dev macro, wall-clock, grad p95 / max | | | V6–V8 |
-| G1 per arm (seen / held-out) | | `loops/student_v1/g1.md` | V9 |
+| arm A / B / C: selected step, dev macro, wall-clock, grad p95 / max | A: step 12,500, dev pooled macro 0.7603, wall 8,609 s, grad p95 24.0 / max 3,439 (V067–V071). B: step 5,000 by the tripwire rule, dev pooled macro 0.6997; the grad tripwire tripped at step 13,254 (6,022.8) (V072–V078). C: pending | `loops/student_v1/arm_training.md` | V6–V8 |
+| G1 per arm (seen / held-out) | arm A: `loops/student_v1/g1_arm_a.md` (V079–V084). Arm B: seen PASS on the 3 D12-passing templates vs zero-shot (+0.3056) and JEV-9B (+0.0953); held-out NOT MEASURED, all 4 cells fail D12 (V090–V092) | `loops/student_v1/g1_arm_a.md`, `loops/student_v1/g1_arm_b.md` | V9 |
 
 ---
 
@@ -74,16 +74,30 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: V8 (arm C, Clef-style head via Unsloth; restarted 2026-10-08T13:58Z)
-Working dir:    outputs/student_v1/V8/   (log: outputs/student_v1/V8/logs/train.log)
+Task in flight: V8 (arm C, Clef-style head via Unsloth; restarted 2026-10-08T15:25Z with D15 and D16)
+Working dir:    outputs/student_v1/V8/   (chain log: outputs/student_v1/V8/logs/chain_c4.log)
 
-- [x] arm C scripts: v8_unsloth_train.py (group_by_length, logging_steps=1), v8_unsloth_predict.py, v8_select.py, v8_finalize.py
-- [x] dataset built: 482,889 items, 0 skipped, 15,344 truncated at max_seq_length 8,192 (ADVISORY §8.4 count)
-- [ ] training: 15,000 steps, LoRA r=16 alpha 16 (Unsloth default), head LR 1e-4, LR 2e-4, cosine, warmup 450
+- [x] arm C scripts: v8_unsloth_train.py, v8_unsloth_predict.py, v8_select.py, v8_finalize.py
+- [x] dataset built once: 482,889 items, 0 skipped, 15,344 truncated at max_seq_length 8,192 (ADVISORY §8.4 count); the build took 16.5 min
+- [x] the 14:50 run (kept as history) stopped at sampler construction: `group_by_length` reads a `pixel_values` key for list datasets, so the added `length` column did not help. The "done" lines in chain_c2.log are false: that chain did not gate on exit codes
+- [x] batch order (D15): `src/meddecide/train/batch_order.py`, tests in `tests/test_batch_order.py`; fixed batches of 8 in arms A/B's chunks, seed 0
+- [x] option order (D16): choice and score items permuted as arms A/B do; train-file gold positions before and after (V085, V086)
+- [x] gate in chain_c5 (15:52Z): ruff exit 0; full pytest exit 0 (GPU tests included; `pyproject.toml` sets `addopts = "-q"`, so the gate's `-q` becomes `-qq` and hides the count line; the exit code is the evidence)
+- [ ] smoke test (4,000 rows, 30 steps, started 15:54Z; about 1 s per step at this size); then the full run
+- [ ] training: 15,000 steps, LoRA r=16 alpha 16 (Unsloth default), head LR 1e-4, LR 2e-4, cosine, warmup 450; wall-clock and steps/s from the first steps
 - [ ] grad-norm tripwire from train_steps.jsonl (per step): apply the ADVISORY rule before selection
 - [ ] dev predictions every 500 steps (batch 1, no padding) and selection (S9 rule), restricted by the tripwire if tripped
 - [ ] Unsloth calibrate on seen dev at the selected checkpoint + test predictions (v8_finalize.py, by hand)
-- [ ] SELF_AUDIT (R6), CLAIMS, arm_training.md, commit, push
+- [ ] commit after the gate passes and at each milestone; SELF_AUDIT (R6), arm_training.md
+
+V9 (in flight in parallel; arm B evaluated, arm C pending):
+- [x] arm A test predictions and G1 (`g1_arm_a.md`, V079–V084)
+- [x] arm B temperatures at step 5,000 (V088); arm B letter test (exit 1 on the final print only; outputs verified complete: 37,289 rows, 19 cells)
+- [x] arm B G1 (`scripts/bench/g1.py`, D12 applied): 3 of 11 fresh templates PASS; held-out NOT MEASURED (V089–V092)
+- [ ] arm B additional analyses, labelled as such: accuracy on the D12-failing cells; next-token probe of the letter readout (`scripts/student/v7_readout_probe.py`, to write; GPU, after the arm C training)
+- [ ] arm C finalize at its selected step (`v8_finalize.py`, by hand), then `v9_unsloth_to_preds.py`
+- [ ] G1 for arm C; arm pairs A−B, A−C, B−C (`v9_arms.py`) on seen and held-out, with the D12 caveat for B
+- [ ] `loops/student_v1/arms.md`, `loops/student_v1/g1.md` (combined), SELF_AUDIT, CLAIMS
 ```
 
 ---
@@ -183,6 +197,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 2. **V4 items not built (≥ 2 consistency designs; catalog train-candidate sources).** The acceptance does not require them. My pick: defer both to loop 2 and list them in NEXT.md. Say so if you want them before arms A–C train.
 
 3. **Arm B divergence tripwire (V7).** The ADVISORY rule stops a run whose pre-clip grad norm exceeds 5,000. Arm B exceeded it once (6,022.8 at step 13,254); the trainer ran on and recorded no stop. Applied as written, the verdict checkpoint is step 5,000 (dev pooled macro 0.6997), not step 14,000 (0.7561). Options: (a) keep the rule as written (my pick: it is the plan's rule, and the unrestricted result is reported beside it); (b) treat a single spike as clipped noise (S9 run 3 had a spike of 196,688 and did not diverge) and use step 14,000 for the verdict; (c) re-run arm B with the tripwire enforced in the trainer. Please decide before the arms comparison is read.
+4. **Arm C batching and option order (D15, D16).** The first arm C run used Unsloth's random batches, and the restart uses arms A/B's chunked length bucketing with fixed batches of 8, plus their option-order permutation. Both changes match arm C to arms A and B. Without the permutation, arm C would learn the train file's gold-position prior: the gold is the last option in 90.8 % of 6-option items (V085). Costs: arm C's batches are not arms A/B's token-capped plan (8,192 real tokens per batch), and training wall-clock is not yet measured. Options: (a) accept the matched design (my pick); (b) re-run arm C with Unsloth's random batches and no permutation (the first design; it carries the prior and is not matched); (c) build arms A/B's exact token-capped batch plan into the Unsloth loader (variable batch sizes; more engineering, beyond the 2 h timebox). Please decide before the arm C comparison is read.
+5. **D12 on the trained letter readout (V9, arm B).** The gate fails 8 of the 11 fresh templates, and all 4 held-out cells, on median full-vocabulary label mass below 0.5 (0.05 to 0.32). Two of those cells also fail the constant-answer check (modal answer share 0.987 and 0.966). The probe (CPU/GPU, see the arm B checklist) shows the scoring and generation prompts are identical, that the restricted argmax equals the greedy letter, and that the mass sits on non-offered letters (E, F, G, H, I for a 4-option question). So the failure is real, not a measurement bug. Options: (a) report arm B as D12 says: its G1 rests on the 3 PASS templates, and held-out is NOT MEASURED (my pick); (b) re-define the readout (renormalise over all letters, or add the space variants) to pass the gate: a change of the metric after results, which R4 forbids as a verdict, so it can only appear as a labelled additional analysis; (c) amend D12 so that trained letter readouts are gated differently: a settled decision, so operator only. Please decide before arm B's G1 is read as a comparison.
 
 ## 7. Deviations from the plan
 
@@ -211,9 +227,12 @@ deviation — that is a `BLOCKED`.
 
 - **D10 (V4 class balance):** the five new noul templates are balanced per class (train: the smaller class's count; dev: 125 per class). Source yes-rates were 0.038 to 0.735, and an unbalanced template would teach its prior. Decided before any arm trained, from pre-window counts only. Superseded V-rows are kept in CLAIMS.
 
-- **D12 (arm C batching):** the Unsloth trainer's default random batches, padded to their longest item, ran at about 2 s per step (1.5 h per 2,700 steps; about 9 h projected), against 0.08 s per step for arms A and B. Arm C was restarted with `group_by_length=True` (the transformers option that groups items of similar length). The step budget, data, LoRA and learning rates are unchanged. The batching is therefore not identical to arms A and B; this is recorded in the audit. Arm C also logs every step, so the grad-norm tripwire can be applied.
+- **D12 (arm C batching; superseded by D15):** the Unsloth trainer's default random batches, padded to their longest item, ran at about 2 s per step (1.5 h per 2,700 steps; about 9 h projected), against 0.08 s per step for arms A and B. Arm C was restarted with `group_by_length=True` (the transformers option that groups items of similar length). The step budget, data, LoRA and learning rates are unchanged. The batching is therefore not identical to arms A and B; this is recorded in the audit. Arm C also logs every step, so the grad-norm tripwire can be applied.
 - **D13 (arm B divergence tripwire):** the pre-clip grad norm exceeded 5,000 once (6,022.8 at step 13,254). The ADVISORY rule records the run as diverged and evaluates it at its best saved checkpoint, i.e. one saved at or before the trip. That checkpoint is step 5,000 (dev pooled macro 0.6997), not the trainer's unrestricted best (step 14,000, 0.7561). The verdict uses step 5,000; step 14,000 is reported as additional. The trainer did not stop the run. This is a rule application that the operator should review (question 3).
 - **D14 (arm B temperatures):** the trainer fits temperatures only for its own best checkpoint. The verdict checkpoint (step 5,000) has its temperatures refitted on dev by `scripts/student/v7_temperatures.py` with the same `fit_per_qtype` (`outputs/student_v1/V9/arm_b/temperature_step5000.json`).
+
+- **D15 (arm C batch order; replaces D12's wiring):** `group_by_length` failed (transformers reads the processor's `pixel_values` key for list datasets, and the `length` column is not used for list datasets). Arm C now uses arms A/B's bucketing (`src/meddecide/train/batch_order.py`: file-order chunks of 800 items; chunk visiting order and per-chunk batch permutation from the same seeded streams as `data.py`; seed 0), passed to the trainer as a fixed sampler. Differences from arms A/B, recorded: batches hold exactly 8 items (arms A/B also cap a batch at 8,192 real tokens, so their long-item batches are smaller), and the in-chunk sort uses the token count (arms A/B use a character proxy). Unsloth's random sampler is not used. Wall-clock is pending the smoke test.
+- **D16 (arm C option order):** arms A and B permute each item's options per (seed, epoch, file index) (`shuffle_options`); the first arm C converter did not. The file's choice gold positions are far from uniform (V085). Arm C now applies the same permutation to choice and score items (`batch_order.permute_options`); keys are relabelled by display position and the gold follows its content (V086: uniform after permutation). Noul items are not permuted, because the Unsloth noul question has no option list (arms A/B permute the two displayed answers); noul's skew is label balance (V087). Evaluation is unchanged: arms A and B evaluate in file order (`canonicalise_options` does not reorder choice items), and arm C's evaluation uses the same file order.
 
 ## 8. Closure summary feed
 

@@ -21,6 +21,14 @@ from meddecide.model.meddecide_model import MedDecideModel  # noqa: E402
 from meddecide.train.temperature import fit_per_qtype  # noqa: E402
 
 
+def shown(path: Path) -> str:
+    """The path relative to the repository when it is inside it, else as given."""
+    try:
+        return str(path.resolve().relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, required=True)
@@ -33,8 +41,8 @@ def main() -> None:
     fits = fit_per_qtype(scored)
     payload = {
         "kind": "letter_temperature_fit",
-        "checkpoint": str(args.checkpoint.relative_to(ROOT)),
-        "dev": str(args.dev.relative_to(ROOT)),
+        "checkpoint": shown(args.checkpoint),
+        "dev": shown(args.dev),
         "dev_items": len(items),
         "fits": {q: {"temperature": f.temperature, "n_items": f.n_items, "nll_before": f.nll_before,
                      "nll_after": f.nll_after} for q, f in fits.items()},
