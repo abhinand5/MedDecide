@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-08T03:59:12Z`
-Last updated (UTC): `2026-10-08T08:40:00Z`
-Iterations so far: `5`
+Last updated (UTC): `2026-10-08T08:55:00Z`
+Iterations so far: `6`
 
 ---
 
@@ -28,10 +28,10 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V2 | Padding fix + measured effect | small | V0 | BLOCKED — acceptance item 1 (padded-batch test ≤ 1e-3, fp32) fails at 1.92e-3 with the fix; tolerance not changed; no-padding batch-1 path adopted and measured (`loops/student_v1/V2_padding.md`); operator question 1 | 2026-10-08T05:30:03Z | 2026-10-08T07:20:00Z |
 | V3 | Checkpoint trajectory (seen vs held-out) | yes | V2 | DONE — held-out per-template macro falls 0.550 → 0.332 over 22 checkpoints (Spearman −0.637, CI [−0.862, −0.223]); seen flat; runs on V2's adopted path (D2) | 2026-10-08T07:11:32Z | 2026-10-08T08:24:30Z |
 | V4 | Training data v1 (diversity) | no | V0 | DONE — 10 screen-passing new templates; 482,889 train / 5,619 dev rows (class-balanced noul, D10); leakage 0; NOT MEASURED: ≥ 2 consistency designs and catalog sources (D4); seen-template score dev 33 < 200 (D9) | 2026-10-08T06:09:26Z | 2026-10-08T07:20:00Z |
-| V5 | Unsloth validation + converter + evaluator | small | V0, V4 | IN_PROGRESS — Unsloth recipe (300 steps) on typed-decisions, round trip of MedDecide rows, chance check; converter tested (`src/meddecide/train/unsloth_rows.py`) | 2026-10-08T08:27:48Z | |
-| V6 | Arm A: pointer head | yes | V2, V4 | QUEUED behind V5 (pointer regression check exact: max Δ 0.0) — runs on the V2 adopted path (D2) | | |
-| V7 | Arm B: letter-readout LoRA | yes | V4 | PENDING | | |
-| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | PENDING | | |
+| V5 | Unsloth validation + converter + evaluator | small | V0, V4 | DONE — typed-decisions accuracy 0.361 → 0.801 (300 steps; integration only); round trip 2,000 rows, 0 skipped; untrained head at chance on 200 dev items (0.345 vs 0.337); row converters tested; the GPU evaluator run is part of V9 | 2026-10-08T08:27:48Z | 2026-10-08T08:36:00Z |
+| V6 | Arm A: pointer head | yes | V2, V4 | IN_PROGRESS — training from 08:53 (15,000 steps; dev evaluation every 500 steps on the 5,619-item V4 dev set, batch 1 without padding; V2 path, D2) | 2026-10-08T08:39:05Z | |
+| V7 | Arm B: letter-readout LoRA | yes | V4 | PENDING — code and smoke test done (readout letter; 20-step smoke passed, 08:39); full run queued after V6 | | |
+| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | PENDING — scripts written (`v8_unsloth_train.py`, `v8_unsloth_predict.py`, `v8_select.py`); untested on GPU | | |
 | V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | PENDING | | |
 | V10 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -74,15 +74,16 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: V3 (started 2026-10-08T07:11:32Z)
-Working dir:    outputs/student_v1/V3/   (log: outputs/student_v1/V3/logs/v3_trajectory.log)
+Task in flight: V6 (arm A, pointer head; training started 2026-10-08T08:53Z)
+Working dir:    outputs/student_v1/V6/arm_a/  (train log: outputs/student_v1/V6/logs/train_stdout.log)
 
-- [x] full pytest run before the V3 launch (exit 0; padding test is a strict expected failure)
-- [ ] scripts/student/v3_trajectory.py: 22 checkpoints (step 1,000 ... 41,000 every 4th, plus 44,000), adopted path, bf16
-- [ ] outputs/student_v1/V3/trajectory.json (points, Spearman with bootstrap CI, seen and held-out)
-- [ ] outputs/student_v1/V3/trajectory_*.svg figures (no matplotlib in the main env; SVG is written by the script)
-- [ ] loops/student_v1/trajectory.md: table + description (rewritten with the measured trend)
-- [ ] SELF_AUDIT (R6), CLAIMS rows V048+, ruff + pytest, iteration log, commit, push
+- [x] pointer regression check: the pointer path reproduces V3 exactly (max |Δ prob| 0.0)
+- [x] arm A config (LoRA r=8 alpha 16; eval batch 1, no rounding; V4 train and dev); dry run passed
+- [ ] training: 15,000 steps, cosine over 15,000 (fixed in train_student.py), dev eval every 500 steps
+- [ ] selection: highest dev pooled-class macro (student_v0 rule), ties by Brier then earlier step
+- [ ] temperatures per qtype on seen dev (trainer); checkpoint at every eval
+- [ ] per-step grad norm and batch max length logged (train_steps.jsonl)
+- [ ] SELF_AUDIT, CLAIMS rows, iteration log, commit, push
 ```
 
 ---
