@@ -95,7 +95,7 @@ def main() -> None:
             count += 1
     report.update({"test_items_predicted": count, "test_items_refused": refused,
                    "predict_seconds": round(time.time() - started, 1),
-                   "raw_test": str(raw_path.relative_to(ROOT)),
+                   "raw_test": str(raw_path),
                    "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
     (args.out_dir / "finalize.json").write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
     print(json.dumps({"test_items_predicted": count, "refused": refused}), flush=True)

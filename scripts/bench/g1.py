@@ -90,11 +90,16 @@ SUPERSEDED_TEMPLATES: tuple[str, ...] = (
 DEFAULT_STRICT_SLICE_START = date(2026, 9, 10)  # D11
 ALPHA = 0.05
 POINTER_VARIANT = "pointer-head"
-NON_LETTER_KINDS = (POINTER_VARIANT, VERBALIZER_VARIANT)
+DECISION_HEAD_VARIANT = "unsloth-decision-head"
+NON_LETTER_KINDS = (POINTER_VARIANT, VERBALIZER_VARIANT, DECISION_HEAD_VARIANT)
 D16_BASELINES: tuple[str, ...] = ("zeroshot", "jev9b")
 NO_LETTER_READOUT_REASON = (
     "NOT APPLICABLE — pointer head reads the option states directly; no letter readout exists "
     "to validate"
+)
+NO_DECISION_HEAD_READOUT_REASON = (
+    "NOT APPLICABLE — the decision head reads the option states of one prefill, with the softmax over the "
+    "offered options only; no letter readout exists to validate"
 )
 NO_VERBALIZER_READOUT_REASON = (
     "NOT APPLICABLE — verbalizer head reads the option-token logits of one prefill, with the "
@@ -294,7 +299,7 @@ def load_model_source(label: str, path: Path) -> ModelSource:
 
 # --------------------------------------------------------------------------- D12 readout health
 def row_readout(row: dict[str, Any]) -> str:
-    """``letter``, ``pointer-head`` or ``verbalizer-head`` — from the row's own declaration."""
+    """``letter``, ``pointer-head``, ``verbalizer-head`` or ``unsloth-decision-head`` — from the row's own declaration."""
     declared = str(row.get("variant") or "")
     if declared in NON_LETTER_KINDS:
         return declared
@@ -447,7 +452,10 @@ def gate_cell(
         applied.append("median_label_mass")
         not_measured["greedy_agreement"] = GREEDY_NOT_MEASURED_REASON
     elif kind in NON_LETTER_KINDS:
-        reason = NO_VERBALIZER_READOUT_REASON if kind == VERBALIZER_VARIANT else NO_LETTER_READOUT_REASON
+        reason = {
+            VERBALIZER_VARIANT: NO_VERBALIZER_READOUT_REASON,
+            DECISION_HEAD_VARIANT: NO_DECISION_HEAD_READOUT_REASON,
+        }.get(kind, NO_LETTER_READOUT_REASON)
         inapplicable["median_label_mass"] = reason
         inapplicable["greedy_agreement"] = reason
     else:

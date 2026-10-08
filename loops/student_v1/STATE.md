@@ -10,10 +10,10 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V10), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- closure at 2026-10-08T22:10Z: V8 and V9 DONE, V10 DONE, hard stop -->
 Run started (UTC): `2026-10-08T03:59:12Z`
-Last updated (UTC): `2026-10-08T15:55:00Z`
-Iterations so far: `8`
+Last updated (UTC): `2026-10-08T22:10:00Z`
+Iterations so far: `11`
 
 ---
 
@@ -31,9 +31,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V5 | Unsloth validation + converter + evaluator | small | V0, V4 | DONE — typed-decisions accuracy 0.361 → 0.801 (300 steps; integration only); round trip 2,000 rows, 0 skipped; untrained head at chance on 200 dev items (0.345 vs 0.337); row converters tested; the GPU evaluator run is part of V9 | 2026-10-08T08:27:48Z | 2026-10-08T08:36:00Z |
 | V6 | Arm A: pointer head | yes | V2, V4 | DONE (on V2's adopted path, D2) — selected step 12,500 by dev pooled macro (0.7603; dev acc 0.7999, Brier 0.2729 / 0.2698 calibrated); 15,000 steps, 30 dev evals; no divergence tripwire | 2026-10-08T08:39:05Z | 2026-10-08T11:02:36Z |
 | V7 | Arm B: letter-readout LoRA | yes | V4 | DONE (diverged by the grad-norm tripwire at step 13,254; recorded per the ADVISORY rule; verdict checkpoint step 5,000 by dev pooled macro 0.6997; unrestricted best 14,000 shown as additional; claims V072–V078) | 2026-10-08T11:02:36Z | 2026-10-08T13:28:04Z |
-| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | IN_PROGRESS — restarted 15:25 with arms A/B's batch order (D15) and option-order augmentation (D16). The 14:50 run stopped at sampler construction (`group_by_length` reads a `pixel_values` key for list datasets; D12 superseded). Gated chain `chain_c4`: ruff and full pytest, 30-step smoke test, 15,000 steps, dev predictions every 500 steps, selection (unrestricted; tripwire applied by hand) | 2026-10-08T13:58:03Z | |
-| V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | IN_PROGRESS — arm A test and G1 done (`g1_arm_a.md`, V079–V084). Arm B: letter test done 15:42Z (outputs complete, 37,289 rows; the script then exited 1 on its final print, fixed; see Surprises); D12 on the fresh set: 3 of 11 templates PASS, all 4 held-out cells FAIL (V089–V092); G1 seen PASS on those 3 templates against zero-shot and JEV-9B (V090–V091); held-out NOT MEASURED. Arm C: finalize at its selected step (by hand, after the tripwire check). Then G1 for C and the arm pairs | | |
-| V10 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| V8 | Arm C: Clef-style head via Unsloth | yes | V5 | DONE — trained (15,000 steps, 6,025 s), dev selection step 5,000 (pooled macro 0.6851; the tripwire did not trip, so unrestricted = restricted), finalize at step 5,000 (37,289 test predictions; the rerun is identical), with D15 batch order and D16 option order. A first finalize run stopped on a path bug after writing its predictions; fixed and rerun. A duplicate run was stopped before writing anything | 2026-10-08T13:58:03Z | 2026-10-08T22:10:00Z |
+| V9 | Evaluation + G1 per arm + arm-vs-arm | yes | V1, V6, V7, V8 | DONE — overall test accuracy A 0.7591, B 0.7528, C 0.7545 (V113). G1 per arm: A seen PASS, held-out FAIL (V079–V082); B seen PASS on 3 templates, held-out NOT MEASURED (V089–V092); C seen PASS, held-out FAIL (V105). G1 classification fix (V106). Arm pairs (V107–V112). Selective and latency tables (V114, V115). NOT MEASURED: HLE, option-shuffle flip rate, long-record slice, per-record latency, arm B held-out | 2026-10-08T15:10:58Z | 2026-10-08T22:10:00Z |
+| V10 | Findings and closure — HARD STOP | no | all | DONE — `FINDINGS.md` (summary first), `NEXT.md`, the closure feed, the five-claim spot-check (all five reproduced), `Loop status: STOPPED` | 2026-10-08T22:10:00Z | 2026-10-08T22:10:00Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exception in ADVISORY §6:
 V4 may run on CPU while V1–V3 use the GPU). Never run two GPU jobs at once. A `BLOCKED` task
@@ -58,7 +58,7 @@ recomputing or guessing.
 | training mix v1: items, distinct templates (vs student_v0), max template share | 482,889 train rows, 24 distinct templates (student_v0: 14; ratio 1.714); max template share 0.0800 (cap 38,631); selection dev 5,619 rows over 28 templates; new noul templates class-balanced (D10) | `data/train/student_v1/manifest.json` (aggregate `loops/student_v1/mix_summary.json`); claims V048–V049 (supersede V040, V042) | V4 |
 | leakage check result | 0 hits in the final train rows (818,863) and dev rows (index, date, held-out template and question); 3,294 train and 835 dev pre-window rows removed by the counted check (student_v0 base checked clean) | manifest `leakage`; claims V043–V045 | V4 |
 | Unsloth typed-decisions validation (before → after) | | | V5 |
-| arm A / B / C: selected step, dev macro, wall-clock, grad p95 / max | A: step 12,500, dev pooled macro 0.7603, wall 8,609 s, grad p95 24.0 / max 3,439 (V067–V071). B: step 5,000 by the tripwire rule, dev pooled macro 0.6997; the grad tripwire tripped at step 13,254 (6,022.8) (V072–V078). C: pending | `loops/student_v1/arm_training.md` | V6–V8 |
+| arm A / B / C: selected step, dev macro, wall-clock, grad p95 / max | A: step 12,500, dev pooled macro 0.7603, wall 8,609 s, grad p95 24.0 / max 3,439 (V067–V071). B: step 5,000 by the tripwire rule, dev pooled macro 0.6997; tripwire tripped at step 13,254 (6,022.8) (V072–V078). C: step 5,000 (unrestricted; no trip), dev pooled macro 0.6851, training 6,025 s, grad p95 14.6 / max 384.8 (V096, V099) | `loops/student_v1/arm_training.md`, `loops/student_v1/arm_c_training.md` | V6–V8 |
 | G1 per arm (seen / held-out) | arm A: `loops/student_v1/g1_arm_a.md` (V079–V084). Arm B: seen PASS on the 3 D12-passing templates vs zero-shot (+0.3056) and JEV-9B (+0.0953); held-out NOT MEASURED, all 4 cells fail D12 (V090–V092) | `loops/student_v1/g1_arm_a.md`, `loops/student_v1/g1_arm_b.md` | V9 |
 
 ---
@@ -83,20 +83,21 @@ Working dir:    outputs/student_v1/V8/   (chain log: outputs/student_v1/V8/logs/
 - [x] batch order (D15): `src/meddecide/train/batch_order.py`, tests in `tests/test_batch_order.py`; fixed batches of 8 in arms A/B's chunks, seed 0
 - [x] option order (D16): choice and score items permuted as arms A/B do; train-file gold positions before and after (V085, V086)
 - [x] gate in chain_c5 (15:52Z): ruff exit 0; full pytest exit 0 (GPU tests included; `pyproject.toml` sets `addopts = "-q"`, so the gate's `-q` becomes `-qq` and hides the count line; the exit code is the evidence)
-- [ ] smoke test (4,000 rows, 30 steps, started 15:54Z; about 1 s per step at this size); then the full run
-- [ ] training: 15,000 steps, LoRA r=16 alpha 16 (Unsloth default), head LR 1e-4, LR 2e-4, cosine, warmup 450; wall-clock and steps/s from the first steps
+- [x] smoke test (exit 0, 15:54Z): 30 steps, 240 distinct items = 30 x 8, 1,984 of 4,000 items option-permuted, grad norm 0.82 to 3.06 (max 6.95, far below 5,000), 22.9 s training (about 0.8 s per step at this size)
+- [x] training done (exit 0, 17:55Z): 15,000 steps in 6,025 s (about 2.5 steps/s); mean loss 0.5056; pre-clip grad norm p50 3.485, p95 14.623, max 384.776; tripwire not tripped (V096–V098; `loops/student_v1/arm_c_training.md`)
+- [x] incident (found and fixed 15:57Z): a stale chain shell, still reading `chain_c4.sh` after the file had been overwritten, started a second full training run at 15:47:49 (pid 203130; parent init; stdout to the same `train.log`; created `arm_c/`). Killed by pid at 15:57Z, before its dataset build finished: it wrote no checkpoint, cache or training file (`arm_c/` is empty; `train.log` holds only the chain's run, pid 205124). Lesson: never overwrite a running chain script; write a new file and stop the old pid first
 - [ ] grad-norm tripwire from train_steps.jsonl (per step): apply the ADVISORY rule before selection
-- [ ] dev predictions every 500 steps (batch 1, no padding) and selection (S9 rule), restricted by the tripwire if tripped
-- [ ] Unsloth calibrate on seen dev at the selected checkpoint + test predictions (v8_finalize.py, by hand)
+- [x] dev predictions for all 30 checkpoints (5,619 items each; done 20:25Z). Selection done 20:25Z (exit 0): step 5,000, dev pooled macro 0.6851 (accuracy 0.7325, Brier 0.3696); runner-up step 7,500 at 0.6842 (margin 0.0009). Tripwire not tripped, so the unrestricted rule stands. Lowest dev macro 0.512, so the divergence rule (below 0.50 twice) is not met
+- [ ] Unsloth calibrate on seen dev at the selected checkpoint + test predictions (`v8_finalize.py` at step 5,000, running since 20:39Z in `chain_final`, about 40 min for 37,289 test items; then the conversion to run_student format; the log's last line says when it's done)
 - [ ] commit after the gate passes and at each milestone; SELF_AUDIT (R6), arm_training.md
 
 V9 (in flight in parallel; arm B evaluated, arm C pending):
 - [x] arm A test predictions and G1 (`g1_arm_a.md`, V079–V084)
 - [x] arm B temperatures at step 5,000 (V088); arm B letter test (exit 1 on the final print only; outputs verified complete: 37,289 rows, 19 cells)
 - [x] arm B G1 (`scripts/bench/g1.py`, D12 applied): 3 of 11 fresh templates PASS; held-out NOT MEASURED (V089–V092)
-- [ ] arm B additional analyses, labelled as such: accuracy on the D12-failing cells; next-token probe of the letter readout (`scripts/student/v7_readout_probe.py`, to write; GPU, after the arm C training)
+- [x] arm B additional analyses (labelled): readout probe done 20:39Z (V100, V101, V103 correction): the top vocabulary token is an offered letter in 152 of 152 items; the mass sits partly on non-offered letters (0.005–0.337) and on space variants (up to 0.253). The prompt cap (V102): 2,213 of 37,289 arm B test items (5.93 %) reach 8,192 tokens, all in fda_route_claim_noul_v1, fda_boxed_warning_noul_v1 and fda_class_choice_v2; the scoring path drops their leading tokens. Accuracy on the D12-failing cells as a labelled additional table: still to do
 - [ ] arm C finalize at its selected step (`v8_finalize.py`, by hand), then `v9_unsloth_to_preds.py`
-- [ ] G1 for arm C; arm pairs A−B, A−C, B−C (`v9_arms.py`) on seen and held-out, with the D12 caveat for B
+- [x] arm pairs A−B (V093–V095): verdict (fresh, D12-applied, 9,236 items, 3 templates) macro +1.13 pts [+0.78, +1.48] (A − B); held-out NOT MEASURED; additional all-tier seen −1.24 pts (the sign flips with the scope), held-out −0.06 pts. Still to do: G1 for arm C; pairs A−C and B−C (`v9_arms.py`, now with the G1 scope and `--exclude`)
 - [ ] `loops/student_v1/arms.md`, `loops/student_v1/g1.md` (combined), SELF_AUDIT, CLAIMS
 ```
 
@@ -173,6 +174,28 @@ V9 (in flight in parallel; arm B evaluated, arm C pending):
 - Surprises: dev macro is volatile between evals (0.57–0.76 at accuracy 0.74–0.80); the selection margin over step 15,000 is 0.0004.
 - Next: arm B (V7) trains now; then arm C (V8).
 
+### V8 — DONE — 2026-10-08T22:10:00Z
+- What ran: `v8_unsloth_train.py` (15,000 steps; D15 batch order; D16 option order; logs every step), `v8_unsloth_predict.py` for 30 checkpoints (dev), `v8_select.py`, `v8_finalize.py` at step 5,000, `v8_report.py`, `v8_option_positions.py --augment`; chains `chain_c4`/`chain_c5`/`chain_final`/`chain_final2`.
+- Output: `outputs/student_v1/V8/`; committed `loops/student_v1/arm_c_training.md`; SELF_AUDIT in outputs.
+- Headline: step 5,000 selected on dev (pooled macro 0.6851, V099); tripwire not tripped (max pre-clip grad norm 384.776, V096); test accuracy 0.7545 (V113); finalize rerun identical (V117).
+- Surprises: the first run failed on a `relative_to` bug (fixed, rerun); a stale shell started a duplicate full run (stopped, no output); the option-order prior in the train file (V085) forced D16.
+- Next: none in the loop; the decisions are in STATE §6.
+
+### V9 — DONE — 2026-10-08T22:10:00Z
+- What ran: `scripts/bench/g1.py` per arm with the tier-1 option (`g1_arm_a.md`, `g1_arm_b.md`, `g1_arm_c.md`); `v9_arms.py` (A-B, A-C, B-C, with per-arm D12 exclusions); `v7_readout_probe.py`; `v9_report.py` (`g1.md`, `arms.md`); `v9_baselines.py`; the full gate (ruff and pytest exit 0).
+- Output: `loops/student_v1/g1.md`, `arms.md`, `g1_arm_*.md`; `outputs/student_v1/V9/` (pairs, probe, baselines).
+- Headline: overall test accuracy A 0.7591, B 0.7528, C 0.7545 (V113); G1 seen PASS for A and C (V079, V080, V105), held-out FAIL for A and C, held-out NOT MEASURED for B (V092); arm-pair signs depend on scope (V109, V110).
+- Surprises: G1 misclassified the Unsloth head as a letter readout (fixed, V106); arms A and B both answer a constant letter on the held-out `ct_arm_role_noul_v1` (V104); 5.9 % of test items reach the prompt cap (V102).
+- Next: the NEXT.md list (HLE, flip rate, long-record slice, the operator decisions).
+
+### V10 — DONE — 2026-10-08T22:10:00Z
+- What ran: `FINDINGS.md` and `NEXT.md` written from the claims; five claims recomputed (`FINDINGS.md`, spot-check); `NEXT.md`.
+- Output: `loops/student_v1/FINDINGS.md`, `loops/student_v1/NEXT.md`.
+- Headline: no head is clearly favoured. Arm C leads on the held-out templates in both scopes (-5.90 and -4.48 pts); the seen sign flips with the scope; arm B's readout fails D12 on most templates.
+- Surprises: none beyond V8 and V9.
+- Next: operator decisions 1 to 6 (STATE §6); the loop stops here by the hard-stop rule.
+
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -199,6 +222,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 3. **Arm B divergence tripwire (V7).** The ADVISORY rule stops a run whose pre-clip grad norm exceeds 5,000. Arm B exceeded it once (6,022.8 at step 13,254); the trainer ran on and recorded no stop. Applied as written, the verdict checkpoint is step 5,000 (dev pooled macro 0.6997), not step 14,000 (0.7561). Options: (a) keep the rule as written (my pick: it is the plan's rule, and the unrestricted result is reported beside it); (b) treat a single spike as clipped noise (S9 run 3 had a spike of 196,688 and did not diverge) and use step 14,000 for the verdict; (c) re-run arm B with the tripwire enforced in the trainer. Please decide before the arms comparison is read.
 4. **Arm C batching and option order (D15, D16).** The first arm C run used Unsloth's random batches, and the restart uses arms A/B's chunked length bucketing with fixed batches of 8, plus their option-order permutation. Both changes match arm C to arms A and B. Without the permutation, arm C would learn the train file's gold-position prior: the gold is the last option in 90.8 % of 6-option items (V085). Costs: arm C's batches are not arms A/B's token-capped plan (8,192 real tokens per batch), and training wall-clock is not yet measured. Options: (a) accept the matched design (my pick); (b) re-run arm C with Unsloth's random batches and no permutation (the first design; it carries the prior and is not matched); (c) build arms A/B's exact token-capped batch plan into the Unsloth loader (variable batch sizes; more engineering, beyond the 2 h timebox). Please decide before the arm C comparison is read.
 5. **D12 on the trained letter readout (V9, arm B).** The gate fails 8 of the 11 fresh templates, and all 4 held-out cells, on median full-vocabulary label mass below 0.5 (0.05 to 0.32). Two of those cells also fail the constant-answer check (modal answer share 0.987 and 0.966). The probe (CPU/GPU, see the arm B checklist) shows the scoring and generation prompts are identical, that the restricted argmax equals the greedy letter, and that the mass sits on non-offered letters (E, F, G, H, I for a 4-option question). So the failure is real, not a measurement bug. Options: (a) report arm B as D12 says: its G1 rests on the 3 PASS templates, and held-out is NOT MEASURED (my pick); (b) re-define the readout (renormalise over all letters, or add the space variants) to pass the gate: a change of the metric after results, which R4 forbids as a verdict, so it can only appear as a labelled additional analysis; (c) amend D12 so that trained letter readouts are gated differently: a settled decision, so operator only. Please decide before arm B's G1 is read as a comparison.
+6. **Which scope the head comparison reads.** A minus C is -2.78 pts on the 7 fresh seen templates but +1.14 pts on all 15 seen templates; on held-out, C is ahead in both scopes (-5.90 and -4.48 pts; V109, V110). The program decision (keep the head the evidence favours) needs this choice. The loop did not pick a head.
 
 ## 7. Deviations from the plan
 
@@ -242,4 +266,15 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | Arm A (pointer head): overall test accuracy 0.7591; G1 seen PASS against zero-shot and JEV-9B; held-out FAIL; constant answer on the held-out `ct_arm_role_noul_v1` | V113, V079–V082, V104 | `g1_arm_a.md`, `arms.md` |
+| 2 | Arm B (letter readout): D12 fails 8 of 11 fresh templates and all held-out cells, on low label mass that comes from probability on non-offered letters; G1 seen PASS on 3 templates only; held-out NOT MEASURED | V089–V092, V100, V101, V103 | `g1_arm_b.md`, `readout_probe.json` |
+| 3 | Arm C (Unsloth decision head): overall 0.7545; G1 seen PASS; held-out FAIL and strict seen FAIL against JEV-9B (lower bound -0.0001) | V105, V113 | `g1_arm_c.md` |
+| 4 | Arm-vs-arm sign depends on scope: A minus C is -2.78 pts (fresh seen) and +1.14 pts (all-tier seen); on held-out C leads in both scopes | V107–V112 | `pairs_abc.json`, `arms.md` §1 |
+| 5 | The train file's option order carried a strong gold-position prior (last option in 90.8 % of 6-option items); arm C was matched by option permutation | V085, V086, V098 | `option_positions*.json` |
+| 6 | Arm C trained 15,000 steps with no tripwire; selected step 5,000 on dev (pooled macro 0.6851), finalize rerun identical | V096–V099, V117 | `arm_c_training.md` |
+| 7 | 5.9 % of test items reach the 8,192-token prompt cap (all in three openFDA templates); the cap is the same for every arm | V102 | arm B predictions |
+| 8 | Not measured (R3): HLE, option-shuffle flip rate, long-record slice, per-record latency, arm B held-out G1 | arms.md §5 | `arms.md` |
+| 9 | Measurement defects found and fixed without changing a reported number: G1 classification of the decision head (arms A and B reproduce exactly), path bugs in three scripts, a duplicate training run stopped before any output | V106, V117 | `FINDINGS.md` §4 |
+
+
+- **D17 (observed prompt cap; not a deviation):** the arms' 8,192-token prompt cap (`encode_item`) drops the leading tokens of an over-long prompt and keeps the question and options. Measured: 2,213 of 37,289 arm B test items are at the cap, all in three openFDA templates (V102). The cap is the same for every arm, so the comparison is matched; the D12 greedy sample uses untruncated prompts, so its agreement for those three cells is not like-for-like (noted with the D12 results).
