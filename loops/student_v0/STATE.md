@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T01:40:34Z`
+Last updated (UTC): `2026-10-08T01:40:52Z`
 Iterations so far: `1`
 
 ---
@@ -324,6 +324,7 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - Artifacts on disk: `best/`, `best.json` (**step 17000**, rule: highest dev macro accuracy on the fixed dev evaluation sample; ties (|dmacro| <= 1e-12) broken by lower dev Br), `dev_final.json`{, `temperature.json` fits {"choice": {"temperature": 4.138178516811879, "n_items": 10967, "status": "FITTED"}, "noul": {"temperature": 3.63202836193281, "n_items": 5454, "status": "FITTED"}, "score": {"temperature": 17.0324787}, `run.json`, and `preds_medecide-0p8b-lora-pointer__test.jsonl` (the monitor's automatic test evaluation has run).
 - **For S11:** MedDecide-instruct (S9 run 3) and Base-ablation (S10) predictions now both exist on the **same item sets**; the only missing G1 input is the full-v0.2 **zero-shot Qwen3.5-0.8B** run, which the fresh agent is queued to do next. JEV-9B on v0.2 stays `NOT MEASURED` (F7 measured v0.1).
 - The fresh agent (`40cff25f`) owns the wrap-up: cells with gate status, the labelled `--tag converged` side-by-side, `SELF_AUDIT.md`, then the zero-shot job.
+- **Status (2026-10-08T01:40:52Z):** S10's test evaluation is running (pid 143607; `preds_..._test.jsonl` is being written, the summary `model_...__test.json` lands when it finishes ~17 min). No cells are quoted until that file exists - predictions alone are not a result. Then the agent's wrap-up (cells + `--tag converged` side-by-side + `SELF_AUDIT.md`) and the **zero-shot 0.8B** job that G1 still needs.
 
 ## 5. Blocked items
 
