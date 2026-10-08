@@ -66,6 +66,7 @@ from meddecide.eval.health import (
     DEFAULT_MIN_MEDIAN_LABEL_MASS,
     evaluate_cell,
 )
+from meddecide.eval.jev_harness import VERBALIZER_VARIANT
 from meddecide.eval.metrics import accuracy as accuracy_report
 from meddecide.eval.metrics import bootstrap_ci, brier_score, macro_accuracy
 from meddecide.eval.predlog import read_prediction_log
@@ -89,9 +90,15 @@ SUPERSEDED_TEMPLATES: tuple[str, ...] = (
 DEFAULT_STRICT_SLICE_START = date(2026, 9, 10)  # D11
 ALPHA = 0.05
 POINTER_VARIANT = "pointer-head"
+NON_LETTER_KINDS = (POINTER_VARIANT, VERBALIZER_VARIANT)
+D16_BASELINES: tuple[str, ...] = ("zeroshot", "jev9b")
 NO_LETTER_READOUT_REASON = (
     "NOT APPLICABLE — pointer head reads the option states directly; no letter readout exists "
     "to validate"
+)
+NO_VERBALIZER_READOUT_REASON = (
+    "NOT APPLICABLE — verbalizer head reads the option-token logits of one prefill, with the "
+    "softmax over the offered options only; no letter readout exists to validate"
 )
 GREEDY_NOT_MEASURED_REASON = (
     "NOT MEASURED — a prediction log carries no greedy generation sample; the greedy check "
@@ -286,19 +293,21 @@ def load_model_source(label: str, path: Path) -> ModelSource:
 
 
 # --------------------------------------------------------------------------- D12 readout health
+def row_readout(row: dict[str, Any]) -> str:
+    """``letter``, ``pointer-head`` or ``verbalizer-head`` — from the row's own declaration."""
+    declared = str(row.get("variant") or "")
+    if declared in NON_LETTER_KINDS:
+        return declared
+    readout = str((row.get("transform") or {}).get("readout") or "")
+    if readout in NON_LETTER_KINDS:
+        return readout
+    return "letter"
+
+
 def readout_kind(rows: Sequence[dict[str, Any]]) -> str:
-    """``letter``, ``pointer-head`` or ``mixed`` — from the row's own declaration."""
-    pointer = sum(
-        1
-        for row in rows
-        if str(row.get("variant") or "") == POINTER_VARIANT
-        or str((row.get("transform") or {}).get("readout") or "") == POINTER_VARIANT
-    )
-    if pointer == 0:
-        return "letter"
-    if pointer == len(rows):
-        return "pointer-head"
-    return "mixed"
+    """The cell's readout: one declared kind, or ``mixed`` when its rows disagree."""
+    kinds = {row_readout(row) for row in rows}
+    return kinds.pop() if len(kinds) == 1 else "mixed"
 
 
 def check_name(failure: str) -> str:
@@ -437,9 +446,10 @@ def gate_cell(
     if letter:
         applied.append("median_label_mass")
         not_measured["greedy_agreement"] = GREEDY_NOT_MEASURED_REASON
-    elif kind == "pointer-head":
-        inapplicable["median_label_mass"] = NO_LETTER_READOUT_REASON
-        inapplicable["greedy_agreement"] = NO_LETTER_READOUT_REASON
+    elif kind in NON_LETTER_KINDS:
+        reason = NO_VERBALIZER_READOUT_REASON if kind == VERBALIZER_VARIANT else NO_LETTER_READOUT_REASON
+        inapplicable["median_label_mass"] = reason
+        inapplicable["greedy_agreement"] = reason
     else:
         reason = (
             "NOT APPLICABLE — the cell mixes readout kinds "
@@ -1069,6 +1079,12 @@ def render_report(report: dict[str, Any]) -> str:
     )
     lines.append(f"- Reference model: `{prov['reference']}`")
     lines.append(f"- Verdict baselines: {', '.join(f'`{b}`' for b in prov['baselines']) or '—'}")
+    additional = prov.get("additional_baselines") or []
+    if additional:
+        lines.append(
+            "- Additional comparisons (never part of the verdict): "
+            + ", ".join(f"`{b}`" for b in additional)
+        )
     lines.append("")
 
     lines.append("## Verdict (D16)")
@@ -1172,7 +1188,9 @@ def render_report(report: dict[str, Any]) -> str:
     )
     lines.append("")
     for set_name, _ in ITEM_SETS:
-        for baseline in report["provenance"]["baselines"]:
+        for baseline in report["provenance"]["baselines"] + (
+            report["provenance"].get("additional_baselines") or []
+        ):
             comparison = report["comparisons"].get(set_name, {}).get(baseline)
             lines.append(f"### `{set_name}` — MedDecide - `{baseline}`")
             lines.append("")
@@ -1393,6 +1411,33 @@ def model_stats(
     }
 
 
+def resolve_baselines(
+    labels: Sequence[str], baselines_arg: str | None, *, additional: bool
+) -> tuple[list[str], list[str]]:
+    """The verdict baselines (always the D16 pair) and the additional comparisons.
+
+    An ablation or sibling arm is compared only under ``additional``, and is then reported as an
+    additional comparison: it never enters the verdict.
+    """
+    requested = (
+        [b.strip() for b in baselines_arg.split(",") if b.strip()]
+        if baselines_arg
+        else list(D16_BASELINES)
+    )
+    if not set(D16_BASELINES) <= set(requested):
+        raise ValueError(f"--baselines must include the D16 baselines {list(D16_BASELINES)}")
+    extra = list(dict.fromkeys(b for b in requested if b not in D16_BASELINES))
+    if extra and not additional:
+        raise ValueError(
+            f"{extra} are not D16 baselines; pass --additional to report them as additional "
+            "comparisons (never part of the verdict)"
+        )
+    unknown = [b for b in extra if b not in labels]
+    if unknown:
+        raise ValueError(f"--baselines {unknown} are not among --models {list(labels)}")
+    return list(D16_BASELINES), extra
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     """Build the whole report as a dictionary (rendered and/or written by :func:`main`)."""
     bench_dir = Path(args.bench_dir)
@@ -1410,14 +1455,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     labels = [label for label, _ in models]
     if args.reference not in labels:
         raise SystemExit(f"--reference {args.reference!r} is not among --models {labels}")
-    baselines = (
-        [b.strip() for b in args.baselines.split(",") if b.strip()]
-        if args.baselines
-        else [label for label in labels if label != args.reference]
-    )
-    unknown = [b for b in baselines if b not in labels]
-    if unknown:
-        raise SystemExit(f"--baselines {unknown} are not among --models {labels}")
+    try:
+        baselines, additional_baselines = resolve_baselines(
+            labels, args.baselines, additional=args.additional
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    all_baselines = baselines + additional_baselines
 
     items, per_file = load_bench_items(fresh_dir=fresh_dir, tier1_dir=tier1_dir)
     screen = load_screen(screen_path)
@@ -1472,12 +1516,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     for set_name, ids in sets.sets.items():
         comparisons[set_name] = {}
         if not ids:
-            for baseline in baselines:
+            for baseline in all_baselines:
                 comparison_missing[(set_name, baseline)] = (
                     "the item set is empty (no items match its definition)"
                 )
             continue
-        for baseline in baselines:
+        for baseline in all_baselines:
             ref = vectors.get(args.reference)
             base = vectors.get(baseline)
             if ref is None:
@@ -1485,7 +1529,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 comparison_missing[(set_name, baseline)] = f"reference model: {reason}"
                 continue
             if base is None:
-                reason = by_label[baseline].missing_reason or "baseline model unusable"
+                if baseline in by_label:
+                    reason = by_label[baseline].missing_reason or "baseline model unusable"
+                else:
+                    reason = "no prediction file was supplied for this baseline"
                 comparison_missing[(set_name, baseline)] = f"baseline model: {reason}"
                 continue
             common = [i for i in ids if i in ref.index and i in base.index]
@@ -1631,6 +1678,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "alpha": ALPHA,
         "reference": args.reference,
         "baselines": baselines,
+        "additional_baselines": additional_baselines,
         "out": str(out_path),
         "strict_slice_start": strict_start.isoformat(),
     }
@@ -1707,8 +1755,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--baselines",
         default=None,
-        help="comma list of labels the verdict is computed against (default: every "
-        "non-reference model)",
+        help="comma list of verdict baselines; must include zeroshot and jev9b (the default)",
+    )
+    parser.add_argument(
+        "--additional",
+        action="store_true",
+        help="allow non-D16 labels in --baselines; they are reported as additional comparisons "
+        "and never enter the verdict",
     )
     parser.add_argument("--bench-dir", default="data/bench/v0.2", help="v0.2 benchmark directory")
     parser.add_argument("--fresh", default=None, help="fresh item directory (default <bench-dir>/fresh)")
@@ -1736,7 +1789,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--resamples", type=int, default=DEFAULT_RESAMPLES)
-    parser.add_argument("--out", default="loops/student_v0/g1.md", help="markdown report path")
+    parser.add_argument("--out", required=True, help="markdown report path")
     parser.add_argument("--json", default=None, help="optional machine-readable report path")
     return parser
 

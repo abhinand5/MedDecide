@@ -497,7 +497,7 @@ def test_intersection_rule_drops_items_one_model_did_not_score(tmp_path):
         make_row(by_id[item_id], correct=True, argmax=by_id[item_id]["gold"], model_id="base")
         for item_id in ("s1", "s2", "h1", "h2")
     ]
-    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows})
+    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows, "jev9b": base_rows})
     assert "item count: **n = 4**" in text
     assert "reference scored 5 of the set's items, baseline 4" in text
 
@@ -520,7 +520,7 @@ def test_d12_failing_cell_is_excluded_from_the_verdict(tmp_path):
         else:
             ref_rows.append(make_row(item, correct=True))
     base_rows = _alternating_base_rows(items)
-    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows})
+    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows, "jev9b": base_rows})
     assert "READOUT_FAIL — constant_answer" in text
     assert "Cells excluded from the verdict" in text
     assert "D12 failing cell — READOUT_FAIL — constant_answer" in text
@@ -552,7 +552,7 @@ def test_two_identical_prediction_files_give_exactly_zero_difference(tmp_path):
     items = _mini_corpus()
     rows = [make_row(item, correct=True) for item in items]
     base_rows = [dict(row, model_id="base") for row in rows]
-    text = run_cli(tmp_path, items, {"meddecide": rows, "zeroshot": base_rows})
+    text = run_cli(tmp_path, items, {"meddecide": rows, "zeroshot": base_rows, "jev9b": base_rows})
     assert "| macro accuracy | 1.0000 | 1.0000 | 0.0000 | [0.0000, 0.0000] |" in text
     assert "| mean Brier (lower is better) | 0.0000 | 0.0000 | 0.0000 | [0.0000, 0.0000] |" in text
     assert "accuracy CI lower bound 0.0000 is not > 0" in text
@@ -592,7 +592,7 @@ def test_report_is_written_end_to_end_with_all_required_sections(tmp_path):
     items = _dominating_corpus()
     ref_rows = [make_row(item, correct=True) for item in items]
     base_rows = _weak_but_healthy_base(items)
-    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows})
+    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows, "jev9b": base_rows})
     for needle in (
         "## Verdict (D16)",
         "G1 on seen templates",
@@ -618,7 +618,7 @@ def test_strict_slice_membership_appears_in_the_report(tmp_path):
     items = _mini_corpus()
     ref_rows = [make_row(item, correct=True) for item in items]
     base_rows = [make_row(item, correct=False, model_id="base") for item in items]
-    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows})
+    text = run_cli(tmp_path, items, {"meddecide": ref_rows, "zeroshot": base_rows, "jev9b": base_rows})
     assert "strict slice start: 2026-09-10" in text
     # strict slice = s3 + h2; seen strict = s3
     assert "| `fresh_strict` | headline fresh set, strict slice" in text
@@ -660,3 +660,40 @@ def test_file_with_only_unreadable_rows_is_not_measured(tmp_path):
     text = (tmp_path / "g1.md").read_text(encoding="utf-8")
     assert "prediction file has no readable rows" in text
     assert "| **G1 on seen templates** (decides the branch of §2) | **NOT MEASURED** |" in text
+
+
+def test_ablation_passed_without_additional_is_rejected():
+    labels = ["meddecide", "zeroshot", "jev9b", "base"]
+    with pytest.raises(ValueError, match="--additional"):
+        g1.resolve_baselines(labels, "zeroshot,jev9b,base", additional=False)
+
+
+def test_additional_ablation_is_compared_but_never_in_the_verdict():
+    labels = ["meddecide", "zeroshot", "jev9b", "base"]
+    verdict, additional = g1.resolve_baselines(labels, "zeroshot,jev9b,base", additional=True)
+    assert verdict == ["zeroshot", "jev9b"]
+    assert additional == ["base"]
+
+
+def test_default_baselines_are_the_d16_pair_even_with_an_ablation_loaded():
+    labels = ["meddecide", "zeroshot", "jev9b", "base"]
+    assert g1.resolve_baselines(labels, None, additional=False) == (["zeroshot", "jev9b"], [])
+
+
+def test_verdict_baselines_must_include_both_d16_baselines():
+    with pytest.raises(ValueError, match="D16 baselines"):
+        g1.resolve_baselines(["meddecide", "zeroshot"], "zeroshot", additional=False)
+
+
+def test_a_d16_baseline_without_a_prediction_file_is_still_a_verdict_baseline():
+    verdict, additional = g1.resolve_baselines(["meddecide", "zeroshot"], None, additional=False)
+    assert verdict == ["zeroshot", "jev9b"]
+    assert additional == []
+
+
+def test_verbalizer_rows_form_a_non_letter_readout_and_mixing_is_named():
+    verbalizer = {"variant": "verbalizer-head", "transform": {"readout": "verbalizer-head"}}
+    letter = {"variant": "bare", "transform": {}}
+    assert g1.readout_kind([verbalizer, verbalizer]) == "verbalizer-head"
+    assert g1.readout_kind([letter, letter]) == "letter"
+    assert g1.readout_kind([verbalizer, letter]) == "mixed"
