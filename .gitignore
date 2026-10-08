@@ -232,3 +232,6 @@ tmp/
 .env
 .secrets.env
 
+
+# Unsloth runtime compile cache (written into CWD when UNSLOTH_COMPILE_LOCATION is unset)
+unsloth_compiled_cache/

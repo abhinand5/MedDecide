@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V10), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-08T03:59:12Z`
+Last updated (UTC): `2026-10-08T04:29:35Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| V0 | Orientation, snapshot, Unsloth environment | smoke | — | PENDING | | |
+| V0 | Orientation, snapshot, Unsloth environment | smoke | — | DONE | 2026-10-08T03:59:12Z | 2026-10-08T04:17:00Z |
 | V1 | JEV-9B on v0.2 + G1 recomputed per D16 | yes | V0 | PENDING | | |
 | V2 | Padding fix + measured effect | small | V0 | PENDING | | |
 | V3 | Checkpoint trajectory (seen vs held-out) | yes | V2 | PENDING | | |
@@ -49,7 +49,7 @@ recomputing or guessing.
 
 | key | value | source | task |
 |---|---|---|---|
-| unsloth / torch / transformers versions (unsloth env; main env) | | `outputs/student_v1/V0/envs.json` | V0 |
+| unsloth / torch / transformers versions (unsloth env; main env) | unsloth env: unsloth 2026.10.2, torch 2.14.1+cu130, transformers 5.17.0, peft 0.21.2; main env: torch 2.14.1+cu130, transformers 5.18.0 | `outputs/student_v1/V0/envs.json` | V0 |
 | G1 for student_v0 per D16 (seen / held-out) | | `loops/student_v1/g1_student_v0_rerun.md` | V1 |
 | JEV-9B v0.2 coverage | | | V1 |
 | padding effect on student_v0 test accuracy (max per-template Δ) | | `outputs/student_v1/V2/effect.json` | V2 |
@@ -73,15 +73,18 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/student_v1/<id>/
+Task in flight: none (V0 DONE 2026-10-08T04:20:00Z; V1 next)
+Working dir:    outputs/student_v1/V1/
 
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+- [x] fill "Run started" in STATE and "Started" in AGENTS.md (V0 exception)
+- [x] snapshot: git commit, v0.2 manifest + training-mix hashes, test count -> outputs/student_v1/V0/snapshot.json
+- [x] create envs/unsloth/ (own uv project, pinned unsloth lockfile)
+- [x] verify FastDecisionModel.from_pretrained Qwen3.5-0.8B loads bf16 (load_in_4bit=False) on GPU
+- [x] record torch/transformers/unsloth versions in both envs -> outputs/student_v1/V0/envs.json
+- [x] acceptance check run and passed
+- [x] self-audit (R6) written to SELF_AUDIT.md
+- [x] CLAIMS.md rows appended (V001-V007)
+- [x] STATE updated, committed, pushed
 ```
 
 ---
@@ -103,6 +106,13 @@ Working dir:    outputs/student_v1/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### V0 — 2026-10-08T04:17:00Z — DONE — 2026-10-08T04:17:00Z
+- What ran: `scripts/student/v1_snapshot.py` (main + `--env unsloth`), `scripts/student/v1_unsloth_load.py` (in `envs/unsloth/.venv`); `uv sync --project envs/unsloth` (123 packages).
+- Output: `outputs/student_v1/V0/{snapshot,envs,unsloth_load}.json`, `SELF_AUDIT.md`.
+- Headline: Unsloth 2026.10.2 (first release with `FastDecisionModel`) loads Qwen3.5-0.8B in bf16 with `load_in_4bit=False`: 344 bf16 weight tensors; 251 norm/head tensors fp32; `predict` probabilities finite, sums 1.0 / 0.9999 (V001–V007).
+- Surprises: the loader keeps RMSNorm weights in fp32 (arm C precision differs from A/B on norms, see Deviations); `causal_conv1d` is not installed in either env, so the reference kernel is used; the main env has transformers 5.18.0 vs 5.17.0 in the Unsloth env.
+- Next: V1 (JEV-9B on v0.2 + D16 G1 rerun). Needs an F7-to-harness row converter and a G1 change that restricts verdict baselines to zeroshot + jev9b.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -118,6 +128,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 ---
 
 ## 7. Deviations from the plan
+
+- **V0 (norm precision, decision deferred to V8):** Unsloth's `FastDecisionModel` loads the 251 RMSNorm/LayerNorm tensors in fp32; arms A/B load them in bf16. ADVISORY §3 asks for matched bf16 arms. Unresolved; V8 will either cast the norms to bf16 to match or record the difference in the per-arm provenance table.
 
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
 expected outcome. Editing code or a check to make it pass is never an acceptable
