@@ -101,11 +101,14 @@ def main() -> None:
         warmup_steps=round(0.03 * args.max_steps),
         weight_decay=0.0,
         bf16=True,
-        logging_steps=50,
+        logging_steps=1,  # every step: the grad-norm tripwire (ADVISORY V6-V8) needs each pre-clip norm
         output_dir=str(args.out / "trainer"),
         report_to="none",
         seed=3407,
         save_strategy="no",
+        # random batches padded to their longest item ran at about 2 s per step (1.5 h for 2,700 steps);
+        # grouping items of similar length cuts the padding (documented deviation, recorded in the audit)
+        group_by_length=True,
     )
     trainer = DecisionTrainer(
         model=model,
@@ -122,6 +125,11 @@ def main() -> None:
     report["train_seconds"] = round(time.time() - t_train, 1)
     report["train_loss"] = float(result.training_loss)
     report["finished_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    logs_dir = args.out / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    with (logs_dir / "train_steps.jsonl").open("w", encoding="utf-8") as steps_file:
+        for record in trainer.state.log_history:
+            steps_file.write(json.dumps(record, default=str) + "\n")
     (args.out / "training.json").write_text(json.dumps(report, indent=2, default=str) + "\n", encoding="utf-8")
     print("done:", {k: report[k] for k in ("train_seconds", "train_loss")}, flush=True)
 

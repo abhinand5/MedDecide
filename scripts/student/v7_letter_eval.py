@@ -46,7 +46,7 @@ def letter_tokens(model: MedDecideModel, n: int) -> list[int]:
 
 
 @torch.no_grad()
-def score_item(model: MedDecideModel, item: Item) -> dict:
+def score_item(model: MedDecideModel, item: Item, temperature: float = 1.0) -> dict:
     """Letter probabilities and the full-vocabulary readout measurements for one item (no padding)."""
     encoded = model.encode_item(item)
     batch = model.collate([encoded], round_to_chunk=False).to(model.device)
@@ -58,7 +58,7 @@ def score_item(model: MedDecideModel, item: Item) -> dict:
     n = encoded.n_options
     tokens = torch.tensor(letter_tokens(model, n), device=vocab_probs.device, dtype=torch.long)
     letter_logits = vocab_logits[tokens]
-    option_probs = segment_softmax(letter_logits, [n])
+    option_probs = segment_softmax(letter_logits / temperature, [n])
     label_mass = float(vocab_probs[tokens].sum())
     top_token = int(torch.argmax(vocab_probs))
     best = int(torch.argmax(option_probs))
@@ -83,7 +83,12 @@ def main() -> None:
     parser.add_argument("--out-dir", type=Path, required=True)
     parser.add_argument("--model-id", default="meddecide-v1-arm-b")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--temperature-file", type=Path, default=None,
+                        help="per-qtype temperatures (scripts/student/v7_temperatures.py); none = 1.0")
     args = parser.parse_args()
+    temperatures = {}
+    if args.temperature_file is not None:
+        temperatures = json.loads(args.temperature_file.read_text(encoding="utf-8"))["temperature"]
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     items = [Item.model_validate_json(line) for line in args.items.open(encoding="utf-8")]
@@ -98,7 +103,7 @@ def main() -> None:
     started = time.time()
     for index, item in enumerate(items):
         t0 = time.time()
-        measured = score_item(model, item)
+        measured = score_item(model, item, temperature=float(temperatures.get(str(item.qtype), 1.0)))
         latency = time.time() - t0
         canonical, original = canonicalise_options(item)
         keys = [o.key for o in canonical.options]

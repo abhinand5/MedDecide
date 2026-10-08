@@ -44,11 +44,28 @@ def section(name: str, base: Path) -> list[str]:
     throughput = run_training.get("throughput", {})
     longest_below = max((len(list(g)) for k, g in itertools.groupby(
         [e["metrics"]["macro_accuracy"] < 0.50 for e in dev]) if k), default=0)
+    trip_steps = [s["step"] for s in steps if s.get("grad_norm") is not None and s["grad_norm"] > 5000]
+    first_trip = min(trip_steps) if trip_steps else None
+    eligible = [e for e in dev if first_trip is None or e["step"] <= first_trip]
+    rule_best = None
+    for e in eligible:
+        m = e["metrics"]
+        if rule_best is None or m["macro_accuracy"] > rule_best["metrics"]["macro_accuracy"] + 1e-12 or (
+                abs(m["macro_accuracy"] - rule_best["metrics"]["macro_accuracy"]) <= 1e-12
+                and m["brier"] < rule_best["metrics"]["brier"] - 1e-12):
+            rule_best = e
     lines = [
         f"## {name}", "",
-        f"- dev evaluations: {len(dev)} (every 500 steps, {dev[0]['n_items'] if dev else 0} items); "
-        f"selected checkpoint: step {best.get('step')} (rule: highest dev pooled-class macro, ties by Brier, "
-        f"then earlier step).",
+        f"- dev evaluations: {len(dev)} (every 500 steps, {dev[0]['n_items'] if dev else 0} items).",
+        "- tripwire (pre-clip grad norm > 5,000): " + (
+            f"tripped at step {first_trip:,} ({len(trip_steps)} step(s)); the run is recorded as diverged and "
+            f"its verdict checkpoint is the best saved at or before the trip: step "
+            f"{rule_best['step'] if rule_best else 'none'} (dev pooled macro "
+            f"{rule_best['metrics']['macro_accuracy']:.4f}, accuracy {rule_best['metrics']['accuracy']:.4f}). "
+            f"Unrestricted best (additional, not the verdict): step {best.get('step')}."
+            if first_trip is not None else
+            f"not tripped; selected checkpoint: step {best.get('step')} (rule: highest dev pooled-class macro, "
+            f"ties by Brier, then earlier step)."),
         "- fitted temperatures (dev, per qtype): " + ", ".join(f"{k} {v:.4f}" for k, v in sorted(fitted.items())
                                                              if v is not None),
         f"- training: {len(steps)} steps logged; wall {run.get('wall_clock_s', float('nan')):.0f} s; "
@@ -57,8 +74,8 @@ def section(name: str, base: Path) -> list[str]:
         f"- grad norm (pre-clip, every step): p50 {percentile(grad, 0.5):.3f}, p95 {percentile(grad, 0.95):.3f}, "
         f"max {max(grad):.3f}.",
         f"- divergence tripwires: longest run of consecutive dev macro < 0.50: {longest_below} (tripwire: 2); "
-        f"max pre-clip grad norm {max(grad):.1f} (tripwire: 5,000). "
-        f"{'NOT TRIPPED' if longest_below < 2 and max(grad) <= 5000 else 'TRIPPED'}.",
+        f"max pre-clip grad norm {max(grad):.1f} (tripwire: 5,000); "
+        f"grad tripwire {'TRIPPED' if first_trip is not None else 'not tripped'}.",
         "",
         "| step | dev acc | dev pooled macro | dev Brier | best so far |",
         "|---:|---:|---:|---:|:---:|",
