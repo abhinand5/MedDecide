@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T01:56:33Z`
+Last updated (UTC): `2026-10-08T02:26:51Z`
 Iterations so far: `1`
 
 ---
@@ -327,6 +327,18 @@ Fixed 20k-item subset (`limit=20000, stride=10`), fixed 2,019-item template-stra
 - **Status (2026-10-08T01:40:52Z):** S10's test evaluation is running (pid 143607; `preds_..._test.jsonl` is being written, the summary `model_...__test.json` lands when it finishes ~17 min). No cells are quoted until that file exists - predictions alone are not a result. Then the agent's wrap-up (cells + `--tag converged` side-by-side + `SELF_AUDIT.md`) and the **zero-shot 0.8B** job that G1 still needs.
 - **S10 test cells (2026-10-08T01:56:21Z) - the ablation separates sharply on readout health:** rule-selected checkpoint (step 17000): tier 1 13,521 items **5/8 gates PASS (3 fail)**, fresh 23,768 items **6/11 gates PASS (5 fail)**. Run 3 (instruct, same recipe/data/steps) scored **7/8** and **11/11**. So the Base ablation is healthy on fewer than two-thirds of the fresh templates while the instruct model is healthy on all of them - i.e. **the instruct tuning is doing real work for the pointer-head readout**, not just for accuracy. Per-template accuracies are suppressed in the failing cells (D12: no accuracy is presented for a cell that fails its readout check), so the honest headline is the gate counts, not a mean accuracy. The agent's wrap-up will give the per-template detail, the labelled converged comparison, and why each cell failed.
 - **Wrap-up progress (2026-10-08T01:56:33Z):** `outputs/student_v0/S10/SELF_AUDIT.md` is written; the agent is running the **labelled `--tag converged` comparison** on S10's final checkpoint now (pid 144038), then it runs the **zero-shot 0.8B** job for S11. Sequence is strictly one GPU job at a time.
+
+### S10 — converged comparison: the macro-first rule's quality DIFFERS BY MODEL — 2026-10-08T02:26:51Z
+Gate counts on **identical item sets** (tier 1 13,521 / fresh 23,768):
+
+| model | rule-selected checkpoint | converged checkpoint |
+|---|---|---|
+| run 3 (instruct) | **7/8 + 11/11 = 18/19** | 6/8 + 7/11 = 13/19 -> *rule better* |
+| S10 (Base ablation) | 5/8 + 6/11 = **11/19** | **7/8 + 9/11 = 16/19** -> *converged better* |
+
+- **So the ADVISORY's macro-first rule is not uniformly good**: on the instruct run it picked the checkpoint with better readout health, on the Base ablation it picked a **worse** one (11/19 vs 16/19 gates). The rule is unchanged (operator ruling, R8) and both rows are reported as measured; but S11/S14 must state that **the rule's selection was validated on run 3 and not on S10**, rather than generalising from the one case where it worked. My earlier "rule vindicated" note is true **for the instruct model** and is now bounded that way.
+- The converged S10 numbers (7/8 + 9/11) are still below the instruct model's official cells (7/8 + 11/11), so the ablation conclusion stands: instruct tuning helps readout health.
+- **Zero-shot job has started** (S11 dir has its first predictions; launcher pid 144569) - the last G1 input.
 
 ## 5. Blocked items
 
