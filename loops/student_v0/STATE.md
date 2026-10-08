@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (S14), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- S14 hard stop, 2026-10-08T03:2xZ; the operator's review is the next event -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T02:57:48Z`
+Last updated (UTC): `2026-10-08T03:26:00Z`
 Iterations so far: `1`
 
 ---
@@ -32,12 +32,12 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S6 | Pre-window structured-gold data + training mix + leakage check | no | S2, S5 | DONE | 2026-10-06T23:19:43Z | 2026-10-07T00:04:50Z |
 | S7 | Training code: LoRA + pointer head | smoke | S0 | DONE | 2026-10-07T00:05:13Z | 2026-10-07T00:58:42Z |
 | S8 | Evaluation path for trained models | yes | S7 | DONE | 2026-10-07T01:15:06Z | 2026-10-07T02:06:26Z |
-| S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | IN_PROGRESS | 2026-10-07T02:06:36Z | |
+| S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | IN_PROGRESS (run 3 complete, cells claimed as S082; run-1/run-2 write-ups in §4; closing the *row* is question 2) | 2026-10-07T02:06:36Z | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | DONE | 2026-10-07T21:33:32Z | 2026-10-08T02:50:00Z |
-| S11 | Gate G1 evaluation | yes | S9, S3, S4 | IN_PROGRESS (zero-shot input DONE; `g1.py` left to the operator) | 2026-10-08T02:16:16Z | |
-| S12 | Byte-identity + audit read-back | small | S9 | PENDING | | |
+| S11 | Gate G1 evaluation | yes | S9, S3, S4 | IN_PROGRESS (acceptance artifacts exist: `g1.md` + `S11/g1.json`, operator-run 2026-10-08T02:57:24Z, verdict recorded in §4; closing the *row* is question 2) | 2026-10-08T02:16:16Z | |
+| S12 | Byte-identity + audit read-back | small | S9 | DONE | 2026-10-08T02:58:24Z | 2026-10-08T03:2xZ |
 | S13 | Candidate dataset catalog | no | S0 | DONE | 2026-10-06T18:42:26Z | 2026-10-06T18:57:22Z |
-| S14 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| S14 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-08T03:05:00Z | 2026-10-08T03:2xZ |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in
 ADVISORY §6: S13 may run while a GPU job runs; S11 may precede S10 when time is short).
