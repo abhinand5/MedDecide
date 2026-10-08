@@ -71,6 +71,18 @@ Fresh-process re-derivation (`scripts/student/v2_rederive_effect.py`, plain Pyth
 
 Reproduction check: the original-run row count is 37,289 and its recomputed micro accuracy (0.7603) matches the stored tier-1 + fresh totals (13,521 + 23,768 items) in `outputs/student_v0/S9_run3/model_meddecide-0p8b-lora-pointer__test.json`.
 
+## 4b. Additional (not a verdict): held-out templates
+
+`outputs/student_v1/V2/additional_held_out_paths.json` (`scripts/student/v9_arms.py`): the same student_v0 step-1,000 predictions, original batched path minus the no-padding path, by template group.
+
+| group | n | macro accuracy diff (pts) | 95% CI (pts) | micro accuracy diff (pts) |
+|---|---:|---:|---|---:|
+| seen | 30963 | +0.024 | [-0.079, +0.134] | +0.023 |
+| held_out | 6326 | -0.159 | [-0.308, -0.016] | -0.158 |
+| all | 37289 | -0.014 | [-0.102, +0.073] | -0.008 |
+
+The held-out difference is small (about 0.16 points) but its interval excludes zero. It is reported as an additional observation; no verdict uses it. The no-padding path is the one used from V3 on.
+
 ## 5. What changed in the code
 
 - `MedDecideModel.hidden_states` passes explicit `position_ids` counted from the attention mask.

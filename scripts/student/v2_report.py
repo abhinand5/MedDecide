@@ -29,6 +29,10 @@ def probe_row(label: str, name: str) -> str:
     return (f"| {label} | `{name}` | {padded:.3e} | {control:.3e} | {d['verdict']} | {tf32} |")
 
 
+def load_additional() -> dict:
+    return json.loads((V2 / "additional_held_out_paths.json").read_text(encoding="utf-8"))
+
+
 def main() -> None:
     effect = load("effect.json")
     logit = load("logit_control_strict_fp32.json")
@@ -149,6 +153,25 @@ def main() -> None:
         "Reproduction check: the original-run row count is 37,289 and its recomputed micro accuracy "
         f"({scor['old']['micro_accuracy']:.4f}) matches the stored tier-1 + fresh totals "
         "(13,521 + 23,768 items) in `outputs/student_v0/S9_run3/model_meddecide-0p8b-lora-pointer__test.json`.",
+        "",
+        "## 4b. Additional (not a verdict): held-out templates",
+        "",
+        "`outputs/student_v1/V2/additional_held_out_paths.json` (`scripts/student/v9_arms.py`): the same "
+        "student_v0 step-1,000 predictions, original batched path minus the no-padding path, by template group.",
+        "",
+        "| group | n | macro accuracy diff (pts) | 95% CI (pts) | micro accuracy diff (pts) |",
+        "|---|---:|---:|---|---:|",
+    ]
+    held = load_additional()
+    for group in ("seen", "held_out", "all"):
+        block = held["pairs"]["batched_padded-unpadded"][group]
+        macro, micro = block["macro_accuracy_diff"], block["micro_accuracy_diff"]
+        lines.append(f"| {group} | {block['n']} | {macro['point'] * 100:+.3f} | "
+                     f"[{macro['ci_lo'] * 100:+.3f}, {macro['ci_hi'] * 100:+.3f}] | {micro['point'] * 100:+.3f} |")
+    lines += [
+        "",
+        "The held-out difference is small (about 0.16 points) but its interval excludes zero. It is reported "
+        "as an additional observation; no verdict uses it. The no-padding path is the one used from V3 on.",
         "",
         "## 5. What changed in the code",
         "",
