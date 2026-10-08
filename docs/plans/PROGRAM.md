@@ -76,6 +76,9 @@ re-measured on MedDecide-Bench.
 | D14 | **Held-out templates** are excluded from training entirely and reported separately; loop 1 holds out `ct_phase_choice_v1`, `fda_boxed_warning_noul_v1`, `pubmed_humans_noul_v1` and one record–claim consistency template | 2026-10-06 | a general decision model must be measured on decision types it never trained on |
 | D15 | **Record–claim consistency** is a first-class template family (document-grounded verification): a stated attribute is supported or a near-miss swap; role-binding designs so a string-presence rule cannot solve it | 2026-10-06 | verification against a document is the central real-world decision; gold is known by construction |
 | D16 | **Gate G1:** on the headline fresh set (v0.2 kept templates excluding the superseded `pubmed_mesh_major_choice_v1` / `fda_class_choice_v1`), for each baseline B ∈ {zero-shot Qwen3.5-0.8B, JEV-9B}: item-paired bootstrap 95 % CI (1,000 resamples, items within templates) of MedDecide − B in macro accuracy and in mean Brier. PASS iff accuracy CI lower bound > 0 **and** Brier CI upper bound < 0 against **both** baselines on **seen** templates; held-out templates reported with the same rule, separately | 2026-10-06 | fixed before results so the claim cannot drift |
+| D17 | Training sources extended: official train splits, pre-window structured-gold items, and catalog (`docs/benchmark/dataset_catalog.md`) datasets with **human or structured** labels and a training-compatible licence. LLM-labelled datasets (e.g. `LocalLLaMA/typed-decisions`) are never training data; they may validate tooling | 2026-10-08 | student_v0 did not transfer to held-out decision types; diversity is the first lever |
+| D18 | Loop 1b compares three decision heads under matched conditions: pointer head, letter-readout LoRA, and a Clef-style joint head via Unsloth (`FastDecisionModel` / `DecisionTrainer`, its own environment). The joint head is no longer gated on pointer-head failure | 2026-10-08 | operator decision; the paper's architecture claim needs the plain-LoRA control and the published joint-head recipe |
+| D19 | G1 baselines are exactly zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B (D16). Ablations and sibling arms are reported as additional, never in a verdict; model selection and temperatures never use held-out templates | 2026-10-08 | student_v0's `g1.md` put the Base ablation in the verdict |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -115,7 +118,7 @@ decision-model baselines; corrections record.
   corrections complete; operator audit of the v0.1 sample.
 - Spec: `loops/bench_v0_fix0/ADVISORY.md`.
 
-### Loop 1 — `student_v0`: benchmark v0.2 + the first trained model  *(current)*
+### Loop 1 — `student_v0`: benchmark v0.2 + the first trained model  *(done — read the advisor note at the top of `loops/student_v0/FINDINGS.md`)*
 
 - **Benchmark v0.2:** fix the graded-score option set; near-miss distractors for the MeSH
   and FDA-class templates (MeSH tree siblings; classes sharing a mechanism); a
@@ -137,6 +140,22 @@ decision-model baselines; corrections record.
 - Also: a catalog of candidate HF datasets (documentation only), and a read-back of the
   operator's 150-item audit if it is available.
 - Spec: `loops/student_v0/ADVISORY.md`.
+
+### Loop 1b — `student_v1`: correct G1, fix padding, diversify data, compare three heads  *(current)*
+
+student_v0, read per D16: the trained 0.8B beats zero-shot by a wide margin on **seen** decision
+types (macro +0.163, Brier −0.230) but not on **held-out** types (macro −0.018); G1 vs JEV-9B was
+never computed; a padding bug makes trained scores batch-dependent; the selected checkpoint is
+step 1,000 of 44,152.
+- Recompute G1 per D16 (JEV-9B on v0.2); fix and measure the padding bug; score held-out dev
+  across 22 saved checkpoints (does transfer rise or fall with training?).
+- **Data diversity (D17):** PubMed pre-window, ≥ 8 new train-only decision types, ≥ 2 new
+  record–claim designs, `score` items, vetted catalog sources; no template > 8 % of the mix.
+- **Three matched heads (D18):** A pointer head, B letter-readout LoRA, C Clef-style joint head
+  via Unsloth — same data, order, step budget (15,000), base, prompt cap and evaluation.
+- **Outcome logic:** an arm that passes G1 on held-out → the recipe to scale; all arms fail on
+  held-out → data diversity / teacher next; arms indistinguishable → keep the simplest.
+- Spec: `loops/student_v1/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat
 
