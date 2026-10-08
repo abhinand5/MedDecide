@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `STOPPED`  <!-- S14 hard stop, 2026-10-08T03:2xZ; the operator's review is the next event -->
+Loop status: `STOPPED`  <!-- S14 hard stop, 2026-10-08T03:26:11Z; the operator's review is the next event -->
 Run started (UTC): `2026-10-06T18:06:22Z`
-Last updated (UTC): `2026-10-08T03:26:00Z`
+Last updated (UTC): `2026-10-08T03:26:11Z`
 Iterations so far: `1`
 
 ---
@@ -35,9 +35,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | S9 | Train MedDecide-0.8B (instruct) | yes | S6, S8 | IN_PROGRESS (run 3 complete, cells claimed as S082; run-1/run-2 write-ups in §4; closing the *row* is question 2) | 2026-10-07T02:06:36Z | |
 | S10 | Ablation: MedDecide-0.8B from Base | yes | S9 | DONE | 2026-10-07T21:33:32Z | 2026-10-08T02:50:00Z |
 | S11 | Gate G1 evaluation | yes | S9, S3, S4 | IN_PROGRESS (acceptance artifacts exist: `g1.md` + `S11/g1.json`, operator-run 2026-10-08T02:57:24Z, verdict recorded in §4; closing the *row* is question 2) | 2026-10-08T02:16:16Z | |
-| S12 | Byte-identity + audit read-back | small | S9 | DONE | 2026-10-08T02:58:24Z | 2026-10-08T03:2xZ |
+| S12 | Byte-identity + audit read-back | small | S9 | DONE | 2026-10-08T02:58:24Z | 2026-10-08T03:24:08Z |
 | S13 | Candidate dataset catalog | no | S0 | DONE | 2026-10-06T18:42:26Z | 2026-10-06T18:57:22Z |
-| S14 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-08T03:05:00Z | 2026-10-08T03:2xZ |
+| S14 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-08T03:05:00Z | 2026-10-08T03:26:11Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in
 ADVISORY §6: S13 may run while a GPU job runs; S11 may precede S10 when time is short).
@@ -78,22 +78,18 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: **S9 — train MedDecide-0.8B (instruct)** (started 2026-10-07T02:06:36Z)
-Working dir:    outputs/student_v0/S9/
+Task in flight: **S14 — findings and closure (HARD STOP)** (started 2026-10-08T03:05:00Z)
+Working dir:    loops/student_v0/, outputs/student_v0/S14/, outputs/student_v0/S12/
 
-Sizing (measured in S7, not estimated): 21.7 items/s over a real full pass -> ~163 min per pass over
-212,481 items, GPU peak 32.1 GB. The 4 h box therefore fits ONE pass + dev evals + the temperature
-fit (~15 min). The training set has no `score` items at all, so that qtype's temperature is not
-identifiable (S8 recorded `NOT FITTED`).
-
-- [ ] 1. training entry point (thin CLI over meddecide.train.Trainer) with the S9 recipe: LoRA r=16, lr 2e-4, batch 8, 8k tokens, one pass, dev eval every 500 steps, best checkpoint by dev Brier, then the dev temperature fit
-- [ ] 2. launch detached with a pidfile + log under outputs/student_v0/S9/logs/, wall-clock budget inside the 4 h box
-- [ ] 3. per-step log (loss, lr, tokens/s, GPU memory) and every dev eval recorded
-- [ ] 4. best checkpoint saved with its config and tokenizer; eval with run_student.py
-- [ ] 5. acceptance check run and passed
-- [ ] 6. self-audit (R6) written to SELF_AUDIT.md
-- [ ] 7. CLAIMS.md rows appended
-- [ ] 8. STATE updated, committed, pushed
+- [x] 1. S12: byte-identity on both shipped checkpoints (`S9_run3/best`, `S10/best`) + audit read-back
+- [x] 2. S12 raw outputs + SELF_AUDIT.md written under `outputs/student_v0/S12/`
+- [x] 3. FINDINGS.md written (Summary first, body covering every summary claim, five-claim spot-check)
+- [x] 4. NEXT.md written (proposals only, no decisions, nothing started)
+- [x] 5. CLAIMS rows appended for everything reported (S084–S101), each with artifact + recompute command
+- [x] 6. S14 SELF_AUDIT.md written (R6) under `outputs/student_v0/S14/`
+- [x] 7. STATE: S12/S14 DONE, iteration log appended, closure feed filled, questions + deviations updated
+- [x] 8. Acceptance checks: `uv run ruff check .` clean; `uv run pytest -q -m "not gpu"` 279 passed / 0 failed / 0 skipped
+- [x] 9. Loop status STOPPED; hard stop honoured (no loop-2 work started; no commits made by this session)
 ```
 
 ---
@@ -399,7 +395,32 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    pass (~17 min GPU) would show whether the S10 selection loss is specific to macro-first or
    general to this run's dev sample. Not needed for G1; my pick is to do it only if S14 wants the
    selection diagnosis on firmer ground - the converged result (step 44,000 better than step 17,000)
-   already suggests the direction.
+   already suggests the direction. **S14's pick: leave it to the next loop** — the 88 checkpoints
+   per run are on disk, so this can be answered without retraining whenever it is wanted
+   (`NEXT.md` §4).
+4. **CLAIMS S014's manifest hash does not reproduce.** S014 quotes `a81f2a03…9ed0db60b`; the
+   current `data/bench/v0.2/manifest.json` hashes to `363c037e…30243641` because S2/S3 appended
+   `builds.consistency` / `long_record` after the S1 build (`built_at_utc` 19:44:26Z →
+   `updated_at_utc` 20:53:59Z). The counts do reproduce (45,009 = 46,176 − 10,913 + 9,746;
+   `acceptance.json` PASS 8/8). My pick: the correction row **S101** stands (added at closure) and
+   the next loop's builder writes an explicit hash field; the operator may prefer to have S014's
+   hash annotated as superseded instead.
+5. **Run 2's prose gradient summary does not reproduce.** STATE/the brief say "pre-clip grad norm
+   averages 20-95 … spikes to ~25,000"; the per-step log gives p50 1.47 → 10.49 → 47.62 across the
+   last windows, p95 up to 3,908.7, max 43,186,144 (S088). My pick: the artifact table governs
+   (it is what FINDINGS quotes); the prose stays in the log as the operator's contemporaneous
+   reading, with a pointer to S088. The operator may prefer to replace the prose outright.
+6. **The held-out sentence in the S14 brief does not hold for the official model.** "Below the
+   zero-shot baseline on all four D14 held-out templates" is true of run 2's checkpoint, but the
+   official run-3 model is *above* zero-shot on two of the four (`fda_boxed_warning` +0.0068,
+   `pubmed_humans` +0.0912; S094) while the held-out macro is still below (0.5544 vs 0.5720,
+   −0.0176 [−0.0301, −0.0048]; S093). FINDINGS reports the measured per-template table; confirm
+   that wording is what the operator wants in any external summary.
+7. **Should the D12-excluded cells be revisited?** The Base ablation lost 8 of 19 cells (3
+   constant-answer, 1 below-chance on fresh; 3 constant-answer, 1 below-chance on tier 1), which
+   removes readout-health evidence rather than adding accuracy evidence. My pick: leave D12
+   (settled) and keep reporting gate counts (S096); if the next loop wants per-cell sensitivity,
+   it should be a new, separately labelled diagnostic, never a loosened gate (R8).
 
 ---
 
@@ -439,6 +460,19 @@ deviation — that is a `BLOCKED`.
    `S10/SELF_AUDIT.md`, `S10/RUN_NOTES.md`, `S10/ADDITIONAL_ANALYSIS_note.json`,
    `S11/{RUN_NOTES.md,ZEROSHOT_V0_2_REPORT.md}`, `CLAIMS.md` and this file are the only writes; no
    raw prediction, report or data file was modified.
+7. **S12 — the byte-identity check ran CPU-only on the reference PyTorch kernels.** The shipped
+   fused kernels (`causal_conv1d`, `flash-linear-attention`) are CUDA-only, so a CPU forward pass
+   dies inside them; the S12 script shadows both modules to make transformers take its reference
+   PyTorch path (recorded in the artifact as `kernel_path`). Both sides of the comparison use the
+   same path, so the adapter-bypass test is valid, but it is **not** the kernel path the model
+   ships with — a GPU re-run with the kernels bound is proposed in `NEXT.md` §7. S7's GPU test
+   already covered the fused path for a fresh adapter (S062).
+8. **S14 — the run-2 gradient prose in the brief/STATE is not reproducible.** Recorded in
+   "Questions for the operator" item 5; FINDINGS quotes the artifact-derived window table (S088).
+9. **S14 — the brief's held-out sentence is corrected for the official model.** Recorded in
+   "Questions for the operator" item 6; FINDINGS reports the measured per-template table (S094).
+10. **S14 — CLAIMS S014's manifest sha256 does not reproduce** (correction row S101); raised as
+    question 4. No check, threshold, gold label or acceptance criterion was edited (R8).
 
 ---
 
@@ -450,7 +484,16 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | **G1 FAILS on all four rules** — the first trained MedDecide does not beat both baselines on the fresh sets by the pre-registered D16 paired-CI rule (seen: base acc CI lower bound −0.0176; held-out: zeroshot −0.0301; strict seen −0.0589; strict held-out −0.0181) | S092, S093, S097 | `loops/student_v0/g1.md`, `outputs/student_v0/S11/g1.json` |
+| 2 | The instruct model beats the letter-readout zero-shot baseline on same-template fresh cells (+0.1633 macro, n=17,442) and loses on the D14 held-out aggregate (−0.0176, n=6,326); two of the four held-out cells are above zero-shot, two below | S093, S094, S100 | `g1.md`, `S11/g1.json` |
+| 3 | Two of the three training attempts are not results: run 1 failed by pipeline (length curriculum) and run 2 diverged; run 3 completed the full pass (44,152 steps / 13,867.5 s / 22.64 items/s) and is the loop's model | S084, S087, S088 | `S9_run1_sorted/`, `S9/run.json`, `S9_run3/run.json` |
+| 4 | Instruct vs Base ablation on identical item sets: readout health 18/19 vs 11/19 D12 gates (tier-1 0.6505 vs 0.5782; fresh 0.8227 vs 0.7577) | S082, S075, S096 | `S9_run3/model_*__test.json`, `S10/model_*__test.json` |
+| 5 | The macro-first selection rule behaved differently by model (run 3: rule better, 18/19 vs converged 12/19; S10: converged better, 11/19 vs 16/19) and the dev sample inverted the model ranking (dev macro 0.7180 vs 0.6653, tier-1 0.5782 vs 0.6505) | S082, S076, S079, S096 | the four `model_*__{test,converged}.json`, `dev_final.json` |
+| 6 | The trained head's logits depend on batch composition in fp32 (2.51e-2, 17.9× the no-padding control) and the spiking gradient tail is length-driven; both are unfixed recipe defects | S090, S091 | `S9_diag/diag.json`, `S9_diag/padding_check_*.json` |
+| 7 | `score` is not a working qtype: 0 training items, temperature `NOT FITTED` (33 dev items < 50), tier-1 cell `READOUT_FAIL — constant_answer` | S053, S046, S085, S092 | `data/train/student_v0/manifest.json`, `S9_run3/temperature.json`, `g1.md` |
+| 8 | S12: with its adapter disabled each shipped checkpoint reproduces an untouched base byte-for-byte on the fixed 20-prompt set (20/20 tokens and decoded text), with both controls positive; the audit read-back is `NOT MEASURED — audit pending` | S098, S099 | `outputs/student_v0/S12/byte_identity_*_best.json` |
+| 9 | `NOT MEASURED` items carried forward: JEV-9B on v0.2, PubMed pre-window training data, the operator's human audit, which diag change made run 3 stable | S095, S058, S099, S089 | `g1.md`, `data/train/student_v0/manifest.json`, `S9_diag/diag.json` |
+| 10 | The next loop's priority follows §2's third branch: diagnose the recipe at 0.8B (readout, capacity, loss, data) before scaling — proposals in `NEXT.md` | — | `loops/student_v0/NEXT.md` |
 
 ### S7 — DONE — 2026-10-07T00:58:42Z
 - What ran: the implementation agent's code + a 200-step smoke; I ran the test suite myself (`17 passed`) and read the two decisive tests
@@ -459,3 +502,17 @@ deviation — that is a `BLOCKED`.
 - Surprises: (a) the agent's interim report **corrected my smoke numbers** — my 48.4 min/pass came from the short end of the length-sorted plan; the real figure is **2.7 h/pass**; (b) the raw per-step loss is non-monotone by construction, so the fixed-64-item reference set is the series to read; (c) the head **cannot learn with the brief's literal key-token state** (19/64) and ships `key_end` (64/64) — a recorded departure, flagged for the operator; (d) two latent bugs fixed that would have hit S9 (temperature fitting crashed on mixed option counts; the marker locator matched "C. " inside "C. difficile colitis" and scored the wrong token); (e) the `noul` temperature hit its search bound (0.039) and `score` has no training items at all.
 - Next: S8 (evaluation path for the trained model) is unblocked.
 
+
+### S12 — DONE — 2026-10-08T03:24:08Z
+- What ran: `scripts/student/s12_byte_identity.py` twice (CPU-only, one checkpoint at a time, ~10 min each), launched by `outputs/student_v0/S12/logs/run_byte_identity.sh`; audit read-back via `test -f outputs/bench_v0_fix0/F10/audit_v0.jsonl` and a search of every `*audit*` path under `outputs/bench_v0_fix0/`.
+- Output: `outputs/student_v0/S12/{byte_identity_S9_run3_best.json,byte_identity_S10_best.json,prompts.json,audit_recheck_S9_run3.txt,audit_recheck_S10.txt,SELF_AUDIT.md,logs/}`; `scripts/student/s12_byte_identity.py`, `scripts/student/s12_probe_prompts.py`.
+- Headline: **byte-identity holds on both shipped checkpoints** — `S9_run3/best` and `S10/best`, adapter disabled, reproduce a separately loaded untouched base **20/20 token-identical and 20/20 decoded-identical** on S7's fixed prompt set, and **18/18** on an added one-short-item-per-template set (18 templates); both controls are positive on every prompt (trained adapter on differs 20/20 + 18/18; perturbed `lora_B` differs 20/20 + 18/18). **Audit read-back: `NOT MEASURED — audit pending`** — `audit_v0.jsonl` does not exist (only the staged 150-row `audit_sample.jsonl`) (S098, S099).
+- Surprises: the shipped fused kernels are CUDA-only, so the CPU run had to shadow `causal_conv1d`/`fla` to reach transformers' reference PyTorch path (recorded in the artifact and as deviation 7 — this is *not* the kernel path the model ships with); every greedy continuation ends at EOS after 4 tokens, so the identity is exact but narrow, and the S7 prompt set is single-template (the spread set mitigates).
+- Next: nothing — S14 closes the loop.
+
+### S14 — DONE (HARD STOP) — 2026-10-08T03:26:11Z
+- What ran: `loops/student_v0/FINDINGS.md` + `NEXT.md` written; `scripts/student/s14_claims_check.py` (one recompute command per new CLAIMS row, `--all` → `outputs/student_v0/S14/claims_values.json`); five-claim spot-check including a **full re-run of `scripts/bench/g1.py` to scratch** (`outputs/student_v0/S14/spotcheck/05_g1_diff.txt`: 4/4 verdicts identical, **466/466** comparison fields identical, headline differences to 6 dp); `self_audit_recheck.txt` (**51 arithmetic checks, 0 failures**); `uv run ruff check .` clean; `uv run pytest -q -m "not gpu"` **exit 0, 279 passed / 0 failed / 0 skipped** (165.2 s; `S14/pytest.xml`).
+- Output: `loops/student_v0/{FINDINGS.md,NEXT.md,STATE.md,CLAIMS.md}`; `outputs/student_v0/S14/{SELF_AUDIT.md,claims_values.json,self_audit_recheck.txt,spotcheck/,pytest.xml,pytest_notgpu.log,run_pytest_notgpu.sh}`; CLAIMS rows **S084–S104** appended.
+- Headline: **G1 = FAIL on all four rules, stated plainly** (S092/S093) with all four failure strings quoted verbatim; the loop's §2 branch is the third one — *diagnose the recipe at 0.8B before spending anything larger*; `Loop status: STOPPED`.
+- Surprises found at closure, recorded rather than smoothed: S014's manifest sha256 is **not reproducible** from the current file (S101, question 4); the brief's run-2 gradient prose ("20-95 / ~25,000") does not match the per-step log (p50 to 47.62, p95 to 3,908.7, max 43,186,144 — S088, question 5); the brief's "below zero-shot on all four D14 held-out templates" is true of run 2's checkpoint but **not** of the official run-3 model (2 of 4 above; S094, question 6); the brief's choice temperature 1.2193 is 1.2190 in the artifact (S085).
+- Next: the operator's review. The hard stop is honoured: no loop-2 work was started, no commit/push was made by this session, and the remaining operator decisions are listed in §6 (questions 1–7).

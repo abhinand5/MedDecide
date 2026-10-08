@@ -391,6 +391,7 @@ def diag_arms() -> dict[str, Any]:
             {
                 "arm": a["arm"],
                 "recipe": a["recipe"],
+                "plan": a["plan"],
                 "loss_first_window": _round(a["train_loss"]["first_window_mean"], 4),
                 "loss_last_window": _round(a["train_loss"]["last_window_mean"], 4),
                 "slope_per_1k": _round(a["train_loss"]["slope_per_1k_steps"], 4),
@@ -513,6 +514,17 @@ def g1_paired() -> dict[str, Any]:
                     "unpaired_ci95": [_round(x, 6) for x in (m.get("unpaired_ci95") or [])],
                 }
             out[f"{set_name}|{baseline}"] = {
+                "per_template": {
+                    r["template_id"]: {
+                        "n": r["n"],
+                        "reference_accuracy": _round(r["reference_accuracy"], 4),
+                        "baseline_accuracy": _round(r["baseline_accuracy"], 4),
+                        "difference": _round(r["difference"], 4),
+                        "reference_brier": _round(r["reference_brier"], 4),
+                        "baseline_brier": _round(r["baseline_brier"], 4),
+                    }
+                    for r in (c.get("per_template") or [])
+                },
                 "n_items": c.get("n_items"),
                 "n_reference_scored": c.get("n_reference_scored"),
                 "n_baseline_scored": c.get("n_baseline_scored"),
@@ -633,6 +645,28 @@ def s12_audit_readback() -> dict[str, Any]:
     }
 
 
+def checkpoint_meta() -> dict[str, Any]:
+    """The shipped checkpoints' reconstructing metadata (rank, head, parameter count)."""
+    out: dict[str, Any] = {}
+    for tag, path in (("s9_run3_best", S9_RUN3 / "best"), ("s10_best", S10 / "best")):
+        m = _load(path / "model.json")
+        out[tag] = {
+            "base_model_id": m["base_model_id"],
+            "dtype": m["dtype"],
+            "variant": m["variant"],
+            "max_prompt_tokens": m["max_prompt_tokens"],
+            "lora": {
+                "r": m["lora"]["r"],
+                "alpha": m["lora"]["alpha"],
+                "n_target_modules": len(m["lora"]["target_modules"]),
+            },
+            "head": m["head"],
+            "calibration": m["calibration"],
+            "trainable_parameter_count": m["trainable_parameter_count"],
+        }
+    return out
+
+
 KEYS = {
     "s9_run3_run_facts": s9_run3_run_facts,
     "s9_run3_selection_rows": s9_run3_selection_rows,
@@ -641,6 +675,7 @@ KEYS = {
     "s9_run3_cells": s9_run3_cells,
     "s10_run_facts": s10_run_facts,
     "s10_temperature": s10_temperature,
+    "checkpoint_meta": checkpoint_meta,
     "s10_dev_final": s10_dev_final,
     "s10_cells": s10_cells,
     "readout_health_pair": readout_health_pair,
