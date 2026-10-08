@@ -917,6 +917,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="debug: score at most N items per template (recorded in every cell)")
     parser.add_argument("--write-predictions", action="store_true", default=True)
     parser.add_argument("--no-write-predictions", dest="write_predictions", action="store_false")
+    parser.add_argument("--no-chunk-rounding", action="store_true",
+                        help="V2 canonical path: no chunk rounding of the batch length (use with "
+                             "--batch-size 1, where every item is scored with no padding)")
     return parser.parse_args(argv)
 
 
@@ -972,6 +975,7 @@ def run(args: argparse.Namespace) -> int:
         "max_batch_tokens": args.max_batch_tokens,
         "max_prompt_tokens": args.max_prompt_tokens,
         "allow_marker_mismatch": args.allow_marker_mismatch,
+        "round_to_chunk": not args.no_chunk_rounding,
     }
     report: dict[str, Any] = {
         "task": "S8",
@@ -994,6 +998,7 @@ def run(args: argparse.Namespace) -> int:
             else model.max_prompt_tokens
         ),
         "allow_marker_mismatch": args.allow_marker_mismatch,
+        "round_to_chunk": not args.no_chunk_rounding,
         "shuffle_items": args.shuffle_items,
         "limit_per_template": args.limit_per_template,
         "temperature": temperature_provenance,

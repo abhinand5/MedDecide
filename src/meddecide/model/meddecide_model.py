@@ -87,6 +87,11 @@ class LoraSettings:
 # passed to the constructor means "no adapter at all" (the base-ablation path)
 DEFAULT_LORA = LoraSettings()
 
+# The gated-delta reference kernel chunks each sequence from index 0 in blocks of this size.
+# Left padding shifts where a real token falls in its chunk, so the batch length is rounded to
+# a multiple of it: every row then has the same chunk offset as the item scored alone.
+LINEAR_ATTENTION_CHUNK = 64
+
 
 def reorder_options(item: Item, permutation: Sequence[int]) -> Item:
     """Copy of ``item`` with options permuted; the gold **follows its content**.
@@ -556,12 +561,21 @@ class MedDecideModel:
             marker_notes=notes,
         )
 
-    def collate(self, encoded: Sequence[EncodedItem]) -> ModelBatch:
-        """Left-pad a list of encoded items and build the flat marker index tensors."""
+    def collate(self, encoded: Sequence[EncodedItem], *, round_to_chunk: bool = True) -> ModelBatch:
+        """Left-pad a list of encoded items and build the flat marker index tensors.
+
+        ``round_to_chunk=True`` (the default, used for training and the V2 fixed batched path)
+        rounds the row length up to a multiple of ``LINEAR_ATTENTION_CHUNK``. ``False`` gives a
+        row exactly as long as its longest item: with one item that is the item with no padding
+        at all, the canonical computation that V2 found the rounding to perturb.
+        """
         if not encoded:
             raise ValueError("cannot collate an empty batch")
         pad_id = int(self.tokenizer.pad_token_id)
-        max_len = max(e.n_tokens for e in encoded)
+        longest = max(e.n_tokens for e in encoded)
+        if round_to_chunk:
+            longest = -(-longest // LINEAR_ATTENTION_CHUNK) * LINEAR_ATTENTION_CHUNK
+        max_len = longest
         input_ids = torch.full((len(encoded), max_len), pad_id, dtype=torch.long)
         attention_mask = torch.zeros((len(encoded), max_len), dtype=torch.long)
         marker_positions: list[int] = []
@@ -601,9 +615,14 @@ class MedDecideModel:
         The base is *frozen*, not detached: the LoRA adapter still needs gradients, so this
         must be called outside ``inference_mode`` during training.
         """
+        # Without explicit positions the base numbers a left-padded row from the pad, so a real
+        # token's RoPE position depends on how much padding its batch added. Counting only the
+        # real tokens makes every item's positions 0..n-1 whatever its batch layout.
+        position_ids = (batch.attention_mask.long().cumsum(-1) - 1).clamp(min=0)
         kwargs: dict[str, Any] = {
             "input_ids": batch.input_ids,
             "attention_mask": batch.attention_mask,
+            "position_ids": position_ids,
             "use_cache": False,
             "output_hidden_states": True,
         }
@@ -639,8 +658,12 @@ class MedDecideModel:
         max_batch_tokens: int = 8192,
         max_prompt_tokens: int | None = None,
         allow_marker_mismatch: bool = False,
+        round_to_chunk: bool = True,
     ) -> ScoredItems:
         """Score items in batches; returns raw logits and probabilities per item.
+
+        ``round_to_chunk`` is passed to :meth:`collate`; ``batch_size=1, round_to_chunk=False``
+        scores every item with no padding (the V2 evaluation path).
 
         ``latency_s`` is measured wall-clock per item (batch time / batch size), the same
         convention the zero-shot harness uses, so the two paths' latencies are comparable.
@@ -666,7 +689,7 @@ class MedDecideModel:
         started = time.perf_counter()
         for indices in batches:
             group = [encoded[i] for i in indices]
-            batch = self.collate(group)
+            batch = self.collate(group, round_to_chunk=round_to_chunk)
             t0 = time.perf_counter()
             flat_logits, flat_probs = self.batch_logits(batch)
             elapsed = time.perf_counter() - t0
