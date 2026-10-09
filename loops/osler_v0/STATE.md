@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T08:13:20Z`
+Last updated (UTC): `2026-10-09T18:11:56Z`
 Iterations so far: `3`
 
 ---
@@ -98,7 +98,9 @@ O2 checklist:
 - [x] zero-shot Qwen3.5-9B (panel + robustness): DONE rc=0 at 10:21:35Z; 24,462 rows, all scored; variant bare; label mass median 0.998; full-vocabulary argmax is an offered letter in 100% of rows
 - [x] JEV-9B (card head protocol, panel + robustness): DONE rc=0 at 10:45:42Z; 23,602 scored, 860 skipped (symptom-derived items with 22 or 23 options exceed the head's 16 choice slots); logits_to_keep check max |diff| 4.4e-8; probability sums 1.000; noul accuracy 0.652 (question pairs 0.797), so the yes/no mapping holds
 - [x] MedDecider-9B (authors' code, both orders): DONE rc=0 at 12:19:02Z; 59,538 rows, 57,968 scored, 1,570 skipped (the same over-10-option items as the 4B run); probability sums 1.000; decide() check max |diff| 4.9e-5 on 50 items; accuracy v0.2 0.829 (n 35,076), panel 0.560 (n 4,141), robustness 0.645 (n 18,751)
-- [ ] O2 chain (PID 266074): Clef-Flash (RUNNING from 12:19:02Z) → pplx27b → jev27b → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log
+- [x] Clef-Flash (authors' systemone, envs/clef): DONE rc=0 at 14:09:02Z; 59,538 rows, 59,538 scored, 0 skipped; probability sums 0.9994 to 1.0005 (the endpoint rounds to 4 dp); accuracy v0.2 0.829 (n 35,076), panel 0.571 (n 4,353), robustness 0.578 (n 20,109)
+- [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
+- [ ] O2 chain (PID 266074): JEV-27B (RUNNING from 16:41:14Z; 27,728 rows at 18:11) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [ ] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
 - [ ] zero-shot Qwen3.5-9B (panel + robustness)
 - [ ] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
