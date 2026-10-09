@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
-| O2 | Competitor scoreboard | yes | O0, O1 | PENDING | | |
+| O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | PENDING | | |
 | O4 | Training mix v2 | no | O1, O3 | PENDING | | |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | PENDING | | |
@@ -84,8 +84,29 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (O1 DONE at 2026-10-09T08:13:20Z; next eligible: O2 — the first GPU job, scoreboard)
-Running job:    none
+Task in flight: O2 (started 2026-10-09T08:25:05Z) — competitor scoreboard (GPU)
+Running job:    `scripts/osler/o2_chain.sh` (sequential, one GPU job), PID 266074, started 2026-10-09T08:47:43Z;
+                chain log `outputs/osler_v0/O2/logs/chain.log` (START/END rc per step; ends with "O2 CHAIN DONE");
+                per-step logs `outputs/osler_v0/O2/logs/<step>.log`; the chain is resumable (predictions appended)
+Working dir:    outputs/osler_v0/O2/ (predictions, gitignored); data/bench/v0.3_ext/o2_items.jsonl (items, gitignored)
+
+O2 checklist:
+- [x] common item set: data/bench/v0.3_ext/o2_items.jsonl — 59,538 in-set items (v0.2 35,076; panel 4,353; robustness 20,109); 3,002 over the 8,192-token common cap excluded for every model (manifest section o2_items)
+- [x] zero-shot Qwen3.5-4B on panel + robustness: 24,462 rows (letter variant detected = bare; mean label mass healthy; the first run used the space variant and was discarded: see Deviations)
+- [x] smoke tests passed for every runner family before the chain: MedDecider-4B (decide vector form vs authors' decide(), max |diff| 4.9e-5 on 50 items; noul 29-30 of 30 correct on the smoke slice), JEV-9B (logits_to_keep=1 vs full: max |diff| 4.4e-8 on 20 items), pplx-decider (noul 29 of 30), Clef (noul 30 of 30)
+- [ ] O2 chain: md4b → qwen9b → jev9b → md9b → clef_flash → pplx27b → jev27b → clef → md27b → md31b → metrics — RUNNING (chain started 08:47:43Z)
+- [ ] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
+- [ ] zero-shot Qwen3.5-9B (panel + robustness)
+- [ ] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
+- [ ] MedDecider-9B (both orders)
+- [ ] Clef-Flash (authors' systemone; envs/clef; choice keys sorted by the authors' code)
+- [ ] pplx-decider-v1.1-27b (authors' DecisionModel; envs/pplx27b; single order as the authors run it)
+- [ ] JEV-27B (F7 protocol; single order)
+- [ ] Clef (authors' systemone)
+- [ ] MedDecider-27B (both orders)
+- [ ] MedDecider-31B (both orders)
+- [ ] o2_metrics.py: per model × set n, accuracy, macro (mean over templates, as G1), Brier, ECE, coverage with reasons, wall-clock per 1k items, D12/D21 cell gate, robustness flip rates → outputs/osler_v0/O2/scoreboard.json; loops/osler_v0/scoreboard.md (aggregates only)
+- [ ] self-audit, CLAIMS O046+, STATE, commit, push
 
 O1 checklist (completed):
 - [x] schemas, sizes, pinned revisions and licences of the usable sets (CLAIMS O032–O039)
@@ -241,6 +262,29 @@ deviation — that is a `BLOCKED`.
    scanned; no panel set is PubMed-derived. Recorded in overlap.json (`not_scanned`).
 10. **Tier.** Panel items carry no benchmark tier (external sets have no record dates to place them in the fresh
     window). The `EvalItem` schema records `benchmark = ext_panel` instead.
+11. **O2 protocol: one common item set for every model.** 59,538 items whose prompt is at most 8,192 tokens under
+    the Qwen tokenizer (`o2_items.jsonl`). The 3,002 items over the cap (2,213 v0.2, 789 robustness openFDA) are
+    excluded for every model, so the denominators are identical. Deviation: MedDecider's code has no cap and
+    Clef's endpoint allows 16,384; both are held to the common 8,192 so the rows are comparable (manifest section
+    `o2_items`).
+12. **O2 scope.** Competitors on all three sets. Zero-shot Qwen3.5-4B and -9B, and JEV-9B, on panel and robustness
+    only, as ADVISORY O2 says.
+13. **O2 option order.** MedDecider averages both orders (its own `decide(orders=2)`). pplx, JEV and Clef are single
+    order, as their code runs (Clef's encoder sorts choice keys, so order cannot change its output). The zero-shot
+    harness is single order, in file order.
+14. **MedDecider letter limit.** The authors' letter set is A to J, so items with more than 10 options are skipped
+    with that reason (the 22-class symptom-to-diagnosis set). Its probabilities come from the vector form of
+    `decide()`, checked against `decide()` on 50 items (max abs diff 4.9e-5, the 4-dp rounding in their dict).
+15. **JEV slot limits.** The card's head has 16 choice, 2 noul and 6 score slots; items beyond them are skipped with
+    the reason. The `logits_to_keep=1` shortcut matches full-sequence logits (max abs diff 4.4e-8 on 20 items).
+16. **Zero-shot readout.** The letter variant is detected per model by the bench's greedy probe (`detect_variant`),
+    not guessed. The first zero-shot run used the "space" variant without detection: its label mass was 0.019 and the
+    variant was wrong for Qwen3.5 (the bare letter is the emitted one). Those 40 rows were deleted before the valid
+    run, whose variant is recorded in `outputs/osler_v0/O2/qwen35-4b/variant.json`.
+17. **O2 metrics.** Macro = mean over templates of the per-template value (G1's definition). Brier is multi-class,
+    per item. ECE uses 15 equal bins on the top probability. Bootstrap CIs over items, 1,000 resamples, seed 0. The
+    D12 cell gate applies to zero-shot cells; D21 checks (constant answer, accuracy CI not below chance) to the rest.
+    Greedy agreement and label mass are diagnostics for those readouts, not gates.
 
 ---
 
