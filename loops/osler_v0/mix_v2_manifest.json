@@ -1,0 +1,464 @@
+{
+  "built_at_utc": "2026-10-09T18:58:38Z",
+  "git_commit": "b4bec88fff7032ca1b39326d7365305ad880a5fa",
+  "elapsed_s": 151.5,
+  "pool": {
+    "lines_scanned": 4903915,
+    "max_record_date": "2026-02-28",
+    "pmid_min": 35997240,
+    "pmid_max": 41610285,
+    "pmids_needed": 5800,
+    "pmids_found": 0
+  },
+  "drops_by_source_split": {
+    "chemprot/dev": {
+      "document_not_in_prewindow_pool": 612
+    },
+    "chemprot/train": {
+      "document_not_in_prewindow_pool": 1020
+    },
+    "commonsenseqa/dev": {
+      "kept": 1221
+    },
+    "commonsenseqa/train": {
+      "kept": 9741
+    },
+    "evidence_inference/dev": {
+      "document_not_in_prewindow_pool": 1233
+    },
+    "evidence_inference/train": {
+      "document_not_in_prewindow_pool": 10056
+    },
+    "pubhealth/dev": {
+      "kept": 977,
+      "missing_date": 245,
+      "unparseable_date": 1
+    },
+    "pubhealth/train": {
+      "kept": 7869,
+      "missing_date": 1934,
+      "over_length_cap": 1
+    },
+    "qasc/dev": {
+      "kept": 926
+    },
+    "qasc/train": {
+      "kept": 8134
+    }
+  },
+  "generator_counts": {
+    "held_out_excluded/dev": 600
+  },
+  "screens": {
+    "csqa_choice_v1": {
+      "generator": "csqa_choice_v1",
+      "held_out": false,
+      "n_dev": 1221,
+      "gold_in_state_hits": 0,
+      "string_presence_macro": 0.199,
+      "naive_bayes_macro": 0.1123,
+      "naive_bayes_source": "own train split",
+      "twin_pairs": 0,
+      "twin_both_correct_share": null,
+      "passes": true,
+      "failures": [],
+      "status": "PASS",
+      "n_train": 9741
+    },
+    "qasc_science_choice_v1": {
+      "generator": "qasc_science_choice_v1",
+      "held_out": false,
+      "n_dev": 926,
+      "gold_in_state_hits": 0,
+      "string_presence_macro": 0.1233,
+      "naive_bayes_macro": 0.0681,
+      "naive_bayes_source": "own train split",
+      "twin_pairs": 0,
+      "twin_both_correct_share": null,
+      "passes": true,
+      "failures": [],
+      "status": "PASS",
+      "n_train": 8134
+    },
+    "pubhealth_claim_true_noul_v1": {
+      "generator": "pubhealth_claim_true_noul_v1",
+      "held_out": false,
+      "n_dev": 977,
+      "gold_in_state_hits": 0,
+      "string_presence_macro": null,
+      "naive_bayes_macro": 0.7482,
+      "naive_bayes_source": "own train split",
+      "twin_pairs": 0,
+      "twin_both_correct_share": null,
+      "passes": true,
+      "failures": [],
+      "status": "PASS",
+      "n_train": 7869
+    },
+    "chemprot_relation_choice_v1": {
+      "status": "NOT MEASURED — no rows after the source filters",
+      "passes": null,
+      "n_train": 0,
+      "n_dev": 0
+    },
+    "evidence_direction_choice_v1": {
+      "status": "NOT MEASURED — no rows after the source filters",
+      "passes": null,
+      "n_train": 0,
+      "n_dev": 0
+    }
+  },
+  "templates_kept_after_screen": [
+    "csqa_choice_v1",
+    "pubhealth_claim_true_noul_v1",
+    "qasc_science_choice_v1"
+  ],
+  "student_v1": {
+    "train_rows": 482889,
+    "dev_rows": 5619,
+    "date_status": {
+      "pre_window": 482889
+    },
+    "template_counts": {
+      "ct_randomised_noul_v1": 19997,
+      "pubmed_pubtype_choice_v1": 38631,
+      "ct_eligibility_sex_choice_v1": 38631,
+      "fda_class_choice_v1": 12133,
+      "ct_healthy_volunteers_noul_v1": 20000,
+      "ct_masking_choice_v1": 38631,
+      "pubmed_check_female_noul_v1": 30664,
+      "ct_intervention_type_choice_v1": 5687,
+      "pubmed_check_adult_noul_v1": 17220,
+      "medmcqa_4opt_v1": 38631,
+      "ct_interventional_noul_v1": 38631,
+      "ct_enrollment_band_score_v1": 38631,
+      "pubmed_check_male_noul_v1": 28246,
+      "pubmed_check_child_noul_v1": 5690,
+      "medquad_routing_v1": 31400,
+      "medqa_usmle4_v1": 8174,
+      "fda_application_family_choice_v1": 16801,
+      "ct_claim_set_choice_v1": 19997,
+      "fda_route_claim_noul_v1": 15658,
+      "fda_class_choice_v2": 8822,
+      "ct_primary_purpose_choice_v1": 3860,
+      "nfcorpus_relevant_noul_v1": 4995,
+      "scifact_relevant_noul_train_v1": 1616,
+      "fda_route_choice_v1": 143
+    },
+    "source_counts": {
+      "clinicaltrials": 224065,
+      "pubmed": 120451,
+      "openfda": 53557,
+      "medmcqa": 38631,
+      "medquad": 31400,
+      "medqa": 8174,
+      "nfcorpus": 4995,
+      "scifact": 1616
+    }
+  },
+  "visibility_gold_in_state": {
+    "ct_claim_set_choice_v1": {
+      "n": 19997,
+      "hits": 0,
+      "share": 0.0
+    },
+    "ct_eligibility_sex_choice_v1": {
+      "n": 38631,
+      "hits": 3,
+      "share": 0.0001
+    },
+    "ct_enrollment_band_score_v1": {
+      "n": 38631,
+      "hits": 2,
+      "share": 0.0001
+    },
+    "ct_intervention_type_choice_v1": {
+      "n": 5687,
+      "hits": 1072,
+      "share": 0.1885
+    },
+    "ct_masking_choice_v1": {
+      "n": 38631,
+      "hits": 2326,
+      "share": 0.0602
+    },
+    "ct_primary_purpose_choice_v1": {
+      "n": 3860,
+      "hits": 753,
+      "share": 0.1951
+    },
+    "fda_application_family_choice_v1": {
+      "n": 16801,
+      "hits": 0,
+      "share": 0.0
+    },
+    "fda_class_choice_v1": {
+      "n": 12133,
+      "hits": 0,
+      "share": 0.0
+    },
+    "fda_class_choice_v2": {
+      "n": 8822,
+      "hits": 0,
+      "share": 0.0
+    },
+    "fda_route_choice_v1": {
+      "n": 143,
+      "hits": 101,
+      "share": 0.7063
+    },
+    "medmcqa_4opt_v1": {
+      "n": 38631,
+      "hits": 37,
+      "share": 0.001
+    },
+    "medqa_usmle4_v1": {
+      "n": 8174,
+      "hits": 54,
+      "share": 0.0066
+    },
+    "medquad_routing_v1": {
+      "n": 31400,
+      "hits": 17263,
+      "share": 0.5498
+    },
+    "pubmed_pubtype_choice_v1": {
+      "n": 38631,
+      "hits": 6849,
+      "share": 0.1773
+    }
+  },
+  "ct_eligibility_sex": {
+    "n": 38631,
+    "sex_word_in_state": 6163,
+    "share": 0.1595
+  },
+  "augmentation": {
+    "requested": {
+      "plant_instruction": 15865,
+      "reverse_options": 15674,
+      "pad_state": 15756,
+      "replace_gold_with_none": 10670
+    },
+    "applied": {
+      "plant_instruction": 15318,
+      "pad_state": 15226,
+      "reverse_options": 7907,
+      "replace_gold_with_none": 5527
+    },
+    "not_applicable": {
+      "reverse_options": 7269,
+      "replace_gold_with_none": 4784
+    },
+    "cap_skipped": {
+      "replace_gold_with_none": 359,
+      "pad_state": 530,
+      "reverse_options": 498,
+      "plant_instruction": 547
+    },
+    "rows_written": 43978,
+    "share_of_train": 0.0767,
+    "max_share_allowed": 0.15,
+    "ok": true
+  },
+  "cap": {
+    "max_template_share": 0.0739,
+    "max_template": "pubmed_pubtype_choice_v1",
+    "limit": 0.08,
+    "ok": true
+  },
+  "leakage_train": {
+    "record_bare:panel": 40,
+    "record_bare:robustness": 15
+  },
+  "leakage_dev": {
+    "record_bare:panel": 1,
+    "record_bare:robustness": 1
+  },
+  "protected_set_sizes": {
+    "text:v02_dev": 18985,
+    "text:v02_test": 37418,
+    "text:v02_heldout_templates": 8673,
+    "text:panel": 4353,
+    "text:robustness": 20888,
+    "text:heldout_generators": 908,
+    "record_bare:v02_dev": 16567,
+    "record_bare:v02_test": 34749,
+    "record_bare:panel": 4351,
+    "record_bare:robustness": 3971,
+    "record_qualified:v02_dev": 16567,
+    "record_qualified:v02_test": 34749,
+    "record_qualified:panel": 4353,
+    "record_qualified:robustness": 3972
+  },
+  "date_status_train": {
+    "pre_window": 531123,
+    "undated": 42488
+  },
+  "train_rows": 573611,
+  "dev_rows": 10843,
+  "budget_examples": 200000,
+  "replay_rows": 19829,
+  "replay_share": 0.0346,
+  "final_template_counts": {
+    "ct_randomised_noul_v1": 21215,
+    "pubmed_pubtype_choice_v1": 42370,
+    "ct_eligibility_sex_choice_v1": 42370,
+    "fda_class_choice_v1": 13452,
+    "ct_healthy_volunteers_noul_v1": 21201,
+    "ct_masking_choice_v1": 42370,
+    "pubmed_check_female_noul_v1": 32539,
+    "ct_intervention_type_choice_v1": 6318,
+    "pubmed_check_adult_noul_v1": 18270,
+    "medmcqa_4opt_v1": 42370,
+    "ct_interventional_noul_v1": 40917,
+    "ct_enrollment_band_score_v1": 40905,
+    "pubmed_check_male_noul_v1": 29967,
+    "pubmed_check_child_noul_v1": 5986,
+    "medquad_routing_v1": 34876,
+    "medqa_usmle4_v1": 9084,
+    "fda_application_family_choice_v1": 18628,
+    "ct_claim_set_choice_v1": 22162,
+    "fda_route_claim_noul_v1": 16612,
+    "fda_class_choice_v2": 9799,
+    "ct_primary_purpose_choice_v1": 4237,
+    "nfcorpus_relevant_noul_v1": 5287,
+    "scifact_relevant_noul_train_v1": 1693,
+    "fda_route_choice_v1": 155,
+    "note_negation_v1": 3192,
+    "note_subject_v1": 3184,
+    "note_timing_v2": 3162,
+    "note_allergy_med_v1": 3186,
+    "criterion_eligibility_v1": 3305,
+    "code_assignment_v1": 3316,
+    "code_family_v1": 3314,
+    "csqa_choice_v1": 10765,
+    "qasc_science_choice_v1": 9064,
+    "pubhealth_claim_true_noul_v1": 8340
+  },
+  "final_source_counts": {
+    "clinicaltrials": 241695,
+    "pubmed": 129132,
+    "openfda": 58646,
+    "medmcqa": 42370,
+    "medquad": 34876,
+    "medqa": 9084,
+    "nfcorpus": 5287,
+    "scifact": 1693,
+    "generated": 22659,
+    "commonsenseqa": 10765,
+    "qasc": 9064,
+    "pubhealth": 8340
+  },
+  "final_qtype_counts": {
+    "noul": 214751,
+    "choice": 317955,
+    "score": 40905
+  },
+  "dev_template_counts": {
+    "pubmed_check_male_noul_v1": 250,
+    "pubmed_check_adult_noul_v1": 250,
+    "ct_masking_choice_v1": 250,
+    "ct_enrollment_band_score_v1": 250,
+    "fda_application_family_choice_v1": 250,
+    "ct_eligibility_sex_choice_v1": 250,
+    "pubmed_check_child_noul_v1": 250,
+    "ct_claim_set_choice_v1": 250,
+    "pubmed_check_female_noul_v1": 250,
+    "ct_interventional_noul_v1": 250,
+    "pubmed_mesh_major_choice_v2": 250,
+    "ct_randomised_noul_v1": 250,
+    "pubmed_pubtype_choice_v1": 286,
+    "fda_route_claim_noul_v1": 250,
+    "nfcorpus_relevant_noul_v1": 250,
+    "ct_healthy_volunteers_noul_v1": 250,
+    "medquad_routing_v1": 250,
+    "medmcqa_4opt_v1": 250,
+    "medqa_usmle4_v1": 250,
+    "pubmed_observational_noul_v1": 78,
+    "trec_covid_graded_score_v1": 33,
+    "fda_class_choice_v2": 250,
+    "pubmedqa_ynm_v1": 250,
+    "trec_covid_relevant_noul_v1": 22,
+    "mmlu_mc_v1": 109,
+    "ct_primary_purpose_choice_v1": 45,
+    "ct_intervention_type_choice_v1": 33,
+    "fda_route_choice_v1": 13,
+    "note_negation_v1": 300,
+    "note_subject_v1": 300,
+    "note_timing_v2": 300,
+    "note_allergy_med_v1": 300,
+    "criterion_eligibility_v1": 300,
+    "code_assignment_v1": 300,
+    "code_family_v1": 300,
+    "csqa_choice_v1": 1221,
+    "qasc_science_choice_v1": 926,
+    "pubhealth_claim_true_noul_v1": 977
+  },
+  "dev_source_counts": {
+    "pubmed": 1614,
+    "clinicaltrials": 1828,
+    "openfda": 763,
+    "nfcorpus": 250,
+    "medquad": 250,
+    "medmcqa": 250,
+    "medqa": 250,
+    "trec_covid": 55,
+    "pubmedqa": 250,
+    "mmlu_medical": 109,
+    "generated": 2100,
+    "commonsenseqa": 1221,
+    "qasc": 926,
+    "pubhealth": 977
+  },
+  "inputs": {
+    "student_train_sha256": "a36c7b6ea898a630ba424425e345d5bbe339902a4e68dd4673af8beac0b9cfa5",
+    "student_dev_sha256": "fee4c8a4f1310979dc347c871e22c76edfa6fa9862ae416d796b9bb9ad08cdfd"
+  },
+  "outputs": {
+    "train": {
+      "rows": 573611,
+      "sha256": "31920b9e7699db6510c3bc4a41bdf1d27aeef1b688ed3bfff3970d9fec18e3ab"
+    },
+    "dev": {
+      "rows": 10843,
+      "sha256": "6885a680238ac9c8b8b1eda900a2955b51a7adc16d6a282aff74c445f18a595b"
+    }
+  },
+  "kind": "osler_v0_training_mix_v2",
+  "budget_rule": "example budget = min(one pass over this mix, 200,000) (ADVISORY O6-O8)",
+  "licences": {
+    "student_v1 (inherited, read-only)": {
+      "clinicaltrials|public-domain": 225893,
+      "medmcqa|UNKNOWN": 38881,
+      "medqa|UNKNOWN": 8424,
+      "medquad|UNKNOWN": 31650,
+      "mmlu_medical|UNKNOWN": 109,
+      "nfcorpus|UNKNOWN": 5245,
+      "openfda|public-domain": 37269,
+      "openfda|public-domain (openFDA label data)": 17051,
+      "pubmedqa|UNKNOWN": 250,
+      "pubmed|NLM-public-domain": 122065,
+      "scifact|UNKNOWN": 1616,
+      "trec_covid|UNKNOWN": 55
+    },
+    "new sources": {
+      "commonsenseqa": "mit (Hub card, tau/commonsense_qa)",
+      "qasc": "cc-by-4.0 (Hub card, allenai/qasc)",
+      "pubhealth": "mit (Hub card, bigbio/pubhealth)",
+      "chemprot": "other (Hub card, bigbio/chemprot; catalog verdict public-domain mark; not used in this build)",
+      "evidence_inference": "mit (Hub card, bigbio/evidence_inference; not used in this build)",
+      "generated": "generated by code in this repository (no external source)"
+    }
+  },
+  "not_measured": {
+    "replay: natural language inference": "no permissive source with a verified licence: nyu-mll/glue is 'other', stanfordnlp/snli cc-by-sa-4.0, facebook/anli cc-by-nc-4.0",
+    "replay: boolean QA": "google/boolq is cc-by-sa-3.0 (share-alike, not permissive); no other verified source",
+    "replay: allenai/cosmos_qa": "the Hub repository has a loading script only; the data are fetched outside the Hub",
+    "catalog: bigbio/bc5cdr": "the Hub repository has a loading script only; the data are fetched outside the Hub",
+    "catalog: bigbio/mednli": "MIMIC-derived; excluded by the data rules",
+    "catalog: ChemProt and Evidence Inference rows": "the PubMed identifiers of these abstracts are not in the pre-window pool (0 of 5,800 found), so their record dates were not verified and every row was dropped (drops_by_source_split)",
+    "catalog: MedCalc-Bench, VAERS, FAERS, ClinPGx, EBM-NLP": "not built in this loop (scope and time)",
+    "record-claim consistency designs (V4 asks for at least two)": "not built: the candidate designs examined need a claim value that the state text carries; the journal name was absent from the PubMed states inspected, and eligibility sex appears in about 16 % of clinicaltrials states; the ChemProt and Evidence claims cannot be dated (see above)"
+  }
+}

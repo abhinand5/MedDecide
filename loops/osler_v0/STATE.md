@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T18:30:07Z`
+Last updated (UTC): `2026-10-09T19:01:39Z`
 Iterations so far: `3`
 
 ---
@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
 | O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
-| O4 | Training mix v2 | no | O1, O3 | IN_PROGRESS | 2026-10-09T18:31:34Z | |
+| O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | PENDING | | |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
@@ -64,7 +64,7 @@ recomputing or guessing.
 | long-record slice (student_v1 fix 3) | 2,213 of 37,289 kept v0.2 test rows over 8,192 prompt tokens, all in fda_route_claim_noul_v1 (944), fda_boxed_warning_noul_v1 (668), fda_class_choice_v2 (601); ids stored (CLAIMS O045) | `data/bench/v0.3_ext/long_record_ids.json` | O1 |
 | scoreboard headline (MedDecider-4B / -9B / pplx v1.1 on v0.2 fresh and external panel) | | `loops/osler_v0/scoreboard.md` | O2 |
 | generators: count, held-out list, train/dev/test items | 9 generators: 7 seen, 2 held out (note_lab_range_v1, policy_triage_v1). Train 21,000 items (0 held out; 1,500 patients per seen generator), dev 2,700 (600 held out), test 2,700 (600 held out). Screen: all nine pass; gold label in the record 0 hits. The held-out baselines are constant predictors, so their pass rests on gold-in-state and the construction checks (CLAIMS O046–O063; STATE §7 item 23) | `loops/osler_v0/heldout.md`; `outputs/osler_v0/O3/recompute.json` | O3 |
-| mix v2: items, sources, replay share, max template share; leakage result | | `data/train/osler_v0/manifest.json` | O4 |
+| mix v2: items, sources, replay share, max template share; leakage result | 573,611 train rows (student_v1 482,889 + 46,744 new + 43,978 augmented) and 10,843 dev rows. Sources: student_v1 components and tier-1 train splits, O3 seen generators (21,000), CommonsenseQA (9,741), QASC (8,134), PubHealth (7,869). Replay 3.46 %; largest template 7.39 % (cap 8 %); budget 200,000 examples. Leakage 0 by text and by dataset-qualified record (CLAIMS O064–O078) | `data/train/osler_v0/manifest.json`; `loops/osler_v0/mix_v2_manifest.json`; `outputs/osler_v0/O4/verify_mix.json` | O4 |
 | readout checks (init equality, export round-trip, padding, byte-identity) | | `outputs/osler_v0/O5/readout_checks.json` | O5 |
 | arms L / P / N: examples seen, selected step, dev macro, tier-1 dev at selection, wall-clock | | | O6–O8 |
 | chosen head and the rule's verdict | | `loops/osler_v0/head_choice.md` | O9 |
@@ -124,19 +124,19 @@ O3 checklist (completed 2026-10-09T18:30:07Z):
 - [x] fresh-process audit scripts/osler/o3_audit.py: 0 mismatches against screen.json; rebuild reproduces the split SHA-256 values (CLAIMS O062–O063)
 - [x] SELF_AUDIT outputs/osler_v0/O3/SELF_AUDIT.md; CLAIMS O046–O063; STATE; commits 8794fc8 (code) and the O3 DONE commit (docs); pushed
 
-O4 checklist (in flight; started 2026-10-09T18:31:34Z):
+O4 checklist (completed 2026-10-09T19:01:39Z; started 2026-10-09T18:31:34Z):
 - [x] inventory: student_v1 mix (482,889 train / 5,619 dev rows; read-only); O3 seen generators (21,000 train; 2,100 seen dev; held-out rows excluded); protected sets: v0.2 test and dev, external panel, robustness pack, held-out generators, held-out templates
 - [x] replay licences checked on the Hub (card licence): tau/commonsense_qa mit (used); allenai/qasc cc-by-4.0 (used); allenai/cosmos_qa cc-by-4.0 but loading script only (NOT MEASURED: data outside the Hub); nyu-mll/glue other, google/boolq cc-by-sa-3.0, allenai/ai2_arc cc-by-sa-4.0, stanfordnlp/snli cc-by-sa-4.0, facebook/anli cc-by-nc-4.0, allenai/sciq cc-by-nc-3.0, allenai/openbookqa unknown: no permissive verified NLI or boolean-QA source, so those two replay kinds are NOT MEASURED
 - [x] catalog train-candidates with cached Parquet: bigbio/pubhealth (mit, human verdicts), bigbio/chemprot (public-domain mark, human relations), bigbio/evidence_inference (mit, human answers); bigbio/bc5cdr and bigbio/mednli are loading scripts only (NOT MEASURED; mednli is MIMIC-derived and excluded by the data rules)
 - [x] library and tests: src/meddecide/mix/{rows,converters,augment,leakage}.py; tests/test_mix_v2.py (14 tests passing)
-- [ ] build: scripts/osler/o4_build_mix.py, detached; log outputs/osler_v0/O4/logs/build.log; started 2026-10-09T18:41:47Z
-- [ ] screen of each new template on its dev split (gold-in-state 0; bag-of-words macro below 0.90); failing templates excluded and counted
-- [ ] student_v1 gold-visibility audit: gold label in state per choice or score template; sex words for ct_eligibility_sex_choice_v1
-- [ ] robustness augmentation: reverse 3 %, pad 3 %, plant 3 %, none-of-these 2 % of base rows; at most 15 % of the mix; per-template 8 % cap
-- [ ] leakage counts (train and dev) against the protected sets: 0 required on every kind
-- [ ] manifest data/train/osler_v0/manifest.json: source × template × qtype counts, licences, provenance, budget rule, replay share, NOT MEASURED list
-- [ ] consistency designs (≥ 2 required by V4): not built yet; see the screen result and the state-visibility finding before deciding
-- [ ] CLAIMS rows, outputs/osler_v0/O4/SELF_AUDIT.md, STATE §7 deviations, commit, push
+- [x] build: scripts/osler/o4_build_mix.py (three runs with identical output hashes; logs build.log, build_run2.log, build_final.log; 151.5 s) (CLAIMS O064–O066, O090)
+- [x] screen of each new template on its dev split: CommonsenseQA, QASC and PubHealth PASS; ChemProt and Evidence Inference NOT MEASURED (no rows) (CLAIMS O071); the macro is not comparable for item-specific labels (deviation 31)
+- [x] student_v1 gold-visibility audit: gold text in state per choice or score template (CLAIMS O083); sex-word proxy for ct_eligibility_sex_choice_v1 (O084); learnability audit (O085–O088); findings in Question 9
+- [x] robustness augmentation: 43,978 rows = 7.67 % of train (CLAIMS O066–O067); per-template 8 % cap respected, largest template 7.39 % (O070)
+- [x] leakage counts: text 0 and dataset-qualified record 0 on train and dev (CLAIMS O075–O077); bare-id collisions 55 and 2 are PubHealth claims matching panel ids, not leaks (O078; deviation 25)
+- [x] manifest data/train/osler_v0/manifest.json (committed copy: loops/osler_v0/mix_v2_manifest.json): counts, licences, provenance, budget rule, replay share, NOT MEASURED list
+- [x] consistency designs (V4 asks for at least two): NOT MEASURED, not built (reasons in the manifest's not_measured; deviation 27; Question 13)
+- [x] CLAIMS O064–O091; outputs/osler_v0/O4/SELF_AUDIT.md; STATE §7 deviations 24–32; commit and push
 - Watchers: O2 chain watch re-armed at 18:41Z (the 18:11 watch expired at 18:41 with no events); O4 build watch armed at 18:41Z
 
 O1 checklist (completed):
@@ -197,6 +197,13 @@ Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks)
 - Headline: nine generators, seven seen and two held out (note_lab_range_v1, policy_triage_v1). Train 21,000 items (none held out), dev 2,700, test 2,700. All nine pass the screen: 0 gold-in-state hits on 1,500 applicable dev items; seen Naive Bayes macro 0.51–0.86 (CLAIMS O046–O055)
 - Surprises: the held-out baselines are constant predictors (macro 0.3333, one distinct prediction), so the held-out pass rests on gold-in-state and the construction checks (CLAIMS O056; Question 8). The triage source label in screen.json is wrong (§7 item 22). A full-suite run started a GPU test while the O2 job ran (§7 item 20); the chain was unaffected
 - Next: O4 (training mix v2, CPU), allowed while O2 uses the GPU. O1 and O3 are DONE
+
+### O4 — DONE — 2026-10-09T19:01:39Z
+- What ran: `scripts/osler/o4_build_mix.py` (three runs with identical output hashes; logs build.log, build_run2.log, build_final.log), `scripts/osler/o4_verify_mix.py` (fresh-process re-derivation), `scripts/osler/o4_audit_mix.py` (learnability audit, additional); tests/test_mix_v2.py (15) and tests/test_mix_audit.py (2). Code commit b4bec88
+- Output: data/train/osler_v0/{train.jsonl (573,611 rows), dev.jsonl (10,843 rows), manifest.json} (gitignored); loops/osler_v0/mix_v2_manifest.json (committed copy); outputs/osler_v0/O4/{build.json, verify_mix.json, audit_mix.json, SELF_AUDIT.md}; CLAIMS O064–O091
+- Headline: mix v2 has 573,611 train rows (student_v1 482,889 + 46,744 new + 43,978 augmented, 7.67 %) and 10,843 dev rows; text and dataset-qualified leakage are 0 on both (CLAIMS O075–O076); budget 200,000 examples (O068); general replay 3.46 % (O069)
+- Surprises: inherited student_v1 shortcuts and visibility gaps (nfcorpus BoW 0.996; medquad 0.984; pubmed_pubtype 0.860; O085–O087); ChemProt and Evidence Inference unusable (PMIDs outside the pool's range); 1,934 PubHealth claims dropped for missing dates; bare-id collision check corrected (deviation 25)
+- Next: O5 (readouts). Its checks need the GPU, so O5 waits for a GPU-free window; its code and CPU unit tests can start now while O2 runs. Operator Questions 9–13 are open
 
 ## 5. Blocked items
 
@@ -264,6 +271,11 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    the construction checks. Options: (a) accept that as the held-out screen (my pick; nothing changes after seeing held-out
    outputs); (b) add a label-agnostic baseline for the held-out generators before O6. That is a new screen run and would
    have to be specified before any model result. Which do you want? I proceed with (a) unless you say otherwise.
+9. **Inherited student_v1 templates with shortcut or visibility findings (O4 audit; no action taken).** The O4 audit (CLAIMS O085–O088) finds: `nfcorpus_relevant_noul_v1`, bag-of-words accuracy 0.996 against 0.50 chance; `medquad_routing_v1`, 0.984 against 0.25, with the gold text in the state for 55 % of items; `pubmed_pubtype_choice_v1`, 0.860 against 0.167, gold text in 18 %; `fda_class_choice_v2`, 0.952 against 0.25, while its macro (0.898) passes the 0.90 line; `ct_claim_set_choice_v1`, 0.924 against 0.25; `pubmed_check_*`, 0.72–0.80 against 0.50; `ct_eligibility_sex_choice_v1`, with sex words in 16 % of states (macro 0.578 against majority 0.333). Options: (a) keep the student_v1 mix for O6–O8 as the ADVISORY specifies, and report these templates in every O11 table (my pick: one shared mix keeps the three arms matched); (b) exclude the flagged templates before O6, which is a new mix version that changes the base for all arms; (c) cap their share. Which do you want before O6? I proceed with (a) unless you say otherwise.
+10. **Licences of inherited tier-1 train sources.** The student_v1 manifest records UNKNOWN licences for medmcqa (42,370 rows in the mix), medqa (9,084), medquad (34,876), mmlu_medical, nfcorpus (5,287), pubmedqa, scifact (1,693) and trec_covid. D17 requires a training-compatible licence for catalog sources. These are official tier-1 train splits approved under student_v1 (S5), but their licence fields are unknown. Options: (a) accept under S5 and record UNKNOWN in the release notes (my pick); (b) verify each licence before release; (c) drop them, which changes the mix. Which do you want?
+11. **Replay share.** The mix has 3.46 % general replay (CommonsenseQA 10,765 and QASC 9,064 rows) against the ADVISORY default of 20 %. Natural-language-inference and boolean-QA replay are NOT MEASURED: no permissive source with a verified licence (nyu-mll/glue is 'other'; stanfordnlp/snli cc-by-sa-4.0; facebook/anli cc-by-nc-4.0; google/boolq cc-by-sa-3.0). Options: (a) accept 3.5 % as a recorded share (my pick; the ADVISORY allows a recorded share); (b) check more general sources (allenai/openbookqa's Hub licence is 'unknown'; HellaSwag, PIQA and WinoGrande have no verified Hub licence) and add any that verify. Which do you want?
+12. **ChemProt and Evidence Inference.** Their PMIDs fall outside the pre-window pool's PMID range (35,997,240 to 41,610,285). Every ChemProt row (1,020 train, 612 dev) and Evidence Inference row (10,056 train, 1,233 dev) was dropped as document_not_in_prewindow_pool (CLAIMS O072–O074). Options: (a) leave them out (my pick; NOT MEASURED); (b) look up PubMed record dates through NCBI E-utilities to establish pre-window status, then add them (about 1 h, needs network). Which do you want?
+13. **Record–claim consistency designs (V4 asks for at least two).** Not built in this loop: NOT MEASURED. The candidate designs examined need a claim value that the state text carries. The journal name was absent from the PubMed states inspected; eligibility sex appears in about 16 % of clinicaltrials states; the ChemProt and Evidence claims cannot be dated. Options: (a) accept NOT MEASURED for this loop (my pick); (b) build designs from state-visible structured fields in the next loop, after re-reading the S2 role-binding rules. Which do you want?
 
 ---
 
@@ -359,6 +371,15 @@ deviation — that is a `BLOCKED`.
 23. **Held-out baselines are constant predictors.** Both held-out generators' string-presence and Naive Bayes baselines predict one
     label for every dev item (CLAIMS O054, O056), so their pass rests on gold-in-state = 0 and the construction checks. Raised as
     Question 8; no change made.
+24. **O4 replay share below the default (measured).** General replay is 3.46 % of the mix (19,829 rows: CommonsenseQA 10,765 and QASC 9,064, including augmented rows) against the ADVISORY default of 20 %. NLI and boolean-QA replay are NOT MEASURED (no permissive source with a verified licence). CosmosQA and BC5CDR are NOT MEASURED (loading scripts only, data outside the Hub). Recorded in the manifest's not_measured (CLAIMS O069). Question 11.
+25. **Leakage record check corrected after the first build (disclosed).** The first O4 build compared record ids as bare strings and reported 40 + 15 train and 1 + 1 dev collisions. All of them are PubHealth claims whose numeric id equals a panel or robustness MedExpQA item id: coincidences across unrelated datasets. The check was corrected to dataset-qualified keys, which give 0 hits (CLAIMS O075–O078). The build now reports both counts (record_bare and record_qualified). No row was removed for a collision, and the text check was not changed.
+26. **ChemProt and Evidence Inference not used.** Their PMIDs fall outside the pre-window pool's PMID range (35,997,240 to 41,610,285; 0 of 5,800 needed PMIDs found). Their record dates were not verified, so every row was dropped with its reason (CLAIMS O072–O074). NOT MEASURED. Question 12.
+27. **Consistency designs (V4 asks for at least two): NOT MEASURED.** The candidate designs examined did not meet the precondition that the claimed value appears in the state text: the journal name was absent from the PubMed states inspected, and eligibility sex appears in about 16 % of clinicaltrials states. Question 13.
+28. **Budget rule corrected (deviation 4 read too strictly).** Deviation 4 said the 200,000 resolution needs a mix at least as large as student_v1's 482,889. The ADVISORY rule is min(one pass, 200,000). One pass over the mix (573,611 rows) exceeds 200,000, so the budget is 200,000 examples (CLAIMS O068). No change to the plan.
+29. **PubHealth claims without a date dropped.** 1,934 of 9,804 train claims (19.7 %) and 245 of 1,223 dev claims had no date and were dropped as missing_date. D13 requires records dated before 2026-03-01, so an undated claim cannot be shown to be pre-window. The drops are counted (CLAIMS O072–O073); the dropped claims are not known to differ in label.
+30. **Augmentation within the limit, training rows only.** 43,978 augmented rows are 7.67 % of train (limit 15 %). Transforms use the O1 wording: reversed options, two sentences from another record of the same source, a planted instruction naming a wrong option, and none-of-these. Applied to training rows only, never to dev or the panel. The per-template 8 % cap is respected (CLAIMS O066–O067, O070).
+31. **Screen statistic for item-specific labels (R4).** For CommonsenseQA and QASC each answer text is its own class, so the O3 macro against the 0.90 line is not comparable, and the majority baseline is undefined. Their supporting numbers are gold-in-state (0) and micro accuracy against chance (CLAIMS O086). Recorded, not changed.
+32. **Inherited student_v1 findings kept in the mix.** The O4 audit finds shortcut and visibility problems in student_v1 templates (Question 9). The mix keeps them, as the ADVISORY specifies; no student template was removed or changed (CLAIMS O083–O088).
 
 ---
 
