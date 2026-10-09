@@ -34,8 +34,11 @@ from meddecide.eval.readout import (
     expected_level,
     render_prompt,
 )
+from meddecide.model.bidirectional import full_attention_bidirectional
 from meddecide.model.head import HeadSettings, PointerHead
 from meddecide.model.markers import locate_option_markers
+from meddecide.model.optcode import K as OPTION_CODES
+from meddecide.model.optcode import OptionCodeHead, code_names, code_token_ids, exported_lm_head
 
 # "attention and MLP projections" for this hybrid stack: Qwen3.5 alternates full-attention
 # and linear-attention layers, so the attention targets include both families (quantities
@@ -397,12 +400,18 @@ class MedDecideModel:
         head: PointerHead | None = None,
         calibration: dict[str, float] | None = None,
         readout: str = "pointer",
+        bidirectional_full_attention: bool = False,
+        code_count: int = OPTION_CODES,
     ) -> None:
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        if readout not in ("pointer", "letter"):
-            raise ValueError(f"readout must be 'pointer' or 'letter', got {readout!r}")
+        if readout not in ("pointer", "letter", "option_code"):
+            raise ValueError(f"readout must be 'pointer', 'letter' or 'option_code', got {readout!r}")
         self.readout = readout
+        self.bidirectional_full_attention = bool(bidirectional_full_attention)
+        self.optcode: OptionCodeHead | None = None
+        self.optcode_names: list[str] = []
+        self.optcode_token_ids: list[int] = []
 
         self.base_model_id = base_model_id
         self.revision = revision
@@ -449,6 +458,12 @@ class MedDecideModel:
             self.head = head if head is not None else PointerHead(d_model, self.head_settings)
             self.head.to(device)
             self.head.eval()
+        elif readout == "option_code":
+            if head is not None:
+                raise ValueError("the option-code readout takes no pointer head")
+            self.head = None
+            self.optcode = OptionCodeHead(d_model, code_count).to(device)
+            self._init_option_code()
         else:
             # the letter readout has no head: the answer's LM-head logits for the option letters are
             # the scores, and the LoRA adapter is the only trainable part (ADVISORY student_v1 V7)
@@ -458,6 +473,22 @@ class MedDecideModel:
         self._key_token_cache: dict[str, int] = {}
 
     # ---- structure ----------------------------------------------------------
+    def _init_option_code(self) -> None:
+        """Copy the LM-head rows of the code tokens into the option-code head (so it equals the letter readout)."""
+        if self.optcode is None:
+            raise RuntimeError("the option-code head is not built")
+
+        def encode(code: str) -> list[int]:
+            text = f" {code}" if self.variant == "space" else code
+            return self.tokenizer.encode(text, add_special_tokens=False)
+
+        names = code_names(self.optcode.k, lambda code: len(encode(code)) == 1)
+        ids = code_token_ids(names, encode)
+        causal = self.peft_model.get_base_model() if self.peft_model is not None else self.base
+        self.optcode.init_from_lm_head(causal.lm_head.weight, ids)
+        self.optcode_names = names
+        self.optcode_token_ids = ids
+
     def get_decoder(self) -> nn.Module:
         """The text model that produces hidden states (inside the PEFT wrapper if any)."""
         causal = self.peft_model.get_base_model() if self.peft_model is not None else self.base
@@ -473,6 +504,8 @@ class MedDecideModel:
     def trainable_parameter_count(self) -> int:
         head_params = 0 if self.head is None else int(
             sum(p.numel() for p in self.head.parameters() if p.requires_grad))
+        if self.optcode is not None:
+            head_params += int(sum(p.numel() for p in self.optcode.parameters() if p.requires_grad))
         return head_params + (
             int(sum(p.numel() for p in self.peft_model.parameters() if p.requires_grad))
             if self.peft_model is not None
@@ -492,6 +525,9 @@ class MedDecideModel:
         if self.head is not None:
             groups.append({"params": [p for p in self.head.parameters() if p.requires_grad], "lr": lr,
                            "weight_decay": weight_decay, "name": "head"})
+        if self.optcode is not None:
+            groups.append({"params": [p for p in self.optcode.parameters() if p.requires_grad], "lr": lr,
+                           "weight_decay": weight_decay, "name": "optcode"})
         if self.peft_model is not None:
             groups.append(
                 {
@@ -684,18 +720,21 @@ class MedDecideModel:
             "output_hidden_states": True,
         }
         model = self.peft_model if self.peft_model is not None else self.base
-        try:
-            output = model(**kwargs, logits_to_keep=1)
-        except TypeError:
-            # older transformers without logits_to_keep: the lm_head then runs over the whole
-            # sequence, which is slower but numerically identical for the head
-            output = model(**kwargs)
+        with full_attention_bidirectional(self.bidirectional_full_attention):
+            try:
+                output = model(**kwargs, logits_to_keep=1)
+            except TypeError:
+                # older transformers without logits_to_keep: the lm_head then runs over the whole
+                # sequence, which is slower but numerically identical for the head
+                output = model(**kwargs)
         return output.hidden_states[-1]
 
     def batch_logits(self, batch: ModelBatch) -> tuple[Tensor, Tensor]:
         """``(flat logits, flat probabilities)`` over exactly the batch's offered options."""
         dev = self.device
         batch = batch.to(dev)
+        if self.readout == "option_code":
+            return self._option_code_logits(batch)
         if self.head is None:
             return self._letter_logits(batch)
         hidden = self.hidden_states(batch)
@@ -727,6 +766,26 @@ class MedDecideModel:
         )
         flat = vocab[batch.marker_item.to(vocab.device), letters]
         return flat, segment_softmax(flat, n_options)
+
+    def _option_code_logits(self, batch: ModelBatch) -> tuple[Tensor, Tensor]:
+        """Option-code readout: the answer state dotted with each offered option's code row (D23)."""
+        if self.optcode is None:
+            raise RuntimeError("the option-code head is not built")
+        hidden = self.hidden_states(batch)
+        rows = torch.arange(batch.batch_size, device=hidden.device)
+        answer = batch.answer_positions.to(hidden.device)
+        h = hidden[rows, answer]
+        n_options = [int(n) for n in batch.n_options.tolist()]
+        code_index = torch.tensor(letter_positions(n_options), device=h.device, dtype=torch.long)
+        return self.optcode(h, batch.marker_item.to(h.device), code_index)
+
+    @torch.no_grad()
+    def exported_option_code_lm_head(self) -> Tensor:
+        """The LM-head matrix with the code-token rows replaced by the trained option-code rows (D23 export)."""
+        if self.optcode is None:
+            raise ValueError("this model has no option-code head")
+        causal = self.peft_model.get_base_model() if self.peft_model is not None else self.base
+        return exported_lm_head(causal.lm_head.weight, self.optcode)
 
     @torch.no_grad()
     def score_items(
@@ -928,8 +987,13 @@ class MedDecideModel:
             self.peft_model.save_pretrained(out / "adapter")
         if self.head is not None:
             torch.save(self.head.state_dict(), out / "head.pt")
+        if self.optcode is not None:
+            torch.save(self.optcode.state_dict(), out / "optcode.pt")
         meta = {
             "readout": self.readout,
+            "bidirectional_full_attention": self.bidirectional_full_attention,
+            "code_count": self.optcode.k if self.optcode is not None else None,
+            "code_names": self.optcode_names,
             "base_model_id": self.base_model_id,
             "revision": self.revision,
             "dtype": self.dtype_name,
@@ -974,6 +1038,8 @@ class MedDecideModel:
             revision=meta.get("revision"),
             max_prompt_tokens=int(meta.get("max_prompt_tokens", 16384)),
             calibration=meta.get("calibration") or {},
+            bidirectional_full_attention=bool(meta.get("bidirectional_full_attention", False)),
+            code_count=int(meta.get("code_count") or OPTION_CODES),
             **overrides,
         )
         model.lora = lora
@@ -982,6 +1048,11 @@ class MedDecideModel:
             state = torch.load(head_path, map_location=device, weights_only=True)
             model.head.load_state_dict(state)
             model.head.to(device)
+        optcode_path = src / "optcode.pt"
+        if optcode_path.exists() and model.optcode is not None:
+            state = torch.load(optcode_path, map_location=device, weights_only=True)
+            model.optcode.load_state_dict(state)
+            model.optcode.to(device)
         if lora is not None and adapter_dir.exists():
             from peft import PeftModel
 
