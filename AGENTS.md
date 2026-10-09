@@ -17,15 +17,15 @@
 
 ## Current loop
 
-- **Loop:** `student_v1` (loop 1b — correct G1, padding fix, data diversity, three decision heads)
-- **Mission:** recompute G1 per D16 (JEV-9B on v0.2); fix and measure the padding bug; measure held-out skill across saved checkpoints; build a more diverse gold training set; train three matched heads (A pointer, B letter-readout LoRA, C Clef-style joint head via Unsloth) and compare them on held-out templates — then hard-stop for review.
-- **Branch:** `loop/student_v1` (never commit to `main` or any other loop branch)
-- **Artifacts:** `loops/student_v1/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/student_v1/STATE.md`
-- **Outputs:** `outputs/student_v1/<task-id>/` (gitignored)
-- **Claims:** `loops/student_v1/CLAIMS.md`
+- **Loop:** `osler_v0` (loop 1c — competitor scoreboard, clinical generators, Osler-4B / -9B)
+- **Mission:** measure every open competitor through its authors' code on v0.2, a new external clinical panel and a robustness pack; build gold-by-construction clinical generators (D20); train four matched Osler-4B arms (option-code head, pointer, non-causal, head-only; D23), choose a head by a pre-registered dev rule, train Osler-9B and an Osler-0.8B reference; apply Gate O1 (D24) — then hard-stop for review.
+- **Branch:** `loop/osler_v0` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/osler_v0/STATE.md`
+- **Outputs:** `outputs/osler_v0/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-08T03:59:12Z`
+- **Started:** `<fill in at O0>`
 
 ---
 
@@ -60,13 +60,14 @@ from it as measured facts.
 These were decided by the operator. If evidence contradicts one, record it in STATE.md
 "Questions for the operator" — do not act on it.
 
-- **Model ladder:** `LiquidAI/LFM2.5-350M`, `Qwen/Qwen3.5-0.8B` (and `-Base`),
-  4B tier = `google/medgemma-1.5-4b-it` vs `Qwen/Qwen3.5-4B` (winner of a later
-  bake-off), `Qwen/Qwen3.5-9B`.
-- **Architecture:** frozen base + decision-path LoRA + a decision head. Loop 1b (D18)
-  compares three heads under matched conditions — pointer head, letter-readout LoRA, and a
-  Clef-style joint head (via Unsloth); the program keeps the one the evidence favours.
-  Adaptive thinking remains a later ablation.
+- **Model ladder (D22):** Osler-4B on `Qwen/Qwen3.5-4B` and Osler-9B on `Qwen/Qwen3.5-9B`
+  are the targets; Osler-0.8B on `Qwen/Qwen3.5-0.8B` is a reference trained with the same
+  recipe. The MedGemma bake-off and LFM2.5-350M are dropped from training.
+- **Architecture (D23):** frozen base + decision-path LoRA + a separate option-code readout
+  (rows initialised from `lm_head`, softmax over the offered codes, exportable to a plain
+  `lm_head`). Pointer head, non-causal full attention and head-only are matched ablations;
+  the head is chosen by the loop's pre-registered dev rule. Adaptive thinking remains a later
+  ablation.
 - **Teacher:** `deepseek-ai/DeepSeek-V4.1-Flash`, self-hosted by the operator on
   4×RTX PRO 6000 when a task needs it.
 - **Benchmark:** two tiers. Tier 1 = established public test sets (+ contamination
@@ -75,14 +76,18 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   gold derived **only from structured source fields**. The SoTA claim rests on tier 2.
 - **Readout-health gate (D12):** no zero-shot letter-readout accuracy is reported unless
   its (model, template) cell passes the gate; failing cells read `READOUT_FAIL — <check>`.
-- **Training data (D13, D17):** official train splits, **pre-window** structured-gold items
-  (records dated before 2026-03-01), and vetted catalog datasets with human or structured
-  labels and a permissive licence. Never test splits, never LLM-labelled gold.
+  Trained readouts that normalise over the offered options use the D21 variant (label mass
+  is a diagnostic, not a gate).
+- **Training data (D13, D17, D20):** official train splits, **pre-window** structured-gold items
+  (records dated before 2026-03-01), vetted catalog datasets with human or structured
+  labels and a permissive licence, gold-by-construction generated decisions (code writes the
+  text and computes the label), and general human-labelled replay. Never test splits, never
+  LLM-written text or LLM-labelled gold, never an external-panel dataset.
 - **Held-out templates (D14):** some fresh templates are excluded from training entirely
   and reported separately; the list is fixed per loop in its ADVISORY.
-- **Gate G1 (D16):** defined in `docs/plans/PROGRAM.md`; never changed after results. Its
-  baselines are zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B only — an ablation or a sibling arm
-  is never part of a G1 verdict.
+- **Gates G1 (D16) and O1 (D24):** defined in `docs/plans/PROGRAM.md`; never changed after
+  results. Each names its baselines exactly — an ablation, a sibling arm or any other model is
+  never part of a verdict.
 - **Release policy:** model weights, benchmark (public-source items only), and code are
   open. **Training data stays private.**
 
@@ -205,6 +210,7 @@ it under "Deviations from the plan".
 |---|---|---|
 | `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
 | `bench_v0_fix0` | Repaired loop 0: MedMCQA key fixed (0 gold mismatches of 15,915 verified), `noul`/`score` readout fixed (label mass 0.996+), D12 readout-health gate added, benchmark rebuilt as v0.1 (22,594 tier-1 + 23,582 balanced fresh items, window 2026-03-01), all 6 ladder models + JEV-9B + 2 Laya models measured, all 53 bench_v0 claims dispositioned (4 withdrawn). Teacher gate still blocked; audit staged. Advisor note: its Summary item 7 ("~0.50 on every fresh `noul`") holds only for the 350M model. | `loops/bench_v0_fix0/FINDINGS.md` |
+| `student_v1` | Three matched heads on Qwen3.5-0.8B (pointer, letter-readout LoRA, Unsloth joint head; 15k steps, 482,889 rows, 24 templates) finished within 0.6 pts overall (A 0.7591, C 0.7545, B 0.7528). All pass G1 on seen fresh templates; held-out: A and C FAIL, B NOT MEASURED (D12 label-mass failure on 8/11 fresh templates — mass on non-offered letters). Held-out skill falls with training; decision-path MedQA/MedMCQA fell to about the majority rate. | `loops/student_v1/FINDINGS.md` |
 | `student_v0` | Benchmark v0.2 (45,009 items; record–claim consistency, long-record slice, HLE supplementary), a 212,481-item gold training mix with a clean leakage check, and the first MedDecide-0.8B (LoRA r=8 + pointer head; selected checkpoint step 1,000). vs zero-shot 0.8B: seen fresh templates macro +0.163, Brier −0.230; held-out templates macro −0.018 (no transfer). Its own `g1.md` used the Base ablation as a baseline; per D16, G1 is incomplete on seen (JEV-9B not run) and FAIL on held-out — see the advisor note. Two runs failed first (length-curriculum bug; divergence); padding makes trained scores batch-dependent. | `loops/student_v0/FINDINGS.md` (advisor note at top) |
 
 ---

@@ -27,7 +27,9 @@ write it up as a solo paper (venue decided later — research quality first).
 
 **Working name:** MedDecide (the operator picks the final name after results; shortlist
 from planning: Iaso, Paeon, Aegle, Epione, Telesphoros). Avoid "MedJev" — an existing
-model (`junma/MedJev-Qwen3.5-0.8B`) and "Jev" is a trademark.
+model (`junma/MedJev-Qwen3.5-0.8B`) and "Jev" is a trademark. **Update 2026-10-09:** the
+operator calls the model series **Osler** (Osler-0.8B / -4B / -9B); MedDecide remains the
+repo and benchmark name.
 
 ---
 
@@ -79,6 +81,11 @@ re-measured on MedDecide-Bench.
 | D17 | Training sources extended: official train splits, pre-window structured-gold items, and catalog (`docs/benchmark/dataset_catalog.md`) datasets with **human or structured** labels and a training-compatible licence. LLM-labelled datasets (e.g. `LocalLLaMA/typed-decisions`) are never training data; they may validate tooling | 2026-10-08 | student_v0 did not transfer to held-out decision types; diversity is the first lever |
 | D18 | Loop 1b compares three decision heads under matched conditions: pointer head, letter-readout LoRA, and a Clef-style joint head via Unsloth (`FastDecisionModel` / `DecisionTrainer`, its own environment). The joint head is no longer gated on pointer-head failure | 2026-10-08 | operator decision; the paper's architecture claim needs the plain-LoRA control and the published joint-head recipe |
 | D19 | G1 baselines are exactly zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B (D16). Ablations and sibling arms are reported as additional, never in a verdict; model selection and temperatures never use held-out templates | 2026-10-08 | student_v0's `g1.md` put the Base ablation in the verdict |
+| D20 | Training sources extended again: (a) **gold-by-construction generated decisions** — items whose text is assembled by code from structured parts and whose label is computed by the same code (clinical notes with minimal pairs, eligibility with an "insufficient information" option, policy-defined triage, code assignment with "none of these"); no LLM writes any text or label; (b) **general human-labelled decision data** as replay (permissive licence, recorded per source). Some generators are held out entirely and used only for evaluation | 2026-10-09 | student_v1: no arm transferred to held-out types and decision-path knowledge fell to the majority-class rate; the leading open medical decision models train on generated clinical notes plus general replay |
+| D21 | **D12 for trained readouts.** Zero-shot cells keep D12 unchanged. For a trained model whose readout normalises over the offered options only (a separate readout, pointer or joint head), the gate is: constant-answer check, greedy agreement ≥ 0.9 where a greedy path exists, accuracy CI not below chance. Full-vocabulary label mass is reported as a diagnostic, never as a gate | 2026-10-09 | student_v1 arm B failed D12 on 8 of 11 fresh templates on label mass alone while its top token was an offered letter in 152/152 probe items (V100, V101) |
+| D22 | **Scope after loop 1b:** the targets are Osler-4B (`Qwen/Qwen3.5-4B`) and Osler-9B (`Qwen/Qwen3.5-9B`); Osler-0.8B (`Qwen/Qwen3.5-0.8B`) is trained with the same recipe as a reference point in the release. The MedGemma bake-off and LFM2.5-350M are dropped from the training ladder (zero-shot rows stay as they were). Supersedes D2 for training | 2026-10-09 | operator decision; Qwen3.5-4B is far ahead of the other ≤4B bases zero-shot on v0.1/v0.2, and the closest open medical competitors share these bases |
+| D23 | **Default readout: option-code readout with a separate head** (pplx-style): a `[K, d]` readout matrix (K ≤ 255 option codes), rows initialised from the base `lm_head` rows of the code tokens, trained with the decision-path LoRA, softmax over the valid codes of the current question, temperature per question type applied once. It exports to a plain `lm_head` (row i → token id i) so standard serving stacks reproduce it. The base stays frozen; the LoRA is applied on the decision path only. Pointer head, non-causal full attention and head-only (no LoRA) are matched ablations at 4B | 2026-10-09 | operator + advisor review: student_v1's heads were within 0.6 pts at 0.8B; the letter readout starts from a readout the base already has and ships through standard stacks; the separate head removes the off-option mass that failed D12 |
+| D24 | **Gate O1** (osler_v0): for Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B} and Osler-9B vs {MedDecider-9B, JEV-9B}: item-paired bootstrap 95 % CI (1,000 resamples, items within datasets/templates) of Osler − B in macro accuracy and in mean Brier. PASS iff accuracy CI lower bound > 0 **and** Brier CI upper bound < 0 against **both** baselines on **(i)** the headline fresh set, seen templates (as D16) **and (ii)** the external clinical panel; plus a **knowledge guard**: on MedQA + MedMCQA, the accuracy CI lower bound of Osler − zero-shot same-size base > −0.02. Held-out templates, held-out generators and the robustness pack are reported with the same rule, separately. Other models (27B/31B decision models, sibling arms) are reported as additional, never in the verdict | 2026-10-09 | fixed before results; extends D16 to the sizes and competitors the program now targets |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -141,7 +148,7 @@ decision-model baselines; corrections record.
   operator's 150-item audit if it is available.
 - Spec: `loops/student_v0/ADVISORY.md`.
 
-### Loop 1b — `student_v1`: correct G1, fix padding, diversify data, compare three heads  *(current)*
+### Loop 1b — `student_v1`: correct G1, fix padding, diversify data, compare three heads  *(done — see `loops/student_v1/FINDINGS.md`)*
 
 student_v0, read per D16: the trained 0.8B beats zero-shot by a wide margin on **seen** decision
 types (macro +0.163, Brier −0.230) but not on **held-out** types (macro −0.018); G1 vs JEV-9B was
@@ -156,6 +163,21 @@ step 1,000 of 44,152.
 - **Outcome logic:** an arm that passes G1 on held-out → the recipe to scale; all arms fail on
   held-out → data diversity / teacher next; arms indistinguishable → keep the simplest.
 - Spec: `loops/student_v1/ADVISORY.md`.
+
+### Loop 1c — `osler_v0`: competitor scoreboard, clinical generators, Osler-4B / -9B  *(current)*
+
+Inserted after the student_v1 review (D20–D24). Loops 2–4 below are re-planned after its
+review; loop 3's 27B-class baseline runs move here because they fit on one PRO 6000.
+- **Scoreboard first:** every open competitor through its authors' inference code on v0.2,
+  the external clinical panel and the robustness pack (MedDecider 4B/9B/27B/31B,
+  pplx-decider v1.1, JEV-27B, Clef, Clef-Flash; zero-shot Qwen3.5-4B/9B).
+- **Data (D20):** gold-by-construction clinical generators (some held out), general
+  human-labelled replay, the record–claim designs and catalog sources deferred by student_v1.
+- **Models (D22, D23):** four matched 4B arms (option-code readout; pointer; non-causal
+  option-code readout; head-only), a pre-registered head choice on dev, then Osler-9B and the
+  Osler-0.8B reference with the chosen head.
+- **Gate O1 (D24).**
+- Spec: `loops/osler_v0/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat
 
