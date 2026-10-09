@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T18:11:56Z`
+Last updated (UTC): `2026-10-09T18:30:07Z`
 Iterations so far: `3`
 
 ---
@@ -26,7 +26,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
 | O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
-| O3 | Clinical generators (gold by construction) + held-out list | no | O0 | PENDING | | |
+| O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | PENDING | | |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | PENDING | | |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
@@ -63,7 +63,7 @@ recomputing or guessing.
 | training overlap of the panel; v0.2 overlap | 0 exact-text and 0 record hits against 2,150,361 training rows (12 files); 0 v0.2 exact-text hits after excluding 37 MMLU-Pro duplicates (CLAIMS O040, O041) | `outputs/osler_v0/O1/overlap.json` | O1 |
 | long-record slice (student_v1 fix 3) | 2,213 of 37,289 kept v0.2 test rows over 8,192 prompt tokens, all in fda_route_claim_noul_v1 (944), fda_boxed_warning_noul_v1 (668), fda_class_choice_v2 (601); ids stored (CLAIMS O045) | `data/bench/v0.3_ext/long_record_ids.json` | O1 |
 | scoreboard headline (MedDecider-4B / -9B / pplx v1.1 on v0.2 fresh and external panel) | | `loops/osler_v0/scoreboard.md` | O2 |
-| generators: count, held-out list, train/dev/test items | | `loops/osler_v0/heldout.md` | O3 |
+| generators: count, held-out list, train/dev/test items | 9 generators: 7 seen, 2 held out (note_lab_range_v1, policy_triage_v1). Train 21,000 items (0 held out; 1,500 patients per seen generator), dev 2,700 (600 held out), test 2,700 (600 held out). Screen: all nine pass; gold label in the record 0 hits. The held-out baselines are constant predictors, so their pass rests on gold-in-state and the construction checks (CLAIMS O046–O063; STATE §7 item 23) | `loops/osler_v0/heldout.md`; `outputs/osler_v0/O3/recompute.json` | O3 |
 | mix v2: items, sources, replay share, max template share; leakage result | | `data/train/osler_v0/manifest.json` | O4 |
 | readout checks (init equality, export round-trip, padding, byte-identity) | | `outputs/osler_v0/O5/readout_checks.json` | O5 |
 | arms L / P / N: examples seen, selected step, dev macro, tier-1 dev at selection, wall-clock | | | O6–O8 |
@@ -100,7 +100,7 @@ O2 checklist:
 - [x] MedDecider-9B (authors' code, both orders): DONE rc=0 at 12:19:02Z; 59,538 rows, 57,968 scored, 1,570 skipped (the same over-10-option items as the 4B run); probability sums 1.000; decide() check max |diff| 4.9e-5 on 50 items; accuracy v0.2 0.829 (n 35,076), panel 0.560 (n 4,141), robustness 0.645 (n 18,751)
 - [x] Clef-Flash (authors' systemone, envs/clef): DONE rc=0 at 14:09:02Z; 59,538 rows, 59,538 scored, 0 skipped; probability sums 0.9994 to 1.0005 (the endpoint rounds to 4 dp); accuracy v0.2 0.829 (n 35,076), panel 0.571 (n 4,353), robustness 0.578 (n 20,109)
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
-- [ ] O2 chain (PID 266074): JEV-27B (RUNNING from 16:41:14Z; 27,728 rows at 18:11) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
+- [ ] O2 chain (PID 266074): JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [ ] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
 - [ ] zero-shot Qwen3.5-9B (panel + robustness)
 - [ ] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
@@ -113,6 +113,16 @@ O2 checklist:
 - [ ] MedDecider-31B (both orders)
 - [ ] o2_metrics.py: per model × set n, accuracy, macro (mean over templates, as G1), Brier, ECE, coverage with reasons, wall-clock per 1k items, D12/D21 cell gate, robustness flip rates → outputs/osler_v0/O2/scoreboard.json; loops/osler_v0/scoreboard.md (aggregates only)
 - [ ] self-audit, CLAIMS O046+, STATE, commit, push
+
+O3 checklist (completed 2026-10-09T18:30:07Z):
+- [x] nine generator families, seven seen and two held out, in src/meddecide/gen/ (families.py); gold from the structured parts; twin pairs (CLAIMS O046)
+- [x] build: train 21,000 items (seen generators only), dev 2,700, test 2,700; patients 10,500 / 1,350 / 1,350; 0 held-out rows in train (CLAIMS O047–O050)
+- [x] screen: gold label in the record 0 hits on 1,500 applicable dev items; string-presence and NB macro below 0.90 on all nine; all pass (CLAIMS O051–O053); held-out baselines are constant predictors (CLAIMS O054, O056; heldout.md)
+- [x] twin statistics for all nine (CLAIMS O055); majority baselines and test gold balance (CLAIMS O057–O059)
+- [x] held-out list committed before any O6 work: loops/osler_v0/heldout.md
+- [x] unit tests tests/test_gen.py: 28 passed (CLAIMS O060); CPU repo suite 446 passed, 5 GPU-gated tests skipped (CLAIMS O061; §7 items 20–21)
+- [x] fresh-process audit scripts/osler/o3_audit.py: 0 mismatches against screen.json; rebuild reproduces the split SHA-256 values (CLAIMS O062–O063)
+- [x] SELF_AUDIT outputs/osler_v0/O3/SELF_AUDIT.md; CLAIMS O046–O063; STATE; commits 8794fc8 (code) and the O3 DONE commit (docs); pushed
 
 O1 checklist (completed):
 - [x] schemas, sizes, pinned revisions and licences of the usable sets (CLAIMS O032–O039)
@@ -165,6 +175,13 @@ Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks)
 - Headline: external panel = 4,353 eval-only items in 7 public sets (CLAIMS O032); 0 text and 0 record matches against 2,150,361 training rows in 12 files (O040); robustness pack = 20,898 perturbed items from 4,000 bases, 0 rule violations on re-check (O043–O044); long-record slice = 2,213 of 37,289 kept v0.2 test rows over 8,192 prompt tokens, all in three openFDA templates (O045)
 - Surprises: 37 MMLU-Pro health items were exact duplicates of v0.2 items, excluded (O041). MedExQA's gold letter is D in 36.6% of items (O037). The panel is narrower than the ADVISORY list: MedQuAD is a training source; Medbullets, ADE, PubMed-200k-RCT, NLI4CT have no verifiable licence; DDI and FAERS are NOT MEASURED for data-access reasons (Questions 5 and 7)
 - Next: O2 (scoreboard; the first GPU job). Protocol and cost decisions for O2 are recorded in §7 before its first run
+
+### O3 — DONE — 2026-10-09T18:30:07Z
+- What ran: `scripts/osler/o3_build_generators.py` (build and screen; rebuilt in a fresh process with identical split hashes), `scripts/osler/o3_audit.py` (fresh-process recompute: 0 mismatches against screen.json), `tests/test_gen.py` (28 passed). Commits 8794fc8 (code) and the O3 DONE commit (docs)
+- Output: data/gen/osler_v0/{train,dev,test}.jsonl and manifest.json (gitignored); outputs/osler_v0/O3/{screen.json, recompute.json, SELF_AUDIT.md}; loops/osler_v0/heldout.md; CLAIMS O046–O063
+- Headline: nine generators, seven seen and two held out (note_lab_range_v1, policy_triage_v1). Train 21,000 items (none held out), dev 2,700, test 2,700. All nine pass the screen: 0 gold-in-state hits on 1,500 applicable dev items; seen Naive Bayes macro 0.51–0.86 (CLAIMS O046–O055)
+- Surprises: the held-out baselines are constant predictors (macro 0.3333, one distinct prediction), so the held-out pass rests on gold-in-state and the construction checks (CLAIMS O056; Question 8). The triage source label in screen.json is wrong (§7 item 22). A full-suite run started a GPU test while the O2 job ran (§7 item 20); the chain was unaffected
+- Next: O4 (training mix v2, CPU), allowed while O2 uses the GPU. O1 and O3 are DONE
 
 ## 5. Blocked items
 
@@ -223,6 +240,15 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    have no declared licence, and DDI and FAERS need data-access work. If you can confirm a licence for any of
    them, or approve the work to fetch DDI and FAERS (about 2 h each), the next panel build can include them; the
    builder would take them as a new SourceSpec with a manifest entry. I have not started that work.
+
+8. **Held-out screen baselines (O3; no action taken; the held-out list is unchanged).** Both held-out generators pass the
+   screen, but their string-presence and Naive Bayes baselines are constant predictors. For `note_lab_range_v1` the Naive
+   Bayes was trained on 12,000 seen rows whose labels (yes/no) never match the offered options. `policy_triage_v1` has no
+   seen family-C generator, so its model trained on 0 rows. Their 0.3333 macro values are chance over three classes, not
+   measured shortcuts (CLAIMS O054, O056; `loops/osler_v0/heldout.md`). The pass therefore rests on gold-in-state = 0 and
+   the construction checks. Options: (a) accept that as the held-out screen (my pick; nothing changes after seeing held-out
+   outputs); (b) add a label-agnostic baseline for the held-out generators before O6. That is a new screen run and would
+   have to be specified before any model result. Which do you want? I proceed with (a) unless you say otherwise.
 
 ---
 
@@ -291,6 +317,33 @@ deviation — that is a `BLOCKED`.
     per item. ECE uses 15 equal bins on the top probability. Bootstrap CIs over items, 1,000 resamples, seed 0. The
     D12 cell gate applies to zero-shot cells; D21 checks (constant answer, accuracy CI not below chance) to the rest.
     Greedy agreement and label mass are diagnostics for those readouts, not gates.
+18. **O3 generator revisions before any model result (disclosed).** The first screen runs found shortcuts and defects, and
+    I fixed them before any model was run on O3 data: (a) negation, subject and allergy-medication items now carry balanced
+    distractors, so the bag-of-words baseline cannot read the answer from cue words; (b) timing items were rewritten so the
+    answer needs a comparison of two years (the first version had a bag-of-words shortcut); (c) allergy-medication items use
+    a 1,000-name synthetic drug pool and equal line counts; (d) gold-in-state and string-presence apply to choice and score
+    items only, because yes/no labels occur in ordinary text; (e) for the two held-out generators, `policy_triage_v1` got a
+    sampling fix (a case with chest pain, sweating and systolic BP below 90 had no twin that changed the level and raised
+    StopIteration), and `note_lab_range_v1` got an HbA1c twin-range correction. The first screen run printed lab-range values
+    before it crashed on triage, and I did not record whether the HbA1c correction came before or after that print. Both
+    held-out screen values are constant-predictor values (item 23). The held-out list did not change. The earlier code is
+    not in git (O3 code was first committed at 8794fc8), so these revisions cannot be diffed.
+19. **Post-build docstring edit.** The module docstring of `src/meddecide/gen/families.py` said `note_timing_v1`; commit
+    8794fc8 changes it to `note_timing_v2`. No logic changed. A fresh rebuild gives identical split SHA-256 values and
+    identical screen reports (CLAIMS O062–O063).
+20. **GPU-rule incident during O2.** At 18:23Z a full-suite pytest run started `tests/test_model_pointer.py::test_overfit_64_items`
+    on the GPU while the O2 jev-27b job (PID 281949) was running. That broke the one-GPU-job rule. The test ran out of memory in
+    my process; the chain was unaffected (chain log clean at 18:24Z; PID 266074 alive). From now on pytest runs with
+    `CUDA_VISIBLE_DEVICES=` while any GPU job runs, so GPU-gated tests skip. The five GPU-gated tests (four in
+    `test_model_pointer.py`, one in `test_padding_trained.py`) are NOT MEASURED until the first GPU-free window.
+21. **Commit gate.** AGENTS asks for pytest to pass before any commit. Commit 8794fc8 was made with the CPU-only suite (446 passed,
+    5 GPU-gated skipped; CLAIMS O061), because of item 20. The five GPU-gated tests run in the first GPU-free window.
+22. **Screen report label.** `outputs/osler_v0/O3/screen.json` says the Naive Bayes for `policy_triage_v1` used "seen generators
+    of family C (train split)". No seen generator is in family C, so it trained on 0 rows (CLAIMS O056). The file is a build
+    output and was not hand-edited (R9). The accurate description is in `outputs/osler_v0/O3/recompute.json` and `heldout.md`.
+23. **Held-out baselines are constant predictors.** Both held-out generators' string-presence and Naive Bayes baselines predict one
+    label for every dev item (CLAIMS O054, O056), so their pass rests on gold-in-state = 0 and the construction checks. Raised as
+    Question 8; no change made.
 
 ---
 
