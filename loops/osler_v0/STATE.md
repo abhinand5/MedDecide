@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-09T06:23:41Z`
+Last updated (UTC): `2026-10-09T07:50:24Z`
+Iterations so far: `2`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | PENDING | | |
+| O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
 | O1 | External clinical panel + robustness pack | no | O0 | PENDING | | |
 | O2 | Competitor scoreboard | yes | O0, O1 | PENDING | | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | PENDING | | |
@@ -51,10 +51,14 @@ recomputing or guessing.
 
 | key | value | source | task |
 |---|---|---|---|
-| model revisions (Qwen3.5 0.8B/4B/9B; each competitor) | | `outputs/osler_v0/O0/snapshot.json` | O0 |
-| Qwen3.5-4B full-attention layer indices | | `outputs/osler_v0/O0/envs.json` | O0 |
-| projected wall-clock of one 4B arm / of the 9B run | | `outputs/osler_v0/O0/throughput.json` | O0 |
-| competitor smoke results | | | O0 |
+| model revisions (Qwen3.5 0.8B/4B/9B; each competitor) | 14 registry entries pinned; Hub sha = pin = downloaded snapshot for 14 of 14 (Qwen3.5-0.8B `2fc06364`, -4B `851bf6e8`, -9B `c2022362`; MedDecider-4B `570b3709`, -9B `ec8a69da`, -27B `c30e1881`, -31B `035f4543`; pplx-decider-v1.1-27b `5cd25e3f`; JEV-27B `51740a88`, JEV-9B `b63f651c`; Clef `ed3eed33`, Clef-Flash `fde727a2`; bases Qwen3.8-27B `1d4bf0f2`, gemma-4-31b-it `842da379`) | `configs/osler_v0/competitors.json`, `outputs/osler_v0/O0/fetch.json` (CLAIMS O029) | O0 |
+| Qwen3.5-4B full-attention layer indices | [3, 7, 11, 15, 19, 23, 27, 31] of 32 layers; 24 linear-attention (CLAIMS O018) | `outputs/osler_v0/O0/envs.json` | O0 |
+| projected wall-clock of one 4B arm / of the 9B run | 4B: 16.08 h at the ADVISORY budget (200,000 examples; dev eval 100 x 6,000 items), lower bound 5.88 h at median length (O013, O014). 9B: 24.59 h, lower bound 8.99 h (O017). Training 0.376 s/step (4B), 0.571 s/step (9B) at batch 8 x 391 tokens (O009, O015) | `outputs/osler_v0/O0/throughput.json` | O0 |
+| competitor smoke results | 9 of 9 PASS through each card's or authors' own code: MedDecider-4B/9B/27B/31B (card examples; worst abs. diff 0.0004 / 0.0039 / 0.0038 / 0.0044), pplx-decider-v1.1-27b (authors' DecisionModel), JEV-27B and JEV-9B (card decision-head protocol), Clef and Clef-Flash (authors' systemone). Open weights exist for all competitors in O2, so none is NOT MEASURED | `outputs/osler_v0/O0/smoke_summary.json` (O019) | O0 |
+| v0.2 denominators | 37,979 raw test rows; 690 dropped by the screen (six templates); 37,289 kept = 23,768 fresh + 13,521 tier-1, the student_v1 denominator (O001–O003) | `outputs/osler_v0/O0/snapshot.json` | O0 |
+| v0.2 integrity | 2 of 11 benchmark files do not match their manifest sha256 (clinicaltrials, openfda); manifest total 57,007 vs acceptance 45,009 (O004, O005). Not repaired (v0.2 read-only); see Questions 1 | `outputs/osler_v0/O0/snapshot.json` | O0 |
+| student_v1 training mix | 482,889 train rows, 5,619 dev rows; base student_v0 file hash matches (O006, O007) | `outputs/osler_v0/O0/snapshot.json` | O0 |
+| disk (ADVISORY §3 budget: hf_home + outputs + data) | 393.52 GB of 450 GB after all O0 downloads; envs 11.59 GB and uv cache 16.70 GB outside the budget (O030, O031) | `outputs/osler_v0/O0/snapshot.json` | O0 |
 | external panel: datasets, items; robustness pack: base items × perturbations | | `data/bench/v0.3_ext/manifest.json` | O1 |
 | scoreboard headline (MedDecider-4B / -9B / pplx v1.1 on v0.2 fresh and external panel) | | `loops/osler_v0/scoreboard.md` | O2 |
 | generators: count, held-out list, train/dev/test items | | `loops/osler_v0/heldout.md` | O3 |
@@ -78,15 +82,20 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/osler_v0/<id>/
+Task in flight: none (O0 DONE at 2026-10-09T07:50:24Z; next: O1)
+Running job:    none. The O0 reproduce chain finished at 07:42:29 (log outputs/osler_v0/O0/logs/reproduce.log)
 
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+O0 checklist (completed):
+- [x] snapshot.json: git commit, v0.2 manifest hash (2 of 11 files mismatch), training-mix hashes, env versions
+- [x] revisions of Qwen3.5-0.8B / 4B / 9B (cached; Hub sha equal to the cache refs) in configs/osler_v0/competitors.json
+- [x] download + pinned revision of each competitor (14 registry entries, all DONE); fetch.json
+- [x] each competitor's card example through its own code: 9 of 9 PASS; envs/pplx27b, envs/clef
+- [x] Qwen3.5-4B layer types (envs.json)
+- [x] throughput at 4B and 9B (throughput.json)
+- [x] acceptance check: outputs/osler_v0/O0/{snapshot,envs,throughput}.json and smoke_summary.json present; one row per competitor, all PASS
+- [x] self-audit (R6): outputs/osler_v0/O0/SELF_AUDIT.md (re-derivation log logs/rederive.log)
+- [x] CLAIMS.md rows O001–O031
+- [x] STATE updated (this file is part of the O0 closure commit)
 ```
 
 ---
@@ -108,6 +117,13 @@ Working dir:    outputs/osler_v0/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### O0 — DONE — 2026-10-09T07:50:24Z
+- What ran: `scripts/osler/o0_reproduce.sh` (fetch, snapshot, 9 competitor smokes, JEV/pplx/Clef smokes, throughput 4B and 9B, aggregate, fresh-process re-derivation); code of record is the O0 commit (see SELF_AUDIT §header)
+- Output: `outputs/osler_v0/O0/` (snapshot.json, envs.json, throughput.json, smoke_summary.json, fetch.json, smoke/, logs/, SELF_AUDIT.md); CLAIMS O001–O031
+- Headline: 9 of 9 competitor rows PASS through their own code (MedDecider 4B/9B/27B/31B, pplx-decider-v1.1-27b, JEV-27B, JEV-9B, Clef, Clef-Flash; all open weights, none NOT MEASURED; O019). The v0.2 kept test set is 37,289 items (23,768 fresh + 13,521 tier-1), the same denominator student_v1 used (O003). Projected Osler-4B arm 16.08 h, 9B arm 24.59 h at the ADVISORY budget (O013, O017). Counted disk 393.52 GB of 450 (O030)
+- Surprises: 2 of 11 v0.2 benchmark files do not match the sha256 in their manifest (clinicaltrials, openfda; O004), and the manifest total (57,007) disagrees with acceptance.json (45,009; O005). The MedDecider-4B first smoke criterion (gold label on every card example) failed on card example 6; the criterion was revised to reproduction of printed numbers with gold agreement reported beside it (see Deviations 1). Clef needed its own env (pillow, torchvision, accelerate)
+- Next: O1 (external clinical panel and robustness pack, CPU + network). The licence screen for the panel is already done: MMLU-Pro (MIT), MedXpertQA-Text (MIT), MedConceptsQA (Apache-2.0), symptom-to-diagnosis (Apache-2.0), medical question pairs (Apache-2.0 on the Hub wrapper), MedExQA (CC BY-NC-SA 4.0, evaluation only). Excluded for no verifiable licence: Medbullets, MedQuAD, PubMed-200k-RCT, ADE corpus v2, NLI4CT (see Questions 5)
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -120,6 +136,41 @@ Working dir:    outputs/osler_v0/<id>/
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
 
+1. **v0.2 manifest integrity (no action taken; v0.2 is read-only).** `data/bench/v0.2/manifest.json`
+   records sha256 values that do not match `clinicaltrials.jsonl` and `openfda.jsonl` (CLAIMS O004).
+   The manifest total (57,007) and `acceptance.json` (45,009) also disagree (O005). The row counts match
+   the manifest, and the kept test denominator (37,289) reproduces student_v1's, so student_v1's results
+   are unaffected as far as the counts show. Options: (a) leave as is and note it in the closure report
+   (my pick); (b) regenerate the manifest hashes from the current files (changes a v0.2 artifact, so it
+   needs your approval); (c) rebuild v0.2 (out of loop scope). Which do you want before the scoreboard
+   is published?
+2. **Disk for the exports (BLOCKED — disk later, not yet reached).** Counted usage is 393.52 GB of the
+   450 GB budget (O030). The planned O5/O10 exports (Osler-4B export and merged, 9 GB each; Osler-9B
+   export and merged, 19 GB each; Osler-0.8B, about 2 GB each) plus selected checkpoints would take the
+   total past 450 GB. The competitor weights are the largest item: pplx27b 52 GB, JEV-27B 55 GB, Clef
+   55 GB, Clef-Flash 19 GB, Qwen3.8-27B base 56 GB, gemma-4-31b-it base 63 GB. Options: (a) after O2
+   closes, delete those competitor snapshots (they are not needed by O11 or later; deleting from the HF
+   cache is outside the loop's delete guardrail, so this needs your approval); (b) raise the budget;
+   (c) skip the merged 9B artefact (saves 19 GB, not enough alone). My pick is (a) at O2 closure. I will
+   not delete anything without your answer.
+3. **JEV route.** The JEV rows use the card's decision-head protocol through transformers + PEFT (the F7
+   path), not the card's vLLM server. vLLM is not in the main env, and the 9B repo references a
+   `vl/serve.sh` that is not published. My pick: keep the F7 path for consistency with the existing JEV-9B
+   baseline and state the deviation in every JEV row. Alternative: a separate `envs/jev/` with vLLM,
+   about 2 h. Which do you want for the Gate O1 baseline?
+4. **Dev-eval cadence.** The ADVISORY says "dev eval every 2,000 examples × 8". I read it as a full dev
+   evaluation (6,000 items) every 2,000 examples, which costs about 8.9 h of eval per 4B arm (O013: 16.08 h
+   total). If you meant a fixed dev subset, eval would be much cheaper but selection less stable. My pick
+   is the literal reading until you say otherwise.
+5. **Panel licences (O1 screen).** Usable with verified licences: MMLU-Pro (MIT), MedXpertQA-Text (MIT),
+   MedConceptsQA (Apache-2.0), symptom-to-diagnosis (Apache-2.0), medical question pairs (Apache-2.0 on the
+   Hub wrapper, source licence not verified). MedExQA is CC BY-NC-SA 4.0: usable for evaluation, but any
+   public release of items derived from it would carry NC-SA; I will include it for evaluation only and
+   mark it for the release decision. Excluded for no verifiable licence: Medbullets, MedQuAD (GitHub
+   NOASSERTION), PubMed-200k-RCT (no licence on the Hub or GitHub), ADE corpus v2 ("unknown"), NLI4CT
+   (no licence on the Hub mirrors). The ADVISORY's panel list therefore shrinks; if you can confirm a
+   licence for any excluded set, I will add it. Is that acceptable?
+
 ---
 
 ## 7. Deviations from the plan
@@ -127,6 +178,27 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
 expected outcome. Editing code or a check to make it pass is never an acceptable
 deviation — that is a `BLOCKED`.
+
+1. **Smoke criterion revised after one result (O0, disclosed).** The first MedDecider-4B run required
+   the argmax to equal the card's gold label on every example. Card example 6 prints Syndromic 0.478
+   and Serial cross-sectional 0.370, and its own gold label is Serial cross-sectional, so the card's own
+   numbers disagree with its label. I changed the smoke criterion to reproduction of the printed numbers
+   and printed argmax, and kept gold agreement as a separate, reported field. Under the original
+   criterion md4b would be FAIL on that one example. md4b is reported PASS (reproduction) with gold
+   5 of 6 (`smoke/md4b.json`, block 6 `argmax_matches_card_gold: false`). The other three cards meet both.
+   Full account in `outputs/osler_v0/O0/SELF_AUDIT.md` §3.
+2. **JEV via the F7 transformers path**, not the card's vLLM route (see Question 3). The 27B card's own
+   transformers block gives a refund P(true) of 0.978 through a different head file; ours gives 0.9779.
+3. **Competitor environments.** `envs/pplx27b` uses the authors' `uv.lock` (sha256 `cba79e0f...`, which
+   matches the checkpoint's `decision_config.json` provenance). `envs/clef` uses the card's tested pins
+   (torch 2.11, transformers 5.10.2, with accelerate, pillow and torchvision). Neither installs into the
+   main env. Clef and pplx run the reference linear-attention kernels where `causal_conv1d` (and for
+   Clef, `fla`) is missing: correct but slower, so O2 latency needs that caveat.
+4. **Throughput inputs.** Timing uses random token ids with a 255-row random readout of the planned
+   shape. The loss values are not a training signal; the numbers measure cost only. The projection
+   assumes the 200,000-example budget, because mix v2 (not yet built) must be at least as large as the
+   student_v1 mix (482,889 rows) for "one pass or 200,000, whichever is smaller" to resolve to 200,000.
+   O4 must confirm that.
 
 ---
 

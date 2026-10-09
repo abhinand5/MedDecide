@@ -25,7 +25,7 @@
 - **Outputs:** `outputs/osler_v0/<task-id>/` (gitignored)
 - **Claims:** `loops/osler_v0/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `<fill in at O0>`
+- **Started:** `2026-10-09T06:23:41Z`
 
 ---
 
