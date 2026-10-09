@@ -100,7 +100,7 @@ def dev_prediction_rows(scored: Any) -> list[dict[str, Any]]:
     directory, which is gitignored.
     """
     rows: list[dict[str, Any]] = []
-    for item, probs, gold in zip(scored.items, scored.probs, scored.gold_indices, strict=True):
+    for item, keys, probs, gold in zip(scored.items, scored.option_keys, scored.probs, scored.gold_indices, strict=True):
         predicted = int(np.argmax(probs))
         rows.append({
             "item_id": item.item_id,
@@ -109,7 +109,9 @@ def dev_prediction_rows(scored: Any) -> list[dict[str, Any]]:
             "qtype": str(item.qtype),
             "n_options": len(probs),
             "gold_index": int(gold),
+            "gold_key": str(keys[int(gold)]),
             "predicted_index": predicted,
+            "predicted_key": str(keys[predicted]),
             "correct": predicted == int(gold),
             "probs": [float(p) for p in probs],
         })

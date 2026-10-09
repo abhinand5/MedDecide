@@ -16,6 +16,7 @@ def _scored() -> SimpleNamespace:
     ]
     return SimpleNamespace(
         items=items,
+        option_keys=[["A", "B", "C"], ["yes", "no"]],
         probs=[np.array([0.1, 0.7, 0.2]), np.array([0.6, 0.4])],
         gold_indices=[1, 1],
     )
@@ -33,4 +34,7 @@ def test_rows_carry_the_full_distribution_and_identity() -> None:
     assert row["probs"] == [0.1, 0.7, 0.2]
     assert row["n_options"] == 3
     assert (row["source"], row["template_id"], row["qtype"]) == ("pubmed", "t1", "choice")
+    assert (row["gold_key"], row["predicted_key"]) == ("B", "B")  # the macro's classes are the option keys
+    noul = dev_prediction_rows(_scored())[1]
+    assert (noul["gold_key"], noul["predicted_key"]) == ("no", "yes")
     assert abs(sum(row["probs"]) - 1.0) < 1e-12
