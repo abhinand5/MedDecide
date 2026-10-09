@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
 | O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
-| O4 | Training mix v2 | no | O1, O3 | PENDING | | |
+| O4 | Training mix v2 | no | O1, O3 | IN_PROGRESS | 2026-10-09T18:31:34Z | |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | PENDING | | |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
@@ -123,6 +123,21 @@ O3 checklist (completed 2026-10-09T18:30:07Z):
 - [x] unit tests tests/test_gen.py: 28 passed (CLAIMS O060); CPU repo suite 446 passed, 5 GPU-gated tests skipped (CLAIMS O061; §7 items 20–21)
 - [x] fresh-process audit scripts/osler/o3_audit.py: 0 mismatches against screen.json; rebuild reproduces the split SHA-256 values (CLAIMS O062–O063)
 - [x] SELF_AUDIT outputs/osler_v0/O3/SELF_AUDIT.md; CLAIMS O046–O063; STATE; commits 8794fc8 (code) and the O3 DONE commit (docs); pushed
+
+O4 checklist (in flight; started 2026-10-09T18:31:34Z):
+- [x] inventory: student_v1 mix (482,889 train / 5,619 dev rows; read-only); O3 seen generators (21,000 train; 2,100 seen dev; held-out rows excluded); protected sets: v0.2 test and dev, external panel, robustness pack, held-out generators, held-out templates
+- [x] replay licences checked on the Hub (card licence): tau/commonsense_qa mit (used); allenai/qasc cc-by-4.0 (used); allenai/cosmos_qa cc-by-4.0 but loading script only (NOT MEASURED: data outside the Hub); nyu-mll/glue other, google/boolq cc-by-sa-3.0, allenai/ai2_arc cc-by-sa-4.0, stanfordnlp/snli cc-by-sa-4.0, facebook/anli cc-by-nc-4.0, allenai/sciq cc-by-nc-3.0, allenai/openbookqa unknown: no permissive verified NLI or boolean-QA source, so those two replay kinds are NOT MEASURED
+- [x] catalog train-candidates with cached Parquet: bigbio/pubhealth (mit, human verdicts), bigbio/chemprot (public-domain mark, human relations), bigbio/evidence_inference (mit, human answers); bigbio/bc5cdr and bigbio/mednli are loading scripts only (NOT MEASURED; mednli is MIMIC-derived and excluded by the data rules)
+- [x] library and tests: src/meddecide/mix/{rows,converters,augment,leakage}.py; tests/test_mix_v2.py (14 tests passing)
+- [ ] build: scripts/osler/o4_build_mix.py, detached; log outputs/osler_v0/O4/logs/build.log; started 2026-10-09T18:41:47Z
+- [ ] screen of each new template on its dev split (gold-in-state 0; bag-of-words macro below 0.90); failing templates excluded and counted
+- [ ] student_v1 gold-visibility audit: gold label in state per choice or score template; sex words for ct_eligibility_sex_choice_v1
+- [ ] robustness augmentation: reverse 3 %, pad 3 %, plant 3 %, none-of-these 2 % of base rows; at most 15 % of the mix; per-template 8 % cap
+- [ ] leakage counts (train and dev) against the protected sets: 0 required on every kind
+- [ ] manifest data/train/osler_v0/manifest.json: source × template × qtype counts, licences, provenance, budget rule, replay share, NOT MEASURED list
+- [ ] consistency designs (≥ 2 required by V4): not built yet; see the screen result and the state-visibility finding before deciding
+- [ ] CLAIMS rows, outputs/osler_v0/O4/SELF_AUDIT.md, STATE §7 deviations, commit, push
+- Watchers: O2 chain watch re-armed at 18:41Z (the 18:11 watch expired at 18:41 with no events); O4 build watch armed at 18:41Z
 
 O1 checklist (completed):
 - [x] schemas, sizes, pinned revisions and licences of the usable sets (CLAIMS O032–O039)
