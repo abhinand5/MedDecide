@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
-| O5 | Readouts: option-code head, non-causal mode, export | small | O0 | PENDING | | |
+| O5 | Readouts: option-code head, non-causal mode, export | small | O0 | IN_PROGRESS | 2026-10-09T19:02:52Z | |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
@@ -139,6 +139,15 @@ O4 checklist (completed 2026-10-09T19:01:39Z; started 2026-10-09T18:31:34Z):
 - [x] CLAIMS O064–O091; outputs/osler_v0/O4/SELF_AUDIT.md; STATE §7 deviations 24–32; commit and push
 - Watchers: O2 chain watch re-armed at 18:41Z (the 18:11 watch expired at 18:41 with no events); O4 build watch armed at 18:41Z
 
+O5 checklist (in flight; started 2026-10-09T19:02:52Z):
+- [x] option-code head (D23): [K, d] readout, K = 255 (CPU: tests/test_optcode_o5.py 11 and tests/test_readouts_o5.py 9; CLAIMS O093), codes A–Z then two-letter codes (one token each in the base tokenizer: verify); rows initialised from lm_head rows of the code tokens; logits gathered for offered codes only; one temperature per qtype applied once; unit test: at initialisation, probabilities equal the zero-shot letter readout renormalised over the offered letters (tolerance 1e-4, fp32)
+- [x] export (CPU tiny model, adapter separate and merged; CLAIMS O093): the trained head written into a copy of lm_head (row i to token id i), LoRA kept separate, and merged as a second artefact; round-trip test: same offered-code probabilities as the native path (tolerance 1e-3, fp32, 50 items)
+- [x] non-causal flag (arm N; CPU tiny model: changes earlier positions only when on; CLAIMS O093): bidirectional full-attention layers on the decision path, linear-attention layers unchanged; unit test: the causal path is untouched when the flag is off
+- [x] pointer head (CPU tiny model padding invariance; CLAIMS O093; the 4B run is pending): the student_v1 pointer head with its padding fix kept
+- [x] padding invariance (CPU tiny model; CLAIMS O093; the 4B run is pending): batch-1 vs padded batch, tolerance 1e-3, on each path; generation byte-identity with the adapter off
+- [ ] GPU run on the pinned Qwen3.5-4B (fp32): scripts/osler/o5_checks.py writes outputs/osler_v0/O5/readout_checks.json (PENDING: the O2 chain holds the GPU until its last step; run it in the first GPU-free window)
+- [x] training readiness: every mix v2 row loads as a validated training item (src/meddecide/train/mix_items.py; CLAIMS O092); one gradient step moves the loss and reaches the head and the adapter (O093)
+
 O1 checklist (completed):
 - [x] schemas, sizes, pinned revisions and licences of the usable sets (CLAIMS O032–O039)
 - [x] converters for 7 sets with unit tests (tests/test_panel.py, 30 tests in total)
@@ -204,6 +213,11 @@ Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks)
 - Headline: mix v2 has 573,611 train rows (student_v1 482,889 + 46,744 new + 43,978 augmented, 7.67 %) and 10,843 dev rows; text and dataset-qualified leakage are 0 on both (CLAIMS O075–O076); budget 200,000 examples (O068); general replay 3.46 % (O069)
 - Surprises: inherited student_v1 shortcuts and visibility gaps (nfcorpus BoW 0.996; medquad 0.984; pubmed_pubtype 0.860; O085–O087); ChemProt and Evidence Inference unusable (PMIDs outside the pool's range); 1,934 PubHealth claims dropped for missing dates; bare-id collision check corrected (deviation 25)
 - Next: O5 (readouts). Its checks need the GPU, so O5 waits for a GPU-free window; its code and CPU unit tests can start now while O2 runs. Operator Questions 9–13 are open
+
+### O4 addendum — 2026-10-09T19:17:15Z
+- What ran: scripts/osler/o4_check_loadable.py: every mix v2 row through the trainer's strict Item reader. Train 573,611 of 573,611 and dev 10,843 of 10,843 load (CLAIMS O092). Training-only placeholders for the schema's required fields are in src/meddecide/train/mix_items.py (the trainer never reads the tier, the URL or the record date)
+- Surprises: the check was not in the O4 acceptance and should have been; it found no failures, so no row is excluded
+- Next: O5 GPU run (pending the O2 chain)
 
 ## 5. Blocked items
 
