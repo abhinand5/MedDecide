@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="380" font-family="sans-serif" font-size="12">
+<rect width="760" height="380" fill="white"/>
+<text x="60" y="24" font-size="14" font-weight="bold">student_v0 run 3: macro accuracy vs training step (dev)</text>
+<line x1="60" y1="320" x2="700" y2="320" stroke="#333"/>
+<line x1="60" y1="60" x2="60" y2="320" stroke="#333"/>
+<text x="60.0" y="336" text-anchor="middle">1k</text>
+<text x="89.8" y="336" text-anchor="middle">3k</text>
+<text x="119.5" y="336" text-anchor="middle">5k</text>
+<text x="149.3" y="336" text-anchor="middle">7k</text>
+<text x="179.1" y="336" text-anchor="middle">9k</text>
+<text x="208.8" y="336" text-anchor="middle">11k</text>
+<text x="238.6" y="336" text-anchor="middle">13k</text>
+<text x="268.4" y="336" text-anchor="middle">15k</text>
+<text x="298.1" y="336" text-anchor="middle">17k</text>
+<text x="327.9" y="336" text-anchor="middle">19k</text>
+<text x="357.7" y="336" text-anchor="middle">21k</text>
+<text x="387.4" y="336" text-anchor="middle">23k</text>
+<text x="417.2" y="336" text-anchor="middle">25k</text>
+<text x="447.0" y="336" text-anchor="middle">27k</text>
+<text x="476.7" y="336" text-anchor="middle">29k</text>
+<text x="506.5" y="336" text-anchor="middle">31k</text>
+<text x="536.3" y="336" text-anchor="middle">33k</text>
+<text x="566.0" y="336" text-anchor="middle">35k</text>
+<text x="595.8" y="336" text-anchor="middle">37k</text>
+<text x="625.6" y="336" text-anchor="middle">39k</text>
+<text x="655.3" y="336" text-anchor="middle">41k</text>
+<text x="700.0" y="336" text-anchor="middle">44k</text>
+<polyline points="60.0,60.0 89.8,74.2 119.5,74.0 149.3,83.3 179.1,121.9 208.8,73.7 238.6,64.7 268.4,97.0 298.1,83.7 327.9,90.9 357.7,74.0 387.4,67.5 417.2,90.6 447.0,75.1 476.7,75.6 506.5,75.5 536.3,71.9 566.0,68.3 595.8,64.8 625.6,65.7 655.3,63.0 700.0,62.1" fill="none" stroke="#1f6f8b" stroke-width="2"/>
+<circle cx="60.0" cy="60.0" r="3" fill="#1f6f8b"/>
+<circle cx="89.8" cy="74.2" r="3" fill="#1f6f8b"/>
+<circle cx="119.5" cy="74.0" r="3" fill="#1f6f8b"/>
+<circle cx="149.3" cy="83.3" r="3" fill="#1f6f8b"/>
+<circle cx="179.1" cy="121.9" r="3" fill="#1f6f8b"/>
+<circle cx="208.8" cy="73.7" r="3" fill="#1f6f8b"/>
+<circle cx="238.6" cy="64.7" r="3" fill="#1f6f8b"/>
+<circle cx="268.4" cy="97.0" r="3" fill="#1f6f8b"/>
+<circle cx="298.1" cy="83.7" r="3" fill="#1f6f8b"/>
+<circle cx="327.9" cy="90.9" r="3" fill="#1f6f8b"/>
+<circle cx="357.7" cy="74.0" r="3" fill="#1f6f8b"/>
+<circle cx="387.4" cy="67.5" r="3" fill="#1f6f8b"/>
+<circle cx="417.2" cy="90.6" r="3" fill="#1f6f8b"/>
+<circle cx="447.0" cy="75.1" r="3" fill="#1f6f8b"/>
+<circle cx="476.7" cy="75.6" r="3" fill="#1f6f8b"/>
+<circle cx="506.5" cy="75.5" r="3" fill="#1f6f8b"/>
+<circle cx="536.3" cy="71.9" r="3" fill="#1f6f8b"/>
+<circle cx="566.0" cy="68.3" r="3" fill="#1f6f8b"/>
+<circle cx="595.8" cy="64.8" r="3" fill="#1f6f8b"/>
+<circle cx="625.6" cy="65.7" r="3" fill="#1f6f8b"/>
+<circle cx="655.3" cy="63.0" r="3" fill="#1f6f8b"/>
+<circle cx="700.0" cy="62.1" r="3" fill="#1f6f8b"/>
+<text x="696" y="76" text-anchor="end" fill="#1f6f8b">seen (macro acc)</text>
+<polyline points="60.0,154.9 89.8,169.9 119.5,189.7 149.3,247.7 179.1,250.3 208.8,237.8 238.6,246.0 268.4,296.7 298.1,257.3 327.9,245.5 357.7,289.5 387.4,320.0 417.2,293.0 447.0,285.3 476.7,313.2 506.5,309.0 536.3,292.3 566.0,293.7 595.8,285.4 625.6,279.3 655.3,287.1 700.0,285.9" fill="none" stroke="#c0392b" stroke-width="2"/>
+<circle cx="60.0" cy="154.9" r="3" fill="#c0392b"/>
+<circle cx="89.8" cy="169.9" r="3" fill="#c0392b"/>
+<circle cx="119.5" cy="189.7" r="3" fill="#c0392b"/>
+<circle cx="149.3" cy="247.7" r="3" fill="#c0392b"/>
+<circle cx="179.1" cy="250.3" r="3" fill="#c0392b"/>
+<circle cx="208.8" cy="237.8" r="3" fill="#c0392b"/>
+<circle cx="238.6" cy="246.0" r="3" fill="#c0392b"/>
+<circle cx="268.4" cy="296.7" r="3" fill="#c0392b"/>
+<circle cx="298.1" cy="257.3" r="3" fill="#c0392b"/>
+<circle cx="327.9" cy="245.5" r="3" fill="#c0392b"/>
+<circle cx="357.7" cy="289.5" r="3" fill="#c0392b"/>
+<circle cx="387.4" cy="320.0" r="3" fill="#c0392b"/>
+<circle cx="417.2" cy="293.0" r="3" fill="#c0392b"/>
+<circle cx="447.0" cy="285.3" r="3" fill="#c0392b"/>
+<circle cx="476.7" cy="313.2" r="3" fill="#c0392b"/>
+<circle cx="506.5" cy="309.0" r="3" fill="#c0392b"/>
+<circle cx="536.3" cy="292.3" r="3" fill="#c0392b"/>
+<circle cx="566.0" cy="293.7" r="3" fill="#c0392b"/>
+<circle cx="595.8" cy="285.4" r="3" fill="#c0392b"/>
+<circle cx="625.6" cy="279.3" r="3" fill="#c0392b"/>
+<circle cx="655.3" cy="287.1" r="3" fill="#c0392b"/>
+<circle cx="700.0" cy="285.9" r="3" fill="#c0392b"/>
+<text x="696" y="92" text-anchor="end" fill="#c0392b">held-out (macro acc)</text>
+<text x="380.0" y="368" text-anchor="middle">training step</text>
+</svg>

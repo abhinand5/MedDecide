@@ -70,6 +70,15 @@ re-measured on MedDecide-Bench.
 | D8 | MIMIC: main public model is MIMIC-free in training but evaluated on MIMIC-derived sets; a separate **MedDecide-clinical** trains on MIMIC, released via credentialed access | 2026-10-06 | keeps the headline release unblocked |
 | D9 | Control: no cash cap; every gate is a hard stop for operator + advisor review | 2026-10-06 | operator steers between loops |
 | D10 | Human audit: the operator audits ~150 fresh-tier items per benchmark build via a keyboard-driven local HTML page | 2026-10-06 | validates templates, not every label |
+| D11 | Fresh window start is bounded by the **ladder** models (our bases), not the teacher: v0.1 starts 2026-03-01 (latest ladder date 2026-02-28). Items dated ≥ 2026-09-10 form a **strict slice** reported separately | 2026-10-06 | the teacher never labels benchmark items; later baselines seeing records can only advantage them (conservative for us); v0's 25-day window left openFDA templates with 16–94 items |
+| D12 | **Readout-health gate** on every reported (model, template) cell: median label mass ≥ 0.5, greedy agreement ≥ 0.9, accuracy CI not below chance; failing cells are `READOUT_FAIL`, never accuracies. Every question type needs its own reference validation | 2026-10-06 | bench_v0 reported a broken `noul` readout and an off-by-one MedMCQA key as findings |
+| D13 | Gold-only training data for loop 1: official tier-1 **train** splits + **pre-window** structured-gold items (same builders, records dated before 2026-03-01). No LLM labels, no teacher, no UMLS/MIMIC, no HF datasets outside the vetted list | 2026-10-06 | exam train splits alone teach exam MCQ, not the fresh tier's decision types; pre-window records give unlimited gold with a clean time split |
+| D14 | **Held-out templates** are excluded from training entirely and reported separately; loop 1 holds out `ct_phase_choice_v1`, `fda_boxed_warning_noul_v1`, `pubmed_humans_noul_v1` and one record–claim consistency template | 2026-10-06 | a general decision model must be measured on decision types it never trained on |
+| D15 | **Record–claim consistency** is a first-class template family (document-grounded verification): a stated attribute is supported or a near-miss swap; role-binding designs so a string-presence rule cannot solve it | 2026-10-06 | verification against a document is the central real-world decision; gold is known by construction |
+| D16 | **Gate G1:** on the headline fresh set (v0.2 kept templates excluding the superseded `pubmed_mesh_major_choice_v1` / `fda_class_choice_v1`), for each baseline B ∈ {zero-shot Qwen3.5-0.8B, JEV-9B}: item-paired bootstrap 95 % CI (1,000 resamples, items within templates) of MedDecide − B in macro accuracy and in mean Brier. PASS iff accuracy CI lower bound > 0 **and** Brier CI upper bound < 0 against **both** baselines on **seen** templates; held-out templates reported with the same rule, separately | 2026-10-06 | fixed before results so the claim cannot drift |
+| D17 | Training sources extended: official train splits, pre-window structured-gold items, and catalog (`docs/benchmark/dataset_catalog.md`) datasets with **human or structured** labels and a training-compatible licence. LLM-labelled datasets (e.g. `LocalLLaMA/typed-decisions`) are never training data; they may validate tooling | 2026-10-08 | student_v0 did not transfer to held-out decision types; diversity is the first lever |
+| D18 | Loop 1b compares three decision heads under matched conditions: pointer head, letter-readout LoRA, and a Clef-style joint head via Unsloth (`FastDecisionModel` / `DecisionTrainer`, its own environment). The joint head is no longer gated on pointer-head failure | 2026-10-08 | operator decision; the paper's architecture claim needs the plain-LoRA control and the published joint-head recipe |
+| D19 | G1 baselines are exactly zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B (D16). Ablations and sibling arms are reported as additional, never in a verdict; model selection and temperatures never use held-out templates | 2026-10-08 | student_v0's `g1.md` put the Base ablation in the verdict |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -83,7 +92,7 @@ teacher is the first suspect.
 Each stage = one loop. **Gate** = the hard-stop condition reviewed with the operator.
 Estimates are planning guesses, not measurements; loop 0 measures real throughput.
 
-### Loop 0 — `bench_v0`: benchmark, harness, baselines, teacher gate  *(current)*
+### Loop 0 — `bench_v0`: benchmark, harness, baselines, teacher gate  *(done — see review)*
 
 Build MedDecide-Bench v0 (tier 1 + fresh tier from ClinicalTrials.gov, openFDA,
 PubMed), the eval harness (accuracy, Brier, ECE, latency, option-shuffle, candidate
@@ -96,14 +105,57 @@ teacher pipeline gate, build the audit page.
 - **Compute:** ~30–50 h on 1×PRO 6000; a few hours on the 4×PRO 6000 teacher.
 - Spec: `loops/bench_v0/ADVISORY.md`.
 
-### Loop 1 — `student_v0`: first student, gold-only
+### Loop 0b — `bench_v0_fix0`: repair and re-measure  *(done — see `loops/bench_v0_fix0/FINDINGS.md`)*
 
-Training code (LoRA + pointer head, CE + Brier), train MedDecide-0.8B on tier-1
-train/dev gold only. Per-question-type temperature fitting on dev.
-- **Gate G1 (first-student gate):** MedDecide-0.8B beats zero-shot Qwen3.5-0.8B **and**
-  JEV-9B on the fresh tier (accuracy and Brier, with bootstrap CIs). Fail → diagnose
-  before any scaling (readout, data, LoRA capacity).
-- Also: Base vs instruct at 0.8B; generation byte-identity check with LoRA off.
+Inserted after the bench_v0 review. Fix the MedMCQA key and verify every tier-1 gold
+against its raw record; fix the `noul`/`score` readout and validate it against
+lm-evaluation-harness; add the readout-health gate (D12); template screen v2
+(gold-in-state, regex, macro-based drop rule); rebuild the fresh tier as v0.1 (D11,
+class-balanced, strict slice); contamination probe; re-run ladder baselines; first
+decision-model baselines; corrections record.
+- **Gate G0 (re-applied):** every reported cell passes the health gate; `choice` and
+  `noul` readouts agree with a reference within ±2 pts; v0.1 manifest, screen, and
+  corrections complete; operator audit of the v0.1 sample.
+- Spec: `loops/bench_v0_fix0/ADVISORY.md`.
+
+### Loop 1 — `student_v0`: benchmark v0.2 + the first trained model  *(done — read the advisor note at the top of `loops/student_v0/FINDINGS.md`)*
+
+- **Benchmark v0.2:** fix the graded-score option set; near-miss distractors for the MeSH
+  and FDA-class templates (MeSH tree siblings; classes sharing a mechanism); a
+  constant-answer check in the D12 gate; a **record–claim consistency** template family
+  (does the record support this stated fact? — role-binding designs a string match cannot
+  solve, gold by construction); a **long-record slice** (> 8,192 tokens); a shared-prefix
+  (many questions per record) throughput measurement; HLE Biology/Medicine multiple-choice
+  from `cais/hle` as a supplementary test.
+- **Training data (D13):** tier-1 official train splits + **pre-window structured-gold**
+  items (same builders, records dated before 2026-03-01), with **held-out templates (D14)**
+  excluded entirely; a mechanical leakage check against every test and dev split.
+- **Model:** MedDecide-0.8B = frozen Qwen3.5-0.8B + decision-path LoRA + pointer head,
+  CE + Brier, option-order augmentation, per-`qtype` temperature on dev; ablation from
+  Qwen3.5-0.8B-Base; byte-identical generation with the adapter off.
+- **Gate G1 (D16):** item-paired bootstrap differences against zero-shot Qwen3.5-0.8B and
+  JEV-9B on the headline fresh set, seen and held-out templates separately (full rule in
+  D16). PASS on seen → scale and add teacher/ontology data; FAIL on held-out only → data
+  diversity first; FAIL everywhere → diagnose the recipe at 0.8B.
+- Also: a catalog of candidate HF datasets (documentation only), and a read-back of the
+  operator's 150-item audit if it is available.
+- Spec: `loops/student_v0/ADVISORY.md`.
+
+### Loop 1b — `student_v1`: correct G1, fix padding, diversify data, compare three heads  *(current)*
+
+student_v0, read per D16: the trained 0.8B beats zero-shot by a wide margin on **seen** decision
+types (macro +0.163, Brier −0.230) but not on **held-out** types (macro −0.018); G1 vs JEV-9B was
+never computed; a padding bug makes trained scores batch-dependent; the selected checkpoint is
+step 1,000 of 44,152.
+- Recompute G1 per D16 (JEV-9B on v0.2); fix and measure the padding bug; score held-out dev
+  across 22 saved checkpoints (does transfer rise or fall with training?).
+- **Data diversity (D17):** PubMed pre-window, ≥ 8 new train-only decision types, ≥ 2 new
+  record–claim designs, `score` items, vetted catalog sources; no template > 8 % of the mix.
+- **Three matched heads (D18):** A pointer head, B letter-readout LoRA, C Clef-style joint head
+  via Unsloth — same data, order, step budget (15,000), base, prompt cap and evaluation.
+- **Outcome logic:** an arm that passes G1 on held-out → the recipe to scale; all arms fail on
+  held-out → data diversity / teacher next; arms indistinguishable → keep the simplest.
+- Spec: `loops/student_v1/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat
 
@@ -204,6 +256,7 @@ every headline comparison.
 |---|---|
 | loop 0 | `HF_TOKEN` on the pod with access to `google/medgemma-1.5-4b-it` accepted; GitHub push access from the pod to this repo; agent harness with DeepSeek API key; teacher endpoint for T10 |
 | loop 0 | ~2 h for the 150-item audit |
+| loop 1 | `cais/hle` terms accepted on the HF account behind `HF_TOKEN` (for the HLE supplementary test); the 150-item audit file at `outputs/bench_v0_fix0/F10/audit_v0.jsonl` |
 | loop 2 | 4×PRO 6000 teacher window (days); UMLS files available on the pod (`data/private/umls/`) |
 | loop 3 | 4×PRO 6000 window for 27B baselines |
 | loop 4 | MIMIC-IV access: CITI "Data or Specimens Only Research" training uploaded at physionet.org/settings/training/, DUA signed per dataset |

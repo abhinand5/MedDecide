@@ -1,0 +1,26 @@
+[project]
+name = "meddecide-unsloth"
+version = "0.0.1"
+description = "Isolated Unsloth environment for student_v1 arm C (Clef-style joint head). Not the main project env."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "unsloth==2026.10.2",
+    "unsloth_zoo>=2026.10.2",
+    "torch>=2.4,<2.15",
+    "transformers>=4.52.4,<=5.17.0",
+    "pyarrow>=20.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.9",
+]
+
+# Same cu130 wheel index as the main project: the RTX PRO 6000 is sm_120 (Blackwell).
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+
+[tool.uv]
+package = false

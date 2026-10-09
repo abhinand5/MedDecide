@@ -17,14 +17,15 @@
 
 ## Current loop
 
-- **Loop:** `bench_v0` (loop 0 of the program)
-- **Mission:** build MedDecide-Bench v0, a validated eval harness, zero-shot baselines, and the DeepSeek-V4.1-Flash teacher-pipeline gate — then hard-stop for review.
-- **Artifacts:** `loops/bench_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/bench_v0/STATE.md`
-- **Outputs:** `outputs/bench_v0/<task-id>/` (gitignored)
-- **Claims:** `loops/bench_v0/CLAIMS.md`
+- **Loop:** `student_v1` (loop 1b — correct G1, padding fix, data diversity, three decision heads)
+- **Mission:** recompute G1 per D16 (JEV-9B on v0.2); fix and measure the padding bug; measure held-out skill across saved checkpoints; build a more diverse gold training set; train three matched heads (A pointer, B letter-readout LoRA, C Clef-style joint head via Unsloth) and compare them on held-out templates — then hard-stop for review.
+- **Branch:** `loop/student_v1` (never commit to `main` or any other loop branch)
+- **Artifacts:** `loops/student_v1/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/student_v1/STATE.md`
+- **Outputs:** `outputs/student_v1/<task-id>/` (gitignored)
+- **Claims:** `loops/student_v1/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `<filled by the loop agent in T0>`
+- **Started:** `2026-10-08T03:59:12Z`
 
 ---
 
@@ -62,15 +63,26 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 - **Model ladder:** `LiquidAI/LFM2.5-350M`, `Qwen/Qwen3.5-0.8B` (and `-Base`),
   4B tier = `google/medgemma-1.5-4b-it` vs `Qwen/Qwen3.5-4B` (winner of a later
   bake-off), `Qwen/Qwen3.5-9B`.
-- **Architecture:** frozen base + decision-path LoRA + pointer head. Ablations later:
-  verbalizer readout, adaptive thinking. Joint schema head only if the pointer head
-  fails at high cardinality.
+- **Architecture:** frozen base + decision-path LoRA + a decision head. Loop 1b (D18)
+  compares three heads under matched conditions — pointer head, letter-readout LoRA, and a
+  Clef-style joint head (via Unsloth); the program keeps the one the evidence favours.
+  Adaptive thinking remains a later ablation.
 - **Teacher:** `deepseek-ai/DeepSeek-V4.1-Flash`, self-hosted by the operator on
   4×RTX PRO 6000 when a task needs it.
 - **Benchmark:** two tiers. Tier 1 = established public test sets (+ contamination
-  probe). Tier 2 = **fresh** items from sources dated after every ladder model's and the
-  teacher's training cutoff, with gold derived **only from structured source fields**.
-  The SoTA claim rests on tier 2.
+  probe). Tier 2 = **fresh** items from records dated after the ladder models' dates
+  (window start 2026-03-01, D11; strict slice ≥ 2026-09-10 reported separately), with
+  gold derived **only from structured source fields**. The SoTA claim rests on tier 2.
+- **Readout-health gate (D12):** no zero-shot letter-readout accuracy is reported unless
+  its (model, template) cell passes the gate; failing cells read `READOUT_FAIL — <check>`.
+- **Training data (D13, D17):** official train splits, **pre-window** structured-gold items
+  (records dated before 2026-03-01), and vetted catalog datasets with human or structured
+  labels and a permissive licence. Never test splits, never LLM-labelled gold.
+- **Held-out templates (D14):** some fresh templates are excluded from training entirely
+  and reported separately; the list is fixed per loop in its ADVISORY.
+- **Gate G1 (D16):** defined in `docs/plans/PROGRAM.md`; never changed after results. Its
+  baselines are zero-shot `Qwen/Qwen3.5-0.8B` and JEV-9B only — an ablation or a sibling arm
+  is never part of a G1 verdict.
 - **Release policy:** model weights, benchmark (public-source items only), and code are
   open. **Training data stays private.**
 
@@ -83,7 +95,7 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   hosted third-party API — only to self-hosted models.
 - **MIMIC and other PhysioNet credentialed data** may only be processed on
   operator-controlled machines by local models; never sent to a hosted third-party
-  API; never printed into anything committed. (Not used in `bench_v0`.)
+  API; never printed into anything committed. (Not used before the clinical loop.)
 - **Test splits are evaluation-only.** Never fit temperatures, thresholds, prompts, or
   templates on a test split. Dev/train splits only.
 - **No silent drops.** Every filter returns counts and reasons.
@@ -112,9 +124,13 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 
 ### Git
 
-- Commit loop progress to `main` at least after every task: STATE.md, CLAIMS.md, code,
-  committed reports. Push if the remote is configured. Message format:
-  `loop(bench_v0): T<n> <DONE|BLOCKED> — <headline>`.
+- Each loop works on the branch named in "Current loop" above (usually
+  `loop/<loop-name>`; a repair loop may continue its parent's branch). Check
+  `git branch --show-current` at the start of every session and switch to that branch if
+  needed. **Never commit to or push `main`** — the operator merges after review.
+- Commit loop progress at least after every task: STATE.md, CLAIMS.md, code, committed
+  reports. Push that branch. Message format:
+  `loop(<loop-name>): <task-id> <DONE|BLOCKED> — <headline>`.
 - Never force-push, never rewrite history, never delete branches.
 
 ---
@@ -187,7 +203,9 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
-| — | — | — |
+| `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
+| `bench_v0_fix0` | Repaired loop 0: MedMCQA key fixed (0 gold mismatches of 15,915 verified), `noul`/`score` readout fixed (label mass 0.996+), D12 readout-health gate added, benchmark rebuilt as v0.1 (22,594 tier-1 + 23,582 balanced fresh items, window 2026-03-01), all 6 ladder models + JEV-9B + 2 Laya models measured, all 53 bench_v0 claims dispositioned (4 withdrawn). Teacher gate still blocked; audit staged. Advisor note: its Summary item 7 ("~0.50 on every fresh `noul`") holds only for the 350M model. | `loops/bench_v0_fix0/FINDINGS.md` |
+| `student_v0` | Benchmark v0.2 (45,009 items; record–claim consistency, long-record slice, HLE supplementary), a 212,481-item gold training mix with a clean leakage check, and the first MedDecide-0.8B (LoRA r=8 + pointer head; selected checkpoint step 1,000). vs zero-shot 0.8B: seen fresh templates macro +0.163, Brier −0.230; held-out templates macro −0.018 (no transfer). Its own `g1.md` used the Base ablation as a baseline; per D16, G1 is incomplete on seen (JEV-9B not run) and FAIL on held-out — see the advisor note. Two runs failed first (length-curriculum bug; divergence); padding makes trained scores batch-dependent. | `loops/student_v0/FINDINGS.md` (advisor note at top) |
 
 ---
 

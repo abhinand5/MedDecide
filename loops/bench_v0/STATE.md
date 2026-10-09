@@ -10,10 +10,10 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (T12), or when no PENDING task can proceed without the operator -->
+Run started (UTC): `2026-10-05T20:49:53Z`
+Last updated (UTC): `2026-10-06T01:10:00Z`
+Iterations so far: `3`
 
 ---
 
@@ -23,19 +23,19 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| T0 | Environment verification | no | — | PENDING | | |
-| T1 | Repo scaffold | smoke | T0 | PENDING | | |
-| T2 | Item schema | no | T1 | PENDING | | |
-| T3 | Tier 1 loaders | no | T2 | PENDING | | |
-| T5 | Fresh-tier builders | no | T2 | PENDING | | |
-| T6 | Eval harness | yes | T2 | PENDING | | |
-| T7 | Harness validation vs reference | yes | T3, T6 | PENDING | | |
-| T8 | Fresh-template screen | no | T5 | PENDING | | |
+| T0 | Environment verification | no | — | DONE | 2026-10-05T20:49:53Z | 2026-10-05T20:50:24Z |
+| T1 | Repo scaffold | smoke | T0 | DONE | 2026-10-05T20:53:18Z | 2026-10-05T20:58:30Z |
+| T2 | Item schema | no | T1 | DONE | 2026-10-05T20:59:06Z | 2026-10-05T21:02:40Z |
+| T3 | Tier 1 loaders | no | T2 | DONE | 2026-10-05T21:02:40Z | 2026-10-05T21:22:10Z |
+| T5 | Fresh-tier builders | no | T2 | DONE | 2026-10-05T21:22:10Z | 2026-10-05T21:52:30Z |
+| T6 | Eval harness | yes | T2 | DONE | 2026-10-05T22:00:12Z | 2026-10-05T23:20:00Z |
+| T7 | Harness validation vs reference | yes | T3, T6 | DONE | 2026-10-06T00:30:00Z | 2026-10-06T00:45:00Z |
+| T8 | Fresh-template screen | no | T5 | DONE | 2026-10-05T23:22:00Z | 2026-10-06T00:00:00Z |
 | T4 | Tier 1 contamination probe | yes | T3, T6 | PENDING | | |
-| T9 | Zero-shot baseline table | yes | T7, T8 | PENDING | | |
-| T10 | Teacher pipeline gate | teacher | T3, T5, T6 | PENDING | | |
-| T11 | Operator audit page + sample | no | T8 | PENDING | | |
-| T12 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| T9 | Zero-shot baseline table | yes | T7, T8 | DONE (decision models NOT MEASURED - timeboxed) | 2026-10-06T00:50:00Z | 2026-10-06T00:35:00Z |
+| T10 | Teacher pipeline gate | teacher | T3, T5, T6 | BLOCKED — teacher endpoint not provided | 2026-10-06T00:50:00Z | 2026-10-06T00:50:00Z |
+| T11 | Operator audit page + sample | no | T8 | BLOCKED — awaiting operator (page + sample delivered) | 2026-10-06T00:00:00Z | 2026-10-06T00:25:00Z |
+| T12 | Findings and closure — HARD STOP | no | all | DONE | 2026-10-06T00:40:00Z | 2026-10-06T01:10:00Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (T10 exception in
 ADVISORY §6). Never run two GPU tasks at once. A `BLOCKED` task does not block
@@ -50,10 +50,16 @@ recomputing or guessing.
 
 | key | value | source | task |
 |---|---|---|---|
-| fresh window start | | `docs/benchmark/fresh_window.md` | T5 |
-| fresh window end | | | T5 |
+| fresh window start | `2026-09-10` (teacher HF repo creation; latest of all ladder/teacher dates) | `docs/benchmark/fresh_window.md` | T5 |
+| fresh window end | build date, `2026-10-05` for this build | `data/bench/fresh/manifest.json` | T5 |
+| tier-1 items | 21,202 in 10 templates (test 13,099 / dev 8,103), 0 leaks, 0 dup ids | `data/bench/tier1/audit.json` | T3 |
+| fresh items | 41,502 in 12 templates (test 30,870 / dev 10,632), 0 leaks, 0 dup ids | `data/bench/fresh/audit.json` | T5 |
+| item id rule | stable hash of source + record + template + option seed + **split** | `src/meddecide/bench/schema.py` | T2/T3 |
 | option-letter token variant per model | | | T6 |
-| T7 reference agreement (pts) | | | T7 |
+| T7 reference agreement (pts) | **-0.50 pts** (ours 0.3825 vs lm-eval 0.3875, same 400 items + same scoring rule; PASS at +/-2.0) | `outputs/bench_v0/T7/validation.json` | T7 |
+| T6 protocol vs lm-eval (same task) | +2.18 pts (0.4093 vs 0.3723, full split; prompt + target differ) | `loops/bench_v0/harness_validation.md` | T7 |
+| option-letter token variant per model | **measured per model** (Qwen = `bare` "A"); see variant_detection in each summary | `outputs/bench_v0/T6/summaries/` | T6 |
+| kept / dropped fresh templates | 10 kept / 2 dropped (`ct_healthy_volunteers_noul_v1` single-class; `pubmed_observational_noul_v1` BoW 0.985) | `loops/bench_v0/template_screen.md` | T8 |
 | kept / dropped fresh templates | | | T8 |
 | teacher logprob API shape | | | T10 |
 | teacher items/hour (non-thinking / thinking) | | | T10 |
@@ -71,15 +77,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/bench_v0/<id>/
-
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+Task in flight: none — all tasks DONE or BLOCKED with a reason. Loop STOPPED.
 ```
 
 ---
@@ -101,10 +99,190 @@ Working dir:    outputs/bench_v0/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### session-2 close — 2026-10-05T21:58:00Z
+- Tasks completed this session: T0, T1, T2, T3, T5 (all DONE and pushed).
+- Not started: T6 (eval harness, GPU) — the session ended before it began; T4/T7 depend on it,
+  T8 on T5 (now DONE), so T6 is the next eligible task.
+- Nothing is running: no detached jobs, no GPU work in flight (`pgrep` clean for build scripts).
+- Raw outputs for this session live under `outputs/bench_v0/{T0,T1,T2,T3,T5}/` (gitignored),
+  including SELF_AUDIT.md for each completed task.
+
+### T12 — DONE (HARD STOP) — 2026-10-06T01:10:00Z
+- What ran: five-claim spot-check re-run in fresh processes, then the closure documents.
+- Output: `loops/bench_v0/FINDINGS.md` (Summary + body + spot-check), `loops/bench_v0/NEXT.md`,
+  this STATE file's closure feed, `Loop status: STOPPED`.
+- Headline: the loop's output is the validated harness, the two-tier benchmark with its integrity
+  proofs, the six-model baseline table, and the honest list of what is blocked (teacher, audit) or
+  not measured (decision models, T4 contamination probe).
+- Next: nothing in this loop. Loop 1 is planned only after operator + advisor review.
+
+### T9 — DONE (decision models NOT MEASURED) — 2026-10-06T00:35:00Z
+- What ran: `scripts/bench/run_eval.py` for six ladder models over tier-1 test + fresh test
+  (11 files, `--splits test`), plus a seeded option-shuffle run for MedMCQA/4B; metrics
+  recomputed from the prediction files by `scripts/bench/report_baselines.py`.
+- Output: committed `loops/bench_v0/baselines.md`; `outputs/bench_v0/T9/{results.json,preds/,summaries/}`.
+- Headline: the ladder scales on MedQA (0.290 → 0.754) and MMLU (0.241 → 0.860) from 350M to 9B
+  (C050); MedMCQA's 0.12 for 4B/9B is a **positional-bias artefact**, proven by shuffling — the
+  "D" preference survives a balanced permutation, so that template measures position, not
+  medicine, for those models (C051); 264,478 rows total (C052).
+- Surprises: three OOMs that I first blamed on LFM2.5's kernels and long prompts were in fact my
+  own batch planner emitting a 239-sequence batch (fixed, regression-tested — C045); the retry
+  then measured LFM2.5-350M successfully at chance level.
+- Next: T12 closure (T10 blocked on the teacher endpoint, T11 audit awaiting the operator).
+
+### T10 — BLOCKED — 2026-10-06T00:50:00Z
+- What ran: nothing (the endpoint was checked, not called).
+- Reason: `TEACHER_BASE_URL` and `TEACHER_API_KEY` are still unset in the pod environment, so
+  `GET $TEACHER_BASE_URL/models` cannot be attempted. ADVISORY T10: "If unset or unreachable when
+  T10 is reached, T10 is BLOCKED — teacher endpoint not provided. Do not wait for it."
+- Headline: `BLOCKED — teacher endpoint not provided`; no teacher numbers exist and none are
+  estimated (R3). Question Q1 in section 6 says what would unblock it.
+- Next: T9 (baselines) is unblocked by T7+T8 and is the only remaining measurement task; T12 can
+  close the loop with T10 blocked and the T11 audit awaiting the operator.
+
+### T7 — DONE — 2026-10-06T00:45:00Z
+- What ran: `lm_eval --tasks medqa_4options --num_fewshot 0` (plain, 1,273 and 400 items; then
+  `--apply_chat_template`), and `uv run python scripts/bench/validate_vs_reference.py --limit 400`.
+- Output: committed `loops/bench_v0/harness_validation.md`; raw `outputs/bench_v0/T7/`.
+- Headline: our code and lm-evaluation-harness agree to **-0.50 accuracy points** on the same 400
+  MedQA items with the same prompt and scoring rule (ours 0.3825, lm-eval 0.3875) — inside the
+  +/-2.0 tolerance, so **T9 may report baseline numbers** (C041-C044).
+- Surprises: the first comparison showed a 9-point gap that looked like a harness defect; it was
+  the validation script scoring the bare letter `"A"` where lm-eval scores `" A"` (a tokenisation
+  convention, not arithmetic). Recorded in the report. The T6 protocol itself sits +2.18 points
+  above lm-eval's plain prompt — reported separately as a protocol difference, not as agreement.
+- Next: T9 is unblocked only in principle (it needs T7 AND T8, both now DONE); T10 needs the
+  teacher endpoint.
+
+### T11 — BLOCKED (awaiting operator) — 2026-10-06T00:25:00Z
+- What ran: `uv run python scripts/bench/make_audit_sample.py` (150-item stratified sample) and
+  `node tests/test_audit_page.mjs` (the page's own export logic, incl. the real sample).
+- Output: `tools/audit/audit.html` (committed, no data); `outputs/bench_v0/T11/audit_sample.jsonl`
+  (gitignored) + `audit_sample_manifest.json`; `tests/test_audit_page.{py,mjs}`; 67 tests pass.
+- Headline: the operator audit is ready to run — 150 fresh test items (50 per source across the
+  10 kept templates) with the structured field behind every gold, and a self-contained page whose
+  export round-trips all 150 rows (C038–C040).
+- Blocked on: the operator's ~2 h review (ADVISORY T11). The audit itself cannot be done by the
+  agent; the loop continues, and T12 reports it as blocked-if-not-done.
+- Next: T10 (teacher endpoint) is the only remaining unblocked-by-deps task.
+
+### T8 — DONE — 2026-10-06T00:00:00Z
+- What ran: `uv run python scripts/bench/screen_templates.py` (regex + TF-IDF/LogReg baselines,
+  the latter fitted on dev and scored on test).
+- Output: `src/meddecide/eval/screen.py`, `scripts/bench/screen_templates.py`,
+  `configs/template_screen_patterns.yaml`, committed `loops/bench_v0/template_screen.md`,
+  `outputs/bench_v0/T8/screen.json`, `data/bench/fresh/manifest_screened.json`.
+- Headline: 10 of 12 fresh templates kept, 2 dropped — `ct_healthy_volunteers_noul_v1` because
+  all 2,900 test items share one gold class, and `pubmed_observational_noul_v1` because the
+  bag-of-words baseline reaches 0.985 (majority 0.985, macro 0.500: no skill); the BoW macro
+  accuracy is <=0.564 on every template, so the micro numbers are not evidence of difficulty
+  (C033-C037).
+- Surprises: the screen's most useful output is not the drop list but the per-template note that
+  every BoW classifier collapsed toward the majority class; the healthy-volunteers field is
+  constant in a 25-day window, which is a window-width problem surfacing as a template problem.
+- Next: T11 (audit page + sample) is CPU-only and now unblocked; T9 still waits on T7.
+
+### T6 — DONE — 2026-10-05T23:20:00Z
+- What ran: `uv run pytest` (65), `scripts/bench/run_eval.py` twice (0.8B + 0.8B-Base, 50
+  MedQA items), `scripts/bench/run_probes.py` (30 items, 3 probes), `scripts/bench/label_token_check.py`.
+- Output: `src/meddecide/eval/{readout,harness,probes}.py`, `scripts/bench/{run_eval,run_probes,label_token_check}.py`,
+  `tests/test_harness.py`; predictions/summaries/probe JSON under `outputs/bench_v0/T6/`.
+- Headline: the harness scores 50 MedQA items on Qwen3.5-0.8B (0.34, majority 0.36, Brier
+  0.761, ECE 0.226) and on -Base (0.40), writes complete prediction files, and passes 65 unit
+  tests; the option-letter variant is **measured per model** (`bare` for Qwen) rather than
+  assumed (C025–C032).
+- Surprises: three readout bugs, each caught by a different cross-check — a prompt that made
+  the model continue the question instead of choosing, a left-padding index that read the wrong
+  token position, and a variant heuristic that read `" A"` while the model emits `A`. The third
+  was invisible in accuracy terms but showed up as label mass ~1e-06; after fixing it the mass
+  is 0.996 and the best option is in the vocab top-5 on every item. Also replaced an unstable
+  `argsort` rank metric with a tie-robust count after it disagreed with direct inspection.
+- Next: T7 must validate this harness against lm-evaluation-harness before any T9 number is
+  reported; T4 (contamination probe) and T8 (CPU screen) are now both unblocked.
+
+### T5 — DONE — 2026-10-05T21:52:30Z
+- What ran: `uv run python scripts/bench/build_fresh.py --window-end 2026-10-05 --pubmed-files 12`
+  (twice, to prove determinism), then `scripts/bench/audit_fresh.py`.
+- Output: `data/bench/fresh/*.jsonl` + `manifest.json` + `acceptance.json` + `audit.json`
+  (gitignored); `docs/benchmark/fresh_window.md` (committed); code in
+  `src/meddecide/bench/fresh/`; `outputs/bench_v0/T5/SELF_AUDIT.md`.
+- Headline: 41,502 fresh items in 12 templates from ClinicalTrials.gov, openFDA and PubMed,
+  every one dated inside the 2026-09-10 → 2026-10-05 window (0 items before the start),
+  with 0 split leaks, 0 duplicate ids, 0 straddling question texts and a byte-identical
+  rebuild (C018–C024).
+- Surprises: the window is only 25 days wide because the teacher's HF repo date is the
+  binding cutoff, so openFDA yields 122 labels and its class template only 19 items; the CT.gov
+  builder silently produced 1 of 5 templates until field names were corrected against the live
+  API; PubMed update files repeat records (one PMID up to 6 times) and the duplicate copies
+  were being discarded by the identity guard until record-level merging was added.
+- Next: T6 (eval harness) is now unblocked and needs the GPU. T7 depends on T6, T8 on T5,
+  T11 on T8.
+
+### T3 — DONE — 2026-10-05T21:22:10Z
+- What ran: `uv run python scripts/bench/build_tier1.py` then `scripts/bench/audit_tier1.py`
+  (recounts from raw JSONL in a fresh process).
+- Output: `data/bench/tier1/*.jsonl` + `manifest.json` + `acceptance.json` + `audit.json`
+  (gitignored); code in `src/meddecide/bench/tier1/` (committed);
+  `tests/test_tier1_loaders.py` (18 tests); `outputs/bench_v0/T3/SELF_AUDIT.md`.
+- Headline: 21,202 tier-1 items from 8 public sources build cleanly — 13,099 test / 8,103
+  dev, 0 split leaks, 0 duplicate ids, 0 question texts in two splits, 8/8 file hashes
+  matching the manifest (C013–C017).
+- Surprises: the self-audit caught three integrity bugs that a counts-only check would have
+  missed — item ids collided across splits, MedQuAD's `question_id` is not unique (9,662
+  repeats), and MMLU/NFCorpus/MedQuAD repeat content across their official splits, so a stem
+  could be seen in dev and scored in test. All three fixed; the fix is a check (content found
+  in two splits is forced to test), never a loosened tolerance.
+- Next: T5 (fresh tier) is the other half of the benchmark; T6 (harness) can start once T5's
+  checklist is parked or in parallel by a later session.
+
+### T2 — DONE — 2026-10-05T21:02:40Z
+- What ran: `uv run pytest` (37), `uv run ruff check .`, `uv run python scripts/t2_acceptance.py`.
+- Output: `src/meddecide/bench/schema.py`, `src/meddecide/utils/io.py`,
+  `docs/benchmark/schema.md`, `tests/test_schema.py`, `tests/test_manifest.py`,
+  `outputs/bench_v0/T2/acceptance.json`, `outputs/bench_v0/T2/SELF_AUDIT.md`.
+- Headline: the one item format is defined and enforced — 6 documented invariants each
+  backed by a check, deterministic 16-hex ids, a reader that accounts for every line
+  (3/3 kept, 0 dropped), a manifest whose sha256 equals the file's
+  (`4f74d121…0926`, C011) and whose counts close, and 0 records crossing splits (C010, C012).
+- Surprises: whitespace-only `state` passed `min_length=1`; now rejected by an explicit
+  blank-text validator (stricter, not looser). Test count 37 vs 35 test functions is
+  parametrisation, explained in the audit.
+- Next: unblocks T3 (tier 1 loaders), T5 (fresh builders), T6 (harness) — the three
+  independent branches of the loop.
+
+### T1 — DONE — 2026-10-05T20:58:30Z
+- What ran: `uv sync` (157 resolved / 154 installed), `uv run pytest`, `uv run ruff check .`,
+  `uv run python scripts/gpu_smoke.py --model Qwen/Qwen3.5-0.8B`.
+- Output: `pyproject.toml`, `uv.lock`, `src/meddecide/{bench,eval,teacher,utils}/`,
+  `tests/` (27 tests), `configs/bench_v0.yaml`, `docs/benchmark/schema.md`,
+  `outputs/bench_v0/T1/gpu_smoke.txt`, `outputs/bench_v0/T1/SELF_AUDIT.md`.
+- Headline: the full GPU stack works on this pod — `Qwen/Qwen3.5-0.8B` (752,393,024 params,
+  revision `2fc0636…`) loads in bf16 at capability sm_120 and completes a forward pass
+  (C006, C007); `uv run pytest` 27 passed and `uv run ruff check .` clean (C008).
+- Surprises: `transformers` 5.x needs `accelerate` for `device_map` (found by the smoke run,
+  added, re-ran); two of my own test expectations were arithmetically wrong and were
+  corrected with extra stricter cases (see `outputs/bench_v0/T1/SELF_AUDIT.md`).
+- Next: unblocks T2 (item schema); T3/T5/T6 all depend on T2.
+
+### T0 — DONE — 2026-10-05T20:50:24Z
+- What ran: inline environment probe writing `outputs/bench_v0/T0/env.json` (GPU/CPU/RAM/disk,
+  cache paths, `HF_TOKEN` presence, HF `whoami`, gated `medgemma` config fetch, three data
+  APIs, `git push --dry-run`, teacher endpoint).
+- Output: `outputs/bench_v0/T0/env.json`, `outputs/bench_v0/T0/SELF_AUDIT.md`.
+- Headline: 9 of 10 environment checks PASS; the only FAIL is the teacher endpoint
+  (`TEACHER_BASE_URL` unset), which blocks T10 only (C002, C003). Pod = RTX PRO 6000
+  Blackwell 97887 MiB, driver 595.91.07, CUDA 13.0, 128 CPUs, 2015 GB RAM (C001).
+- Surprises: teacher endpoint variables were not in `/workspace/.secrets.env` at loop start
+  — T10 will be `BLOCKED` unless the operator provides them. First draft of the audit
+  undercounted the checks (9 vs 10); corrected in place (R5).
+- Next: unblocks T1 (repo scaffold) and every other task; T10 carries the endpoint question.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| T11 (audit itself) | The ~150-item human audit | The audit is a human judgement by design (ADVISORY T11, PROGRAM D10); an agent cannot supply it, and the page + sample are ready | Operator runs `tools/audit/audit.html` against `outputs/bench_v0/T11/audit_sample.jsonl` (see questions below) and returns `audit_v0.jsonl` to `outputs/bench_v0/T11/` |
+| T10 | Teacher pipeline gate | `TEACHER_BASE_URL` and `TEACHER_API_KEY` are not set in the pod environment (`/workspace/.secrets.env` has neither), so the endpoint cannot be reached | Operator adds `export TEACHER_BASE_URL=...` and `export TEACHER_API_KEY=...` to `/workspace/.secrets.env` and brings the self-hosted DeepSeek-V4.1-Flash endpoint up; T10 then needs a `GET $TEACHER_BASE_URL/models` → 200. Not yet marked BLOCKED in the task board — decided when the task is reached. |
 
 ---
 
@@ -112,6 +290,73 @@ Working dir:    outputs/bench_v0/<id>/
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+**Q5 (T11, added 2026-10-06T00:25:00Z) — the operator audit is ready; here is how to run it.**
+The page is committed at `tools/audit/audit.html` (self-contained, no network). To audit:
+1. Copy the sample off the pod to the machine where you will review:
+   `outputs/bench_v0/T11/audit_sample.jsonl` (gitignored, so it does not travel with `git pull`;
+   use `scp`/`rsync` or the pod's file browser). Its sha256 is
+   `644fe46ef958620e878298bbed405fe67a9742e41517951e9eee750120ac163f`.
+2. Open `tools/audit/audit.html` in a browser (it needs no server) and pick that file.
+3. Keys: `A` accept, `R` reject, `N` note, `←`/`→` navigate; progress bar at the top; verdicts
+   autosave to `localStorage` for that file.
+4. Click **Export audit JSONL** → downloads `audit_v0.jsonl`. Put it back at
+   `outputs/bench_v0/T11/audit_v0.jsonl` on the pod (or paste it here on the next session) so T12
+   can report the acceptance rate per template.
+What the sample contains: 150 **fresh test** items, 50 per source, spread across the 10 kept
+templates; each screen shows the model-visible state/question/options with the gold highlighted,
+the source link, and the raw structured field(s) the gold came from (e.g. `phases`, `allocation`,
+`publication_types`, `major_topics`). Both templates dropped by T8 are excluded. Time estimate:
+~2 h for 150 items if you read the states.
+
+**Q4 (T6, added 2026-10-05T23:20:00Z) — the fixed T6 prompt is part of the baseline protocol.**
+The harness renders every model through its own chat template with a fixed system prompt and a
+fixed "respond with a single letter … the correct option is:" instruction, reads the next-token
+distribution over option-letter tokens, and detects per model whether the model emits the bare
+letter or a space-prefixed one. ADVISORY forbids tuning prompts per model to raise scores, so
+this prompt is fixed for all models and recorded in every run config. Two consequences the
+operator should know before T9: (a) base checkpoints (e.g. `Qwen3.5-0.8B-Base`) are scored with
+the same chat-template path as instruct models, which is the comparable choice but is not how a
+base model is usually evaluated; (b) the readout is a zero-shot letter choice, whereas
+lm-evaluation-harness scores option continuations — T7 runs both and reports the gap, and that
+gap is the main threat to comparability with published numbers. If the operator wants a
+second protocol (continuation scoring) for comparability, that is a T9/T7 decision, not
+something I will add unilaterally.
+
+**Q3 (T5, added 2026-10-05T21:52:30Z) — the fresh window is only 25 days wide.**
+Window start is `2026-09-10`, the Hugging Face repository creation date of the teacher
+(`deepseek-ai/DeepSeek-V4.1-Flash`), which is the latest of all ladder/teacher dates and the
+only one that is not documented anywhere. Consequences: ClinicalTrials.gov gives 3,719 studies
+in-window (fine), openFDA gives 122 labels (thin — the class template has 19 items), PubMed
+gives 44,217 records (ample). Options: (a) keep the conservative 25-day window and report the
+thin templates as thin (my pick — it is the only window that is defensible without a
+documented cutoff); (b) widen the start to a *documented* date if the operator can supply the
+teacher's real training cutoff (e.g. from the DeepSeek-V4.1-Flash tech report), which would
+let the window start much earlier and thicken the openFDA templates; (c) widen to the earliest
+Qwen3.5 repo date (2026-02-27) and accept a contamination risk for the teacher. I did not
+choose (b) or (c) because both require information I do not have, and a benchmark's headline
+tier must not rest on a guess. Note also that PubMed's filter field is the Entrez date, so
+in-window records include older papers being re-indexed — that is fresh in the record stream,
+not necessarily post-cutoff science.
+
+**Q2 (T3, added 2026-10-05T21:22:10Z) — MedQuAD license.**
+`lavita/MedQuAD` (used for the tier-1 routing template) declares **no license** on its HF
+card; the upstream National Library of Medicine content has no explicit redistribution
+statement either. Options: (a) keep it in v0 with `license: UNKNOWN` recorded and decide at
+release time (my pick — it is one of 10 templates and can be dropped without touching the
+harness or the teacher gate); (b) drop the template now. The full 47,441-row MedQuAD mirror
+is gitignored and never committed; only counts/hashes appear in the repo. Related: the same
+source carries UMLS fields, which the loader drops by name and a unit test asserts never
+reach a serialised item.
+
+**Q1 (T10, added 2026-10-05T20:50:24Z) — teacher endpoint not configured.**
+At T0 the pod had no `TEACHER_BASE_URL` / `TEACHER_API_KEY`, so `GET $TEACHER_BASE_URL/models`
+could not be attempted. T10 is the only task that needs it. Options: (a) operator adds both
+variables to `/workspace/.secrets.env` and starts the self-hosted DeepSeek-V4.1-Flash
+endpoint before T10 is reached — preferred; (b) leave unset, in which case T10 is recorded
+as `BLOCKED — teacher endpoint not provided` with no numbers (GOAL.md allows this
+explicitly, and a blocked T10 does not block T12). I will re-check the endpoint at the
+moment T10 is reached and will not wait for it.
 
 ---
 
@@ -131,4 +376,11 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | The eval harness agrees with lm-evaluation-harness to 0.5 accuracy points on identical items and protocol, so its numbers can be believed | C041 | `outputs/bench_v0/T7/validation.json`, `loops/bench_v0/harness_validation.md` |
+| 2 | MedDecide-Bench v0 exists: 21,202 tier-1 items and 41,502 fresh items, with zero split leaks, zero duplicate ids and byte-identical rebuilds | C013-C024 | `data/bench/*/audit.json` (gitignored), `docs/benchmark/*` |
+| 3 | Six zero-shot ladder models were measured on 264,478 test predictions; MedQA scales 0.290 (350M) to 0.754 (9B) against a 0.277 majority | C050, C052, C053 | `loops/bench_v0/baselines.md`, `outputs/bench_v0/T9/results.json` |
+| 4 | MedMCQA's 0.12 for the 4B/9B models is positional bias, proven by a seeded option shuffle (the "D" preference survives a balanced permutation) | C048, C051 | `outputs/bench_v0/T9/preds/medmcqa_shuffled__*` |
+| 5 | Two templates are flattered by their own state (MeSH topic leakage, MedQuAD keyword routing) and must be redesigned before any claim uses them | C047 | `outputs/bench_v0/T8/screen_tier1.json` |
+| 6 | The teacher gate is BLOCKED (no endpoint) and the human audit is BLOCKED (awaiting operator) — both reported, neither estimated | C003, C038-C040 | STATE.md sections 5-6 |
+| 7 | The fresh window is 25 days wide because only one ladder model documents a cutoff; that is why openFDA is thin and one template has a single class | C019, C033 | `docs/benchmark/fresh_window.md` |
+| 8 | Four harness defects (prompt, padding index, letter variant, batch planner) were found by cross-checking and fixed; each had silently wrong numbers behind it | C027, C045 | `outputs/bench_v0/{T6,T9}/SELF_AUDIT.md` |
