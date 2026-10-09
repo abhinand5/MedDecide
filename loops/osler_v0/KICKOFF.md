@@ -1,6 +1,6 @@
 # KICKOFF — osler_v0
 
-The goal prompt for the loop agent. It is identical for the first and every later iteration,
+The prompt for the loop agent (**Claude Haiku 5.5**, `claude-haiku-5-5`, in Claude Code). It is identical for the first and every later iteration,
 because all state lives in files. Completion condition: `loops/osler_v0/STATE.md` contains
 ``Loop status: `STOPPED` ``.
 
@@ -63,21 +63,23 @@ held-out lists or the head-choice rule; every number gets a CLAIMS.md row; `NOT 
 closure, no STATE row may be IN_PROGRESS and the five-claim spot-check must be appended
 with outputs. At the end of O12, set `Loop status: STOPPED` and stop.
 
-Harness goal status: keep this goal active until STATE.md says `Loop status: STOPPED`.
-A BLOCKED task is not a blocked goal — record it in STATE.md and move to the next
-eligible task. Mark the goal complete only after STATE.md says `STOPPED` and that change
-is committed and pushed.
+Pacing: while a detached GPU job runs, schedule your next wake-up for 20–30 minutes
+later instead of polling. A BLOCKED task is not a blocked loop — record it in STATE.md and
+move to the next eligible task. End the loop only after STATE.md says `STOPPED` and that
+change is committed and pushed.
 ```
 
 ---
 
 ## Notes for the operator
 
-- On the pod: `cd /workspace/MedDecide && git fetch && git checkout loop/osler_v0 && git pull`.
-- Competitor access: `HF_TOKEN` must be able to read every competitor repo in ADVISORY O2
-  (some cards say "authenticated access"); accept any gated terms first, or those rows will be
-  `NOT MEASURED`.
-- Disk: the competitor set is ~250 GB of bf16 weights in `HF_HOME`; check free space on
-  `/workspace` before O0.
-- Review from another machine: `git fetch` and read `loop/osler_v0`:
+- **Running it (Claude Code):** in `/workspace/MedDecide` on `loop/osler_v0`, start
+  `claude --model claude-haiku-5-5` and send `/loop <prompt above>` (no interval, so the
+  agent paces itself; every wake re-reads the repo). An unattended run needs a permission
+  mode that does not stop at each shell command — choose that yourself; the guardrails in
+  AGENTS.md still apply. `HF_TOKEN` is loaded by `scripts/pod_env.sh` from
+  `/workspace/.secrets.env` (verified in a clean shell on 2026-10-09).
+- **Disk:** 512 GB volume; cache 60 GB on 2026-10-09; competitor weights ~250 GB. The
+  agent tracks usage with `du` (ADVISORY §3) because `df` shows the shared filesystem.
+- **Review from another machine:** `git fetch` and read `loop/osler_v0`:
   `loops/osler_v0/STATE.md`, `CLAIMS.md`, `scoreboard.md`, `gate_o1.md`.

@@ -104,6 +104,13 @@ Outcomes and what they decide:
   hyperparameters are recorded per arm.
 - **GPU:** one RTX PRO 6000 (96 GB). One GPU job at a time; CPU work may overlap. No
   sub-agents for GPU work. Poll long jobs at ≥ 20-minute intervals.
+- **Disk:** the volume is 512 GB; `df` on `/workspace` reports the shared filesystem, not the
+  volume, so measure with `du -sh /workspace/.hf_home /workspace/MedDecide/outputs
+  /workspace/MedDecide/data` before every download and every training run, and record it in
+  STATE. Keep the total ≤ 450 GB. Training checkpoints save the LoRA adapter + readout only,
+  never a full model copy; merged / exported full models are written once, for the selected
+  checkpoint only. If a download would cross 450 GB, mark that row `BLOCKED — disk` and ask
+  the operator (deleting from the HF cache is outside the delete guardrail).
 - **Timeboxes:** ~2 h per integration problem (each competitor counts as one). Training arms
   have fixed example budgets, not wall-clock boxes.
 - **Hard stop at O12.** Do not start the next loop.
