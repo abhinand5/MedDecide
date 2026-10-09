@@ -18,7 +18,7 @@
 ## Current loop
 
 - **Loop:** `osler_v0` (loop 1c — competitor scoreboard, clinical generators, Osler-4B / -9B)
-- **Mission:** measure every open competitor through its authors' code on v0.2, a new external clinical panel and a robustness pack; build gold-by-construction clinical generators (D20); train four matched Osler-4B arms (option-code head, pointer, non-causal, head-only; D23), choose a head by a pre-registered dev rule, train Osler-9B and an Osler-0.8B reference; apply Gate O1 (D24) — then hard-stop for review.
+- **Mission:** measure every open competitor through its authors' code on v0.2, a new external clinical panel and a robustness pack; build gold-by-construction clinical generators (D20); train three matched Osler-4B arms (option-code head, pointer, non-causal; D23), choose a head by a pre-registered dev rule, train Osler-9B and an Osler-0.8B reference; apply Gate O1 (D24) — then hard-stop for review.
 - **Branch:** `loop/osler_v0` (never commit to `main`, `dev` or any other loop branch)
 - **Artifacts:** `loops/osler_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
 - **Run state:** `loops/osler_v0/STATE.md`
@@ -65,7 +65,7 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   recipe. The MedGemma bake-off and LFM2.5-350M are dropped from training.
 - **Architecture (D23):** frozen base + decision-path LoRA + a separate option-code readout
   (rows initialised from `lm_head`, softmax over the offered codes, exportable to a plain
-  `lm_head`). Pointer head, non-causal full attention and head-only are matched ablations;
+  `lm_head`). Pointer head and non-causal full attention are matched ablations;
   the head is chosen by the loop's pre-registered dev rule. Adaptive thinking remains a later
   ablation.
 - **Teacher:** `deepseek-ai/DeepSeek-V4.1-Flash`, self-hosted by the operator on

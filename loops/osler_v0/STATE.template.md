@@ -10,7 +10,7 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O13), or when no PENDING task can proceed without the operator -->
+Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `<fill in bootstrap>`
 Last updated (UTC): `<fill in every iteration>`
 Iterations so far: `<increment each wake>`
@@ -32,11 +32,10 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
-| O9 | Arm H: head only, no LoRA (4B) | yes | O4, O5 | PENDING | | |
-| O10 | Head choice at 4B (dev rule) | no | O6–O9 | PENDING | | |
-| O11 | Osler-9B + Osler-0.8B reference | yes | O10 | PENDING | | |
-| O12 | Evaluation + Gate O1 | yes | O2, O11 | PENDING | | |
-| O13 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING | | |
+| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | PENDING | | |
+| O11 | Evaluation + Gate O1 | yes | O2, O10 | PENDING | | |
+| O12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §6:
 O3/O4 may run on CPU while O2 uses the GPU; O5 may use the GPU between O2 jobs). Never run two
@@ -61,10 +60,10 @@ recomputing or guessing.
 | generators: count, held-out list, train/dev/test items | | `loops/osler_v0/heldout.md` | O3 |
 | mix v2: items, sources, replay share, max template share; leakage result | | `data/train/osler_v0/manifest.json` | O4 |
 | readout checks (init equality, export round-trip, padding, byte-identity) | | `outputs/osler_v0/O5/readout_checks.json` | O5 |
-| arms L / P / N / H: examples seen, selected step, dev macro, tier-1 dev at selection, wall-clock | | | O6–O9 |
-| chosen head and the rule's verdict | | `loops/osler_v0/head_choice.md` | O10 |
-| Osler-9B / Osler-0.8B: selected step, dev macro | | | O11 |
-| Gate O1 verdicts (4B, 9B) incl. knowledge guard | | `loops/osler_v0/gate_o1.md` | O12 |
+| arms L / P / N: examples seen, selected step, dev macro, tier-1 dev at selection, wall-clock | | | O6–O8 |
+| chosen head and the rule's verdict | | `loops/osler_v0/head_choice.md` | O9 |
+| Osler-9B / Osler-0.8B: selected step, dev macro | | | O10 |
+| Gate O1 verdicts (4B, 9B) incl. knowledge guard | | `loops/osler_v0/gate_o1.md` | O11 |
 
 ---
 

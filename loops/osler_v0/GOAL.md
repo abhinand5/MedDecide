@@ -7,8 +7,8 @@ choice of head barely matters (three heads within 0.6 pts), that no head transfe
 decision types, and that training on the decision path wiped out exam knowledge. This loop:
 measures every open competitor through its authors' own code on our benchmark, a new external
 clinical panel and a robustness pack; builds clinical decision generators whose labels are
-computed by code (D20); trains four matched 4B arms (option-code readout, pointer, non-causal
-option-code readout, head-only) and picks a head by a pre-registered dev rule; trains Osler-9B
+computed by code (D20); trains three matched 4B arms (option-code readout, pointer, non-causal
+option-code readout) and picks a head by a pre-registered dev rule; trains Osler-9B
 and an Osler-0.8B reference with that head; and applies Gate O1 (D24). It ends with a hard stop
 for operator review.
 
@@ -63,7 +63,7 @@ implies.
   (`ct_phase_choice_v1`, `fda_boxed_warning_noul_v1`, `pubmed_humans_noul_v1`,
   `ct_arm_role_noul_v1`), any field those templates ask about, or any held-out generator.
 - Change benchmark v0.2, D12 for zero-shot cells, D14, D16, D21, D24, the held-out generator
-  list after O6 starts, or the O10 head-choice rule.
+  list after O6 starts, or the O9 head-choice rule.
 - Put a sibling arm, a 27B/31B model or any other additional row into a Gate O1 verdict.
 - Install a competitor's dependencies into the main project environment (use `envs/<name>/`).
 - Run two GPU jobs at once or spawn sub-agents for GPU work.
@@ -92,6 +92,6 @@ implies.
 Then set `Loop status: STOPPED` at the top of STATE.md, commit, push, **stop**, and report:
 which tasks completed, which blocked and why, the Gate O1 verdicts, and what you would do next.
 
-Also set `Loop status: STOPPED` (and commit + push) if, before O13, every remaining `PENDING`
+Also set `Loop status: STOPPED` (and commit + push) if, before O12, every remaining `PENDING`
 task is blocked on the operator — in that case still write FINDINGS.md for what was done. Never
-set it for any other reason, and never leave it unset at the end of O13.
+set it for any other reason, and never leave it unset at the end of O12.

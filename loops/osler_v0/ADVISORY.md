@@ -106,7 +106,7 @@ Outcomes and what they decide:
   sub-agents for GPU work. Poll long jobs at ≥ 20-minute intervals.
 - **Timeboxes:** ~2 h per integration problem (each competitor counts as one). Training arms
   have fixed example budgets, not wall-clock boxes.
-- **Hard stop at O13.** Do not start the next loop.
+- **Hard stop at O12.** Do not start the next loop.
 - **Wording:** never name application domains outside medicine, industries, companies or
   products in the repository, except the baseline models and tools by their model ids.
 
@@ -228,18 +228,17 @@ counts, licences, provenance); leakage check 0 on every kind.
 3. **Non-causal option (arm N):** a flag that makes the full-attention layers bidirectional on
    the decision path, leaving linear-attention layers unchanged; unit test that the causal path
    is untouched when the flag is off.
-4. **Pointer head and head-only** at 4B: the student_v1 pointer head (padding fix kept) and a
-   mode that trains the option-code head with no LoRA.
+4. **Pointer head** at 4B: the student_v1 pointer head (padding fix kept).
 5. Padding invariance test on each path (batch-1 vs padded batch, tolerance 1e-3), and
    generation byte-identity with the adapter off.
 
 **Acceptance:** all tests pass; `outputs/osler_v0/O5/readout_checks.json`.
 
-### O6–O9 — Four matched Osler-4B arms (GPU)
+### O6–O8 — Three matched Osler-4B arms (GPU)
 
-Common recipe (all four): base `Qwen/Qwen3.5-4B` (revision recorded), bf16, base frozen, mix v2,
+Common recipe (all three): base `Qwen/Qwen3.5-4B` (revision recorded), bf16, base frozen, mix v2,
 same order seed and option permutation (every qtype), prompt cap 16,384, CE + 1.0·Brier over
-the offered options, LoRA r=32 alpha 32 on all linear layers (not for H), LR 1e-4 LoRA / 1e-3
+the offered options, LoRA r=32 alpha 32 on all linear layers, LR 1e-4 LoRA / 1e-3
 head, 3 % warmup, cosine to 10 %, **example budget = one pass over mix v2 or 200,000 examples,
 whichever is smaller** (record which), dev eval every 2,000 examples × 8, checkpoint at every
 eval, selection by dev macro (Brier tie-break), temperatures per qtype on dev. Grad-norm and
@@ -250,27 +249,25 @@ Also log tier-1 dev accuracy (MedQA / MedMCQA dev) at every eval, as a diagnosti
 - **O6 — Arm L: option-code head, causal** (the default).
 - **O7 — Arm P: pointer head.**
 - **O8 — Arm N: option-code head, non-causal full-attention layers.**
-- **O9 — Arm H: option-code head only, no LoRA** (head LR 1e-3; all else equal).
 
 **Acceptance for each:** selected checkpoint, dev trajectory, temperatures, throughput,
 wall-clock, grad-norm tail (p50 / p95 / max), tier-1 dev trajectory.
 
-### O10 — Head choice at 4B (no GPU, ~1 h)
+### O9 — Head choice at 4B (no GPU, ~1 h)
 
 Pre-registered rule, dev only (never test, never held-out): start with L. Switch to P or N only
 if its dev macro exceeds L's by ≥ 1.0 pt with the paired bootstrap CI lower bound > 0 on dev;
-if both qualify, take the larger gain. Switch to H if its dev macro is within 0.5 pt of L's (it
-leaves the decision path's knowledge untouched). Write `loops/osler_v0/head_choice.md` with the
+if both qualify, take the larger gain. Write `loops/osler_v0/head_choice.md` with the
 numbers and the rule's verdict.
 
-### O11 — Osler-9B and Osler-0.8B with the chosen head (GPU)
+### O10 — Osler-9B and Osler-0.8B with the chosen head (GPU)
 
-The O6–O9 recipe on `Qwen/Qwen3.5-9B` and `Qwen/Qwen3.5-0.8B` (r=32 at 9B; r=16 at 0.8B, as a
+The O6–O8 recipe on `Qwen/Qwen3.5-9B` and `Qwen/Qwen3.5-0.8B` (r=32 at 9B; r=16 at 0.8B, as a
 recorded deviation if memory or speed requires), the chosen head, same mix and budget rule.
 
-### O12 — Evaluation and Gate O1 (GPU, ~6 h)
+### O11 — Evaluation and Gate O1 (GPU, ~6 h)
 
-Evaluate every arm (O6–O9) and O11 model on v0.2 test, the external panel, held-out generators
+Evaluate every arm (O6–O8) and O10 model on v0.2 test, the external panel, held-out generators
 and the robustness pack, in **both option orders averaged** and in single order (both reported;
 the gate uses both-order averaged for every model that supports it, as the competitors do).
 Then:
@@ -286,7 +283,7 @@ Then:
 **Acceptance:** `loops/osler_v0/gate_o1.md` and `loops/osler_v0/results.md`; every number in
 CLAIMS.
 
-### O13 — Findings and closure (no GPU, ~2 h) — HARD STOP
+### O12 — Findings and closure (no GPU, ~2 h) — HARD STOP
 
 Write `loops/osler_v0/FINDINGS.md` (Summary first; state which §2 outcome applies),
 `NEXT.md` (proposals), fill STATE's closure feed. Closure requirements: every STATE row `DONE`
@@ -314,15 +311,14 @@ has a CLAIMS row. Set `Loop status: STOPPED`, commit, push, stop.
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING |
-| O9 | Arm H: head only, no LoRA (4B) | yes | O4, O5 | PENDING |
-| O10 | Head choice at 4B (dev rule) | no | O6–O9 | PENDING |
-| O11 | Osler-9B + Osler-0.8B reference | yes | O10 | PENDING |
-| O12 | Evaluation + Gate O1 | yes | O2, O11 | PENDING |
-| O13 | Findings and closure — HARD STOP | no | all | PENDING |
+| O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING |
+| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | PENDING |
+| O11 | Evaluation + Gate O1 | yes | O2, O10 | PENDING |
+| O12 | Findings and closure — HARD STOP | no | all | PENDING |
 
 Execution order is the table order, except: O3 and O4 (CPU) may run while O2 uses the GPU; O5
-may use the GPU between O2 jobs. A BLOCKED arm in O7–O9 never blocks O10 (the rule runs over the
-arms that finished); a BLOCKED O6 blocks O10 and O11 (L is the reference arm). A BLOCKED
+may use the GPU between O2 jobs. A BLOCKED arm in O7–O8 never blocks O9 (the rule runs over the
+arms that finished); a BLOCKED O6 blocks O9 and O10 (L is the reference arm). A BLOCKED
 competitor never blocks anything.
 
 ## 7. Explicitly out of scope
@@ -335,7 +331,7 @@ competitor never blocks anything.
 | Hosted competitor APIs (Jev, Decisions APIs, Workers AI) | no keys provisioned; `NOT MEASURED` |
 | Training an Osler model above 9B | after this loop's review |
 | MedDecider or pplx outputs / weights as training signal or initialisation | licence (MedDecider) and independence of the comparison |
-| Any change to v0.2, D12 for zero-shot cells, D14, D16, D24 or the O10 rule after results | settled; disagreements go to questions-for-operator |
+| Any change to v0.2, D12 for zero-shot cells, D14, D16, D24 or the O9 rule after results | settled; disagreements go to questions-for-operator |
 | RLCD / RL objectives, adaptive thinking | later ablations |
 | Publishing anything, pushing to the HF Hub, submitting to external leaderboards | operator decision after review |
 
@@ -351,7 +347,7 @@ competitor never blocks anything.
    shortcut; minimal-pair twins and the screen are mandatory.
 5. **Held-out leakage.** Held-out generators, D14 templates and the external panel never touch
    training, selection or temperatures; any touch voids those results.
-6. **Unmatched arms.** Record every difference between O6–O9 in a provenance table.
+6. **Unmatched arms.** Record every difference between O6–O8 in a provenance table.
 7. **Position prior.** Option permutation for every qtype in every arm (V085).
 8. **Closure gaps; parallel GPU jobs; overwriting a running chain script** (see the memory note
    in `loops/student_v1/NEXT.md` §5).

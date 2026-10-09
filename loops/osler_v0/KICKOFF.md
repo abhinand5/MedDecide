@@ -40,8 +40,8 @@ Do this now:
 
 This loop measures every open competitor through its authors' own code (first GPU job),
 builds an external clinical panel, a robustness pack and gold-by-construction clinical
-generators, trains four matched Osler-4B arms (option-code head, pointer, non-causal,
-head-only) with the base frozen, picks a head by the pre-registered dev rule, trains
+generators, trains three matched Osler-4B arms (option-code head, pointer, non-causal)
+with the base frozen, picks a head by the pre-registered dev rule, trains
 Osler-9B and an Osler-0.8B reference, and applies Gate O1 (D24). Gate baselines are
 MedDecider-4B + zero-shot Qwen3.5-4B (4B) and MedDecider-9B + JEV-9B (9B) only. Held-out
 templates, held-out generators and the external panel never influence any selection,
@@ -61,7 +61,7 @@ anything on a test split; never edit a check to make it pass; never change Gate 
 held-out lists or the head-choice rule; every number gets a CLAIMS.md row; `NOT MEASURED`
 / `BLOCKED` / `READOUT_FAIL` are acceptable outcomes, fabricated numbers are not. At
 closure, no STATE row may be IN_PROGRESS and the five-claim spot-check must be appended
-with outputs. At the end of O13, set `Loop status: STOPPED` and stop.
+with outputs. At the end of O12, set `Loop status: STOPPED` and stop.
 
 Harness goal status: keep this goal active until STATE.md says `Loop status: STOPPED`.
 A BLOCKED task is not a blocked goal — record it in STATE.md and move to the next
