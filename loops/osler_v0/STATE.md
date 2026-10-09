@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T20:33:07Z`
+Last updated (UTC): `2026-10-09T20:50:00Z`
 Iterations so far: `4`
 
 ---
@@ -102,6 +102,7 @@ O2 checklist:
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
 - [ ] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [ ] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
+- [ ] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
 - [ ] zero-shot Qwen3.5-9B (panel + robustness)
 - [ ] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
 - [ ] MedDecider-9B (both orders)
@@ -168,6 +169,13 @@ Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks)
 ```
 
 ---
+
+O9 and O11 preparation (CPU; written and tested before any arm result exists):
+- [x] O9 rule as a pure function (`src/meddecide/eval/head_choice.py`: margin 1.0 point, paired bootstrap 1,000 resamples within templates, larger gain when both qualify; tests/test_gate_and_head_choice_o9.py, 8 tests) and the driver `scripts/osler/o9_head_choice.py` (refuses to decide on a missing arm or misaligned items; smoke-tested on synthetic arms in a scratch directory; writes loops/osler_v0/head_choice.md and outputs/osler_v0/O9/head_choice.json)
+- [x] Gate O1 verdict logic as pure functions (`src/meddecide/eval/gate.py`: each comparison needs the accuracy interval's lower bound above 0 and the Brier interval's upper bound below 0; the knowledge guard needs the lower bound above -0.02; tests in the same file)
+- [x] O11 scoring library (`src/meddecide/eval/osler_scoring.py`: row to item, reversed order, both-order averaging, `score_rows`; tests/test_osler_scoring_o11.py and tests/test_osler_score_rows_o11.py, 12 tests) and the GPU driver `scripts/osler/o11_score.py` (resumable; smoke-tested on CPU, deviation 44)
+- [ ] O11 gate script (`scripts/osler/o11_gate.py`: paired template-macro accuracy and item-mean Brier per comparison, the knowledge guard, the D24 verdicts; writes loops/osler_v0/gate_o1.md and results.md) — to write once the arm predictions exist
+- [x] O2 tier investigation of the pplx v0.2 lead (CLAIMS O123–O125; `scripts/osler/o2_tier_breakdown.py`)
 
 ## 4. Iteration log (append only, newest last)
 
@@ -301,6 +309,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 14. **Which numerical setting is the O5 "fp32" verdict configuration, and may the merged artefact be used (ADVISORY O5 step 2: "fp32, tolerance 1e-3").** Under the as-run setting (fla and causal-conv1d kernels with Triton's default fp32 dot precision, which is TF32 on this GPU), the merged-adapter export fails in both adapter draws (1.04e-02 unseeded; 4.17e-03 seed 0), and bidirectional padding fails at 1.03e-03 in seed 0 (CLAIMS O094–O108). The same checks pass with IEEE dots or with the kernels blocked, all 11 on seed 0 (O110–O113). The separate-adapter export passes in every run (O104, O109). Options: (a) keep the as-run setting and record the merged artefact as READOUT_FAIL (current; the merged artefact stays unused, including the ≤ 4 GB quantised export in O11); (b) approve a new pre-registered O5 run under IEEE dots, with its own record (I recommend this; no verdict changes until you approve it); (c) use the reference path for the O5 checks. Also decide whether O9–O11 scoring uses IEEE dots: as-run padding moves probabilities by up to about 1e-3 with batch composition (O108), which can matter for paired comparisons at that scale. Which do you want?
 
 15. **bf16 numerics for training and evaluation (ADVISORY O6–O10 use bf16).** The fp32 findings do not cover bf16. fla's chunked triangular solve requests TF32 for fp32 operands on this GPU; whether bf16 operands take the same path is not measured. All three arms use the same kernel path, so comparisons between them stay matched. Recommendation: start O6 on the pre-registered bf16 recipe, and measure the bf16 path (a TF32 and IEEE control in the arm's own dtype) before any bf16 number is reported as final. Do you want that control before O6 or after it?
+16. **Near-ceiling templates inside the pre-registered headline sets (O2 finding; definitions kept).** Fresh `pubmed_mesh_major_choice_v2` (4,000 items) is answered at 0.984–0.990 by all five v0.2 models, and established `medquad_routing_v1` (5,000 items) at 0.985–0.993 (CLAIMS O125). The routing template was already flagged as shortcut-solvable in student_v1 and bench_v0. Both sit inside the D16 and D24 headline sets as defined, so the Gate O1 verdict is computed on them as pre-registered. I will add a labelled additional analysis without these two templates and change no verdict. Do you want the next loop to revisit these templates, or leave them as they are?
 
 ---
 
@@ -415,6 +424,8 @@ deviation — that is a `BLOCKED`.
 40. **Paired statistics for O9 (implementation choice; see deviation 41 for which macro is which).** O9's dev macro is the trainer's per-gold-class recall, the statistic the arms select on. Its paired bootstrap resamples items within templates, 1,000 resamples (`paired_macro_accuracy_difference`, tests/test_paired_macro_o9.py). Gate O1 uses the template macro through `stratified_macro_difference` (deviation 41), not this function.
 41. **Which "macro" each decision uses (decided before O9 and O11 run; disclosed).** Two statistics carry the name. (a) The trainer's macro (`metrics.macro_accuracy`: the unweighted mean of per-gold-class recall) is what the arms select checkpoints on, and O9's "dev macro" uses it (`meddecide.eval.head_choice`). (b) G1's macro (the O2 scoreboard's `macro_over_templates`: the mean over templates of per-template accuracy) is D16's and D24's "macro accuracy", so Gate O1 uses it, through `stratified_macro_difference` with templates as groups. D24's "mean Brier" is the item mean (`paired_mean_difference_stratified`); the knowledge guard is plain accuracy on MedQA plus MedMCQA, paired and resampled within templates. Neither choice changes a number already measured.
 42. **O10 base revisions and rank (recorded before the run).** The pinned revisions are those O0 recorded (`outputs/osler_v0/O0/fetch.json`): `Qwen/Qwen3.5-9B` at `c202236235762e1c871ad0ccb60c8ee5ba337b9a` and `Qwen/Qwen3.5-0.8B` at `2fc06364715b967f1860aea9cf38778875588b17`. Both use LoRA r = 32, the ADVISORY's default. The ADVISORY allows r = 16 at 0.8B only where memory or speed requires it; neither applies, so no deviation is taken. The head is the one O9 chooses.
+43. **O2 scope extended to the D24 baselines (disclosed).** O2 scored zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B on the panel and robustness sets only (deviation 12). D24 compares Osler-4B against zero-shot Qwen3.5-4B on the headline fresh set and the external panel, and the knowledge guard takes MedQA and MedMCQA against zero-shot Qwen3.5-4B; Osler-9B is compared with JEV-9B on the headline set. So zero-shot Qwen3.5-4B and JEV-9B are needed on the v0.2 scope. They are queued after the O2 chain (`outputs/osler_v0/O2/logs/chain2.log`) with `--scope all`, the same runners, the same protocol, and resumable rows. MedDecider-4B and -9B already cover v0.2. If these runs fail, the affected comparisons are NOT MEASURED.
+44. **O11 scoring design (decided before any Osler result).** Osler rows are O2-format and cover the O2 common set (59,538 items), so each pairs with the baselines by item id. A choice item is scored in its original order and in the reversed order, and each option's probability is averaged over the two orders (`meddecide.eval.osler_scoring`). noul and score items are canonical in the readout (fixed yes/no and level order), so reversing them does not change the scoring: they are scored once, with `orders` recorded as 1. The single-order rows are written beside the gate (ADVISORY O11: both reported). Tests: tests/test_osler_scoring_o11.py, tests/test_osler_score_rows_o11.py. The driver (`scripts/osler/o11_score.py`) was smoke-tested on CPU with a tiny checkpoint (6 rows, then resumed for 3 more; alignment, distributions and order counts checked); no GPU run has been made yet.
 
 ---
 
