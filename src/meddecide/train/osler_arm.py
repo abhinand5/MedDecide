@@ -92,5 +92,29 @@ def accuracy_by_source(decisions: Sequence[Any], items: Sequence[Item]) -> dict[
     return {source: sum(v) / len(v) for source, v in sorted(correct.items())}
 
 
+def dev_prediction_rows(scored: Any) -> list[dict[str, Any]]:
+    """One row per scored item, in input order: identity, gold and predicted option index, and the full distribution.
+
+    ``scored`` is a ``ScoredItems`` (its items, option keys, probabilities and gold indices are read). The rows are the
+    per-item input of the paired bootstrap (ADVISORY O9 on dev, O11 on test); they are written to the arm's output
+    directory, which is gitignored.
+    """
+    rows: list[dict[str, Any]] = []
+    for item, probs, gold in zip(scored.items, scored.probs, scored.gold_indices, strict=True):
+        predicted = int(np.argmax(probs))
+        rows.append({
+            "item_id": item.item_id,
+            "source": item.source,
+            "template_id": item.template_id,
+            "qtype": str(item.qtype),
+            "n_options": len(probs),
+            "gold_index": int(gold),
+            "predicted_index": predicted,
+            "correct": predicted == int(gold),
+            "probs": [float(p) for p in probs],
+        })
+    return rows
+
+
 def log_scale(value: float) -> float:
     return math.log10(value) if value > 0 else float("-inf")

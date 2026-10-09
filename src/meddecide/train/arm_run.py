@@ -19,13 +19,14 @@ from meddecide.train.config import StudentConfig
 from meddecide.train.osler_arm import (
     DEV_SUBSET_SIZE,
     accuracy_by_source,
+    dev_prediction_rows,
     example_budget,
     step_count,
     stratified_subset,
     tier1_items,
 )
 from meddecide.train.trainer import Trainer
-from meddecide.utils.io import write_json
+from meddecide.utils.io import write_json, write_jsonl
 
 
 def run_arm(
@@ -90,7 +91,10 @@ def run_arm(
     if result.best_step is not None and best_dir.exists():
         final_model = MedDecideModel.load(best_dir, device=device or config.device, dtype=dtype or config.dtype)
         selected = f"best checkpoint at step {result.best_step}"
-    full_dev = Trainer(final_model, config).evaluate(dev_items)
+    scored_dev = Trainer(final_model, config).score(dev_items)
+    full_dev = scored_dev.metrics()
+    full_dev["per_qtype"] = scored_dev.per_qtype_metrics()
+    write_jsonl(out / "dev_predictions.jsonl", dev_prediction_rows(scored_dev))
     summary = {
         "readout": config.readout,
         "bidirectional_full_attention": config.bidirectional_full_attention,

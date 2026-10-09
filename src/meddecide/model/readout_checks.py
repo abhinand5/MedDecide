@@ -8,6 +8,7 @@ functions on the pinned Qwen3.5-4B and writes ``outputs/osler_v0/O5/readout_chec
 
 from __future__ import annotations
 
+import gc
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
@@ -64,7 +65,9 @@ def perturb_head(model: MedDecideModel, scale: float = 0.5, seed: int = 2) -> No
         raise ValueError("this model has no option-code head")
     gen = torch.Generator().manual_seed(seed)
     with torch.no_grad():
-        model.optcode.weight.add_(torch.randn(model.optcode.weight.shape, generator=gen) * scale)
+        noise = torch.randn(model.optcode.weight.shape, generator=gen).to(model.optcode.weight.device)
+    with torch.no_grad():
+        model.optcode.weight.add_(noise * scale)
 
 
 def letter_probabilities(model: MedDecideModel, batch: Any) -> tuple[torch.Tensor, torch.Tensor]:
@@ -113,36 +116,78 @@ def causal_option_probabilities(causal_model: nn.Module, batch: Any, token_ids: 
     return segment_softmax_by_counts(flat, n_options)
 
 
+CHUNK_ITEMS = 1  # items per batch in the checks: fp32 attention on long prompts needs one item at a time on the GPU
+
+
+def chunks(items: Sequence[Item], size: int = CHUNK_ITEMS) -> list[list[Item]]:
+    """Consecutive groups of ``size`` items (the checks batch each group, not the whole sample)."""
+    if size < 1:
+        raise ValueError("size must be >= 1")
+    return [list(items[i : i + size]) for i in range(0, len(items), size)]
+
+
 @torch.no_grad()
-def init_max_abs_diff(model: MedDecideModel, items: Sequence[Item]) -> dict[str, float]:
-    """Initialised option-code readout against the zero-shot letter readout over the offered letters."""
-    batch = model.collate([model.encode_item(item) for item in items])
-    flat, probs = model.batch_logits(batch)
-    letter_flat, letter_probs = letter_probabilities(model, batch)
-    return {"logits_max_abs_diff": float((flat - letter_flat).abs().max()),
-            "probs_max_abs_diff": float((probs - letter_probs).abs().max()),
-            "n_items": float(len(items)), "n_options_total": float(batch.marker_item.numel())}
+def init_max_abs_diff(model: MedDecideModel, items: Sequence[Item], chunk: int = CHUNK_ITEMS) -> dict[str, float]:
+    """Initialised option-code readout against the zero-shot letter readout over the offered letters (chunked)."""
+    logits_diff, probs_diff, options = 0.0, 0.0, 0
+    for part in chunks(items, chunk):
+        batch = model.collate([model.encode_item(item) for item in part])
+        flat, probs = model.batch_logits(batch)
+        letter_flat, letter_probs = letter_probabilities(model, batch)
+        logits_diff = max(logits_diff, float((flat - letter_flat).abs().max()))
+        probs_diff = max(probs_diff, float((probs - letter_probs).abs().max()))
+        options += int(batch.marker_item.numel())
+    return {"logits_max_abs_diff": logits_diff, "probs_max_abs_diff": probs_diff,
+            "n_items": float(len(items)), "n_options_total": float(options)}
+
+
+def export_plan(model: MedDecideModel, items: Sequence[Item], workdir: Path, *,
+                chunk: int = CHUNK_ITEMS) -> dict[str, Any]:
+    """Everything the export check needs, computed while the live model is on the GPU and held on the CPU.
+
+    The native probabilities, the batches, the exported LM-head matrix and the adapter are kept, so the live model can be
+    released before the exported causal LM is loaded (both fp32 copies do not fit on the GPU together with activations).
+    """
+    adapter_dir = workdir / "adapter"
+    model.peft_model.save_pretrained(adapter_dir)
+    batches, native, options = [], [], 0
+    for part in chunks(items, chunk):
+        batch = model.collate([model.encode_item(item) for item in part])
+        with torch.no_grad():
+            _, probs = model.batch_logits(batch)
+        native.append(probs.detach().float().cpu())
+        batches.append(batch)
+        options += int(batch.marker_item.numel())
+    return {"batches": batches, "native": native, "matrix": model.exported_option_code_lm_head().float().cpu(),
+            "token_ids": list(model.optcode_token_ids), "adapter_dir": adapter_dir,
+            "base_model_id": model.base_model_id, "revision": model.revision, "dtype": model.torch_dtype,
+            "device": model.device, "n_items": len(items), "n_options_total": options}
+
+
+def export_check(plan: dict[str, Any], *, merged: bool) -> dict[str, float]:
+    """The exported causal LM (adapter kept separate, or merged) against the native probabilities of the plan."""
+    from peft import PeftModel
+
+    causal = exported_causal_lm(plan["base_model_id"], plan["matrix"], revision=plan["revision"],
+                                dtype=plan["dtype"], device=plan["device"])
+    causal = PeftModel.from_pretrained(causal, plan["adapter_dir"])
+    if merged:
+        causal = causal.merge_and_unload()
+    diff = 0.0
+    for batch, native in zip(plan["batches"], plan["native"], strict=True):
+        probs = causal_option_probabilities(causal, batch, plan["token_ids"])
+        diff = max(diff, float((native.to(probs.device) - probs).abs().max()))
+    del causal
+    gc.collect()
+    torch.cuda.empty_cache()
+    return {"probs_max_abs_diff": diff, "n_items": float(plan["n_items"]),
+            "n_options_total": float(plan["n_options_total"])}
 
 
 def export_max_abs_diff(model: MedDecideModel, items: Sequence[Item], workdir: Path, *,
-                        merged: bool) -> dict[str, float]:
-    """The exported causal LM against the native option-code readout, with the adapter kept separate or merged."""
-    from peft import PeftModel
-
-    batch = model.collate([model.encode_item(item) for item in items])
-    _, native = model.batch_logits(batch)
-    exported_matrix = model.exported_option_code_lm_head()
-    adapter_dir = workdir / "adapter"
-    model.peft_model.save_pretrained(adapter_dir)
-    causal = exported_causal_lm(model.base_model_id, exported_matrix, revision=model.revision,
-                                dtype=model.torch_dtype, device=model.device)
-    causal = PeftModel.from_pretrained(causal, adapter_dir)
-    if merged:
-        causal = causal.merge_and_unload()
-    probs = causal_option_probabilities(causal, batch, model.optcode_token_ids)
-    diff = float((native.to(probs.device) - probs).abs().max())
-    return {"probs_max_abs_diff": diff, "n_items": float(len(items)),
-            "n_options_total": float(batch.marker_item.numel())}
+                        merged: bool, chunk: int = CHUNK_ITEMS) -> dict[str, float]:
+    """Convenience wrapper (the CPU tests): plan and check with the live model still in memory."""
+    return export_check(export_plan(model, items, workdir, chunk=chunk), merged=merged)
 
 
 def padding_max_abs_diff(model: MedDecideModel, first: Item, longer: Item, *, bidirectional: bool) -> float:
@@ -169,7 +214,7 @@ def causal_flag_max_abs_diff(model: MedDecideModel, item: Item, *, bidirectional
     previous = model.bidirectional_full_attention
     model.bidirectional_full_attention = bidirectional
     try:
-        batch = model.collate([model.encode_item(item)])
+        batch = model.collate([model.encode_item(item)]).to(model.device)
         ids = batch.input_ids.clone()
         changed = ids.clone()
         position = ids.shape[1] - back

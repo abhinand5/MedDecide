@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T19:01:39Z`
-Iterations so far: `3`
+Last updated (UTC): `2026-10-09T20:33:07Z`
+Iterations so far: `4`
 
 ---
 
@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
-| O5 | Readouts: option-code head, non-causal mode, export | small | O0 | IN_PROGRESS | 2026-10-09T19:02:52Z | |
+| O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
@@ -145,7 +145,7 @@ O5 checklist (in flight; started 2026-10-09T19:02:52Z):
 - [x] non-causal flag (arm N; CPU tiny model: changes earlier positions only when on; CLAIMS O093): bidirectional full-attention layers on the decision path, linear-attention layers unchanged; unit test: the causal path is untouched when the flag is off
 - [x] pointer head (CPU tiny model padding invariance; CLAIMS O093; the 4B run is pending): the student_v1 pointer head with its padding fix kept
 - [x] padding invariance (CPU tiny model; CLAIMS O093; the 4B run is pending): batch-1 vs padded batch, tolerance 1e-3, on each path; generation byte-identity with the adapter off
-- [ ] GPU run on the pinned Qwen3.5-4B (fp32): scripts/osler/o5_checks.py writes outputs/osler_v0/O5/readout_checks.json (PENDING: the O2 chain holds the GPU until its last step; run it in the first GPU-free window)
+- [x] GPU run on the pinned Qwen3.5-4B (fp32): attempt 4 (the verdict; unseeded adapter draw) writes outputs/osler_v0/O5/readout_checks.json: 10 of 11 pass; the merged-adapter export FAILS (1.04e-02 against 1e-3; CLAIMS O094, O095–O105). Seeded re-run (attempt 5, seed 0): 9 of 11, the merged export and bidirectional padding fail (O106–O109). Additional settings, seed 0: IEEE dots 11 of 11 and reference path 11 of 11 (O110–O113). Kernel controls and cross-precision numbers O114–O122. Report loops/osler_v0/O5_READOUT.md; self-audit outputs/osler_v0/O5/SELF_AUDIT.md. Verdict recorded as measured; the merged artefact is READOUT_FAIL under the as-run precision (Question 14)
 - [x] training readiness: every mix v2 row loads as a validated training item (src/meddecide/train/mix_items.py; CLAIMS O092); one gradient step moves the loss and reaches the head and the adapter (O093)
 
 O1 checklist (completed):
@@ -219,10 +219,18 @@ Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks)
 - Surprises: the check was not in the O4 acceptance and should have been; it found no failures, so no row is excluded
 - Next: O5 GPU run (pending the O2 chain)
 
+### O5 — DONE — 2026-10-09T20:33:07Z
+- What ran: `scripts/osler/o5_checks.py` (attempt 4, the verdict, unseeded; attempt 5 with `--seed 0`; `--precision ieee|reference --seed 0`), `scripts/osler/o5_kernel_control.py` (seeds 0–2; two processes per seeded setting), `scripts/osler/o5_summary.py`; tests tests/test_precision_o5.py (8), tests/test_dev_predictions_o6.py (2), tests/test_paired_macro_o9.py (7), tests/test_arm_run_o6.py extended. Chain logs: outputs/osler_v0/O5/logs/control_chain*.log
+- Output: loops/osler_v0/O5_READOUT.md (committed); outputs/osler_v0/O5/{readout_checks*.json, kernel_control_*.json, o5_summary.json, SELF_AUDIT.md} (gitignored); CLAIMS O094–O122
+- Headline: the pre-registered O5 run passes 10 of 11 checks. The merged-adapter export fails (1.04e-02 against 1e-3; O094, O105). The separate-adapter export passes (2.15e-06; O104). The failure traces to the as-run fp32 kernel precision: with IEEE dots or the kernels blocked, all 11 pass on seed 0 (O110–O113); with a fixed seed, the as-run and IEEE forwards are bit-identical across processes (O119)
+- Surprises: the attempt-4 adapter's lora_A was unseeded, so my first reading of cross-process variation was a draw effect (O121); seeded as-run also fails bidirectional padding in one draw (1.03e-03; O108); the first IEEE attempt hit a fresh-cache shim failure and a disk-quota error (§7 deviation 37)
+- Next: O2 resumes at clef (chain paused since 19:23:35Z). O6 (arm L) follows O2. Questions 14 and 15 are open
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| O5-merged | the merged-adapter artefact of Osler-4B: any merged release and the quantised ≤ 4 GB export in O11 | the merged export fails the pre-registered 1e-3 check under the as-run precision in both adapter draws (CLAIMS O094, O105–O108); the cause is kernel TF32 precision, not the merge (O114–O122). The separate-adapter artefact is unaffected and passes (O104, O109) | Question 14 decided; then a merged export verified under the chosen precision, recorded as a new run |
 
 ---
 
@@ -290,6 +298,9 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 11. **Replay share.** The mix has 3.46 % general replay (CommonsenseQA 10,765 and QASC 9,064 rows) against the ADVISORY default of 20 %. Natural-language-inference and boolean-QA replay are NOT MEASURED: no permissive source with a verified licence (nyu-mll/glue is 'other'; stanfordnlp/snli cc-by-sa-4.0; facebook/anli cc-by-nc-4.0; google/boolq cc-by-sa-3.0). Options: (a) accept 3.5 % as a recorded share (my pick; the ADVISORY allows a recorded share); (b) check more general sources (allenai/openbookqa's Hub licence is 'unknown'; HellaSwag, PIQA and WinoGrande have no verified Hub licence) and add any that verify. Which do you want?
 12. **ChemProt and Evidence Inference.** Their PMIDs fall outside the pre-window pool's PMID range (35,997,240 to 41,610,285). Every ChemProt row (1,020 train, 612 dev) and Evidence Inference row (10,056 train, 1,233 dev) was dropped as document_not_in_prewindow_pool (CLAIMS O072–O074). Options: (a) leave them out (my pick; NOT MEASURED); (b) look up PubMed record dates through NCBI E-utilities to establish pre-window status, then add them (about 1 h, needs network). Which do you want?
 13. **Record–claim consistency designs (V4 asks for at least two).** Not built in this loop: NOT MEASURED. The candidate designs examined need a claim value that the state text carries. The journal name was absent from the PubMed states inspected; eligibility sex appears in about 16 % of clinicaltrials states; the ChemProt and Evidence claims cannot be dated. Options: (a) accept NOT MEASURED for this loop (my pick); (b) build designs from state-visible structured fields in the next loop, after re-reading the S2 role-binding rules. Which do you want?
+14. **Which numerical setting is the O5 "fp32" verdict configuration, and may the merged artefact be used (ADVISORY O5 step 2: "fp32, tolerance 1e-3").** Under the as-run setting (fla and causal-conv1d kernels with Triton's default fp32 dot precision, which is TF32 on this GPU), the merged-adapter export fails in both adapter draws (1.04e-02 unseeded; 4.17e-03 seed 0), and bidirectional padding fails at 1.03e-03 in seed 0 (CLAIMS O094–O108). The same checks pass with IEEE dots or with the kernels blocked, all 11 on seed 0 (O110–O113). The separate-adapter export passes in every run (O104, O109). Options: (a) keep the as-run setting and record the merged artefact as READOUT_FAIL (current; the merged artefact stays unused, including the ≤ 4 GB quantised export in O11); (b) approve a new pre-registered O5 run under IEEE dots, with its own record (I recommend this; no verdict changes until you approve it); (c) use the reference path for the O5 checks. Also decide whether O9–O11 scoring uses IEEE dots: as-run padding moves probabilities by up to about 1e-3 with batch composition (O108), which can matter for paired comparisons at that scale. Which do you want?
+
+15. **bf16 numerics for training and evaluation (ADVISORY O6–O10 use bf16).** The fp32 findings do not cover bf16. fla's chunked triangular solve requests TF32 for fp32 operands on this GPU; whether bf16 operands take the same path is not measured. All three arms use the same kernel path, so comparisons between them stay matched. Recommendation: start O6 on the pre-registered bf16 recipe, and measure the bf16 path (a TF32 and IEEE control in the arm's own dtype) before any bf16 number is reported as final. Do you want that control before O6 or after it?
 
 ---
 
@@ -394,6 +405,14 @@ deviation — that is a `BLOCKED`.
 30. **Augmentation within the limit, training rows only.** 43,978 augmented rows are 7.67 % of train (limit 15 %). Transforms use the O1 wording: reversed options, two sentences from another record of the same source, a planted instruction naming a wrong option, and none-of-these. Applied to training rows only, never to dev or the panel. The per-template 8 % cap is respected (CLAIMS O066–O067, O070).
 31. **Screen statistic for item-specific labels (R4).** For CommonsenseQA and QASC each answer text is its own class, so the O3 macro against the 0.90 line is not comparable, and the majority baseline is undefined. Their supporting numbers are gold-in-state (0) and micro accuracy against chance (CLAIMS O086). Recorded, not changed.
 32. **Inherited student_v1 findings kept in the mix.** The O4 audit finds shortcut and visibility problems in student_v1 templates (Question 9). The mix keeps them, as the ADVISORY specifies; no student template was removed or changed (CLAIMS O083–O088).
+33. **O2 chain paused for the O5 GPU window (scheduling; disclosed).** At 2026-10-09T19:23:35Z the O2 chain runner (bash PID 266074) was stopped with SIGSTOP, so that it would not start clef when jev-27b (PID 281949) finished. The O5 real-model checks (`scripts/osler/o5_checks.py`) run in the GPU window after jev-27b exits. The chain is resumed with SIGCONT only after that run has exited, and before clef starts. One GPU job at a time is kept. ADVISORY §6 allows O5 to use the GPU between O2 jobs. The chain's step records are unchanged; the END line for jev-27b is written when the chain resumes.
+34. **O5 attempt 4 used an unseeded adapter draw (provenance; disclosed).** PEFT draws lora_A from the global RNG, and the driver did not seed it. The attempt-4 verdict is recorded as measured (CLAIMS O094–O105). The drivers now seed before the adapter is built and record the seed. A seeded re-run (attempt 5, seed 0) is reported alongside and does not replace the verdict (O106–O109). The large cross-process differences in the unseeded records are draw effects, not kernel nondeterminism (O121; seeded runs are bit-identical, O119).
+35. **Additional precision settings are not verdicts (R4; disclosed).** IEEE dots (Triton's fp32 default and fla's triangular-solve precision overridden) and the kernel-free reference path were run on the same checks, seed 0, to explain the merged-export failure. They are labelled additional analyses (CLAIMS O110–O113). The verdict configuration is unchanged; which configuration is "fp32" is Question 14.
+36. **O2 chain resumed after O5 (scheduling; disclosed).** The O2 chain (PID 266074) stayed paused from 19:23:35Z. The O5 GPU runs ran in that window, one job at a time, and the last of them ended at 20:30:02Z (outputs/osler_v0/O5/logs/control_chain_seeded.log). The chain is resumed with SIGCONT at this closure, before clef starts.
+37. **Scratch-disk quota recovery (disclosed).** At 20:05Z an O5 diagnostic failed with "Disk quota exceeded" while saving an adapter. I deleted my own scratch adapters and a Triton cache under /workspace/tmp (about 1.8 GB), kept the hidden-state dumps, and later wrote every diagnostic output under outputs/osler_v0/O5 without adapter files. Earlier loops' files under /workspace/tmp were not touched. The first IEEE attempt also failed, because a fresh Triton cache directory could not build its driver shim; the rerun used the default cache, which holds the shim, and the cache key includes the patched constant.
+38. **Checkpoint policy for O6–O8 (disk; disclosed before the arms run).** ADVISORY says "checkpoint at every eval". `run_arm` saves a checkpoint only when an eval sets a new best selection criterion (dev macro, Brier tie-break), overwriting the previous one. The selected checkpoint is the same as keeping every checkpoint and selecting afterwards; intermediate checkpoints are not kept (about 12 GB per arm otherwise, against the disk quota).
+39. **Per-item dev predictions written by `run_arm` (addition; the recipe is unchanged).** Each arm writes `dev_predictions.jsonl` under its output directory, one row per dev item (identity, gold and predicted index, the full distribution). This is the input of the O9 paired bootstrap. `Trainer.score` exposes the scored items; `evaluate` returns the same metrics as before. Tests: tests/test_arm_run_o6.py, tests/test_dev_predictions_o6.py.
+40. **Paired macro statistic for O9 and O11 (implementation choice).** The D24 macro is the unweighted mean of per-gold-class recall (the metrics module's `macro_accuracy`). It is bootstrapped by resampling items within templates, 1,000 resamples (`paired_macro_accuracy_difference`). The existing `stratified_macro_difference` averages per-group means and is not the D24 statistic, so it is not used for verdicts. Tests: tests/test_paired_macro_o9.py.
 
 ---
 

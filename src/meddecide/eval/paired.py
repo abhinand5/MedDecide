@@ -104,6 +104,73 @@ def stratified_macro_difference(
     return Difference(n=n_items, point=float(np.mean(point_terms)), lo=lo, hi=hi)
 
 
+def _macro_recall(correct: np.ndarray, gold: np.ndarray, classes: np.ndarray) -> float:
+    """Unweighted mean over ``classes`` of the per-class recall; NaN for a class absent from ``gold``."""
+    recalls = [correct[gold == c].mean() if np.any(gold == c) else np.nan for c in classes]
+    return float(np.nanmean(recalls))
+
+
+def paired_macro_accuracy_difference(
+    correct_a: Sequence[float],
+    correct_b: Sequence[float],
+    gold: Sequence[object],
+    strata: Sequence[object],
+    *,
+    n_resamples: int = 1000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> Difference:
+    """Paired difference of macro accuracy (unweighted mean of per-gold-class recall), A - B.
+
+    This is the statistic of :func:`meddecide.eval.metrics.macro_accuracy` with the gold labels as classes. The bootstrap
+    resamples items with replacement within each stratum (for example each template), so every stratum keeps its size.
+    A class absent from a resample is left out of that resample's mean.
+    """
+    a = np.asarray(correct_a, dtype=np.float64)
+    b = np.asarray(correct_b, dtype=np.float64)
+    labels = np.asarray([str(g) for g in gold], dtype=object)
+    groups = np.asarray([str(s) for s in strata], dtype=object)
+    if not (a.ndim == b.ndim == 1 and a.size == b.size == labels.size == groups.size) or a.size == 0:
+        raise ValueError("paired_macro_accuracy_difference needs equal-length, non-empty 1-D inputs")
+    classes = np.unique(labels)
+    class_codes = np.searchsorted(classes, labels)
+    rng = np.random.default_rng(seed)
+    stratum_indices = [np.flatnonzero(groups == s) for s in np.unique(groups)]
+    boot = np.empty(n_resamples, dtype=np.float64)
+    for r in range(n_resamples):
+        idx = np.concatenate([idx_s[rng.integers(0, idx_s.size, size=idx_s.size)] for idx_s in stratum_indices])
+        boot[r] = _macro_recall(a[idx], class_codes[idx], np.arange(classes.size)) - _macro_recall(
+            b[idx], class_codes[idx], np.arange(classes.size))
+    point = _macro_recall(a, class_codes, np.arange(classes.size)) - _macro_recall(b, class_codes,
+                                                                                   np.arange(classes.size))
+    lo, hi = _interval(boot, alpha)
+    return Difference(n=int(a.size), point=float(point), lo=lo, hi=hi)
+
+
+def paired_mean_difference_stratified(
+    values_a: Sequence[float],
+    values_b: Sequence[float],
+    strata: Sequence[object],
+    *,
+    n_resamples: int = 1000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> Difference:
+    """Paired difference of the item mean (for example Brier), A - B, with the bootstrap resampling within strata."""
+    diff = _paired_diff(values_a, values_b, label="paired_mean_difference_stratified")
+    groups = np.asarray([str(s) for s in strata], dtype=object)
+    if groups.size != diff.size:
+        raise ValueError("strata must have one entry per item")
+    rng = np.random.default_rng(seed)
+    stratum_indices = [np.flatnonzero(groups == s) for s in np.unique(groups)]
+    boot = np.empty(n_resamples, dtype=np.float64)
+    for r in range(n_resamples):
+        idx = np.concatenate([idx_s[rng.integers(0, idx_s.size, size=idx_s.size)] for idx_s in stratum_indices])
+        boot[r] = diff[idx].mean()
+    lo, hi = _interval(boot, alpha)
+    return Difference(n=int(diff.size), point=float(diff.mean()), lo=lo, hi=hi)
+
+
 def _average_ranks(values: Sequence[float]) -> np.ndarray:
     """1-based ranks with ties sharing the average of the ranks they span."""
     arr = np.asarray(values, dtype=np.float64)

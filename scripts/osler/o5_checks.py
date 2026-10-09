@@ -8,6 +8,10 @@ option-code path (causal and bidirectional) and on the pointer path (1e-3), and 
 byte-identical to an untouched base (with a control). One GPU job at a time: run this only when no other GPU job is
 running. Logs go to ``outputs/osler_v0/O5/logs/``.
 
+``--precision as_run`` (the default) is the O5 verdict. ``--precision reference`` and ``--precision ieee`` run the same
+checks under the other settings of ``meddecide.precision``; they write ``readout_checks_<precision>.json`` and are
+additional analyses, not the verdict.
+
 Usage:
     source scripts/pod_env.sh && setsid nohup uv run --frozen python scripts/osler/o5_checks.py \
         > outputs/osler_v0/O5/logs/o5_checks.log 2>&1 < /dev/null &
@@ -17,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import gc
-import json
 import platform
 import tempfile
 import time
@@ -26,17 +29,7 @@ from typing import Any
 
 import torch
 
-from meddecide.model.meddecide_model import LoraSettings, MedDecideModel
-from meddecide.model.readout_checks import (
-    causal_flag_max_abs_diff,
-    export_max_abs_diff,
-    generation_identity,
-    init_max_abs_diff,
-    padding_max_abs_diff,
-    prompts_for,
-    randomise_lora,
-)
-from meddecide.train.data import read_items
+from meddecide.precision import PRECISIONS, prepare_precision
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
@@ -45,7 +38,7 @@ BASE_MODEL = "Qwen/Qwen3.5-4B"
 BASE_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 DEV = REPO / "data/train/student_v1/dev.jsonl"
 OUT = REPO / "outputs/osler_v0/O5/readout_checks.json"
-LORA = LoraSettings(r=32, alpha=32)  # the O6 recipe's adapter shape (ADVISORY O6-O8)
+LORA_SETTINGS = {"r": 32, "alpha": 32}  # the O6 recipe's adapter shape (ADVISORY O6-O8)
 TOL = {"init_logits": 1e-4, "init_probs": 1e-4, "export": 1e-3, "padding": 1e-3, "causal_off": 1e-5,
        "causal_on_min": 1e-4, "control_min": 1e-4}
 
@@ -68,20 +61,53 @@ def check(name: str, value: float, tolerance: float, *, at_most: bool = True) ->
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--items", type=int, default=50)
+    parser.add_argument("--precision", choices=PRECISIONS, default="as_run",
+                        help="as_run is the O5 configuration; reference and ieee are additional analyses")
+    parser.add_argument("--seed", type=int, default=0, help="seeds the global RNG before the adapter is built")
     args = parser.parse_args()
+    # Before transformers or fla is imported: both read the environment and the module table at import time.
+    prepare_precision(args.precision)
+
+    from transformers import AutoModelForCausalLM
+
+    from meddecide.model.meddecide_model import LoraSettings, MedDecideModel
+    from meddecide.model.readout_checks import (
+        CHUNK_ITEMS,
+        causal_flag_max_abs_diff,
+        export_check,
+        export_plan,
+        generation_identity,
+        init_max_abs_diff,
+        padding_max_abs_diff,
+        prompts_for,
+        randomise_lora,
+    )
+    from meddecide.precision import apply_after_import
+    from meddecide.train.data import read_items
+
+    apply_after_import(args.precision)
+    lora = LoraSettings(**LORA_SETTINGS)
+    out = OUT.with_name(f"readout_checks_{args.precision}_seed{args.seed}.json")
     started = time.time()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
     items = read_items(DEV, limit=args.items, stride=max(1, 5619 // args.items))
     short = items[: min(3, len(items))]
     results: list[dict[str, Any]] = []
     record: dict[str, Any] = {"kind": "osler_v0_O5_readout_checks", "built_at_utc": utcnow(),
-                              "git_commit": git_commit(REPO), "command": "scripts/osler/o5_checks.py",
+                              "git_commit": git_commit(REPO), "command": "scripts/osler/o5_checks.py "
+                              f"--precision {args.precision} --seed {args.seed}", "precision": args.precision,
+                              "seed": args.seed,
+                              "role": ("seeded run of the as_run configuration; the O5 verdict is the unseeded attempt-4 "
+                                       "record" if args.precision == "as_run"
+                                       else "additional analysis (not the O5 verdict)"),
                               "base_model": BASE_MODEL, "base_revision": BASE_REVISION, "dtype": "float32",
-                              "device": "cuda:0", "lora": LORA.to_dict(), "items_used": len(items),
+                              "device": "cuda:0", "lora": lora.to_dict(), "items_used": len(items),
                               "items_source": str(DEV.relative_to(REPO)), "versions": versions(),
-                              "tolerances": TOL}
+                              "tolerances": TOL, "chunk_items": CHUNK_ITEMS}
 
-    model = MedDecideModel(BASE_MODEL, revision=BASE_REVISION, lora=LORA, device="cuda:0", dtype="float32",
+    # PEFT draws lora_A from the global RNG; without this seed every process builds a different adapter.
+    torch.manual_seed(args.seed)
+    model = MedDecideModel(BASE_MODEL, revision=BASE_REVISION, lora=lora, device="cuda:0", dtype="float32",
                            readout="option_code", variant="bare")
     randomise_lora(model)
     init = init_max_abs_diff(model, items)
@@ -94,16 +120,6 @@ def main() -> None:
     # a stand-in for training moves the head off its initialisation, so the export checks test a changed head
     with torch.no_grad():
         model.optcode.weight.add_(0.05 * torch.randn_like(model.optcode.weight))
-    with tempfile.TemporaryDirectory(prefix="o5_export_", dir=str(REPO / "outputs/osler_v0/O5")) as tmp:
-        separate = export_max_abs_diff(model, items[:50], Path(tmp), merged=False)
-        results.append(check("exported causal LM vs native readout, adapter separate (50 items)",
-                             separate["probs_max_abs_diff"], TOL["export"]))
-        merged = export_max_abs_diff(model, items[:50], Path(tmp), merged=True)
-        results.append(check("exported causal LM vs native readout, adapter merged (50 items)",
-                             merged["probs_max_abs_diff"], TOL["export"]))
-    record["export"] = {"separate": separate, "merged": merged}
-    gc.collect()
-    torch.cuda.empty_cache()
 
     off = max(causal_flag_max_abs_diff(model, item, bidirectional=False) for item in short)
     on = max(causal_flag_max_abs_diff(model, item, bidirectional=True) for item in short)
@@ -121,21 +137,37 @@ def main() -> None:
         record.setdefault("padding", {})[name] = worst
 
     prompts = prompts_for(model, items[:2])
-    from transformers import AutoModelForCausalLM
-
     plain = AutoModelForCausalLM.from_pretrained(BASE_MODEL, revision=BASE_REVISION, dtype=torch.float32,
                                                  device_map="cuda:0").eval()
     identity = generation_identity(model, plain, prompts)
     results.append(check("greedy generation, adapter off, byte identical to the untouched base",
                          0.0 if identity["byte_identical"] else 1.0, 0.0))
-    results.append(check("control: adapter on changes the next-token logits", identity["control_adapter_logits_max_abs_diff"],
-                         TOL["control_min"], at_most=False))
+    results.append(check("control: adapter on changes the next-token logits",
+                         identity["control_adapter_logits_max_abs_diff"], TOL["control_min"], at_most=False))
     record["generation"] = identity
     del plain
     gc.collect()
     torch.cuda.empty_cache()
 
-    pointer = MedDecideModel(BASE_MODEL, revision=BASE_REVISION, lora=LORA, device="cuda:0", dtype="float32",
+    # the export plan is computed on the live model; the live model is then released before the exported causal LM is
+    # loaded, because two fp32 copies of the 4B model do not fit on the GPU together with the activations
+    with tempfile.TemporaryDirectory(prefix="o5_export_", dir=str(OUT.parent)) as tmp:
+        plan = export_plan(model, items[:50], Path(tmp))
+        del model
+        gc.collect()
+        torch.cuda.empty_cache()
+        separate = export_check(plan, merged=False)
+        results.append(check("exported causal LM vs native readout, adapter separate (50 items)",
+                             separate["probs_max_abs_diff"], TOL["export"]))
+        merged = export_check(plan, merged=True)
+        results.append(check("exported causal LM vs native readout, adapter merged (50 items)",
+                             merged["probs_max_abs_diff"], TOL["export"]))
+        del plan
+    record["export"] = {"separate": separate, "merged": merged}
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    pointer = MedDecideModel(BASE_MODEL, revision=BASE_REVISION, lora=lora, device="cuda:0", dtype="float32",
                              readout="pointer", variant="bare")
     pointer_worst = max(padding_max_abs_diff(pointer, items[i], items[i + 1], bidirectional=False)
                         for i in range(0, min(len(items) - 1, 8), 2))
@@ -145,13 +177,12 @@ def main() -> None:
     record["checks"] = results
     record["all_passed"] = all(r["passed"] for r in results)
     record["wall_clock_s"] = round(time.time() - started, 1)
-    write_json(OUT, record)
+    write_json(out, record)
     failed = [r["check"] for r in results if not r["passed"]]
-    print(f"o5 checks: {len(results) - len(failed)} of {len(results)} passed; wall clock {record['wall_clock_s']} s",
-          flush=True)
+    print(f"o5 checks ({args.precision}): {len(results) - len(failed)} of {len(results)} passed; "
+          f"wall clock {record['wall_clock_s']} s", flush=True)
     for name in failed:
         print(f"  FAILED: {name}", flush=True)
-    print(json.dumps({"out": str(OUT.relative_to(REPO))}), flush=True)
 
 
 if __name__ == "__main__":

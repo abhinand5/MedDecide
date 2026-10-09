@@ -80,4 +80,6 @@ def test_one_arm_trains_evaluates_selects_and_reports_on_cpu(tiny_dir, tmp_path)
     assert (tmp_path / "arm" / "checkpoints" / "best" / "optcode.pt").exists()
     assert summary["temperature_fits"]  # the per-qtype temperature was fitted on dev
     assert (tmp_path / "arm" / "arm_result.json").exists()
+    rows = (tmp_path / "arm" / "dev_predictions.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(rows) == len(dev) == summary["full_dev_items"]  # one row per dev item (the O9 and O11 input)
     assert summary["stopped_early"] is None

@@ -28,7 +28,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -38,6 +38,9 @@ from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
 from meddecide.train.losses import ce_plus_brier
 from meddecide.train.temperature import TemperatureFit, fit_per_qtype, fit_temperature
+
+if TYPE_CHECKING:
+    from meddecide.model.meddecide_model import ScoredItems
 
 
 def git_commit() -> str:
@@ -194,10 +197,10 @@ class Trainer:
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    def evaluate(self, items: Sequence[Item], *, batch_size: int | None = None) -> dict[str, Any]:
-        """Dev metrics via batched inference; also returned per qtype."""
+    def score(self, items: Sequence[Item], *, batch_size: int | None = None) -> ScoredItems:
+        """Per-item probabilities over the offered options (batched inference; no metrics)."""
         self.model.eval_mode()
-        scored = self.model.score_items(
+        return self.model.score_items(
             items,
             batch_size=batch_size or self.config.eval_batch_size or self.config.batch_size,
             max_batch_tokens=(
@@ -207,6 +210,10 @@ class Trainer:
             round_to_chunk=self.config.eval_round_to_chunk,
             length_buckets=self.config.eval_length_buckets,
         )
+
+    def evaluate(self, items: Sequence[Item], *, batch_size: int | None = None) -> dict[str, Any]:
+        """Dev metrics via batched inference; also returned per qtype."""
+        scored = self.score(items, batch_size=batch_size)
         overall = scored.metrics()
         overall["per_qtype"] = scored.per_qtype_metrics()
         return overall
