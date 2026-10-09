@@ -31,6 +31,11 @@ _TOP_LEVEL_KEYS = {
     "lora",
     "head",
     "readout",
+    "bidirectional_full_attention",
+    "lr_floor",
+    "tripwire_grad_norm",
+    "tripwire_macro_floor",
+    "tripwire_consecutive_evals",
     "lambda_brier",
     "lr",
     "lora_lr",
@@ -75,6 +80,14 @@ class StudentConfig:
     head: HeadSettings = field(default_factory=HeadSettings)
     # "pointer" (student_v0's head) or "letter" (student_v1 arm B: no head, LM logits of option letters)
     readout: str = "pointer"
+    # arm N (D23): the full-attention layers attend in both directions on the decision path (off for causal arms)
+    bidirectional_full_attention: bool = False
+    # the cosine decay ends at this fraction of the peak learning rate (O6-O8: 0.10; 0.0 is the student behaviour)
+    lr_floor: float = 0.0
+    # divergence tripwire (ADVISORY O6): None disables a check; the gradient check uses the pre-clip norm
+    tripwire_grad_norm: float | None = None
+    tripwire_macro_floor: float | None = None
+    tripwire_consecutive_evals: int = 2
     # cross-entropy + lambda * Brier; 1.0 is the plan's starting value
     lambda_brier: float = 1.0
     lr: float = 1.0e-3
@@ -155,6 +168,10 @@ class StudentConfig:
             raise ValueError(f"warmup_fraction must be in [0, 1), got {cfg.warmup_fraction}")
         if cfg.batch_chunk_factor < 1:
             raise ValueError("batch_chunk_factor must be >= 1")
+        if not 0.0 <= cfg.lr_floor < 1.0:
+            raise ValueError(f"lr_floor must be in [0, 1), got {cfg.lr_floor}")
+        if cfg.tripwire_consecutive_evals < 1:
+            raise ValueError("tripwire_consecutive_evals must be >= 1")
         return cfg
 
 

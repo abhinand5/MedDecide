@@ -1,0 +1,40 @@
+# O7 arm P: pointer head, causal (the matched ablation; D23)
+# Common recipe (ADVISORY O6-O8): identical in every arm except readout, bidirectional_full_attention
+# and output_dir. The example budget is 200,000 (min of one pass over mix v2 and 200,000): 25,000 steps at batch 8.
+output_dir: outputs/osler_v0/O6/arm_P
+readout: pointer
+bidirectional_full_attention: false
+base_model: Qwen/Qwen3.5-4B
+revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+train_path: data/train/osler_v0/train.jsonl
+dev_path: data/train/osler_v0/dev.jsonl
+seed: 0
+dtype: bfloat16
+device: cuda:0
+variant: bare
+lora:
+  r: 32
+  alpha: 32
+  dropout: 0.0
+lambda_brier: 1.0
+lr: 0.001
+lora_lr: 0.0001
+weight_decay: 0.0
+grad_clip: 1.0
+batch_size: 8
+max_batch_tokens: 8192
+max_prompt_tokens: 16384
+epochs: 1
+shuffle_options: true
+eval_every: 250
+eval_items: 6000
+eval_batch_size: 32
+log_every: 50
+lr_schedule: cosine
+warmup_fraction: 0.03
+lr_floor: 0.1
+fit_temperature: true
+temperature_per_qtype: true
+tripwire_grad_norm: 5000.0
+tripwire_macro_floor: 0.5
+tripwire_consecutive_evals: 2

@@ -173,6 +173,8 @@ class Trainer:
         self.model = model
         self.config = config
         self.log_path = Path(log_path) if log_path else None
+        # optional observer of every evaluation (step, metrics); the O6 driver uses it for the tier-1 diagnostic
+        self.eval_hook: Callable[[int, dict[str, Any]], None] | None = None
         if self.log_path is not None:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.optimizer = optimizer or torch.optim.AdamW(
@@ -300,7 +302,7 @@ class Trainer:
 
     # ---- learning-rate schedule --------------------------------------------
     @staticmethod
-    def lr_factor(step: int, *, total_steps: int, warmup_steps: int) -> float:
+    def lr_factor(step: int, *, total_steps: int, warmup_steps: int, floor: float = 0.0) -> float:
         """Linear warmup then cosine decay, as a multiplier in ``[0, 1]``.
 
         ``step`` is 1-based. The warmup reaches 1.0 at ``warmup_steps``; the cosine reaches 0.0
@@ -314,14 +316,17 @@ class Trainer:
         if span <= 0:
             return 1.0
         progress = min(1.0, max(0.0, (step - max(0, warmup_steps)) / span))
-        return 0.5 * (1.0 + math.cos(math.pi * progress))
+        return floor + (1.0 - floor) * 0.5 * (1.0 + math.cos(math.pi * progress))
 
     def _apply_lr(self, step: int, schedule: dict[str, Any] | None) -> None:
         """Set every parameter group's LR for ``step`` from the schedule (no-op when None)."""
         if schedule is None:
             return
         factor = self.lr_factor(
-            step, total_steps=int(schedule["total_steps"]), warmup_steps=int(schedule["warmup_steps"])
+            step,
+            total_steps=int(schedule["total_steps"]),
+            warmup_steps=int(schedule["warmup_steps"]),
+            floor=float(schedule.get("floor", 0.0)),
         )
         for group in self.optimizer.param_groups:
             group["lr"] = float(group["base_lr"]) * factor
@@ -354,6 +359,7 @@ class Trainer:
         epochs_completed = 0
         best: dict[str, Any] | None = None
         best_step: int | None = None
+        consecutive_below = 0
         stopped_early: str | None = None
         deadline = (
             (max_seconds if max_seconds is not None else config.max_seconds) or None
@@ -367,6 +373,7 @@ class Trainer:
                 "total_steps": int(schedule_steps),
                 "warmup_steps": max(0, warmup_steps),
                 "warmup_fraction": float(config.warmup_fraction),
+                "floor": float(config.lr_floor),
                 "peak_lr_by_group": [float(g["base_lr"]) for g in self.optimizer.param_groups],
             }
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
@@ -414,6 +421,13 @@ class Trainer:
                         config.grad_clip,
                     )
                 )
+                if config.tripwire_grad_norm is not None and grad_norm > config.tripwire_grad_norm:
+                    stopped_early = (
+                        f"gradient-norm tripwire at step {total_steps + 1}: {grad_norm:.1f} > "
+                        f"{config.tripwire_grad_norm:g}"
+                    )
+                    self._log({"event": "tripwire", "step": total_steps + 1, "grad_norm": grad_norm})
+                    break
                 self.optimizer.step()
                 elapsed = time.perf_counter() - t0
                 peak = (
@@ -456,6 +470,8 @@ class Trainer:
                 ):
                     metrics = self.evaluate(eval_items, batch_size=config.batch_size)
                     self._log({"event": "eval", "step": total_steps, "metrics": metrics})
+                    if self.eval_hook is not None:
+                        self.eval_hook(total_steps, metrics)
                     if best is None or (
                         metrics["macro_accuracy"],
                         -metrics["brier"],
@@ -464,6 +480,19 @@ class Trainer:
                         if checkpoint_dir is not None:
                             self.save_checkpoint(checkpoint_dir)
                     self.model.train_mode()
+                    if config.tripwire_macro_floor is not None:
+                        if float(metrics["macro_accuracy"]) < float(config.tripwire_macro_floor):
+                            consecutive_below += 1
+                        else:
+                            consecutive_below = 0
+                        if consecutive_below >= config.tripwire_consecutive_evals:
+                            stopped_early = (
+                                f"dev-macro tripwire at step {total_steps}: {consecutive_below} consecutive evals "
+                                f"below {config.tripwire_macro_floor:g}"
+                            )
+                            self._log({"event": "tripwire", "step": total_steps,
+                                       "macro_accuracy": float(metrics["macro_accuracy"])})
+                            break
             epochs_completed = epoch + 1
             epoch += 1
             if stopped_early:
