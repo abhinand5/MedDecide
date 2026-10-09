@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T07:50:24Z`
-Iterations so far: `2`
+Last updated (UTC): `2026-10-09T08:13:20Z`
+Iterations so far: `3`
 
 ---
 
@@ -24,7 +24,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
 | O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
-| O1 | External clinical panel + robustness pack | no | O0 | PENDING | | |
+| O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
 | O2 | Competitor scoreboard | yes | O0, O1 | PENDING | | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | PENDING | | |
 | O4 | Training mix v2 | no | O1, O3 | PENDING | | |
@@ -59,7 +59,9 @@ recomputing or guessing.
 | v0.2 integrity | 2 of 11 benchmark files do not match their manifest sha256 (clinicaltrials, openfda); manifest total 57,007 vs acceptance 45,009 (O004, O005). Not repaired (v0.2 read-only); see Questions 1 | `outputs/osler_v0/O0/snapshot.json` | O0 |
 | student_v1 training mix | 482,889 train rows, 5,619 dev rows; base student_v0 file hash matches (O006, O007) | `outputs/osler_v0/O0/snapshot.json` | O0 |
 | disk (ADVISORY §3 budget: hf_home + outputs + data) | 393.52 GB of 450 GB after all O0 downloads; envs 11.59 GB and uv cache 16.70 GB outside the budget (O030, O031) | `outputs/osler_v0/O0/snapshot.json` | O0 |
-| external panel: datasets, items; robustness pack: base items × perturbations | | `data/bench/v0.3_ext/manifest.json` | O1 |
+| external panel: datasets, items; robustness pack: base items × perturbations | Panel: 4,353 items in 7 eval-only sets (MMLU-Pro health 781, MedXpertQA-Text 1,000 of 2,450, MedExpQA-en 125, MedConceptsQA 1,000 of 819,772, MedExQA 940, symptom-to-diagnosis 212, medical question pairs 295). Robustness: 4,000 bases (2,000 panel + 2,000 v0.2 fresh) → 20,898 perturbed items, all rule-checked (CLAIMS O032–O044) | `data/bench/v0.3_ext/manifest.json`; `outputs/osler_v0/O1/robustness_verify.json` | O1 |
+| training overlap of the panel; v0.2 overlap | 0 exact-text and 0 record hits against 2,150,361 training rows (12 files); 0 v0.2 exact-text hits after excluding 37 MMLU-Pro duplicates (CLAIMS O040, O041) | `outputs/osler_v0/O1/overlap.json` | O1 |
+| long-record slice (student_v1 fix 3) | 2,213 of 37,289 kept v0.2 test rows over 8,192 prompt tokens, all in fda_route_claim_noul_v1 (944), fda_boxed_warning_noul_v1 (668), fda_class_choice_v2 (601); ids stored (CLAIMS O045) | `data/bench/v0.3_ext/long_record_ids.json` | O1 |
 | scoreboard headline (MedDecider-4B / -9B / pplx v1.1 on v0.2 fresh and external panel) | | `loops/osler_v0/scoreboard.md` | O2 |
 | generators: count, held-out list, train/dev/test items | | `loops/osler_v0/heldout.md` | O3 |
 | mix v2: items, sources, replay share, max template share; leakage result | | `data/train/osler_v0/manifest.json` | O4 |
@@ -82,20 +84,26 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (O0 DONE at 2026-10-09T07:50:24Z; next: O1)
-Running job:    none. The O0 reproduce chain finished at 07:42:29 (log outputs/osler_v0/O0/logs/reproduce.log)
+Task in flight: none (O1 DONE at 2026-10-09T08:13:20Z; next eligible: O2 — the first GPU job, scoreboard)
+Running job:    none
 
-O0 checklist (completed):
-- [x] snapshot.json: git commit, v0.2 manifest hash (2 of 11 files mismatch), training-mix hashes, env versions
-- [x] revisions of Qwen3.5-0.8B / 4B / 9B (cached; Hub sha equal to the cache refs) in configs/osler_v0/competitors.json
-- [x] download + pinned revision of each competitor (14 registry entries, all DONE); fetch.json
-- [x] each competitor's card example through its own code: 9 of 9 PASS; envs/pplx27b, envs/clef
-- [x] Qwen3.5-4B layer types (envs.json)
-- [x] throughput at 4B and 9B (throughput.json)
-- [x] acceptance check: outputs/osler_v0/O0/{snapshot,envs,throughput}.json and smoke_summary.json present; one row per competitor, all PASS
-- [x] self-audit (R6): outputs/osler_v0/O0/SELF_AUDIT.md (re-derivation log logs/rederive.log)
-- [x] CLAIMS.md rows O001–O031
-- [x] STATE updated (this file is part of the O0 closure commit)
+O1 checklist (completed):
+- [x] schemas, sizes, pinned revisions and licences of the usable sets (CLAIMS O032–O039)
+- [x] converters for 7 sets with unit tests (tests/test_panel.py, 30 tests in total)
+- [x] deterministic subsample ≤ 1,000 per set (stable hash of record key); counts and drop reasons recorded
+- [x] overlap check: 0 text hits and 0 record hits against 2,150,361 training rows; v0.2 exact-text hits 0 after excluding 37 duplicates (CLAIMS O040, O041)
+- [x] robustness pack: 4,000 bases, 20,898 items, rule-checked (CLAIMS O042–O044)
+- [x] fix 3: long-record ids (2,213 of 37,289 over the cap, all in three openFDA templates; CLAIMS O045)
+- [x] manifest data/bench/v0.3_ext/manifest.json; SELF_AUDIT (outputs/osler_v0/O1/SELF_AUDIT.md); CLAIMS O032–O045; STATE; commit; push
+
+Licence screen used for the panel (catalog verdicts + Hub/GitHub licence checks):
+  in the panel (eval-only):  TIGER-Lab/MMLU-Pro (mit), TsinghuaC3I/MedXpertQA (mit), HiTZ/MedExpQA (cc-by-4.0),
+                             ofir408/MedConceptsQA (apache-2.0), gretelai/symptom_to_diagnosis (apache-2.0),
+                             Lots-of-LoRAs/task1645 medical question pairs (apache-2.0 wrapper), bluesky333/MedExQA (cc-by-nc-sa-4.0)
+  not in the panel, with reason:  songlab/clinvar (numeric feature table; label undocumented), bigbio/ddi_corpus (data fetched
+                             from outside the Hub; NOT MEASURED), sixuexing/FAERS-NLP (5 GB; NOT MEASURED), lavita/MedQuAD (training source),
+                             Medbullets / ADE corpus v2 / PubMed-200k-RCT / NLI4CT (no licence), bigbio/biored, mediqa_qa (no licence),
+                             bigbio/head_qa (Spanish), healthver (tier-1 source), MedCalc / gad / chemprot (training candidates)
 ```
 
 ---
@@ -123,6 +131,13 @@ O0 checklist (completed):
 - Headline: 9 of 9 competitor rows PASS through their own code (MedDecider 4B/9B/27B/31B, pplx-decider-v1.1-27b, JEV-27B, JEV-9B, Clef, Clef-Flash; all open weights, none NOT MEASURED; O019). The v0.2 kept test set is 37,289 items (23,768 fresh + 13,521 tier-1), the same denominator student_v1 used (O003). Projected Osler-4B arm 16.08 h, 9B arm 24.59 h at the ADVISORY budget (O013, O017). Counted disk 393.52 GB of 450 (O030)
 - Surprises: 2 of 11 v0.2 benchmark files do not match the sha256 in their manifest (clinicaltrials, openfda; O004), and the manifest total (57,007) disagrees with acceptance.json (45,009; O005). The MedDecider-4B first smoke criterion (gold label on every card example) failed on card example 6; the criterion was revised to reproduction of printed numbers with gold agreement reported beside it (see Deviations 1). Clef needed its own env (pillow, torchvision, accelerate)
 - Next: O1 (external clinical panel and robustness pack, CPU + network). The licence screen for the panel is already done: MMLU-Pro (MIT), MedXpertQA-Text (MIT), MedConceptsQA (Apache-2.0), symptom-to-diagnosis (Apache-2.0), medical question pairs (Apache-2.0 on the Hub wrapper), MedExQA (CC BY-NC-SA 4.0, evaluation only). Excluded for no verifiable licence: Medbullets, MedQuAD, PubMed-200k-RCT, ADE corpus v2, NLI4CT (see Questions 5)
+
+### O1 — DONE — 2026-10-09T08:13:20Z
+- What ran: `scripts/osler/o1_build_panel.py`, `o1_overlap.py` (run on the rebuilt panel), `o1_build_robustness.py`, `o1_verify_robustness.py`, `o1_long_slice.py`; unit tests `tests/test_panel.py` (30 tests). Items are under data/ (gitignored); the manifest is committed as `loops/osler_v0/v0.3_ext_manifest.json`
+- Output: data/bench/v0.3_ext/{panel.jsonl, robustness.jsonl, long_record_ids.json, manifest.json}; outputs/osler_v0/O1/{overlap.json, robustness_verify.json, SELF_AUDIT.md}; CLAIMS O032–O045
+- Headline: external panel = 4,353 eval-only items in 7 public sets (CLAIMS O032); 0 text and 0 record matches against 2,150,361 training rows in 12 files (O040); robustness pack = 20,898 perturbed items from 4,000 bases, 0 rule violations on re-check (O043–O044); long-record slice = 2,213 of 37,289 kept v0.2 test rows over 8,192 prompt tokens, all in three openFDA templates (O045)
+- Surprises: 37 MMLU-Pro health items were exact duplicates of v0.2 items, excluded (O041). MedExQA's gold letter is D in 36.6% of items (O037). The panel is narrower than the ADVISORY list: MedQuAD is a training source; Medbullets, ADE, PubMed-200k-RCT, NLI4CT have no verifiable licence; DDI and FAERS are NOT MEASURED for data-access reasons (Questions 5 and 7)
+- Next: O2 (scoreboard; the first GPU job). Protocol and cost decisions for O2 are recorded in §7 before its first run
 
 ## 5. Blocked items
 
@@ -170,6 +185,17 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    NOASSERTION), PubMed-200k-RCT (no licence on the Hub or GitHub), ADE corpus v2 ("unknown"), NLI4CT
    (no licence on the Hub mirrors). The ADVISORY's panel list therefore shrinks; if you can confirm a
    licence for any excluded set, I will add it. Is that acceptable?
+   **Answer status:** I proceeded with this screen (conservative option) and built the panel from the
+   usable sets only. Nothing here needs an answer to continue; the questions below are for the release and
+   for licence confirmation.
+6. **MedExQA (CC BY-NC-SA 4.0) in the panel.** It is used for evaluation only (940 items; CLAIMS O037). A public
+   release of benchmark items derived from it would have to carry NC-SA. Options: (a) keep it in the panel and
+   exclude its items from any public release (my pick for now); (b) drop it from the panel. Which do you want?
+7. **Problem-type coverage.** The panel has two problem-type sets (symptom-to-diagnosis; medical question pairs)
+   and five exam sets. The sets that would add problem types (NLI4CT, PubMed-200k-RCT, ADE corpus v2, Medbullets)
+   have no declared licence, and DDI and FAERS need data-access work. If you can confirm a licence for any of
+   them, or approve the work to fetch DDI and FAERS (about 2 h each), the next panel build can include them; the
+   builder would take them as a new SourceSpec with a manifest entry. I have not started that work.
 
 ---
 
@@ -199,6 +225,22 @@ deviation — that is a `BLOCKED`.
    assumes the 200,000-example budget, because mix v2 (not yet built) must be at least as large as the
    student_v1 mix (482,889 rows) for "one pass or 200,000, whichever is smaller" to resolve to 200,000.
    O4 must confirm that.
+5. **Panel smaller than the ADVISORY's list (O1).** The screen in Question 5 and Question 7 applies: 7 sets built,
+   with MedQuAD (training source), six unlicensed sets, and DDI/FAERS (data access) left out. Recorded in the
+   manifest's `excluded_sets` and in STATE. The problem-type axis is thin and is reported as such.
+6. **Benchmark-duplicate exclusion added during O1 (disclosed).** After the first panel build, 37 MMLU-Pro health
+   items were found to have exact v0.2 text (state, question, labels). The rule "a panel item must not be a v0.2
+   item" was added and the panel, robustness pack and overlap check were rebuilt and re-run (CLAIMS O041, the
+   first build's 4,390 items became 4,353). The rule was not chosen with any result in view: it separates the
+   external panel from the headline benchmark, and it changes only the panel size.
+7. **Subsampling.** MedXpertQA-Text (1,000 of 2,450) and MedConceptsQA (1,000 of 819,772) are quota samples by
+   stable hash, not all items. The remaining rows are recorded as not examined, not dropped.
+8. **Fields never read (O1 converters).** MedExpQA's `rag`, `explanations` and `full_answer`, and MedExQA's two
+   explanation fields, are not read, so a converter cannot copy an answer into the state (unit-tested).
+9. **Overlap scan scope (O1).** The compressed PubMed pool (`sources/pubmed_prewindow.jsonl.gz`, 2.8 GB) is not
+   scanned; no panel set is PubMed-derived. Recorded in overlap.json (`not_scanned`).
+10. **Tier.** Panel items carry no benchmark tier (external sets have no record dates to place them in the fresh
+    window). The `EvalItem` schema records `benchmark = ext_panel` instead.
 
 ---
 
