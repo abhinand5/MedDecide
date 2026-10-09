@@ -68,8 +68,11 @@ def pubhealth_row(rec: Mapping[str, Any], split: str) -> tuple[dict[str, Any] | 
         label = PUBHEALTH_LABELS[int(rec["label"])]
     except (KeyError, IndexError, ValueError, TypeError):
         return None, "unknown_label"
+    raw_date = str(rec.get("date_published") or "").strip()
+    if not raw_date:
+        return None, "missing_date"
     try:
-        iso = parse_pubhealth_date(str(rec["date_published"]))
+        iso = parse_pubhealth_date(raw_date)
     except ValueError:
         return None, "unparseable_date"
     if not before_window(iso):

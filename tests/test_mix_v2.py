@@ -165,3 +165,8 @@ def test_leakage_counts_text_and_record_hits_and_window_violations() -> None:
     dated = {**row, "record_date": "2026-03-01"}
     early = {**row, "record_date": "2026-02-28"}
     assert date_violations([dated, early, row], "2026-03-01") == 1
+
+
+def test_pubhealth_missing_date_is_its_own_drop_reason() -> None:
+    rec = {"claim_id": "8", "claim": "Claim.", "date_published": "  ", "main_text": "", "label": 0}
+    assert pubhealth_row(rec, "train") == (None, "missing_date")
