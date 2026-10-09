@@ -4,9 +4,8 @@ The prompt for the loop agent (**Claude Haiku 5.5**, `claude-haiku-5-5`, in Clau
 because all state lives in files. Completion condition: `loops/osler_v0/STATE.md` contains
 ``Loop status: `STOPPED` ``.
 
-Before the first iteration: `cp loops/osler_v0/STATE.template.md loops/osler_v0/STATE.md` and
-create an empty `loops/osler_v0/CLAIMS.md` with the header
-`| id | claim | value | artifact | recompute command | task |`.
+STATE.md and CLAIMS.md were created from the template at planning time (2026-10-09);
+the first iteration fills the bootstrap fields in STATE.md (O0).
 
 ---
 
