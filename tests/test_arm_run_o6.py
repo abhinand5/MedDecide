@@ -83,3 +83,31 @@ def test_one_arm_trains_evaluates_selects_and_reports_on_cpu(tiny_dir, tmp_path)
     rows = (tmp_path / "arm" / "dev_predictions.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(rows) == len(dev) == summary["full_dev_items"]  # one row per dev item (the O9 and O11 input)
     assert summary["stopped_early"] is None
+
+
+def _variant(tiny_dir, tmp_path, readout, bidirectional):
+    config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=2, log_every=0, lr=1e-3,
+                           lora_lr=1e-4, readout=readout, bidirectional_full_attention=bidirectional,
+                           lora=LoraSettings(r=4, alpha=8), eval_batch_size=2, fit_temperature=True,
+                           temperature_per_qtype=True, gradient_checkpointing=True,
+                           selection_metric="template_macro_accuracy", tripwire_grad_norm=5000.0,
+                           tripwire_macro_floor=None, tripwire_consecutive_evals=2)
+    train = [_item(i, "pubmed", 2 + (i % 3), "t_a" if i % 2 else "t_b") for i in range(8)]
+    dev = [_item(100 + i, "medqa" if i < 2 else "pubmed", 3, "d_a" if i % 2 else "d_b") for i in range(6)]
+    summary = run_arm(config, train_items=train, dev_items=dev, out_dir=tmp_path / "arm", steps=4,
+                      eval_subset_size=4, base_model=str(tiny_dir), revision=None, device="cpu", dtype="float32")
+    assert summary["steps"] == 4 and summary["examples"] == 8
+    assert summary["selected"].startswith("best checkpoint")
+    assert summary["full_dev_items"] == 6 and "template_macro_accuracy" in summary["full_dev_metrics"]
+    assert summary["temperature_fits"]
+    rows = (tmp_path / "arm" / "dev_predictions.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 6
+    assert summary["config"]["readout"] == readout and summary["config"]["bidirectional_full_attention"] == bidirectional
+
+
+def test_pointer_arm_end_to_end_with_checkpointing(tiny_dir, tmp_path) -> None:
+    _variant(tiny_dir, tmp_path, "pointer", False)
+
+
+def test_noncausal_arm_end_to_end_with_checkpointing(tiny_dir, tmp_path) -> None:
+    _variant(tiny_dir, tmp_path, "option_code", True)

@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-10T20:24:13Z`
+Last updated (UTC): `2026-10-10T20:32:28Z`
 Iterations so far: `4`
 
 ---
@@ -204,6 +204,9 @@ O10 preparation (CPU; written and tested before any arm result exists):
 - [x] `tests/test_osler_configs_o10.py` (4 tests): arms P and N differ from L only in output directory and head; a recipe change is listed; the pinned base is enforced; the head must be O9's choice. CPU suite at this commit: 551 passed, 5 skipped
 - [ ] after O9 (head chosen): write `configs/osler_v0/osler_9b.yaml` and `configs/osler_v0/osler_0p8b.yaml` from arm L's config: base and pinned revision, `output_dir: outputs/osler_v0/O10/osler_9b` (and `osler_0p8b`), the chosen head's readout and bidirectional flag, LoRA r=32 at both sizes (the ADVISORY's r=16 at 0.8B applies only if memory or speed requires it; neither is expected, since the 9B's measured peak was 55 GB at O0 without checkpointing and the 4B's was 17.8 GB with it)
 - [ ] after O9: launch the 9B detached (one GPU job; `mkdir -p outputs/osler_v0/O10/logs`; log `outputs/osler_v0/O10/logs/osler_9b.log`), then the 0.8B; close O10 when both have `arm_result.json`
+
+O6–O8 readiness for arms P and N (CPU; checked before those arms start):
+- [x] the end-of-run path (best checkpoint reload, temperature fit, full-dev scoring, `dev_predictions.jsonl`, `arm_result.json`) runs end to end with the pointer readout and with the non-causal option-code head, with gradient checkpointing and the template-macro selection, on the tiny Qwen3.5 model (`tests/test_arm_run_o6.py`: two new tests; the file passes 3 of 3). Arm L's attempt has no such exit path exercised yet, so a crash there would surface only at about 05:40Z on 2026-10-11
 
 ## 4. Iteration log (append only, newest last)
 
