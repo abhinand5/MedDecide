@@ -95,7 +95,7 @@ completed checklist goes into the iteration-log entry.
 - [x] (done 17:58Z; see §2) re-measure disk with `du` (ADVISORY §3) and record it in STATE §2
 - [x] (done 17:58:36Z; worker PID 690638) relaunch arm L (attempt 5) with the committed configs/osler_v0/arm_L.yaml (eval_every 2500, selection_metric template_macro_accuracy),
       output captured to outputs/osler_v0/O6/logs/arm_L.log; record PID and start time here
-- [ ] (pending) after the first eval (step 2,500), check that train.jsonl's eval record carries template_macro_accuracy and that
+- [x] (done 2026-10-10T19:07Z) after the first eval (step 2,500): the eval record carries template_macro_accuracy = 0.8197 (per-letter macro 0.6029 logged as diagnostic; accuracy 0.8458; Brier 0.228; best so far), check that train.jsonl's eval record carries template_macro_accuracy and that
       arm_result trajectories will include it; then continue O6 as planned
 ```
 
