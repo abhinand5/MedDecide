@@ -198,6 +198,13 @@ O9 and O11 preparation (CPU; written and tested before any arm result exists):
 - [x] O2 tier investigation of the pplx v0.2 lead (CLAIMS O123–O125; `scripts/osler/o2_tier_breakdown.py`)
 - [x] O9 driver reads each arm from its config's output directory (`O6/arm_L`, `O6/arm_P`, `O6/arm_N`; the driver had `O7`/`O8`, which no arm writes): fixed in dc9f3e7; `tests/test_o9_arm_paths.py`; a synthetic three-arm smoke at the config paths writes the report (deviation 49)
 
+O10 preparation (CPU; written and tested before any arm result exists):
+- [x] `src/meddecide/train/osler_configs.py`: the pinned bases (Qwen3.5-9B `c2022362`, Qwen3.5-0.8B `2fc06364`), O9's head settings (L: option-code causal; P: pointer; N: option-code non-causal), and the recipe check against arm L (only base, output directory and head may differ)
+- [x] `scripts/osler/o10_train_model.py` (new driver; `o6_train_arm.py` is unchanged so the running chain keeps its code): runs the checks before the model loads, and writes provenance with the head, the head-choice file's sha256 and the reference config's sha256. Probed on scratch configs: a head that differs from O9's choice, a changed batch size and an unpinned revision are each refused, and no output directory is created
+- [x] `tests/test_osler_configs_o10.py` (4 tests): arms P and N differ from L only in output directory and head; a recipe change is listed; the pinned base is enforced; the head must be O9's choice. CPU suite at this commit: 551 passed, 5 skipped
+- [ ] after O9 (head chosen): write `configs/osler_v0/osler_9b.yaml` and `configs/osler_v0/osler_0p8b.yaml` from arm L's config: base and pinned revision, `output_dir: outputs/osler_v0/O10/osler_9b` (and `osler_0p8b`), the chosen head's readout and bidirectional flag, LoRA r=32 at both sizes (the ADVISORY's r=16 at 0.8B applies only if memory or speed requires it; neither is expected, since the 9B's measured peak was 55 GB at O0 without checkpointing and the 4B's was 17.8 GB with it)
+- [ ] after O9: launch the 9B detached (one GPU job; `mkdir -p outputs/osler_v0/O10/logs`; log `outputs/osler_v0/O10/logs/osler_9b.log`), then the 0.8B; close O10 when both have `arm_result.json`
+
 ## 4. Iteration log (append only, newest last)
 
 <!-- Template for each entry:
