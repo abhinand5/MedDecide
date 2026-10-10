@@ -440,6 +440,7 @@ class MedDecideModel:
             trust_remote_code=trust_remote_code,
         )
         self.peft_model = None
+        self._gradient_checkpointing = False
         if lora is not None:
             from peft import LoraConfig, get_peft_model
 
@@ -560,12 +561,36 @@ class MedDecideModel:
         dropout stays off, so a training step cannot change how the base itself behaves.
         """
         self.base.eval()
+        if self._gradient_checkpointing:
+            self._set_decoder_layers_train(True)
         if self.peft_model is not None:
             for name, module in self.peft_model.named_modules():
                 if "lora_" in name:
                     module.train(adapter)
         if self.head is not None:
             self.head.train(adapter)
+
+    def enable_gradient_checkpointing(self) -> None:
+        """Recompute each decoder layer in the backward pass instead of storing its activations.
+
+        transformers wraps a layer for checkpointing only while the layer is in training mode, and ``train_mode`` keeps the
+        frozen base in eval mode. So the decoder layers are switched to training mode here, and the flag is kept across
+        ``train_mode`` calls (the trainer calls it after every evaluation). That changes no number: the attention dropout is
+        0.0 in this config (checked below) and the decoder has no other train-time behaviour. Needed for the 16,384-token prompt
+        cap on one GPU: O6 attempt 1 ran out of memory on a single long batch.
+        """
+        if self.peft_model is None:
+            raise ValueError("gradient checkpointing needs the LoRA adapter (the trainable part)")
+        if float(getattr(self.base.config, "attention_dropout", 0.0) or 0.0) != 0.0:
+            raise ValueError("gradient checkpointing here assumes attention_dropout 0.0; this config has dropout")
+        self.base.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+        self.base.enable_input_require_grads()
+        self._gradient_checkpointing = True
+        self._set_decoder_layers_train(True)
+
+    def _set_decoder_layers_train(self, flag: bool) -> None:
+        for layer in self.base.model.layers:
+            layer.train(flag)
 
     def eval_mode(self) -> None:
         if self.peft_model is not None:

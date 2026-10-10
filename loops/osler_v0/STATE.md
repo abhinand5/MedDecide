@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-09T20:50:00Z`
+Last updated (UTC): `2026-10-10T12:37:44Z`
 Iterations so far: `4`
 
 ---
@@ -25,11 +25,11 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
-| O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS | 2026-10-09T08:25:05Z | |
+| O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS — every GPU run finished (rc=0; O2 chain and chain2, metrics2 at 2026-10-10T12:37:21Z); SELF_AUDIT, CLAIMS and the committed scoreboard are the remaining steps | 2026-10-09T08:25:05Z | |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
-| O6 | Arm L: option-code head (4B) | yes | O4, O5 | PENDING | | |
+| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — launched detached (log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl) | 2026-10-10T12:37:44Z | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING | | |
@@ -314,6 +314,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 17. **GPU order: the O2 competitor runs before the training arms (scheduling; the plan's order is kept).** At the clef rate measured at 21:04Z (about 224 rows a minute, so about 4.4 hours for clef's 59,538 rows), then md27b and md31b (about 2.5 hours each by the earlier timings), then the three D24 baselines on v0.2 (deviation 43), clef finished at 00:52Z (about 12.5 hours of wall clock after its start, uneven in speed: 59,538 rows); md27b runs at 4.33 items a second (about 3.8 hours), so the arms O6–O8 start about 10 hours from now. Only the baselines are needed for the Gate O1 verdict. clef, md27b and md31b are additional (ADVISORY O11: every O2 model is never in a verdict). Option (a), current: keep the plan's order. Option (b): stop the O2 chain after clef, run the three baselines and then the arms, and resume the remaining competitor runs later (every runner resumes from its rows). Option (b) reaches the verdict sooner and loses no run. I keep (a) until you say otherwise. Which do you want?
 
+
 ---
 
 ## 7. Deviations from the plan
@@ -431,6 +432,8 @@ deviation — that is a `BLOCKED`.
 44. **O11 scoring design (decided before any Osler result).** Osler rows are O2-format and cover the O2 common set (59,538 items), so each pairs with the baselines by item id. A choice item is scored in its original order and in the reversed order, and each option's probability is averaged over the two orders (`meddecide.eval.osler_scoring`). noul and score items are canonical in the readout (fixed yes/no and level order), so reversing them does not change the scoring: they are scored once, with `orders` recorded as 1. The single-order rows are written beside the gate (ADVISORY O11: both reported). Tests: tests/test_osler_scoring_o11.py, tests/test_osler_score_rows_o11.py. The driver (`scripts/osler/o11_score.py`) was smoke-tested on CPU with a tiny checkpoint (6 rows, then resumed for 3 more; alignment, distributions and order counts checked); no GPU run has been made yet.
 
 ---
+
+45. **O6 attempt 1 ran out of GPU memory; fixed by gradient checkpointing (disclosed).** Arm L (attempt 1, `outputs/osler_v0/O6/arm_L_attempt1_oom/` and `logs/arm_L_attempt1_oom.log`) failed in its first training step with CUDA out of memory on a batch of long items. The batch planner closes a batch on real tokens (up to 8,192 per batch), but one item may be 16,384 tokens, and the activations of a 16k-token step did not fit beside the 4B base. A probe on synthetic items measured the peak without checkpointing as out of memory at about 16k tokens; with the frozen base's decoder layers checkpointed it is 17.3 GB at 16,384 tokens (and 10.3 GB at 2,891 tokens, against 36.2 GB without). Fix: `MedDecideModel.enable_gradient_checkpointing()` (transformers only checkpoints a layer in training mode, and `train_mode` keeps the frozen base in eval, so the decoder layers are set to training mode; attention dropout is 0.0, checked) and the config flag `gradient_checkpointing: true` in the three arm configs. The forward is the same; tests/test_checkpointing_o6.py checks that gradients match with and without it on a tiny model (3 tests). No training recipe value changes. Attempt 2 is the run of record; its provenance records the commit that contains the fix.
 
 ## 8. Closure summary feed
 

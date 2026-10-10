@@ -38,3 +38,4 @@ temperature_per_qtype: true
 tripwire_grad_norm: 5000.0
 tripwire_macro_floor: 0.5
 tripwire_consecutive_evals: 2
+gradient_checkpointing: true

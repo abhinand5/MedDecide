@@ -60,6 +60,7 @@ _TOP_LEVEL_KEYS = {
     "temperature_per_qtype",
     "temperature_items_per_qtype",
     "max_seconds",
+    "gradient_checkpointing",
 }
 
 
@@ -122,6 +123,8 @@ class StudentConfig:
     temperature_per_qtype: bool = True
     temperature_items_per_qtype: int | None = None
     max_seconds: float | None = None
+    # recompute decoder layers in the backward pass (same numbers; needed for the 16,384-token cap on one GPU)
+    gradient_checkpointing: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)

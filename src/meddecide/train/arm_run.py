@@ -62,6 +62,8 @@ def run_arm(
         bidirectional_full_attention=config.bidirectional_full_attention,
         max_prompt_tokens=config.max_prompt_tokens,
     )
+    if config.gradient_checkpointing:
+        model.enable_gradient_checkpointing()
     trainer = Trainer(model, config, log_path=out / "logs" / "train.jsonl")
     tier1 = tier1_items(dev_items)
     tier1_trajectory: list[dict[str, Any]] = []
