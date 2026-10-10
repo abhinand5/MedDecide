@@ -73,6 +73,8 @@ def test_one_arm_trains_evaluates_selects_and_reports_on_cpu(tiny_dir, tmp_path)
     assert summary["steps"] == 4 and summary["examples"] == 8
     assert [e["step"] for e in summary["evaluations"]] == [2, 4]
     assert [t["step"] for t in summary["tier1_trajectory"]] == [2, 4]
+    tier1_rows = (tmp_path / "arm" / "logs" / "tier1.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(tier1_rows) == 2  # written at every eval, while the arm runs
     assert set(summary["tier1_trajectory"][0]["accuracy_by_source"]) == {"medqa"}
     assert summary["eval_subset_items"] == 4 and summary["full_dev_items"] == 6
     assert "macro_accuracy" in summary["full_dev_metrics"]

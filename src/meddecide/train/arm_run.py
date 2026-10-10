@@ -77,6 +77,9 @@ def run_arm(
             decisions = model.predict(tier1, batch_size=config.eval_batch_size or config.batch_size)
             per_source = accuracy_by_source(decisions, tier1)
             tier1_trajectory.append({"step": step, "accuracy_by_source": per_source})
+            # written at every eval, so the diagnostic can be watched while the arm runs (ADVISORY §8.3); the diagnostic
+            # is still never a selection signal
+            write_jsonl(out / "logs" / "tier1.jsonl", tier1_trajectory)
 
     trainer.eval_hook = observe
     eval_subset = stratified_subset(dev_items, key="template_id", size=min(eval_subset_size, len(dev_items)),
