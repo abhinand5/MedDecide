@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
-| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — attempt 4 stopped at step 750 by operator decision (Q19, Q20); relaunch as attempt 5 per the §3 restart block | 2026-10-10T13:37:04Z | |
+| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — attempt 5 (run of record; eval every 2,500 steps; selection and tripwire on template_macro_accuracy); worker PID 690638; log outputs/osler_v0/O6/logs/arm_L.log | 2026-10-10T17:58:36Z | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING | | |
@@ -73,6 +73,8 @@ recomputing or guessing.
 
 ---
 
+- Disk (`du -sh --apparent-size`, 2026-10-10T17:58Z, after the operator's deletions): HF cache 60G; uv cache 16G; data 16G; outputs 16G; /workspace/tmp 22G; envs 246M. Measure with du, not df.
+
 ## 3. Current task checklist
 
 **Fill this in before starting any task**, by copying that task's concrete steps out of
@@ -86,14 +88,14 @@ completed checklist goes into the iteration-log entry.
 **O6 restart (written by the advisor at 2026-10-10T14:37:06Z, on the operator's decisions Q18–Q20; do these in order):**
 
 ```
-- [ ] confirm the attempt-4 process is gone: `ps -p 576775` prints no process (the operator stops it; never relaunch while it exists)
-- [ ] confirm the GPU is free (`nvidia-smi`: no process, memory near 0)
-- [ ] archive attempt 4: move outputs/osler_v0/O6/arm_L -> outputs/osler_v0/O6/arm_L_attempt4_eval250 and
+- [x] (done 2026-10-10T17:57Z) confirm the attempt-4 process is gone: `ps -p 576775` prints no process (the operator stops it; never relaunch while it exists)
+- [x] (done 17:57Z: 0%, 0 MiB) confirm the GPU is free (`nvidia-smi`: no process, memory near 0)
+- [x] (done 17:58Z; step-250 checkpoint deleted) archive attempt 4: move outputs/osler_v0/O6/arm_L -> outputs/osler_v0/O6/arm_L_attempt4_eval250 and
       outputs/osler_v0/O6/logs/arm_L.log -> outputs/osler_v0/O6/logs/arm_L_attempt4_eval250.log (keep logs; its best checkpoint may be deleted)
-- [ ] re-measure disk with `du` (ADVISORY §3) and record it in STATE §2
-- [ ] relaunch arm L (attempt 5) with the committed configs/osler_v0/arm_L.yaml (eval_every 2500, selection_metric template_macro_accuracy),
+- [x] (done 17:58Z; see §2) re-measure disk with `du` (ADVISORY §3) and record it in STATE §2
+- [x] (done 17:58:36Z; worker PID 690638) relaunch arm L (attempt 5) with the committed configs/osler_v0/arm_L.yaml (eval_every 2500, selection_metric template_macro_accuracy),
       output captured to outputs/osler_v0/O6/logs/arm_L.log; record PID and start time here
-- [ ] after the first eval (step 2,500), check that train.jsonl's eval record carries template_macro_accuracy and that
+- [ ] (pending) after the first eval (step 2,500), check that train.jsonl's eval record carries template_macro_accuracy and that
       arm_result trajectories will include it; then continue O6 as planned
 ```
 
@@ -116,7 +118,7 @@ O2 checklist:
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
 - [x] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [x] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
-- Running now (paused): O6 arm L, attempt 4 (run of record), training process PID 576775 stopped with SIGSTOP before the step-1000 eval, awaiting Question 20 (resume with kill -CONT 576775). Log outputs/osler_v0/O6/logs/arm_L.log.
+- Running now (2026-10-10T17:59Z): O6 arm L attempt 5 (run of record), worker PID 690638, started 2026-10-10T17:58:36Z; log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl. Attempt 4 archived as arm_L_attempt4_eval250 (deviation 48).
 - [x] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
 - [x] zero-shot Qwen3.5-9B (panel + robustness)
 - [x] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
