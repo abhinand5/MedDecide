@@ -70,6 +70,16 @@ def macro_accuracy(predicted: Sequence[str], gold: Sequence[str]) -> float:
     return float(np.mean(recalls)) if recalls else math.nan
 
 
+def template_macro_accuracy(correct: Sequence[float], templates: Sequence[str]) -> float:
+    """Unweighted mean over templates of each template's accuracy (G1's / D24's "macro accuracy")."""
+    if len(correct) != len(templates):
+        raise ValueError("length mismatch")
+    groups: dict[str, list[float]] = {}
+    for c, t in zip(correct, templates, strict=True):
+        groups.setdefault(str(t), []).append(float(c))
+    return float(np.mean([np.mean(v) for v in groups.values()])) if groups else math.nan
+
+
 def brier_score(probs: np.ndarray, gold_index: Sequence[int]) -> float:
     """Multi-class Brier score: mean over items of ``sum_k (p_k - y_k)**2``.
 

@@ -108,3 +108,32 @@ def test_eval_hook_observes_every_evaluation(tiny_dir, monkeypatch) -> None:
     items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
     trainer.train(items, steps=2, eval_items=items[:2])
     assert seen == [(1, 0.6), (2, 0.6)]
+
+
+def test_selection_metric_template_macro_drives_selection_and_tripwire(tiny_dir, monkeypatch) -> None:
+    # osler_v0 Q20: with selection_metric = template_macro_accuracy, a falling per-gold-key macro neither trips the
+    # dev tripwire nor decides the selected step
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2,
+                             selection_metric="template_macro_accuracy")
+    values = iter([(0.70, 0.60), (0.45, 0.70), (0.40, 0.80), (0.35, 0.75)])
+
+    def fake(items, batch_size=None):
+        macro, template_macro = next(values)
+        return {"macro_accuracy": macro, "template_macro_accuracy": template_macro, "brier": 0.5}
+
+    monkeypatch.setattr(trainer, "evaluate", fake)
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=4, eval_items=items[:2])
+    assert result.stopped_early is None and result.steps == 4
+    assert result.best_step == 3
+
+
+def test_selection_metric_template_macro_trips_on_its_own_statistic(tiny_dir, monkeypatch) -> None:
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2,
+                             selection_metric="template_macro_accuracy")
+    monkeypatch.setattr(trainer, "evaluate", lambda items, batch_size=None: {
+        "macro_accuracy": 0.9, "template_macro_accuracy": 0.3, "brier": 0.5})
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=10, eval_items=items[:2])
+    assert result.steps == 2
+    assert result.stopped_early is not None and "template_macro_accuracy" in result.stopped_early

@@ -260,6 +260,8 @@ Also log tier-1 dev accuracy (MedQA / MedMCQA dev) at every eval, as a diagnosti
 **Acceptance for each:** selected checkpoint, dev trajectory, temperatures, throughput,
 wall-clock, grad-norm tail (p50 / p95 / max), tier-1 dev trajectory.
 
+**Amendment 2026-10-10 (operator decision, STATE Q19/Q20, deviation 48):** dev eval every **2,500 steps** (10 evals per arm) on the same 6,000-item subset, and checkpoint selection and the dev tripwire use **G1's/D24's macro** (mean over templates of per-template accuracy; `selection_metric: template_macro_accuracy`), not the per-gold-key recall macro. This replaces "dev eval every 2,000 examples × 8" and "selection by dev macro" above. The O9 rule's "dev macro" is the same template macro.
+
 ### O9 — Head choice at 4B (no GPU, ~1 h)
 
 Pre-registered rule, dev only (never test, never held-out): start with L. Switch to P or N only

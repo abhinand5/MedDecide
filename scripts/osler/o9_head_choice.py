@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 from meddecide.eval.head_choice import BASELINE, MARGIN, N_RESAMPLES, DevScores, choose_head
-from meddecide.eval.metrics import macro_accuracy
+from meddecide.eval.metrics import template_macro_accuracy
 from meddecide.eval.paired import item_brier
 from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -62,9 +62,8 @@ def main() -> None:
         correct = np.array([float(r["correct"]) for r in rows])
         scores[name] = DevScores(name=name, correct=correct, gold=np.array(gold_keys, dtype=object),
                                  templates=templates)
-        predicted = [r["predicted_key"] for r in rows]
         briers = [item_brier(r["probs"], r["gold_index"]) for r in rows]
-        summary[name] = {"items": len(rows), "macro_accuracy": macro_accuracy(predicted, gold_keys),
+        summary[name] = {"items": len(rows), "macro_accuracy": template_macro_accuracy(correct, templates),
                          "accuracy": float(correct.mean()), "mean_brier": float(np.mean(briers))}
 
     choice = choose_head(scores[BASELINE], [scores["P"], scores["N"]], n_resamples=N_RESAMPLES, seed=SEED)
@@ -75,7 +74,7 @@ def main() -> None:
         "command": "scripts/osler/o9_head_choice.py",
         "items_shared": len(shared),
         "rule": {"baseline": BASELINE, "margin": MARGIN, "bootstrap_resamples": N_RESAMPLES, "seed": SEED,
-                 "stratum": "template_id", "statistic": "macro accuracy (unweighted mean of per-gold-key recall)"},
+                 "stratum": "template_id", "statistic": "macro accuracy (unweighted mean over templates of per-template accuracy; G1/D24)"},
         "arms": summary,
         "challenges": [{"arm": c.name, "point": c.difference.point, "ci_lo": c.difference.lo, "ci_hi": c.difference.hi,
                         "n": c.difference.n, "qualifies": c.qualifies} for c in choice.challenges],
@@ -90,7 +89,8 @@ def main() -> None:
         "",
         f"Rule (ADVISORY O9): start with L; switch to P or N only if its dev macro accuracy exceeds L's by at least "
         f"{MARGIN * 100:.1f} points with a paired bootstrap lower bound above 0 on dev ({N_RESAMPLES} resamples, items "
-        f"resampled within templates, seed {SEED}). If both qualify, take the larger gain.",
+        f"resampled within templates, seed {SEED}). If both qualify, take the larger gain. Macro accuracy is the mean over "
+        "templates of per-template accuracy (G1's and D24's statistic).",
         "",
         f"Dev items shared by all three arms: {len(shared)}.",
         "",

@@ -89,3 +89,13 @@ def test_the_baseline_must_be_arm_l_and_items_must_align() -> None:
     other = _scores("L", 0.6, seed=10)  # different gold labels
     with pytest.raises(ValueError, match="same items"):
         challenge(arm, other, n_resamples=10)
+
+
+def test_head_choice_uses_the_template_macro() -> None:
+    # two templates of unequal size: the template macro weights them equally, the item mean does not
+    templates = np.array(["big"] * 300 + ["small"] * 20)
+    gold = np.array(["A"] * 320)
+    base = DevScores(name="L", correct=np.r_[np.ones(300), np.zeros(20)], gold=gold, templates=templates)
+    arm = DevScores(name="P", correct=np.r_[np.ones(300), np.ones(20)], gold=gold, templates=templates)
+    result = challenge(arm, base, n_resamples=200, seed=0)
+    assert result.difference.point == pytest.approx(0.5)  # (0 + 1) / 2 templates, not 20 / 320 items

@@ -479,26 +479,27 @@ class Trainer:
                     self._log({"event": "eval", "step": total_steps, "metrics": metrics})
                     if self.eval_hook is not None:
                         self.eval_hook(total_steps, metrics)
+                    key = config.selection_metric
                     if best is None or (
-                        metrics["macro_accuracy"],
+                        metrics[key],
                         -metrics["brier"],
-                    ) > (best["macro_accuracy"], -best["brier"]):
+                    ) > (best[key], -best["brier"]):
                         best, best_step = metrics, total_steps
                         if checkpoint_dir is not None:
                             self.save_checkpoint(checkpoint_dir)
                     self.model.train_mode()
                     if config.tripwire_macro_floor is not None:
-                        if float(metrics["macro_accuracy"]) < float(config.tripwire_macro_floor):
+                        if float(metrics[key]) < float(config.tripwire_macro_floor):
                             consecutive_below += 1
                         else:
                             consecutive_below = 0
                         if consecutive_below >= config.tripwire_consecutive_evals:
                             stopped_early = (
                                 f"dev-macro tripwire at step {total_steps}: {consecutive_below} consecutive evals "
-                                f"below {config.tripwire_macro_floor:g}"
+                                f"of {key} below {config.tripwire_macro_floor:g}"
                             )
                             self._log({"event": "tripwire", "step": total_steps,
-                                       "macro_accuracy": float(metrics["macro_accuracy"])})
+                                       "metric": key, key: float(metrics[key])})
                             break
             epochs_completed = epoch + 1
             epoch += 1

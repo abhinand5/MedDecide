@@ -27,7 +27,7 @@ from torch import Tensor, nn
 
 from meddecide.bench.schema import Item, QuestionType
 from meddecide.eval.harness import plan_batches
-from meddecide.eval.metrics import accuracy, brier_score, macro_accuracy
+from meddecide.eval.metrics import accuracy, brier_score, macro_accuracy, template_macro_accuracy
 from meddecide.eval.readout import (
     LetterVariant,
     canonicalise_options,
@@ -305,6 +305,10 @@ class ScoredItems:
             "majority_baseline": acc.majority_baseline,
             "majority_label": acc.majority_label,
             "macro_accuracy": macro_accuracy(predicted, gold),
+            "template_macro_accuracy": template_macro_accuracy(
+                [float(p == g) for p, g in zip(predicted, gold, strict=True)],
+                [str(item.template_id) for item in self.items],
+            ),
             "brier": weighted / counted,
             "mean_nll": float(
                 np.mean([-np.log(max(float(p[g]), 1e-12)) for p, g in

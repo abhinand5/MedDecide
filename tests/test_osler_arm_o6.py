@@ -69,7 +69,9 @@ def test_the_three_arm_configs_match_the_adr_recipe_and_differ_only_where_the_de
         assert (cfg.lr, cfg.lora_lr) == (1e-3, 1e-4)
         assert (cfg.lambda_brier, cfg.batch_size, cfg.max_prompt_tokens) == (1.0, 8, 16384)
         assert (cfg.lr_schedule, cfg.warmup_fraction, cfg.lr_floor) == ("cosine", 0.03, 0.1)
-        assert (cfg.eval_every, cfg.eval_items, cfg.seed, cfg.shuffle_options) == (250, 6000, 0, True)
+        # operator decision 2026-10-10 (STATE Q19/Q20): eval every 2,500 steps; select on the template macro
+        assert (cfg.eval_every, cfg.eval_items, cfg.seed, cfg.shuffle_options) == (2500, 6000, 0, True)
+        assert cfg.selection_metric == "template_macro_accuracy"
         assert (cfg.tripwire_grad_norm, cfg.tripwire_macro_floor, cfg.tripwire_consecutive_evals) == (5000.0, 0.5, 2)
         assert cfg.train_path == "data/train/osler_v0/train.jsonl" and cfg.dev_path == "data/train/osler_v0/dev.jsonl"
     common = {k: v for k, v in arms["L"].to_dict().items() if k not in {"output_dir", "readout",

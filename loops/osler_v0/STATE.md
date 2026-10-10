@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-10T12:37:44Z`
+Last updated (UTC): `2026-10-10T14:37:06Z`
 Iterations so far: `4`
 
 ---
@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
-| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — run of record is attempt 4 (log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl); earlier attempts kept under outputs/osler_v0/O6/ (deviation 45, 47) | 2026-10-10T13:37:04Z | |
+| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — attempt 4 stopped at step 750 by operator decision (Q19, Q20); relaunch as attempt 5 per the §3 restart block | 2026-10-10T13:37:04Z | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING | | |
@@ -82,6 +82,20 @@ leaves you unable to tell what you already did.
 
 Clear this section and write the new task's checklist when you start the next task; the
 completed checklist goes into the iteration-log entry.
+
+**O6 restart (written by the advisor at 2026-10-10T14:37:06Z, on the operator's decisions Q18–Q20; do these in order):**
+
+```
+- [ ] confirm the attempt-4 process is gone: `ps -p 576775` prints no process (the operator stops it; never relaunch while it exists)
+- [ ] confirm the GPU is free (`nvidia-smi`: no process, memory near 0)
+- [ ] archive attempt 4: move outputs/osler_v0/O6/arm_L -> outputs/osler_v0/O6/arm_L_attempt4_eval250 and
+      outputs/osler_v0/O6/logs/arm_L.log -> outputs/osler_v0/O6/logs/arm_L_attempt4_eval250.log (keep logs; its best checkpoint may be deleted)
+- [ ] re-measure disk with `du` (ADVISORY §3) and record it in STATE §2
+- [ ] relaunch arm L (attempt 5) with the committed configs/osler_v0/arm_L.yaml (eval_every 2500, selection_metric template_macro_accuracy),
+      output captured to outputs/osler_v0/O6/logs/arm_L.log; record PID and start time here
+- [ ] after the first eval (step 2,500), check that train.jsonl's eval record carries template_macro_accuracy and that
+      arm_result trajectories will include it; then continue O6 as planned
+```
 
 ```
 Task in flight: O2 (started 2026-10-09T08:25:05Z) — competitor scoreboard (GPU)
@@ -243,6 +257,13 @@ O9 and O11 preparation (CPU; written and tested before any arm result exists):
 - Surprises: pplx's v0.2 lead is partly two near-ceiling templates shared by all models (O125) and its robustness is the lowest of the large models (0.530); zero-shot 9B has one D12 failing cell (nfcorpus, excluded); the Gate O1 baselines were missing on v0.2 for three models (deviation 43)
 - Next: O6 arm L attempt 2 is running; O7 (arm P), O8 (arm N), then O9 (head choice), O10 and O11
 
+### O6 — advisor intervention — 2026-10-10T14:37:06Z
+- What ran: operator decisions Q18–Q20 applied by the advisor (Claude Opus) while the loop agent was stopped; code + configs + tests changed (deviation 48)
+- Output: configs/osler_v0/arm_{L,P,N}.yaml; STATE §3 restart block
+- Headline: arm L attempt 4 stopped at step 750 (dev macro 0.471 per-gold-key, accuracy 0.818); arms re-run with 10 dev evals each and template-macro selection; 299.6 GB of competitor weights deleted by the operator
+- Surprises: none beyond Q20
+- Next: the loop agent executes the §3 restart block, then O6 attempt 5
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -325,9 +346,12 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 
 18. **Disk quota (blocker for the next GPU jobs).** The /workspace quota is about 410 GB counted by my measure (HF cache 339 GB, uv cache 16 GB, data 16 GB, outputs 17 GB, /workspace/tmp 21 GB). It was reached again at about 13:20Z; the rules let me delete only outputs/osler_v0 and /workspace/tmp, and I deleted only my own regenerable scratch (about 1 GB). Writes succeed again (a 1.5 GB test passed at 13:23Z), but the O10 and O11 outputs need several GB more (O11 alone is about 1.5 GB of predictions). Options: (a) raise the quota; (b) approve the removal of named HF models that no remaining step uses (which? I need your list); (c) approve the removal of named earlier-loop items under /workspace/tmp (largest: pubmed_v1 13 GB, pubmed 3.4 GB, s6 2.0 GB, laya-typed 1.6 GB). Which do you want?
+    **Answer (operator, via the advisor, 2026-10-10T14:37:06Z):** option (b). The operator deleted eight competitor snapshots that no remaining step uses (pplx-decider-v1.1-27b, JEV-27B, Clef, Clef-Flash, Qwen3.8-27B, gemma-4-31b-it, MedDecider-27B, MedDecider-31B): 242 blob files, 299.6 GB, keeping the one blob shared with a kept model. Kept: Qwen3.5-0.8B/-4B/-9B, JEV-9B, MedDecider-4B/-9B. After deletion: `/workspace/.hf_home` 61 GB, uv cache 33 GB, data 16 GB, outputs 18 GB, /workspace/tmp 21 GB, envs 9.2 GB. Re-measure with `du` before O10. Re-running a deleted competitor needs a re-download. Do not delete earlier-loop items under /workspace/tmp.
 19. **Eval cost against the budget (ADVISORY O6–O8).** At the ADVISORY cadence (eval every 250 steps on 6,000 dev items; one dev eval takes about 6–14 minutes here), one 4B arm needs about 12–25 hours, not the 16 hours projected at O0. Three arms and the 9B arm are therefore a multi-day run. Options: (a) keep the cadence and subset (current; the arms run as planned); (b) keep the cadence and reduce the subset to 3,000 (the selection then uses a smaller dev sample; a recorded change of the recipe); (c) keep the subset and eval every 500 steps (a recorded change). Which do you want?
+    **Answer (operator, via the advisor, 2026-10-10T14:37:06Z):** a recorded recipe change for all three arms: `eval_every: 2500` (10 dev evals per arm, the last at step 25,000), the same 6,000-item stratified subset. Evaluation does not change the weights, so the arms stay matched. The ADVISORY wording "every 2,000 examples × 8" was the advisor's ambiguity, not the agent's error.
 
 20. **The dev macro (the selection and tripwire statistic) fell while accuracy rose; arm L is PAUSED before the step-1000 eval (ADVISORY O6–O8; no change made).** Step 750 eval: macro 0.4713, Brier 0.276, accuracy 0.818. The step-500 macro was 0.5516, so this is the first eval below 0.50. The next eval below 0.50 would be the second in a row and would stop the run under the tripwire, keeping step 250 as best. To keep that from deciding the outcome before you have answered, I paused the training process (PID 576775, stopped with SIGSTOP; its state is intact). Resume with `kill -CONT 576775`. The whole three-arm plan waits on this decision. Arm L attempt 4: step 250 macro 0.6967, Brier 0.368, accuracy 0.765; step 500 macro 0.5516, Brier 0.270, accuracy 0.817. Per question type: choice accuracy 0.741 → 0.838 but choice macro 0.703 → 0.558; noul 0.816 → 0.813; score 0.495 → 0.569. The macro is an unweighted mean of per-gold-class recall, so rarer letters losing recall pulls it down while accuracy rises. The recipe's tripwire stops the run if dev macro is below 0.50 on two consecutive evals, and selection uses this macro, so the saved best checkpoint is still step 250. The run continues under the recipe. If you want the selection or the tripwire to use a different statistic (for example accuracy or a class-balanced macro), that is a recipe change for you to decide. Which do you want?
+    **Answer (operator, via the advisor, 2026-10-10T14:37:06Z):** change the statistic, and restart arm L. Checkpoint selection, the dev tripwire (floor 0.50, two consecutive evals) and the O9 head-choice rule all use **G1's / D24's macro**: the unweighted mean over templates of per-template accuracy (`template_macro_accuracy`; config `selection_metric: template_macro_accuracy`). The per-gold-key recall macro stays in the logs as a diagnostic. Attempt 4 is not resumed (its selection used the old statistic); it is archived as `arm_L_attempt4_eval250`. Arms P and N use the same rule. Code: commit of this answer (trainer, config, metrics, head_choice, o9 script, tests).
 
 ---
 
@@ -450,6 +474,8 @@ deviation — that is a `BLOCKED`.
 45. **O6 attempt 1 ran out of GPU memory; fixed by gradient checkpointing (disclosed).** Arm L (attempt 1, `outputs/osler_v0/O6/arm_L_attempt1_oom/` and `logs/arm_L_attempt1_oom.log`) failed in its first training step with CUDA out of memory on a batch of long items. The batch planner closes a batch on real tokens (up to 8,192 per batch), but one item may be 16,384 tokens, and the activations of a 16k-token step did not fit beside the 4B base. A probe on synthetic items measured the peak without checkpointing as out of memory at about 16k tokens; with the frozen base's decoder layers checkpointed it is 17.3 GB at 16,384 tokens (and 10.3 GB at 2,891 tokens, against 36.2 GB without). Fix: `MedDecideModel.enable_gradient_checkpointing()` (transformers only checkpoints a layer in training mode, and `train_mode` keeps the frozen base in eval, so the decoder layers are set to training mode; attention dropout is 0.0, checked) and the config flag `gradient_checkpointing: true` in the three arm configs. The forward is the same; tests/test_checkpointing_o6.py checks that gradients match with and without it on a tiny model (3 tests). No training recipe value changes. Attempt 2 is the run of record; its provenance records the commit that contains the fix.
 46. **D12 applied to zero-shot aggregates; scoreboard note corrected (disclosed at O2 closure).** The O2 metrics had listed a zero-shot READOUT_FAIL cell but kept its items in the set and benchmark accuracies, which D12 does not allow. Zero-shot cells that fail the gate are now left out of every reported zero-shot accuracy, and the excluded item counts are written beside each number (`readout_fail_items_excluded`). This changes one number: zero-shot Qwen3.5-9B on v0.2 (0.8317 over 35,076 → 0.8328 over 34,838; `nfcorpus` cell, 238 items, excluded). The Gate O1 baselines are unaffected (no failing cell in the 4B baseline; the 9B knowledge guard's MedQA and MedMCQA contain no failing cell). The stale note on the zero-shot and JEV rows is corrected. Flip-rate pair counts for zero-shot models change with deviation 43 (v0.2 base items).
 47. **O6 attempts, disk quota, and the eval cost (disclosed).** (a) Attempt 1 ran out of GPU memory (deviation 45). (b) Attempt 2 stopped silently at about step 300, after the first eval, with no traceback; the logs show no cause, and the disk quota was then near its limit. (c) Attempt 3 was launched at 13:17Z when the quota was already full: it never wrote its first line. A git commit at 13:21Z failed with 'Disk quota exceeded'. I freed my own regenerable scratch (about 1 GB: diagnostic dumps, pytest and torch caches, failed-attempt checkpoints) and the write test then passed (1.5 GB). (d) A launch command sent the process output to /dev/null; that run was stopped and archived (`arm_L_attempt3_stopped`), and the attempt that followed was stopped at step 550 to profile the eval (see below). The run of record is attempt 4, launched 13:37:04Z with its output captured. The archived attempts keep their logs; their checkpoints were deleted. (e) Eval cost: a 6,000-item dev eval every 250 steps. Measured on 240 dev items: 16–17 items per second at batch 8 with rounding, the fastest of the settings tried (8 items per second at batch 32 with 16,384 tokens). So one eval takes about 6 minutes, and the in-run evals took about 14 minutes; over 100 evals per arm that is 10–23 hours beyond the 1.9 hours of training. The cadence and subset are the ADVISORY's; Question 19 asks whether to change them.
+
+48. **Recipe change for O6–O8 by operator decision (Q19, Q20; recorded 2026-10-10T14:37:06Z).** Dev eval every 2,500 steps instead of 250; checkpoint selection, the dev tripwire and the O9 rule use G1's/D24's template macro instead of the per-gold-key recall macro. Made before any arm finished and before any held-out or test result existed; arms L, P and N all run under it, so they stay matched. Arm L attempt 4 (old cadence and statistic, stopped at step 750) is archived and not used for any result. Code and tests changed by the advisor: `meddecide.eval.metrics.template_macro_accuracy`, `ScoredItems.metrics()['template_macro_accuracy']`, `StudentConfig.selection_metric`, the trainer's selection and tripwire, `arm_run` trajectory fields, `meddecide.eval.head_choice` (now `stratified_macro_difference` over templates), `scripts/osler/o9_head_choice.py`, the three arm configs; tests added in tests/test_template_macro_o6.py, tests/test_trainer_o6.py, tests/test_gate_and_head_choice_o9.py, and tests/test_osler_arm_o6.py updated to the new recipe. Full CPU suite: 546 passed, 5 GPU-gated skipped.
 
 ## 8. Closure summary feed
 

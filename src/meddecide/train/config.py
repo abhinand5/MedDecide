@@ -36,6 +36,7 @@ _TOP_LEVEL_KEYS = {
     "tripwire_grad_norm",
     "tripwire_macro_floor",
     "tripwire_consecutive_evals",
+    "selection_metric",
     "lambda_brier",
     "lr",
     "lora_lr",
@@ -89,6 +90,9 @@ class StudentConfig:
     tripwire_grad_norm: float | None = None
     tripwire_macro_floor: float | None = None
     tripwire_consecutive_evals: int = 2
+    # dev statistic for checkpoint selection and the dev tripwire: "macro_accuracy" (per-gold-key recall; the
+    # student behaviour) or "template_macro_accuracy" (mean over templates; G1/D24's macro, osler_v0 Q20)
+    selection_metric: str = "macro_accuracy"
     # cross-entropy + lambda * Brier; 1.0 is the plan's starting value
     lambda_brier: float = 1.0
     lr: float = 1.0e-3
@@ -175,6 +179,9 @@ class StudentConfig:
             raise ValueError(f"lr_floor must be in [0, 1), got {cfg.lr_floor}")
         if cfg.tripwire_consecutive_evals < 1:
             raise ValueError("tripwire_consecutive_evals must be >= 1")
+        if cfg.selection_metric not in ("macro_accuracy", "template_macro_accuracy"):
+            raise ValueError(f"selection_metric must be 'macro_accuracy' or 'template_macro_accuracy', "
+                             f"got {cfg.selection_metric!r}")
         return cfg
 
 

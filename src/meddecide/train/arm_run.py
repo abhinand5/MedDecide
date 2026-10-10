@@ -71,7 +71,8 @@ def run_arm(
 
     def observe(step: int, metrics: dict[str, Any]) -> None:
         eval_trajectory.append({"step": step, "macro_accuracy": float(metrics["macro_accuracy"]),
-                                "brier": float(metrics["brier"])})
+                                "template_macro_accuracy": float(metrics["template_macro_accuracy"]),
+                                "accuracy": float(metrics["accuracy"]), "brier": float(metrics["brier"])})
         if tier1:
             decisions = model.predict(tier1, batch_size=config.eval_batch_size or config.batch_size)
             per_source = accuracy_by_source(decisions, tier1)

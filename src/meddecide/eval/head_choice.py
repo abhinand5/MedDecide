@@ -1,8 +1,10 @@
 """The pre-registered head-choice rule at 4B (ADVISORY O9): dev only, never test and never held-out.
 
 Start with arm L (the option-code head). Switch to a challenger (P or N) only if its dev macro accuracy exceeds L's by at
-least 1.0 point, with a paired bootstrap lower bound above 0 on dev. If both qualify, take the larger gain. The bootstrap is
-the one D24 uses for Gate O1 (1,000 resamples, items resampled within templates), so the two rules share one statistic.
+least 1.0 point, with a paired bootstrap lower bound above 0 on dev. If both qualify, take the larger gain. "Macro accuracy"
+is G1's and D24's statistic, the unweighted mean over templates of per-template accuracy (operator decision 2026-10-10,
+STATE Q20; it replaced the per-gold-key recall macro). The bootstrap resamples items within templates, 1,000 resamples, as
+Gate O1 does, so the two rules share one statistic.
 
 Pure functions: arrays in, a decision out. The script that reads the arms' dev predictions and writes the report lives in
 scripts/osler/o9_head_choice.py.
@@ -15,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from meddecide.eval.paired import Difference, paired_macro_accuracy_difference
+from meddecide.eval.paired import Difference, stratified_macro_difference
 
 MARGIN = 0.010  # one point of macro accuracy, as the ADVISORY states it
 N_RESAMPLES = 1000  # the D24 bootstrap size
@@ -28,8 +30,8 @@ class DevScores:
 
     name: str
     correct: np.ndarray  # 1 where the argmax is the gold option, else 0
-    gold: np.ndarray  # gold labels (the classes of the macro)
-    templates: np.ndarray  # stratum for the bootstrap
+    gold: np.ndarray  # gold labels (used to check that the arms are aligned)
+    templates: np.ndarray  # the macro's groups and the bootstrap's strata
 
 
 @dataclass(frozen=True)
@@ -47,11 +49,17 @@ class HeadChoice:
 
 
 def challenge(arm: DevScores, baseline: DevScores, *, n_resamples: int = N_RESAMPLES, seed: int = 0) -> Challenge:
-    """Compare one challenger with L on dev (macro accuracy, paired, resampled within templates)."""
+    """Compare one challenger with L on dev (template macro accuracy, paired, resampled within templates)."""
     if arm.gold.shape != baseline.gold.shape or not np.array_equal(arm.gold, baseline.gold):
         raise ValueError(f"{arm.name} and {baseline.name} must be scored on the same items in the same order")
-    difference = paired_macro_accuracy_difference(arm.correct, baseline.correct, arm.gold, arm.templates,
-                                                  n_resamples=n_resamples, seed=seed)
+    if not np.array_equal(arm.templates, baseline.templates):
+        raise ValueError(f"{arm.name} and {baseline.name} must share template labels item by item")
+    groups_arm: dict[str, list[float]] = {}
+    groups_base: dict[str, list[float]] = {}
+    for a, b, t in zip(arm.correct, baseline.correct, arm.templates, strict=True):
+        groups_arm.setdefault(str(t), []).append(float(a))
+        groups_base.setdefault(str(t), []).append(float(b))
+    difference = stratified_macro_difference(groups_arm, groups_base, n_resamples=n_resamples, seed=seed)
     qualifies = difference.point >= MARGIN and difference.lo > 0
     return Challenge(name=arm.name, difference=difference, qualifies=qualifies)
 
