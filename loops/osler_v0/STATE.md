@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-10T14:37:06Z`
+Last updated (UTC): `2026-10-10T20:24:13Z`
 Iterations so far: `4`
 
 ---
@@ -29,7 +29,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
-| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — attempt 5 (run of record; eval every 2,500 steps; selection and tripwire on template_macro_accuracy); worker PID 690638; log outputs/osler_v0/O6/logs/arm_L.log | 2026-10-10T17:58:36Z | |
+| O6 | Arm L: option-code head (4B) | yes | O4, O5 | IN_PROGRESS — attempt 5 (run of record; eval every 2,500 steps; selection and tripwire on template_macro_accuracy; evals at 2,500 and 5,000 recorded, CLAIMS O161–O162); worker PID 690638; log outputs/osler_v0/O6/logs/arm_L.log | 2026-10-10T17:58:36Z | |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | PENDING | | |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | PENDING | | |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING | | |
@@ -66,6 +66,7 @@ recomputing or guessing.
 | generators: count, held-out list, train/dev/test items | 9 generators: 7 seen, 2 held out (note_lab_range_v1, policy_triage_v1). Train 21,000 items (0 held out; 1,500 patients per seen generator), dev 2,700 (600 held out), test 2,700 (600 held out). Screen: all nine pass; gold label in the record 0 hits. The held-out baselines are constant predictors, so their pass rests on gold-in-state and the construction checks (CLAIMS O046–O063; STATE §7 item 23) | `loops/osler_v0/heldout.md`; `outputs/osler_v0/O3/recompute.json` | O3 |
 | mix v2: items, sources, replay share, max template share; leakage result | 573,611 train rows (student_v1 482,889 + 46,744 new + 43,978 augmented) and 10,843 dev rows. Sources: student_v1 components and tier-1 train splits, O3 seen generators (21,000), CommonsenseQA (9,741), QASC (8,134), PubHealth (7,869). Replay 3.46 %; largest template 7.39 % (cap 8 %); budget 200,000 examples. Leakage 0 by text and by dataset-qualified record (CLAIMS O064–O078) | `data/train/osler_v0/manifest.json`; `loops/osler_v0/mix_v2_manifest.json`; `outputs/osler_v0/O4/verify_mix.json` | O4 |
 | readout checks (init equality, export round-trip, padding, byte-identity) | | `outputs/osler_v0/O5/readout_checks.json` | O5 |
+| arm L attempt 5: dev template macro by eval (6,000-item subset; selection statistic) | step 2,500: 0.8197 (best so far, checkpoint saved); step 5,000: 0.8133 (not above 0.8197, so the best stays step 2,500). Diagnostic per-letter macro 0.6029 → 0.5400; accuracy 0.8458 → 0.8468; Brier 0.2280 → 0.2258 | `outputs/osler_v0/O6/arm_L/logs/train.jsonl` (CLAIMS O161–O162) | O6 |
 | arms L / P / N: examples seen, selected step, dev macro, tier-1 dev at selection, wall-clock | | | O6–O8 |
 | chosen head and the rule's verdict | | `loops/osler_v0/head_choice.md` | O9 |
 | Osler-9B / Osler-0.8B: selected step, dev macro | | | O10 |
@@ -97,6 +98,7 @@ completed checklist goes into the iteration-log entry.
       output captured to outputs/osler_v0/O6/logs/arm_L.log; record PID and start time here
 - [x] (done 2026-10-10T19:07Z) after the first eval (step 2,500): the eval record carries template_macro_accuracy = 0.8197 (per-letter macro 0.6029 logged as diagnostic; accuracy 0.8458; Brier 0.228; best so far), check that train.jsonl's eval record carries template_macro_accuracy and that
       arm_result trajectories will include it; then continue O6 as planned
+- [x] (done 2026-10-10T20:21Z; CLAIMS O162) step-5,000 eval: template_macro_accuracy 0.8133 (below 0.8197, so the best checkpoint stays at step 2,500); per-letter diagnostic 0.5400; accuracy 0.8468; Brier 0.2258
 ```
 
 ```
@@ -118,7 +120,7 @@ O2 checklist:
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
 - [x] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [x] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
-- Running now (2026-10-10T17:59Z): O6 arm L attempt 5 (run of record), worker PID 690638, started 2026-10-10T17:58:36Z; log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl. Attempt 4 archived as arm_L_attempt4_eval250 (deviation 48). Arms P and N follow in order by `scripts/osler/o6_arm_chain.sh` (detached, PID 691022, started 2026-10-10T18:00:26Z; it waits for arm L's exit and stops at the first failure; log outputs/osler_v0/O6/logs/arm_chain.log).
+- Running now (2026-10-10T17:59Z; at 20:21Z step 5,200 of 25,000, two evals done; expected arm L finish about 05:40Z on 2026-10-11; bounded watch armed 20:23Z for arm L's exit, failures, chain events and tripwires): O6 arm L attempt 5 (run of record), worker PID 690638, started 2026-10-10T17:58:36Z; log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl. Attempt 4 archived as arm_L_attempt4_eval250 (deviation 48). Arms P and N follow in order by `scripts/osler/o6_arm_chain.sh` (detached, PID 691022, started 2026-10-10T18:00:26Z; it waits for arm L's exit and stops at the first failure; log outputs/osler_v0/O6/logs/arm_chain.log).
 - [x] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
 - [x] zero-shot Qwen3.5-9B (panel + robustness)
 - [x] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
@@ -194,6 +196,7 @@ O9 and O11 preparation (CPU; written and tested before any arm result exists):
 - [x] O11 scoring library (`src/meddecide/eval/osler_scoring.py`: row to item, reversed order, both-order averaging, `score_rows`; tests/test_osler_scoring_o11.py and tests/test_osler_score_rows_o11.py, 12 tests) and the GPU driver `scripts/osler/o11_score.py` (resumable; smoke-tested on CPU, deviation 44)
 - [x] O11 gate script (`scripts/osler/o11_gate.py`; comparisons from `meddecide.eval.gate.compare_rows` with the item accounting; the knowledge guard; the D24 verdicts; writes loops/osler_v0/gate_o1.md and outputs/osler_v0/O11/gate.json). Smoke-tested on synthetic fixtures (a perfect Osler against the real MedDecider files and weak synthetic baselines: PASS for both sizes, and the MedDecider panel row counts 212 skipped, matching O2). The real run needs the arms' predictions and the v0.2 baseline rows (deviation 43); tests/test_gate_compare_o11.py (6 tests). results.md is not yet written
 - [x] O2 tier investigation of the pplx v0.2 lead (CLAIMS O123–O125; `scripts/osler/o2_tier_breakdown.py`)
+- [x] O9 driver reads each arm from its config's output directory (`O6/arm_L`, `O6/arm_P`, `O6/arm_N`; the driver had `O7`/`O8`, which no arm writes): fixed in dc9f3e7; `tests/test_o9_arm_paths.py`; a synthetic three-arm smoke at the config paths writes the report (deviation 49)
 
 ## 4. Iteration log (append only, newest last)
 
@@ -265,6 +268,13 @@ O9 and O11 preparation (CPU; written and tested before any arm result exists):
 - Headline: arm L attempt 4 stopped at step 750 (dev macro 0.471 per-gold-key, accuracy 0.818); arms re-run with 10 dev evals each and template-macro selection; 299.6 GB of competitor weights deleted by the operator
 - Surprises: none beyond Q20
 - Next: the loop agent executes the §3 restart block, then O6 attempt 5
+
+### O6 — progress (arm L attempt 5) — 2026-10-10T20:24:13Z
+- What ran: worker PID 690638 (run of record) and chain PID 691022 unchanged; dev evals at steps 2,500 and 5,000 read from `outputs/osler_v0/O6/arm_L/logs/train.jsonl`; O9 driver path fix (dc9f3e7) with a synthetic three-arm smoke at the config paths; CPU suite 547 passed, 5 skipped (CUDA hidden)
+- Output: CLAIMS O161–O163 (added now; the step-2,500 numbers had been reported in STATE and a commit without CLAIMS rows, an R1 gap); deviation 49
+- Headline: template macro 0.8197 (2,500) → 0.8133 (5,000), so the best checkpoint stays at step 2,500. Per-letter diagnostic 0.6029 → 0.5400 while accuracy rose 0.8458 → 0.8468; reported as measured (diagnostic only; Q20)
+- Surprises: the O9 driver's arm directories did not match the configs (fixed before O9 could run; deviation 49)
+- Next: wait for arm L (about 05:40Z on 2026-10-11); confirm the chain starts arm P, then arm N; O9 once both have `arm_result.json`
 
 ## 5. Blocked items
 
@@ -479,6 +489,8 @@ deviation — that is a `BLOCKED`.
 
 48. **Recipe change for O6–O8 by operator decision (Q19, Q20; recorded 2026-10-10T14:37:06Z).** Dev eval every 2,500 steps instead of 250; checkpoint selection, the dev tripwire and the O9 rule use G1's/D24's template macro instead of the per-gold-key recall macro. Made before any arm finished and before any held-out or test result existed; arms L, P and N all run under it, so they stay matched. Arm L attempt 4 (old cadence and statistic, stopped at step 750) is archived and not used for any result. Code and tests changed by the advisor: `meddecide.eval.metrics.template_macro_accuracy`, `ScoredItems.metrics()['template_macro_accuracy']`, `StudentConfig.selection_metric`, the trainer's selection and tripwire, `arm_run` trajectory fields, `meddecide.eval.head_choice` (now `stratified_macro_difference` over templates), `scripts/osler/o9_head_choice.py`, the three arm configs; tests added in tests/test_template_macro_o6.py, tests/test_trainer_o6.py, tests/test_gate_and_head_choice_o9.py, and tests/test_osler_arm_o6.py updated to the new recipe. Full CPU suite: 546 passed, 5 GPU-gated skipped.
 48a. **Measured timing of arm L attempt 5 (correction to Question 19's estimate; disclosed).** Measured wall clock over five minutes at 18:34Z: about 1.5 s per optimiser step (the trainer's `elapsed_s` field under-states it). So 25,000 steps take about 10.4 hours of training, and the ten dev evals (about 8 minutes each) add about 1.3 hours: roughly 11.7 hours per 4B arm, and about 35 hours for arms L, P and N together. The first eval (step 2,500) is expected near 19:10Z. Earlier figures in this file (about 7 hours per arm) were wrong and are superseded by this note.
+
+49. **O9 driver directories corrected before O9 ran (found while re-checking O9's inputs during arm L attempt 5; disclosed).** `scripts/osler/o9_head_choice.py` mapped arms P and N to `O7/arm_P` and `O8/arm_N`, which no arm writes: the configs and the chain write `O6/arm_P` and `O6/arm_N`. The driver now uses the config paths, and `tests/test_o9_arm_paths.py` checks each config's `output_dir` against the driver's mapping. The head-choice rule, margin, resample count, seed and statistic are unchanged (commit dc9f3e7; CLAIMS O163 for the suite).
 
 ## 8. Closure summary feed
 
