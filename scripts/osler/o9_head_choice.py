@@ -27,7 +27,9 @@ from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
-ARM_DIRS = {"L": "O6/arm_L", "P": "O7/arm_P", "N": "O8/arm_N"}
+# Each arm's directory under outputs/osler_v0, as its config writes it (configs/osler_v0/arm_<arm>.yaml, output_dir).
+# tests/test_o9_arm_paths.py keeps the two in step; the O6-O8 task labels are not directories.
+ARM_DIRS = {"L": "O6/arm_L", "P": "O6/arm_P", "N": "O6/arm_N"}
 SEED = 0
 
 
