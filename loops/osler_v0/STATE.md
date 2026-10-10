@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | O0 | Orientation, snapshot, envs, competitor smoke, throughput | smoke | — | DONE | 2026-10-09T06:23:41Z | 2026-10-09T07:50:24Z |
 | O1 | External clinical panel + robustness pack | no | O0 | DONE | 2026-10-09T07:55:27Z | 2026-10-09T08:13:20Z |
-| O2 | Competitor scoreboard | yes | O0, O1 | IN_PROGRESS — every GPU run finished (rc=0; O2 chain and chain2, metrics2 at 2026-10-10T12:37:21Z); SELF_AUDIT, CLAIMS and the committed scoreboard are the remaining steps | 2026-10-09T08:25:05Z | |
+| O2 | Competitor scoreboard | yes | O0, O1 | DONE — all rows for 11 models on the common set (59,538 items); D12 applied to zero-shot cells; pplx investigated (O123–O125); Question 16 open | 2026-10-09T08:25:05Z | 2026-10-10T13:05:22Z |
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
@@ -100,21 +100,22 @@ O2 checklist:
 - [x] MedDecider-9B (authors' code, both orders): DONE rc=0 at 12:19:02Z; 59,538 rows, 57,968 scored, 1,570 skipped (the same over-10-option items as the 4B run); probability sums 1.000; decide() check max |diff| 4.9e-5 on 50 items; accuracy v0.2 0.829 (n 35,076), panel 0.560 (n 4,141), robustness 0.645 (n 18,751)
 - [x] Clef-Flash (authors' systemone, envs/clef): DONE rc=0 at 14:09:02Z; 59,538 rows, 59,538 scored, 0 skipped; probability sums 0.9994 to 1.0005 (the endpoint rounds to 4 dp); accuracy v0.2 0.829 (n 35,076), panel 0.571 (n 4,353), robustness 0.578 (n 20,109)
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
-- [ ] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
-- [ ] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
-- Running now (2026-10-09T20:56Z): O2 chain PID 266074 at clef (started 20:35:09Z); its successor chain2 (scratchpad script; log outputs/osler_v0/O2/logs/chain2.log) waits for that PID, then zs4b_all, zs9b_all, jev9b_all, metrics2. Watch blcdbkjy5 (30 min; reports each new chain line, a failed step, or CHAIN2 DONE). Next after chain2: O6 arm L (`scripts/osler/o6_train_arm.py --arm L`, detached, log outputs/osler_v0/O6/logs/arm_L.log), then O7 and O8 one at a time
-- [ ] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
-- [ ] zero-shot Qwen3.5-9B (panel + robustness)
-- [ ] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
-- [ ] MedDecider-9B (both orders)
-- [ ] Clef-Flash (authors' systemone; envs/clef; choice keys sorted by the authors' code)
-- [ ] pplx-decider-v1.1-27b (authors' DecisionModel; envs/pplx27b; single order as the authors run it)
-- [ ] JEV-27B (F7 protocol; single order)
-- [ ] Clef (authors' systemone)
-- [ ] MedDecider-27B (both orders)
-- [ ] MedDecider-31B (both orders)
-- [ ] o2_metrics.py: per model × set n, accuracy, macro (mean over templates, as G1), Brier, ECE, coverage with reasons, wall-clock per 1k items, D12/D21 cell gate, robustness flip rates → outputs/osler_v0/O2/scoreboard.json; loops/osler_v0/scoreboard.md (aggregates only)
+- [x] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
+- [x] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
+- Running now (2026-10-10T13:05:22Z): O6 arm L, attempt 2, PID 533942 (log outputs/osler_v0/O6/logs/arm_L.log; trainer log outputs/osler_v0/O6/arm_L/logs/train.jsonl); watch b6wagioqr (30 min; reports completion, a traceback, or the process exiting). O2 has no running job.
+- [x] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
+- [x] zero-shot Qwen3.5-9B (panel + robustness)
+- [x] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
+- [x] MedDecider-9B (both orders)
+- [x] Clef-Flash (authors' systemone; envs/clef; choice keys sorted by the authors' code)
+- [x] pplx-decider-v1.1-27b (authors' DecisionModel; envs/pplx27b; single order as the authors run it)
+- [x] JEV-27B (F7 protocol; single order)
+- [x] Clef (authors' systemone)
+- [x] MedDecider-27B (both orders)
+- [x] MedDecider-31B (both orders)
+- [x] o2_metrics.py: per model × set n, accuracy, macro (mean over templates, as G1), Brier, ECE, coverage with reasons, wall-clock per 1k items, D12/D21 cell gate, robustness flip rates → outputs/osler_v0/O2/scoreboard.json; loops/osler_v0/scoreboard.md (aggregates only)
 - [ ] self-audit, CLAIMS O046+, STATE, commit, push
+- [x] O2 closed at 2026-10-10T13:05:22Z: SELF_AUDIT outputs/osler_v0/O2/SELF_AUDIT.md; scoreboard loops/osler_v0/scoreboard.md; CLAIMS O123–O160
 
 O3 checklist (completed 2026-10-09T18:30:07Z):
 - [x] nine generator families, seven seen and two held out, in src/meddecide/gen/ (families.py); gold from the structured parts; twin pairs (CLAIMS O046)
@@ -234,6 +235,13 @@ O9 and O11 preparation (CPU; written and tested before any arm result exists):
 - Headline: the pre-registered O5 run passes 10 of 11 checks. The merged-adapter export fails (1.04e-02 against 1e-3; O094, O105). The separate-adapter export passes (2.15e-06; O104). The failure traces to the as-run fp32 kernel precision: with IEEE dots or the kernels blocked, all 11 pass on seed 0 (O110–O113); with a fixed seed, the as-run and IEEE forwards are bit-identical across processes (O119)
 - Surprises: the attempt-4 adapter's lora_A was unseeded, so my first reading of cross-process variation was a draw effect (O121); seeded as-run also fails bidirectional padding in one draw (1.03e-03; O108); the first IEEE attempt hit a fresh-cache shim failure and a disk-quota error (§7 deviation 37)
 - Next: O2 resumes at clef (chain paused since 19:23:35Z). O6 (arm L) follows O2. Questions 14 and 15 are open
+
+### O2 — DONE — 2026-10-10T13:05:22Z
+- What ran: `scripts/osler/o2_chain.sh` (clef, md27b, md31b, metrics; PID 266074, resumed after the O5 window), a baseline chain (zero-shot 4B and 9B and JEV-9B on v0.2, deviation 43), `scripts/osler/o2_metrics.py` (final regeneration after the D12 change), `scripts/osler/o2_tier_breakdown.py` (the pplx investigation)
+- Output: `outputs/osler_v0/O2/*/predictions.jsonl` (11 models, 59,538 rows each where scored or skipped), `scoreboard.json`, `tier_breakdown.json`; committed `loops/osler_v0/scoreboard.md`; CLAIMS O123–O160; SELF_AUDIT
+- Headline: v0.2 accuracy (scored, 35,076 items) MedDecider-27B 0.856, pplx-27B 0.861, Clef 0.853, JEV-27B 0.847, MedDecider-4B 0.824 and -9B 0.829, zero-shot 4B 0.804 and 9B 0.833. External panel: MedDecider-31B 0.665, pplx 0.641, Clef 0.610 (O126–O136)
+- Surprises: pplx's v0.2 lead is partly two near-ceiling templates shared by all models (O125) and its robustness is the lowest of the large models (0.530); zero-shot 9B has one D12 failing cell (nfcorpus, excluded); the Gate O1 baselines were missing on v0.2 for three models (deviation 43)
+- Next: O6 arm L attempt 2 is running; O7 (arm P), O8 (arm N), then O9 (head choice), O10 and O11
 
 ## 5. Blocked items
 
@@ -434,6 +442,7 @@ deviation — that is a `BLOCKED`.
 ---
 
 45. **O6 attempt 1 ran out of GPU memory; fixed by gradient checkpointing (disclosed).** Arm L (attempt 1, `outputs/osler_v0/O6/arm_L_attempt1_oom/` and `logs/arm_L_attempt1_oom.log`) failed in its first training step with CUDA out of memory on a batch of long items. The batch planner closes a batch on real tokens (up to 8,192 per batch), but one item may be 16,384 tokens, and the activations of a 16k-token step did not fit beside the 4B base. A probe on synthetic items measured the peak without checkpointing as out of memory at about 16k tokens; with the frozen base's decoder layers checkpointed it is 17.3 GB at 16,384 tokens (and 10.3 GB at 2,891 tokens, against 36.2 GB without). Fix: `MedDecideModel.enable_gradient_checkpointing()` (transformers only checkpoints a layer in training mode, and `train_mode` keeps the frozen base in eval, so the decoder layers are set to training mode; attention dropout is 0.0, checked) and the config flag `gradient_checkpointing: true` in the three arm configs. The forward is the same; tests/test_checkpointing_o6.py checks that gradients match with and without it on a tiny model (3 tests). No training recipe value changes. Attempt 2 is the run of record; its provenance records the commit that contains the fix.
+46. **D12 applied to zero-shot aggregates; scoreboard note corrected (disclosed at O2 closure).** The O2 metrics had listed a zero-shot READOUT_FAIL cell but kept its items in the set and benchmark accuracies, which D12 does not allow. Zero-shot cells that fail the gate are now left out of every reported zero-shot accuracy, and the excluded item counts are written beside each number (`readout_fail_items_excluded`). This changes one number: zero-shot Qwen3.5-9B on v0.2 (0.8317 over 35,076 → 0.8328 over 34,838; `nfcorpus` cell, 238 items, excluded). The Gate O1 baselines are unaffected (no failing cell in the 4B baseline; the 9B knowledge guard's MedQA and MedMCQA contain no failing cell). The stale note on the zero-shot and JEV rows is corrected. Flip-rate pair counts for zero-shot models change with deviation 43 (v0.2 base items).
 
 ## 8. Closure summary feed
 

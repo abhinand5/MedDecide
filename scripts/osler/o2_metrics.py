@@ -116,17 +116,32 @@ def model_block(model: dict[str, Any], items: dict[str, dict[str, Any]]) -> dict
     sets = {}
     health = {}
     for key, set_rows in sorted(by_set.items()):
-        sets[key] = summarise(set_rows).as_dict()
         by_template: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for r in set_rows:
             by_template[r["template_id"]].append(r)
         health[key] = {tid: cell_health(model["name"], tid, trows, zero_shot=model["zero_shot"])
                        for tid, trows in sorted(by_template.items())}
+    # ADVISORY D12: a zero-shot letter-readout accuracy is not reported for a (model, template) cell that fails the gate.
+    # Such cells are listed as READOUT_FAIL and left out of every reported accuracy of a zero-shot model; their item count is
+    # printed beside the number so nothing is dropped silently.
+    failing_cells = {(key, tid) for key, cells in health.items() for tid, cell in cells.items()
+                     if model["zero_shot"] and cell["status"].startswith("READOUT_FAIL")}
+
+    def reported(rows_in: list[dict[str, Any]], key_of) -> tuple[list[dict[str, Any]], int]:
+        kept = [r for r in rows_in if (key_of(r), r["template_id"]) not in failing_cells]
+        return kept, len(rows_in) - len(kept)
+
+    for key, set_rows in sorted(by_set.items()):
+        kept, excluded = reported(set_rows, lambda r, k=key: k)
+        sets[key] = summarise(kept).as_dict()
+        sets[key]["readout_fail_items_excluded"] = excluded
     benchmarks = {}
     for bench in ["v0.2", "ext_panel", "robustness"]:
         bench_rows = [r for r in rows if r["benchmark"] == bench]
         if bench_rows:
-            benchmarks[bench] = summarise(bench_rows).as_dict()
+            kept, excluded = reported(bench_rows, lambda r: f"{r['benchmark']}:{r['set_name']}")
+            benchmarks[bench] = summarise(kept).as_dict()
+            benchmarks[bench]["readout_fail_items_excluded"] = excluded
     fails = {k: sum(1 for c in cells.values() if c["status"].startswith("READOUT_FAIL"))
              for k, cells in health.items()}
     return {"name": model["name"], "role": model["role"], "zero_shot": model["zero_shot"],
@@ -155,7 +170,7 @@ def markdown(result: dict[str, Any]) -> str:
         "Definitions: accuracy micro over scored items with a bootstrap 95% CI; macro = mean over templates of "
         "the per-template value; Brier = mean over items of sum_k (p_k - y_k)^2; ECE = 15 equal bins; coverage = "
         "scored / in scope; s per 1k = mean latency x 1000. D12 applies to zero-shot cells, D21 to the rest "
-        "(READOUT_FAIL cells are listed, their numbers are still in the json).",
+        "(D12: for a zero-shot model a READOUT_FAIL cell is listed and left out of its accuracies; the excluded item counts are in the json).",
         "",
     ]
     for block in result["models"].values():
@@ -194,8 +209,8 @@ def main() -> None:
             print(f"{model['slug']}: rows={block['rows']} sets={len(block['sets'])}", flush=True)
     result = {"built_at_utc": utcnow(), "git_commit": git_commit(REPO), "common_set_items": common,
               "models": models,
-              "notes": ["zero-shot rows are on the panel and robustness sets only (ADVISORY O2)",
-                        "JEV-9B is on the panel and robustness sets only (ADVISORY O2)",
+              "notes": ["zero-shot Qwen3.5-4B and -9B and JEV-9B: v0.2 rows added after the O2 chain for the D24 baselines (deviation 43); "
+                        "any set a model has no rows for is shown as no rows, never as a score",
                         "robustness flips use base items scored by the same model"]}
     write_json(OUT_DIR / "scoreboard.json", result)
     REPORT.write_text(markdown(result), encoding="utf-8")
