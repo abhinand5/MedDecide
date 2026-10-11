@@ -70,3 +70,32 @@ def test_the_head_must_be_the_one_o9_chose() -> None:
         check_head_matches(arm_p, "N")
     with pytest.raises(ValueError, match="expected one of"):
         check_head_matches(arm_l, "X")
+
+
+def test_the_o10_config_data_passes_every_guard_for_each_head() -> None:
+    import yaml
+
+    from meddecide.train.osler_configs import o10_config_data
+
+    reference = yaml.safe_load((CONFIGS / "arm_L.yaml").read_text(encoding="utf-8"))
+    reference_config = _arm("L")
+    for chosen in ("L", "P", "N"):
+        data = o10_config_data(reference, base_model="Qwen/Qwen3.5-9B", output_dir="outputs/osler_v0/O10/osler_9b",
+                               chosen=chosen)
+        config = StudentConfig.from_dict(data)
+        check_pinned_base(config)
+        check_head_matches(config, chosen)
+        assert recipe_differences(config, reference_config) == [], chosen
+        assert config.output_dir == "outputs/osler_v0/O10/osler_9b" and config.lora.r == 32
+
+
+def test_the_o10_config_data_refuses_an_unknown_base_or_head() -> None:
+    import yaml
+
+    from meddecide.train.osler_configs import o10_config_data
+
+    reference = yaml.safe_load((CONFIGS / "arm_L.yaml").read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="is not an O10 base"):
+        o10_config_data(reference, base_model="Qwen/Qwen3.5-27B", output_dir="x", chosen="L")
+    with pytest.raises(ValueError, match="O9 chose"):
+        o10_config_data(reference, base_model="Qwen/Qwen3.5-9B", output_dir="x", chosen="X")

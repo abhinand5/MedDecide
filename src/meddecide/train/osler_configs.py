@@ -7,6 +7,9 @@ only in the base, the output directory and the head. The matched arms (L, P, N) 
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+from typing import Any
+
 from meddecide.train.config import StudentConfig
 
 # base model -> pinned revision (ADVISORY, "Model ladder"; the same pins as the O2 registry and the O6-O8 arms)
@@ -51,3 +54,25 @@ def recipe_differences(config: StudentConfig, reference: StudentConfig) -> list[
     """The sorted keys, other than the base, output directory and head, on which the two configs differ."""
     a, b = config.to_dict(), reference.to_dict()
     return sorted(k for k in set(a) | set(b) if k not in BASE_AND_HEAD_KEYS and a.get(k) != b.get(k))
+
+
+def o10_config_data(reference: Mapping[str, Any], *, base_model: str, output_dir: str, chosen: str) -> dict[str, Any]:
+    """Arm L's config data with an O10 base, its pinned revision, an output directory and O9's head (ADVISORY O10).
+
+    Everything else is copied from the reference, so the recipe is arm L's by construction; the O10 driver and the tests check
+    the result again.
+    """
+    if base_model not in PINNED_BASES:
+        raise ValueError(f"base {base_model!r} is not an O10 base; expected one of {sorted(PINNED_BASES)}")
+    if chosen not in HEAD_SETTINGS:
+        raise ValueError(f"O9 chose {chosen!r}; expected one of {sorted(HEAD_SETTINGS)}")
+    readout, bidirectional = HEAD_SETTINGS[chosen]
+    data = dict(reference)
+    data.update({
+        "base_model": base_model,
+        "revision": PINNED_BASES[base_model],
+        "output_dir": output_dir,
+        "readout": readout,
+        "bidirectional_full_attention": bidirectional,
+    })
+    return data
