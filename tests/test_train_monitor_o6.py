@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from meddecide.train.monitor import (
+    block_summaries,
     eval_rows,
     multi_item_steps,
     step_rows,
@@ -51,3 +52,13 @@ def test_multi_item_steps_drop_the_one_item_batches() -> None:
              {**_step(150, 2.0, 2.0), "n_items": 8}]
     assert [r["step"] for r in multi_item_steps(steps)] == [50, 150]
     assert [r["step"] for r in multi_item_steps(steps, min_items=8)] == [150]
+
+
+def test_block_summaries_average_the_multi_item_records_of_each_block() -> None:
+    steps = [{**_step(50, 1.0, 2.0), "n_items": 8}, {**_step(100, 3.0, 4.0), "n_items": 2},
+             {**_step(2550, 0.5, 6.0), "n_items": 8}]
+    blocks = block_summaries(steps, width=2500)
+    assert [b["from_step"] for b in blocks] == [0, 2500]
+    assert blocks[0]["multi_item_records"] == 1 and blocks[0]["loss"] == pytest.approx(1.0)
+    assert blocks[0]["one_item_records"] == 0 and blocks[0]["grad_norm_p50"] == 2.0
+    assert blocks[1]["loss"] == pytest.approx(0.5) and blocks[1]["grad_norm_p50"] == 6.0

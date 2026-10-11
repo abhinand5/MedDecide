@@ -59,3 +59,28 @@ def multi_item_steps(steps: Iterable[dict[str, Any]], *, min_items: int = 4) -> 
     loss) would otherwise dominate a window's means. Drift checks read the multi-item windows as well.
     """
     return [row for row in steps if int(row["n_items"]) >= min_items]
+
+
+def block_summaries(steps: Sequence[dict[str, Any]], *, width: int = 2500, min_items: int = 4) -> list[dict[str, Any]]:
+    """Per block of ``width`` steps (the eval interval), the means over the multi-item step records of that block.
+
+    A block with no multi-item record is left out. The one-item count is reported beside each block, since those batches
+    dominate the all-step means.
+    """
+    out: list[dict[str, Any]] = []
+    for lo in range(0, max((int(r["step"]) for r in steps), default=0) + 1, width):
+        block = [r for r in steps if lo <= int(r["step"]) < lo + width]
+        multi = [r for r in block if int(r["n_items"]) >= min_items]
+        if not multi:
+            continue
+        out.append({
+            "from_step": lo,
+            "multi_item_records": len(multi),
+            "loss": statistics.fmean(float(r["loss"]) for r in multi),
+            "ce": statistics.fmean(float(r["ce"]) for r in multi),
+            "brier": statistics.fmean(float(r["brier"]) for r in multi),
+            "batch_accuracy": statistics.fmean(float(r["accuracy"]) for r in multi),
+            "grad_norm_p50": sorted(float(r["grad_norm"]) for r in multi)[len(multi) // 2],
+            "one_item_records": sum(1 for r in block if int(r["n_items"]) == 1),
+        })
+    return out

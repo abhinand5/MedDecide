@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 from meddecide.train.monitor import (
+    block_summaries,
     eval_rows,
     multi_item_steps,
     step_rows,
@@ -59,6 +60,12 @@ def main() -> None:
             print(f"| {name} {s['records']} | {s['first_step']}-{s['last_step']} | {s['loss']:.4f} | {s['ce']:.4f} | "
                   f"{s['brier']:.4f} | {s['batch_accuracy']:.3f} | {s['grad_norm_p50']:.2f} | {s['grad_norm_p95']:.2f} | "
                   f"{s['grad_norm_max']:.2f} |")
+        print("")
+        print("| block (steps from) | multi-item records | loss | CE | Brier | batch accuracy | grad norm p50 | one-item records |")
+        print("|---|---|---|---|---|---|---|---|")
+        for b in block_summaries(steps):
+            print(f"| {b['from_step']} | {b['multi_item_records']} | {b['loss']:.4f} | {b['ce']:.4f} | {b['brier']:.4f} | "
+                  f"{b['batch_accuracy']:.3f} | {b['grad_norm_p50']:.2f} | {b['one_item_records']} |")
         singles = [r for r in steps if int(r["n_items"]) == 1]
         print(f"\nsteps with one item: {len(singles)} of {len(steps)} logged; the multi-item windows hold steps with at "
               "least 4 items (the token budget closes batches early on long records)")
