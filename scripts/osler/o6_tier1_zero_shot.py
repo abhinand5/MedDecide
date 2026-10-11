@@ -7,8 +7,11 @@ because the GPU is busy with the O6-O8 chain (one GPU job at a time).
 
 Writes outputs/osler_v0/O6/tier1_zero_shot/tier1_zero_shot.json (gitignored); the committed record is the CLAIMS row.
 
-Usage:
-    source scripts/pod_env.sh && uv run --frozen python scripts/osler/o6_tier1_zero_shot.py
+Usage (after the GPU is free; the reference takes minutes on the GPU, hours on the CPU):
+    source scripts/pod_env.sh && uv run --frozen python scripts/osler/o6_tier1_zero_shot.py --device cuda:0 --dtype bfloat16
+
+The CPU variant (--device cpu --dtype float32) takes the torch fallback kernels; it was stopped after 43 minutes because it
+slowed the GPU training run (the training loop shares the host's CPUs).
 """
 
 from __future__ import annotations
@@ -21,11 +24,13 @@ import time
 from collections import Counter
 from pathlib import Path
 
-# CPU run: the fast causal-conv1d and fla kernels are CUDA-only and reject CPU tensors, so the torch fallback path is used
-# (the same switch the CPU tests use).
-os.environ.setdefault("USE_HUB_KERNELS", "NO")
-sys.modules["causal_conv1d"] = None
-sys.modules["fla"] = None
+# CPU runs only: the fast causal-conv1d and fla kernels are CUDA-only and reject CPU tensors, so the torch fallback path is
+# used (the same switch the CPU tests use). On the GPU the arms' own kernels are used.
+_CPU_RUN = "--device" in sys.argv and sys.argv[sys.argv.index("--device") + 1].startswith("cpu")
+if _CPU_RUN:
+    os.environ.setdefault("USE_HUB_KERNELS", "NO")
+    sys.modules["causal_conv1d"] = None
+    sys.modules["fla"] = None
 
 from meddecide.model.meddecide_model import MedDecideModel  # noqa: E402
 from meddecide.train.config import load_config  # noqa: E402
@@ -41,6 +46,8 @@ REFERENCE_CONFIG = REPO / "configs/osler_v0/arm_L.yaml"
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--device", default="cuda:0")
+    parser.add_argument("--dtype", default="bfloat16")
     args = parser.parse_args()
     started = time.time()
     config = load_config(REFERENCE_CONFIG)
@@ -57,8 +64,8 @@ def main() -> None:
         config.base_model,
         revision=config.revision,
         lora=None,
-        dtype="float32",
-        device="cpu",
+        dtype=args.dtype,
+        device=args.device,
         variant=config.variant,
         readout="letter",
         max_prompt_tokens=config.max_prompt_tokens,
@@ -76,8 +83,8 @@ def main() -> None:
         "revision": config.revision,
         "readout": "letter (zero-shot base, no LoRA)",
         "variant": config.variant,
-        "dtype": "float32",
-        "device": "cpu",
+        "dtype": args.dtype,
+        "device": args.device,
         "dev_path": str(dev_path.relative_to(REPO)),
         "tier1_items": len(tier1),
         "items_by_source": counts,
