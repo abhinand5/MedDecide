@@ -50,3 +50,12 @@ def window_summary(steps: Sequence[dict[str, Any]]) -> dict[str, Any]:
 
 def step_rows(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return [row for row in rows if row.get("event") == "step"]
+
+
+def multi_item_steps(steps: Iterable[dict[str, Any]], *, min_items: int = 4) -> list[dict[str, Any]]:
+    """The step records whose batch holds at least ``min_items`` items.
+
+    The token budget closes batches early on long records, so 1-item batches (mostly openFDA records, many with near-zero
+    loss) would otherwise dominate a window's means. Drift checks read the multi-item windows as well.
+    """
+    return [row for row in steps if int(row["n_items"]) >= min_items]

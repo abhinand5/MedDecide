@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from meddecide.train.monitor import eval_rows, step_rows, tripwire_count, window_summary
+from meddecide.train.monitor import (
+    eval_rows,
+    multi_item_steps,
+    step_rows,
+    tripwire_count,
+    window_summary,
+)
 
 
 def _eval(step: int, template: float, per_letter: float) -> dict:
@@ -15,7 +21,7 @@ def _eval(step: int, template: float, per_letter: float) -> dict:
 
 def _step(step: int, loss: float, grad: float) -> dict:
     return {"event": "step", "step": step, "loss": loss, "ce": loss - 0.1, "brier": 0.2, "accuracy": 0.8,
-            "grad_norm": grad}
+            "grad_norm": grad, "n_items": 8}
 
 
 def test_eval_rows_keep_both_macros_and_skip_other_events() -> None:
@@ -38,3 +44,10 @@ def test_window_summary_means_and_grad_norm_quantiles() -> None:
     assert summary["grad_norm_p95"] == 20.0
     with pytest.raises(ValueError, match="at least one"):
         window_summary([])
+
+
+def test_multi_item_steps_drop_the_one_item_batches() -> None:
+    steps = [{**_step(50, 1.0, 1.0), "n_items": 4}, {**_step(100, 0.0, 0.0), "n_items": 1},
+             {**_step(150, 2.0, 2.0), "n_items": 8}]
+    assert [r["step"] for r in multi_item_steps(steps)] == [50, 150]
+    assert [r["step"] for r in multi_item_steps(steps, min_items=8)] == [150]

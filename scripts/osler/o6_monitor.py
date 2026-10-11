@@ -13,7 +13,13 @@ import argparse
 import json
 from pathlib import Path
 
-from meddecide.train.monitor import eval_rows, step_rows, tripwire_count, window_summary
+from meddecide.train.monitor import (
+    eval_rows,
+    multi_item_steps,
+    step_rows,
+    tripwire_count,
+    window_summary,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 WINDOW = 20
@@ -44,11 +50,18 @@ def main() -> None:
         print("")
         print("| window | steps | loss | CE | Brier | batch accuracy | grad norm p50 | p95 | max |")
         print("|---|---|---|---|---|---|---|---|---|")
-        for name, window in (("first", steps[:WINDOW]), ("last", steps[-WINDOW:])):
+        multi = multi_item_steps(steps)
+        windows = [("first", steps[:WINDOW]), ("last", steps[-WINDOW:])]
+        if len(multi) >= 2 * WINDOW:
+            windows += [("first multi-item", multi[:WINDOW]), ("last multi-item", multi[-WINDOW:])]
+        for name, window in windows:
             s = window_summary(window)
             print(f"| {name} {s['records']} | {s['first_step']}-{s['last_step']} | {s['loss']:.4f} | {s['ce']:.4f} | "
                   f"{s['brier']:.4f} | {s['batch_accuracy']:.3f} | {s['grad_norm_p50']:.2f} | {s['grad_norm_p95']:.2f} | "
                   f"{s['grad_norm_max']:.2f} |")
+        singles = [r for r in steps if int(r["n_items"]) == 1]
+        print(f"\nsteps with one item: {len(singles)} of {len(steps)} logged; the multi-item windows hold steps with at "
+              "least 4 items (the token budget closes batches early on long records)")
 
 
 if __name__ == "__main__":
