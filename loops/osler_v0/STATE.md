@@ -221,7 +221,7 @@ O8 closure checklist (arm N; the arm finished 2026-10-12T06:02:33Z with rc 0; th
 - [x] grad-norm tail: p95 14 to 45 in the windows; the largest in the first window (126) at the start of training; no tripwire (CLAIMS O218, O220, O222, O224, O226, O228, O230, O232, O234, O236)
 - [x] tier-1 dev trajectory: medmcqa 0.596 → 0.668 and medqa 0.588 → 0.608 (final), medqa minimum 0.508 at step 10,000 (CLAIMS O240)
 - [x] self-audit (R6): `scripts/osler/o6_dev_audit.py` re-derives the full-dev numbers in a fresh process (all six match); denominators; constant-answer check; twin check (CLAIMS O239)
-- [ ] the zero-shot tier-1 reference (shared with O6; GPU run after the chain's last GPU job; see the O6 closure checklist)
+- [x] zero-shot tier-1 reference, done 2026-10-12T10:48Z (like-for-like on the GPU; CLAIMS O246–O248; deviation 55): 4B base medmcqa 0.712 / medqa 0.664; 9B base 0.720 / 0.700 on the same 500 dev items (this line is the O7 and O8 copy of the O6 item)
 - [x] the O8 closure commit (CLAIMS O235–O240, with the O9 rows O241)
 
 O7 closure checklist (arm P; the arm finished at 2026-10-11T17:38:11Z with rc 0; the O6–O8 chain started arm N at the same moment):
@@ -232,7 +232,7 @@ O7 closure checklist (arm P; the arm finished at 2026-10-11T17:38:11Z with rc 0;
 - [x] grad-norm tail: p50 2 to 8 in the last windows; the largest multi-item grad norm 53.65 (step 3,700–5,000 window) against the 5,000 tripwire (CLAIMS O196, O198, O200, O202, O204, O206, O208, O210, O212)
 - [x] tier-1 dev trajectory: medmcqa 0.592 → 0.672 and medqa 0.536 → 0.584 (final), with medqa between 0.52 and 0.57 mid-run (CLAIMS O216)
 - [x] self-audit (R6): `scripts/osler/o6_dev_audit.py` re-derives the full-dev numbers in a fresh process (all six match); denominators; constant-answer check; twin check (CLAIMS O215)
-- [ ] the zero-shot tier-1 reference (shared with O6; GPU run after the chain's last GPU job; see the O6 closure checklist)
+- [x] zero-shot tier-1 reference, done 2026-10-12T10:48Z (like-for-like on the GPU; CLAIMS O246–O248; deviation 55): 4B base medmcqa 0.712 / medqa 0.664; 9B base 0.720 / 0.700 on the same 500 dev items (this line is the O7 and O8 copy of the O6 item)
 - [ ] the O7 closure commit (CLAIMS O211–O216)
 
 O6 closure checklist (arm L; the arm finished 2026-10-11T05:42:31Z with EXIT CODE 0):
@@ -243,7 +243,7 @@ O6 closure checklist (arm L; the arm finished 2026-10-11T05:42:31Z with EXIT COD
 - [x] grad-norm tail: p50 5 to 13 across the run, p95 15 to 30, largest 233.9 at step 8,900 (below the 5,000 tripwire) (CLAIMS O180, O183, O186)
 - [x] tier-1 dev trajectory in `arm_result.json`: medmcqa 0.644 → 0.624 and medqa 0.596 → 0.584, with a mid-run dip to about 0.53 on medqa (CLAIMS O192)
 - [x] self-audit (R6): `scripts/osler/o6_dev_audit.py` re-derives the full-dev numbers in a fresh process (all six match); denominators; constant-answer check (not constant); twin check on the generated items (CLAIMS O190–O193)
-- [ ] zero-shot tier-1 reference (ADVISORY §8.3 failure mode 3): base model alone on the same 500 tier-1 dev items (250 medqa, 250 medmcqa), letter readout, bare variant. A CPU attempt (fp32, PID 1067710) was stopped at 2026-10-11T06:29Z after 43 minutes because it slowed arm P (about 2.0 s per step against arm L's 1.4 s during the job; load average 64 on 128 cores). The reference will run on the GPU (`scripts/osler/o6_tier1_zero_shot.py --device cuda:0 --dtype bfloat16`, a few minutes) after the O9–O11 chain's last GPU job, before the O12 closure. For reference only (test items, not this split): O2 zero-shot 4B on v0.2 test: medqa 0.6991 (n 1,273), medmcqa 0.5910 (n 4,183) (`outputs/osler_v0/O2/scoreboard.json`).
+- [x] zero-shot tier-1 reference, done 2026-10-12T10:48Z (like-for-like on the GPU; CLAIMS O246–O248; deviation 55): 4B base medmcqa 0.712 / medqa 0.664; 9B base 0.720 / 0.700 on the same 500 dev items (the O6 closure item; the CPU attempt that preceded it was stopped, see the O6 closure checklist)
 - [ ] the O6 closure commit (CLAIMS O187–O193, the two scripts, STATE)
 
 O6–O8 readiness for arms P and N (CPU; checked before those arms start):
