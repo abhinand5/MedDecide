@@ -36,6 +36,7 @@ from meddecide.model.meddecide_model import MedDecideModel  # noqa: E402
 from meddecide.train.config import load_config  # noqa: E402
 from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 from meddecide.train.osler_arm import accuracy_by_source, tier1_items  # noqa: E402
+from meddecide.train.osler_configs import PINNED_BASES  # noqa: E402
 from meddecide.utils.io import write_json  # noqa: E402
 from meddecide.utils.provenance import git_commit, utcnow  # noqa: E402
 
@@ -48,9 +49,13 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--dtype", default="bfloat16")
+    parser.add_argument("--base-model", default=None,
+                        help="a pinned O10 base (e.g. Qwen/Qwen3.5-9B); default: the O6-O8 base (Qwen/Qwen3.5-4B)")
     args = parser.parse_args()
     started = time.time()
     config = load_config(REFERENCE_CONFIG)
+    base_model = args.base_model or config.base_model
+    revision = PINNED_BASES[base_model] if args.base_model else config.revision
     dev_path = REPO / config.dev_path
     dev_items = []
     with dev_path.open(encoding="utf-8") as fh:
@@ -61,8 +66,8 @@ def main() -> None:
     print(f"tier-1 dev items: {len(tier1)} of {len(dev_items)} dev items; sources {dict(Counter(i.source for i in tier1))}",
           flush=True)
     model = MedDecideModel(
-        config.base_model,
-        revision=config.revision,
+        base_model,
+        revision=revision,
         lora=None,
         dtype=args.dtype,
         device=args.device,
@@ -79,8 +84,8 @@ def main() -> None:
         "built_at_utc": utcnow(),
         "git_commit": git_commit(REPO),
         "command": "scripts/osler/o6_tier1_zero_shot.py",
-        "model": config.base_model,
-        "revision": config.revision,
+        "model": base_model,
+        "revision": revision,
         "readout": "letter (zero-shot base, no LoRA)",
         "variant": config.variant,
         "dtype": args.dtype,
@@ -93,7 +98,8 @@ def main() -> None:
     }
     out = REPO / "outputs/osler_v0/O6/tier1_zero_shot"
     out.mkdir(parents=True, exist_ok=True)
-    write_json(out / "tier1_zero_shot.json", record)
+    name = "tier1_zero_shot.json" if base_model == config.base_model else f"tier1_zero_shot_{base_model.split('/')[-1]}.json"
+    write_json(out / name, record)
     print(json.dumps({"accuracy_by_source": {k: round(v, 4) for k, v in per_source.items()}, "items_by_source": counts,
                       "wall_clock_s": record["wall_clock_s"]}), flush=True)
 
