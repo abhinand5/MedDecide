@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-12T15:27:30Z`
+Last updated (UTC): `2026-10-12T17:01:30Z`
 Iterations so far: `4`
 
 ---
@@ -121,7 +121,7 @@ O2 checklist:
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
 - [x] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [x] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
-- Running now (2026-10-12T15:27Z): O10 Osler-9B (head L; r=32) at step ~15,100 of 25,000, worker PID 1239843 (uv wrapper 1239837), started 2026-10-12T06:03:39Z; log `outputs/osler_v0/O10/logs/osler_9b.log`; trainer log `outputs/osler_v0/O10/osler_9b/logs/train.jsonl`; tier-1 log `outputs/osler_v0/O10/osler_9b/logs/tier1.jsonl`. Dev template macro: 2,500 0.8524; 5,000 0.8385; 7,500 0.8344; 10,000 0.8465; 12,500 0.8537 (the best so far); 15,000 0.8530 (CLAIMS O242–O254). Tier-1 at 15,000: medmcqa 0.668, medqa 0.668, still below the zero-shot 9B base (0.720 / 0.700). No tripwire. The O9–O11 chain (PID 1021060) runs Osler-0.8B after the 9B, then the O11 scoring of arms L, P, N and both O10 models, then the gate. Question 21 is still open.
+- Running now (2026-10-12T17:01Z): O10 Osler-9B (head L; r=32) at step ~17,600 of 25,000, worker PID 1239843 (uv wrapper 1239837), started 2026-10-12T06:03:39Z; log `outputs/osler_v0/O10/logs/osler_9b.log`; trainer log `outputs/osler_v0/O10/osler_9b/logs/train.jsonl`; tier-1 log `outputs/osler_v0/O10/osler_9b/logs/tier1.jsonl`. Dev template macro: 2,500 0.8524; 5,000 0.8385; 7,500 0.8344; 10,000 0.8465; 12,500 0.8537; 15,000 0.8530; 17,500 0.8588, the best so far for the 9B (CLAIMS O242–O256). Tier-1 at 17,500: medmcqa 0.680 and medqa 0.676, both still below the zero-shot 9B base (0.720 / 0.700), the gap narrowing (CLAIMS O256). No tripwire. The O9–O11 chain (PID 1021060) runs Osler-0.8B after the 9B, then the O11 scoring of arms L, P, N and both O10 models, then the gate. Question 21 is still open.
 - [x] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
 - [x] zero-shot Qwen3.5-9B (panel + robustness)
 - [x] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
