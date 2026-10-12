@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-12T05:38:50Z`
+Last updated (UTC): `2026-10-12T06:05:30Z`
 Iterations so far: `4`
 
 ---
@@ -31,9 +31,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
 | O6 | Arm L: option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, the final step is the selected checkpoint (template macro 0.8639 on the 6,000 subset); full dev (10,843 items, dev only): accuracy 0.8932, template macro 0.8636, per-letter macro 0.6789, Brier 0.1609; self-audit CLAIMS O190–O193; the zero-shot tier-1 dev reference is still running (see the O6 closure checklist) | 2026-10-10T17:58:36Z | 2026-10-11T05:42:31Z |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8696 on the 6,000 subset, best by 0.0001 over 22,500); full dev (10,843 items, dev only): accuracy 0.8939, template macro 0.8687, per-letter 0.7889, Brier 0.1603; self-audit CLAIMS O215; CLAIMS O211–O216 | 2026-10-11T05:42:31Z | 2026-10-11T17:38:11Z |
-| O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | IN_PROGRESS — started 2026-10-11T17:38:11Z by the O6–O8 chain (chain PID 691022; worker PID 1176219, uv wrapper 1176216); log `outputs/osler_v0/O6/logs/arm_N.log`; trainer log `outputs/osler_v0/O6/arm_N/logs/train.jsonl` | 2026-10-11T17:38:11Z | |
-| O9 | Head choice at 4B (dev rule) | no | O6–O8 | PENDING — automated: `scripts/osler/o9_o11_chain.sh` (PID 1021060, launched 2026-10-11T02:22:14Z) waits for the O6–O8 chain's "ARMS P AND N DONE", then runs O9; log `outputs/osler_v0/O9/logs/chain.log` | | |
-| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | PENDING — the same chain writes the configs from O9's choice (`scripts/osler/o10_write_configs.py`), then trains 9B and 0.8B | | |
+| O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8673 on the 6,000 subset, the best of its evals); full dev (10,843 items, dev only): accuracy 0.8940, template macro 0.8663, per-letter 0.6657, Brier 0.1593; self-audit CLAIMS O239; CLAIMS O235–O240 | 2026-10-11T17:38:11Z | 2026-10-12T06:02:33Z |
+| O9 | Head choice at 4B (dev rule) | no | O6–O8 | DONE — chosen head L (the option-code head, causal): no challenger reaches +0.010 on the dev template macro with a lower bound above 0 (P +0.0051, N +0.0027; CLAIMS O241); run by the O6–O8 → O9–O11 chain, the report is `loops/osler_v0/head_choice.md` | 2026-10-12T06:03:27Z | 2026-10-12T06:03:28Z |
+| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | IN_PROGRESS — the chain wrote the configs from O9's choice (L) and started Osler-9B at 2026-10-12T06:03:39Z (worker PID 1239843, uv wrapper 1239837); log `outputs/osler_v0/O10/logs/osler_9b.log`; trainer log `outputs/osler_v0/O10/osler_9b/logs/train.jsonl`; Osler-0.8B follows in the chain (log `outputs/osler_v0/O10/logs/osler_0p8b.log`) | 2026-10-12T06:03:39Z | |
 | O11 | Evaluation + Gate O1 | yes | O2, O10 | PENDING — the same chain scores arms L, P, N and both O10 models (core scope, deviation 52), then runs the gate; results.md and the generator scope are the agent's, after the chain | | |
 | O12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -121,7 +121,7 @@ O2 checklist:
 - [x] pplx-decider-v1.1-27b (authors' DecisionModel, envs/pplx27b, single order, saved non-causal mode): DONE rc=0 at 16:41:14Z; 59,533 scored, 5 skipped (its own 8,192-token check on items the Qwen count placed under it); sums 1.000; accuracy v0.2 0.861 (n 35,073), panel 0.641 (n 4,353), robustness 0.530 (n 20,107). v0.2 by source: fresh clinicaltrials 0.812, openfda 0.865, pubmed 0.953; tier-1 medqa 0.874, medmcqa 0.747, medquad 0.991 (routing shortcut), mmlu_medical 0.920. Looks high: investigate at metrics (per-template D21 checks and the fresh/tier-1 split); the competitor's training data is not stated on its card, so tier-1 is not clean
 - [x] O2 chain (PID 266074): JEV-27B DONE (END rc=0 at 20:35:09Z); the chain was resumed with SIGCONT at that moment (§7 item 36), clef RUNNING from 20:35:09Z, then md27b → md31b → metrics. Earlier record: JEV-27B (RUNNING from 16:41:14Z; 28,000 rows at 18:16Z; no error in its log at 18:24Z; see §7 item 20) → clef → md27b → md31b → metrics; chain log outputs/osler_v0/O2/logs/chain.log. NOTE: the watch was not re-armed between 13:49 and 18:11 UTC; re-armed at 18:11
 - [x] MedDecider-4B (authors' decide protocol, both orders; vector form checked against decide()) — all three sets
-- Running now (2026-10-12T05:39Z): O8 arm N (non-causal option-code head): training finished at step 25,000 (final eval recorded: template macro 0.8673, the best of all evals for arm N, CLAIMS O235–O236); post-training calibration and full-dev scoring are running (about 25 minutes, as for arms L and P); the chain then prints "ARMS P AND N DONE" and the O9–O11 chain (PID 1021060) runs O9, the O10 configs, the 9B and 0.8B runs, the O11 scoring and the gate. Worker PID 1176219, started 2026-10-11T17:38:11Z; log `outputs/osler_v0/O6/logs/arm_N.log`; trainer log `outputs/osler_v0/O6/arm_N/logs/train.jsonl`. O6 and O7 are DONE. No tripwire in arm N. The zero-shot tier-1 reference (a GPU run of a few minutes) is still pending; see the O6 closure checklist.
+- Running now (2026-10-12T06:05Z): O10 Osler-9B (head L, the option-code head; r=32; pinned base Qwen3.5-9B) at its start, worker PID 1239843 (uv wrapper 1239837), started 2026-10-12T06:03:39Z; log `outputs/osler_v0/O10/logs/osler_9b.log`; trainer log `outputs/osler_v0/O10/osler_9b/logs/train.jsonl`. O6, O7 and O8 are DONE; O9 chose L (CLAIMS O241). The O9–O11 chain (PID 1021060) runs Osler-0.8B next, then the O11 scoring of arms L, P and N and both O10 models, then the gate. The zero-shot tier-1 reference (a GPU run of a few minutes) is still pending; see the O6 closure checklist. Question 21 (the example budget) is still open. No tripwire anywhere.
 - [x] D24 baselines on the v0.2 scope (deviation 43): zero-shot Qwen3.5-4B, zero-shot Qwen3.5-9B and JEV-9B with `--scope all`, queued in outputs/osler_v0/O2/logs/chain2.log after the chain's metrics step; then o2_metrics.py again
 - [x] zero-shot Qwen3.5-9B (panel + robustness)
 - [x] JEV-9B (card decision-head protocol, F7 helpers; panel + robustness)
@@ -212,6 +212,17 @@ O10 preparation (CPU; written and tested before any arm result exists):
 - [x] `tests/test_osler_configs_o10.py` (4 tests): arms P and N differ from L only in output directory and head; a recipe change is listed; the pinned base is enforced; the head must be O9's choice. CPU suite at this commit: 551 passed, 5 skipped
 - [ ] after O9 (head chosen): write `configs/osler_v0/osler_9b.yaml` and `configs/osler_v0/osler_0p8b.yaml` from arm L's config: base and pinned revision, `output_dir: outputs/osler_v0/O10/osler_9b` (and `osler_0p8b`), the chosen head's readout and bidirectional flag, LoRA r=32 at both sizes (the ADVISORY's r=16 at 0.8B applies only if memory or speed requires it; neither is expected, since the 9B's measured peak was 55 GB at O0 without checkpointing and the 4B's was 17.8 GB with it)
 - [ ] after O9: launch the 9B detached (one GPU job; `mkdir -p outputs/osler_v0/O10/logs`; log `outputs/osler_v0/O10/logs/osler_9b.log`), then the 0.8B; close O10 when both have `arm_result.json`
+
+O8 closure checklist (arm N; the arm finished 2026-10-12T06:02:33Z with rc 0; the chain printed "ARMS P AND N DONE" at the same moment):
+- [x] selected checkpoint: step 25,000 (the best of its evals; `arm_result.json`: stopped early: step budget 25000 reached)
+- [x] dev trajectory: ten evals, 2,500 to 25,000 (CLAIMS O217, O219, O221, O223, O225, O227, O229, O231, O233, O235)
+- [x] temperatures: choice 1.2932, noul 1.5619, score 1.5935 (CLAIMS O238)
+- [x] throughput and wall clock: train loop 43,124.1 s, total 44,611.6 s; mean 1.725 s per step with evals (CLAIMS O238)
+- [x] grad-norm tail: p95 14 to 45 in the windows; the largest in the first window (126) at the start of training; no tripwire (CLAIMS O218, O220, O222, O224, O226, O228, O230, O232, O234, O236)
+- [x] tier-1 dev trajectory: medmcqa 0.596 → 0.668 and medqa 0.588 → 0.608 (final), medqa minimum 0.508 at step 10,000 (CLAIMS O240)
+- [x] self-audit (R6): `scripts/osler/o6_dev_audit.py` re-derives the full-dev numbers in a fresh process (all six match); denominators; constant-answer check; twin check (CLAIMS O239)
+- [ ] the zero-shot tier-1 reference (shared with O6; GPU run after the chain's last GPU job; see the O6 closure checklist)
+- [x] the O8 closure commit (CLAIMS O235–O240, with the O9 rows O241)
 
 O7 closure checklist (arm P; the arm finished at 2026-10-11T17:38:11Z with rc 0; the O6–O8 chain started arm N at the same moment):
 - [x] selected checkpoint: step 25,000 (the best of all evals, by 0.0001 over step 22,500; `arm_result.json`: stopped early: step budget 25000 reached)
