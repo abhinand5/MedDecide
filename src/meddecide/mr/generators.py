@@ -233,8 +233,21 @@ def _indicator_facts(key: str, case: IndicatorCase, rng: random.Random, meets: b
     return ChunkFacts(observations=tuple(obs), meds=tuple(meds), meta={"indicator": key, "trap": trap})
 
 
-def mr_indicator_evidence_v1(pid: str) -> list[GeneratedItem]:
-    """Base and twin differ by one trap (or one value across the threshold); labels come from the criteria rule."""
+@dataclass(frozen=True)
+class IndicatorPair:
+    """One indicator decision before rendering: both facts sets in emission order, and the page-level choices."""
+
+    indicator: str
+    trap: str
+    page: str
+    order: tuple[tuple[str, ChunkFacts], ...]    # (role, facts) for the base and the twin, in emission order
+    question: str
+    render_seed: int
+
+
+def indicator_pair(pid: str) -> IndicatorPair:
+    """The draw for one indicator decision (no rendering). ``mr_indicator_evidence_v1`` renders it; the teacher variant
+    writes prose from the same facts, so both see the same decision and the same gold."""
     for attempt in range(MAX_TRIES):
         rng = rng_for("mr_indicator_evidence_v1", pid, str(attempt))
         key = rng.choice(sorted(CASES))
@@ -258,14 +271,21 @@ def mr_indicator_evidence_v1(pid: str) -> list[GeneratedItem]:
             f"For clinical validation of {ind.condition}: does this page document {ind.description} during the current "
             f"admission?",
         ))
-        out = []
-        for role, facts in order:
-            state = _render(case.page, facts, random.Random(render_seed))
-            gold = "yes" if criteria.supports(key, facts) else "no"
-            out.append(make_item("mr_indicator_evidence_v1", "MR_indicator_evidence", pid, role, "noul", state,
-                                 question, YN, gold, {"indicator": key, "trap": trap, "page": case.page}))
-        return out
+        return IndicatorPair(indicator=key, trap=trap, page=case.page, order=tuple(order), question=question,
+                             render_seed=render_seed)
     raise RuntimeError(f"mr_indicator_evidence_v1/{pid}: no flipping twin in {MAX_TRIES} tries")
+
+
+def mr_indicator_evidence_v1(pid: str) -> list[GeneratedItem]:
+    """Base and twin differ by one trap (or one value across the threshold); labels come from the criteria rule."""
+    pair = indicator_pair(pid)
+    out = []
+    for role, facts in pair.order:
+        state = _render(pair.page, facts, random.Random(pair.render_seed))
+        gold = "yes" if criteria.supports(pair.indicator, facts) else "no"
+        out.append(make_item("mr_indicator_evidence_v1", "MR_indicator_evidence", pid, role, "noul", state,
+                             pair.question, YN, gold, {"indicator": pair.indicator, "trap": pair.trap, "page": pair.page}))
+    return out
 
 
 # ---- page category ------------------------------------------------------------------------------

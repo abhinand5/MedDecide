@@ -13,6 +13,8 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import torch
+
 from meddecide.bench.schema import Item
 from meddecide.model.meddecide_model import MedDecideModel
 from meddecide.train.config import StudentConfig
@@ -50,6 +52,9 @@ def run_arm(
     out = Path(out_dir)
     (out / "logs").mkdir(parents=True, exist_ok=True)
     started = time.time()
+    # seed the initialisation (the LoRA A matrices and the head) so matched arms start from the same weights; the data
+    # order is already seeded by the trainer. Before osler_v1 this was not done, so runs differed at initialisation (R7)
+    torch.manual_seed(config.seed)
     model = MedDecideModel(
         base_model or config.base_model,
         revision=revision if revision is not None else config.revision,

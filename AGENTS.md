@@ -29,7 +29,7 @@
 - **Outputs:** `outputs/osler_v1/<task-id>/` (gitignored)
 - **Claims:** `loops/osler_v1/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `<fill in at V0>`
+- **Started:** `2026-10-13T21:32:02Z`
 
 ---
 
