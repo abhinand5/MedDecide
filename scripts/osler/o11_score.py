@@ -18,11 +18,12 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
 from meddecide.eval.o2_io import Scope, completed_ids, iter_items, open_predictions, write_row
-from meddecide.eval.osler_scoring import o2_row_to_item, score_rows
+from meddecide.eval.osler_scoring import dev_temperatures, o2_row_to_item, score_rows
 from meddecide.model.meddecide_model import MedDecideModel
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -62,7 +63,10 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="score only the first N remaining rows (0 = all)")
     parser.add_argument("--items", type=Path, default=ITEMS, help=argparse.SUPPRESS)  # tests and smoke runs only
     parser.add_argument("--out-root", type=Path, default=OUT, help=argparse.SUPPRESS)
+    parser.add_argument("--temperatures", type=Path, default=None,
+                        help="an arm_result.json whose dev temperature fits calibrate every pass (omitted: uncalibrated)")
     args = parser.parse_args()
+    temperatures = dev_temperatures(json.loads(args.temperatures.read_text(encoding="utf-8"))) if args.temperatures else None
     started = time.time()
 
     out_dir = args.out_root / args.name
@@ -85,7 +89,7 @@ def main() -> None:
             chunk = remaining[start : start + args.rows_per_call]
             both, single = score_rows(model, chunk, rows_per_call=len(chunk), batch_size=args.batch_size,
                                       max_batch_tokens=MAX_BATCH_TOKENS, max_prompt_tokens=MAX_PROMPT_TOKENS,
-                                      round_to_chunk=True)
+                                      round_to_chunk=True, temperatures=temperatures)
             for row in both:
                 write_row(both_fh, row)
             for row in single:
@@ -99,6 +103,8 @@ def main() -> None:
         "git_commit": git_commit(REPO),
         "command": f"scripts/osler/o11_score.py --checkpoint {args.checkpoint} --name {args.name}",
         "checkpoint": str(args.checkpoint),
+        "calibration": ("dev per-question-type temperatures (" + str(args.temperatures) + ")") if temperatures else "none (uncalibrated)",
+        "temperatures": temperatures,
         "items_file": str(args.items),
         "scope": list(SCOPE.benchmarks),
         "items_in_scope": len(in_scope),

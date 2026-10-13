@@ -3,9 +3,12 @@
 The held-out items are O2-format rows written by o11_heldout_items.py (data/gen/osler_v0/o11_heldout_test.jsonl). They are scored
 as o11_score.py scores the O2 common set (both option orders averaged for choice items, and the single order), and written to
 their own directory, because heldout.md rule 3 keeps held-out results apart from the seen results:
-    outputs/osler_v0/O11/heldout/<name>/both_orders.jsonl    both-order averages for choice items
-    outputs/osler_v0/O11/heldout/<name>/single_order.jsonl   the original order only
-    outputs/osler_v0/O11/heldout/<name>/run.json             provenance and counts
+    outputs/osler_v0/O11/calibrated/heldout/<name>/both_orders.jsonl    both-order averages for choice items (calibrated)
+    outputs/osler_v0/O11/calibrated/heldout/<name>/single_order.jsonl   the original order only (calibrated)
+    outputs/osler_v0/O11/calibrated/heldout/<name>/run.json             provenance and counts
+
+Every pass is calibrated with the arm's own dev temperatures (--temperatures, an arm_result.json), as the model's predict does:
+the saved checkpoints do not carry the fits (deviation 59). The uncalibrated held-out scoring was never run.
 Resumable, and one GPU job at a time: launch detached, with logs under outputs/osler_v0/O11/logs/.
 
 Usage:
@@ -17,18 +20,19 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
 from meddecide.eval.o2_io import Scope, completed_ids, iter_items, open_predictions, write_row
-from meddecide.eval.osler_scoring import o2_row_to_item, score_rows
+from meddecide.eval.osler_scoring import dev_temperatures, o2_row_to_item, score_rows
 from meddecide.model.meddecide_model import MedDecideModel
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 ITEMS = REPO / "data/gen/osler_v0/o11_heldout_test.jsonl"
-OUT = REPO / "outputs/osler_v0/O11/heldout"
+OUT = REPO / "outputs/osler_v0/O11/calibrated/heldout"
 SCOPE = Scope("heldout", ("osler_v0_heldout",))  # the benchmark name that o11_heldout_items.py writes
 MAX_BATCH_TOKENS = 8192
 MAX_PROMPT_TOKENS = 16384
@@ -42,7 +46,10 @@ def main() -> None:
     parser.add_argument("--dtype", default="bfloat16", help="the arm's training dtype (ADVISORY O6-O8: bf16)")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--rows-per-call", type=int, default=512)
+    parser.add_argument("--temperatures", type=Path, required=True,
+                        help="the arm_result.json whose dev temperature fits calibrate every pass")
     args = parser.parse_args()
+    temperatures = dev_temperatures(json.loads(args.temperatures.read_text(encoding="utf-8")))
     started = time.time()
 
     out_dir = OUT / args.name
@@ -67,7 +74,7 @@ def main() -> None:
             chunk = remaining[start : start + args.rows_per_call]
             both, single = score_rows(model, chunk, rows_per_call=len(chunk), batch_size=args.batch_size,
                                       max_batch_tokens=MAX_BATCH_TOKENS, max_prompt_tokens=MAX_PROMPT_TOKENS,
-                                      round_to_chunk=True)
+                                      round_to_chunk=True, temperatures=temperatures)
             for row in both:
                 write_row(both_fh, row)
             for row in single:
@@ -81,6 +88,8 @@ def main() -> None:
         "git_commit": git_commit(REPO),
         "command": f"scripts/osler/o11_heldout_score.py --checkpoint {args.checkpoint} --name {args.name}",
         "checkpoint": str(args.checkpoint),
+        "calibration": f"dev per-question-type temperatures ({args.temperatures})",
+        "temperatures": temperatures,
         "items_file": str(ITEMS.relative_to(REPO)),
         "scope": list(SCOPE.benchmarks),
         "items_in_scope": len(in_scope),

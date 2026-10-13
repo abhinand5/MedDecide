@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from meddecide.eval.osler_scoring import score_rows
+from meddecide.eval.osler_scoring import dev_temperatures, score_rows
 
 
 def _choice_row(item_id: str = "a1b2c3d4e5f60718") -> dict:
@@ -87,3 +87,57 @@ def test_a_reversed_noul_row_is_scored_in_its_own_order_with_its_probabilities_a
     assert both[0]["option_keys"] == single[0]["option_keys"] == ["no", "yes"]
     assert both[0]["probs"] == single[0]["probs"] == pytest.approx([0.1, 0.9])  # p(yes) = 0.9, shown second
     assert both[0]["gold"] == "yes" and both[0]["extras"]["orders"] == 1
+
+
+def _scored(items, logits) -> SimpleNamespace:
+    """A ScoredItems-like stub: probabilities are the softmax of the logits, and the question types are the items'."""
+    probs = []
+    for z in logits:
+        e = np.exp(z - z.max())
+        probs.append(e / e.sum())
+    n = len(items)
+    return SimpleNamespace(probs=probs, logits=logits, qtypes=[str(item.qtype) for item in items], latency_s=[0.01] * n,
+                           prompt_tokens=[7] * n)
+
+
+class _LogitScorer:
+    """A stub model whose logits are log(1), log(2), ... over the display positions (three options: 1/6, 2/6, 3/6). Its
+    apply_temperature divides the logits by the question type's temperature, as the model's does."""
+
+    def score_items(self, items, **_kwargs):
+        return _scored(items, [np.log(np.arange(1, item.n_options + 1, dtype=np.float64)) for item in items])
+
+    def apply_temperature(self, scored, temperature=None):
+        temps = dict(temperature or {})
+        logits = [z / float(temps[q]) for z, q in zip(scored.logits, scored.qtypes, strict=True)]
+        probs = []
+        for z in logits:
+            e = np.exp(z - z.max())
+            probs.append(e / e.sum())
+        return SimpleNamespace(probs=probs, logits=logits, qtypes=scored.qtypes, latency_s=scored.latency_s,
+                               prompt_tokens=scored.prompt_tokens)
+
+
+def test_the_dev_temperatures_are_read_from_the_arm_result_fits() -> None:
+    arm = {"temperature_fits": {"choice": {"temperature": 1.16}, "noul": {"temperature": 1.51},
+                                "score": {"temperature": 1.68}}}
+    assert dev_temperatures(arm) == pytest.approx({"choice": 1.16, "noul": 1.51, "score": 1.68})
+    with pytest.raises(ValueError, match="no temperature_fits"):
+        dev_temperatures({})
+
+
+def test_calibrated_orders_are_averaged_after_each_order_is_calibrated() -> None:
+    # three options (gold B), temperature 2 for choice: each pass is calibrated before the two orders are averaged, so the
+    # average is not the uniform distribution that the uncalibrated orders average to
+    temperatures = {"choice": 2.0, "noul": 1.0, "score": 1.0}
+    both, single = score_rows(_LogitScorer(), [_choice_row()], rows_per_call=8, temperatures=temperatures)
+    z = np.log(np.array([1.0, 2.0, 3.0])) / 2.0
+    p = np.exp(z) / np.exp(z).sum()
+    assert single[0]["probs"] == pytest.approx(p)  # the original order, calibrated
+    assert both[0]["probs"] == pytest.approx((p + p[::-1]) / 2.0)  # the reversed order mapped back, then averaged
+    assert not np.allclose(both[0]["probs"], 1.0 / 3.0)
+
+
+def test_a_question_type_without_a_temperature_is_refused() -> None:
+    with pytest.raises(ValueError, match="no dev temperature for question types"):
+        score_rows(_LogitScorer(), [_choice_row()], rows_per_call=8, temperatures={"noul": 1.5})

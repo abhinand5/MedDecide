@@ -83,26 +83,57 @@ def reversed_order(item: Item) -> Item | None:
     return reorder_options(item, list(range(item.n_options))[::-1])
 
 
+def dev_temperatures(arm_result: Mapping[str, Any]) -> dict[str, float]:
+    """The dev per-question-type temperatures in an arm's ``arm_result.json`` (its ``temperature_fits``).
+
+    The fitted temperatures are not written into the saved checkpoint, whose calibration is empty, so the calibrated scoring
+    applies them from this record (the same fits the arm's own end-of-run path fitted). Refuses a record without fits.
+    """
+    fits = arm_result.get("temperature_fits")
+    if not fits:
+        raise ValueError("the arm result has no temperature_fits; calibrated scoring needs the dev fits")
+    return {str(qtype): float(fit["temperature"]) for qtype, fit in fits.items()}
+
+
+def _score_pass(scorer: Any, items: Sequence[Item], temperatures: Mapping[str, float] | None,
+                score_kwargs: Mapping[str, Any]) -> Any:
+    """One scoring pass, calibrated with the model's own ``apply_temperature`` when temperatures are given.
+
+    A question type without a temperature raises, so no item is calibrated silently with the default of one.
+    """
+    scored = scorer.score_items(items, **score_kwargs)
+    if temperatures is None:
+        return scored
+    missing = sorted({str(q) for q in scored.qtypes} - set(temperatures))
+    if missing:
+        raise ValueError(f"no dev temperature for question types {missing}")
+    return scorer.apply_temperature(scored, temperature=dict(temperatures))
+
+
 def score_rows(scorer: Any, rows: Sequence[Mapping[str, Any]], *, rows_per_call: int,
-               **score_kwargs: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+               temperatures: Mapping[str, float] | None = None, **score_kwargs: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Score common-set rows in their original order and, for choice items, in the reversed order.
 
     ``scorer`` is anything with ``score_items(items, **kwargs)`` returning per-item ``probs`` (a MedDecideModel); the keyword
     arguments (for example ``batch_size``) go to it unchanged. ``rows_per_call`` is how many rows each call receives. Returns two
     lists of O2-format prediction rows, aligned one to one with ``rows``: the both-order averages (``orders`` 2 for choice
     items, 1 otherwise) and the single-order rows (the original order only, ``orders`` 1).
+
+    ``temperatures`` (per question type, from the arm's dev fits; see :func:`dev_temperatures`) calibrates every pass with the
+    model's ``apply_temperature`` before the two orders are averaged, which is how the model's own ``predict`` calibrates. Without
+    it the probabilities are the uncalibrated softmax (the earlier O11 outputs, which deviation 59 supersedes for the gate).
     """
     both: list[dict[str, Any]] = []
     single: list[dict[str, Any]] = []
     for start in range(0, len(rows), rows_per_call):
         chunk_rows = rows[start : start + rows_per_call]
         chunk = [o2_row_to_item(r) for r in chunk_rows]
-        scored = scorer.score_items(chunk, **score_kwargs)
+        scored = _score_pass(scorer, chunk, temperatures, score_kwargs)
         reversed_items = [reversed_order(it) for it in chunk]
         reversed_pairs = [(i, rev) for i, rev in enumerate(reversed_items) if rev is not None]
         reversed_probs: dict[int, np.ndarray] = {}
         if reversed_pairs:
-            scored_reversed = scorer.score_items([rev for _, rev in reversed_pairs], **score_kwargs)
+            scored_reversed = _score_pass(scorer, [rev for _, rev in reversed_pairs], temperatures, score_kwargs)
             reversed_probs = {i: np.asarray(scored_reversed.probs[j], dtype=np.float64)
                               for j, (i, _) in enumerate(reversed_pairs)}
         for i, row in enumerate(chunk_rows):

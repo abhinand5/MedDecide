@@ -89,8 +89,10 @@ def template_checks(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", required=True, help="the O11 output directory name, e.g. osler_4b_L")
+    parser.add_argument("--out-root", type=Path, default=OUT,
+                        help="the directory that holds the output directories (default outputs/osler_v0/O11)")
     args = parser.parse_args()
-    run_dir = OUT / args.name
+    run_dir = args.out_root / args.name
     expected = {row["item_id"] for row in iter_items(ITEMS, SCOPE)}
     both = list(iter_jsonl(run_dir / "both_orders.jsonl"))
     single = list(iter_jsonl(run_dir / "single_order.jsonl"))

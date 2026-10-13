@@ -1,9 +1,9 @@
 """O11: the Osler models on the held-out generators' test items, as their own table (CPU; reads the scored predictions).
 
 heldout.md rule 3: held-out results are reported in their own row and never pooled with the seen generators. This script reads the
-held-out predictions that o11_heldout_score.py wrote (outputs/osler_v0/O11/heldout/<name>/both_orders.jsonl, and single_order.jsonl
-beside them) and writes:
-    outputs/osler_v0/O11/heldout/report.json      the numbers the CLAIMS rows cite (gitignored)
+calibrated held-out predictions that o11_heldout_score.py wrote (outputs/osler_v0/O11/calibrated/heldout/<name>/both_orders.jsonl,
+and single_order.jsonl beside them) and writes:
+    outputs/osler_v0/O11/calibrated/heldout/report.json      the numbers the CLAIMS rows cite (gitignored)
     loops/osler_v0/heldout_generators.md          the table (committed; aggregates only)
 The four D24 baselines were not scored on these items, so the comparisons against them are NOT MEASURED and are not computed here.
 The paired differences between Osler models are additional, never in a verdict. Every model must have all 600 rows; a missing or
@@ -27,7 +27,7 @@ from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "outputs/osler_v0/O11/heldout"
+OUT = REPO / "outputs/osler_v0/O11/calibrated/heldout"
 REPORT_MD = REPO / "loops/osler_v0/heldout_generators.md"
 MODELS = ("osler_4b_L", "osler_4b_P", "osler_4b_N", "osler_9b", "osler_0p8b")
 PAIRS = (("osler_4b_P", "osler_4b_L"), ("osler_4b_N", "osler_4b_L"), ("osler_9b", "osler_4b_L"))
