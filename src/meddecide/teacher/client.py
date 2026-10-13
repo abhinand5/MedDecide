@@ -11,6 +11,7 @@ and are never written to disk or logged.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,15 +29,25 @@ class TeacherClient:
     base_url: str = ""
     api_key: str = ""
     timeout_s: float = DEFAULT_TIMEOUT_S
+    model: str = ""
+    # True only for a teacher on an operator-controlled machine; credentialed data (MIMIC) may go only to a local teacher
+    local: bool = False
+    extra_headers: dict[str, str] = field(default_factory=dict)
     _client: httpx.Client | None = field(default=None, repr=False)
 
     @classmethod
     def from_env(cls, *, timeout_s: float = DEFAULT_TIMEOUT_S) -> TeacherClient:
-        """Build a client from ``TEACHER_BASE_URL`` / ``TEACHER_API_KEY``."""
+        """Build a client from ``TEACHER_BASE_URL`` / ``TEACHER_API_KEY``, plus ``TEACHER_MODEL``, ``TEACHER_LOCAL``
+        ("1" for an operator-hosted endpoint) and ``TEACHER_EXTRA_HEADERS`` (a JSON object, e.g. the
+        ``x-opencode-session`` header a hosted gateway asks for; never a secret)."""
+        extra = os.environ.get("TEACHER_EXTRA_HEADERS", "")
         return cls(
             base_url=os.environ.get("TEACHER_BASE_URL", "").rstrip("/"),
             api_key=os.environ.get("TEACHER_API_KEY", ""),
             timeout_s=timeout_s,
+            model=os.environ.get("TEACHER_MODEL", ""),
+            local=os.environ.get("TEACHER_LOCAL", "") == "1",
+            extra_headers=dict(json.loads(extra)) if extra else {},
         )
 
     # ---- plumbing ------------------------------------------------------------
@@ -46,7 +57,7 @@ class TeacherClient:
         return bool(self.base_url)
 
     def _headers(self) -> dict[str, str]:
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", **self.extra_headers}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
@@ -77,6 +88,15 @@ class TeacherClient:
 
     def post(self, path: str, payload: dict[str, Any], **kwargs: Any) -> httpx.Response:
         return self.client().post(self._url(path), json=payload, **kwargs)
+
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.7, max_tokens: int = 1024) -> str:
+        """One ``/chat/completions`` call; returns the assistant text (raises on an HTTP error)."""
+        if not self.model:
+            raise RuntimeError("TEACHER_MODEL is not set")
+        response = self.post("chat/completions", {"model": self.model, "messages": messages,
+                                                  "temperature": temperature, "max_tokens": max_tokens})
+        response.raise_for_status()
+        return str(response.json()["choices"][0]["message"]["content"] or "")
 
     # ---- endpoint checks -----------------------------------------------------
     def list_models(self) -> dict[str, Any]:

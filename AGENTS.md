@@ -17,15 +17,18 @@
 
 ## Current loop
 
-- **Loop:** `osler_v0` (loop 1c — competitor scoreboard, clinical generators, Osler-4B / -9B)
-- **Mission:** measure every open competitor through its authors' code on v0.2, a new external clinical panel and a robustness pack; build gold-by-construction clinical generators (D20); train three matched Osler-4B arms (option-code head, pointer, non-causal; D23), choose a head by a pre-registered dev rule, train Osler-9B and an Osler-0.8B reference; apply Gate O1 (D24) — then hard-stop for review.
-- **Branch:** `loop/osler_v0` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v0/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v0/STATE.md`
-- **Outputs:** `outputs/osler_v0/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v0/CLAIMS.md`
+- **Loop:** `osler_v1` (loop 1d — medical-record audit data, MIMIC, teacher prose)
+- **Mission:** build medical-record audit decisions (page category, ICD-10-CM code support, clinical-indicator evidence;
+  D29) from code-generated records, real MIMIC notes (D28) and verified teacher prose (D27, D30); raise replay to 20 %;
+  measure a faster batching recipe; compare data blocks with short matched 4B runs and a pre-registered dev keep-rule;
+  train Osler-4B and Osler-9B on the kept mix; apply Gate O2 (D31) — then hard-stop for review.
+- **Branch:** `loop/osler_v1` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v1/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/osler_v1/STATE.md`
+- **Outputs:** `outputs/osler_v1/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v1/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-09T06:23:41Z`
+- **Started:** `<fill in at V0>`
 
 ---
 
@@ -63,13 +66,13 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 - **Model ladder (D22):** Osler-4B on `Qwen/Qwen3.5-4B` and Osler-9B on `Qwen/Qwen3.5-9B`
   are the targets; Osler-0.8B on `Qwen/Qwen3.5-0.8B` is a reference trained with the same
   recipe. The MedGemma bake-off and LFM2.5-350M are dropped from training.
-- **Architecture (D23):** frozen base + decision-path LoRA + a separate option-code readout
+- **Architecture (D23, D26):** frozen base + decision-path LoRA + a separate option-code readout
   (rows initialised from `lm_head`, softmax over the offered codes, exportable to a plain
-  `lm_head`). Pointer head and non-causal full attention are matched ablations;
-  the head is chosen by the loop's pre-registered dev rule. Adaptive thinking remains a later
+  `lm_head`). osler_v0's dev rule kept it over the pointer and non-causal arms; from osler_v1 the
+  architecture is frozen and loops compare data blocks. Adaptive thinking remains a later
   ablation.
-- **Teacher:** `deepseek-ai/DeepSeek-V4.1-Flash`, self-hosted by the operator on
-  4×RTX PRO 6000 when a task needs it.
+- **Teacher (D30):** `deepseek-ai/DeepSeek-V4.1-Flash`. A hosted endpoint (zero data retention) may
+  write prose from code-generated facts; anything that reads MIMIC uses a self-hosted teacher.
 - **Benchmark:** two tiers. Tier 1 = established public test sets (+ contamination
   probe). Tier 2 = **fresh** items from records dated after the ladder models' dates
   (window start 2026-03-01, D11; strict slice ≥ 2026-09-10 reported separately), with
@@ -78,14 +81,15 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   its (model, template) cell passes the gate; failing cells read `READOUT_FAIL — <check>`.
   Trained readouts that normalise over the offered options use the D21 variant (label mass
   is a diagnostic, not a gate).
-- **Training data (D13, D17, D20):** official train splits, **pre-window** structured-gold items
+- **Training data (D13, D17, D20, D27, D28):** official train splits, **pre-window** structured-gold items
   (records dated before 2026-03-01), vetted catalog datasets with human or structured
-  labels and a permissive licence, gold-by-construction generated decisions (code writes the
-  text and computes the label), and general human-labelled replay. Never test splits, never
-  LLM-written text or LLM-labelled gold, never an external-panel dataset.
+  labels and a permissive licence, gold-by-construction generated decisions (code computes the
+  label), MIMIC notes with structured labels (patient splits), teacher prose written from code-built
+  facts and kept only when re-extraction returns the same facts, and general human-labelled replay.
+  Never test splits, never teacher-written labels or judgements, never an external-panel dataset.
 - **Held-out templates (D14):** some fresh templates are excluded from training entirely
   and reported separately; the list is fixed per loop in its ADVISORY.
-- **Gates G1 (D16) and O1 (D24):** defined in `docs/plans/PROGRAM.md`; never changed after
+- **Gates G1 (D16), O1 (D24) and O2 (D31):** defined in `docs/plans/PROGRAM.md`; never changed after
   results. Each names its baselines exactly — an ablation, a sibling arm or any other model is
   never part of a verdict.
 - **Release policy:** model weights, benchmark (public-source items only), and code are
@@ -98,9 +102,10 @@ These were decided by the operator. If evidence contradicts one, record it in ST
   configs, manifests (IDs, hashes, counts), and aggregate results only.
 - **UMLS / SNOMED / RxNorm-restricted strings** are private-only. They never go to a
   hosted third-party API — only to self-hosted models.
-- **MIMIC and other PhysioNet credentialed data** may only be processed on
+- **MIMIC and other PhysioNet credentialed data** (D28) may only be processed on
   operator-controlled machines by local models; never sent to a hosted third-party
-  API; never printed into anything committed. (Not used before the clinical loop.)
+  API (including the hosted teacher); never printed into anything committed. It is a training and
+  evaluation source from osler_v1; a memorisation audit precedes any release.
 - **Test splits are evaluation-only.** Never fit temperatures, thresholds, prompts, or
   templates on a test split. Dev/train splits only.
 - **No silent drops.** Every filter returns counts and reasons.
@@ -208,6 +213,7 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
+| `osler_v0` | Scoreboard of 11 models on a 59,538-item common set (v0.2, a 4,353-item external clinical panel, a 20,109-item robustness pack); nine clinical generators (two held out); three matched 4B arms within half a point (dev rule kept the option-code head); Osler-9B and -0.8B. **Gate O1 FAIL** for both sizes: they beat every baseline on fresh seen templates (+9 to +13 pts) and robustness, but lose the external panel to MedDecider (4B −5.3, 9B −1.7) and the 4B fails the knowledge guard (−1.6). Calibration temperatures were not saved with checkpoints (fixed in osler_v1). | `loops/osler_v0/FINDINGS.md` |
 | `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
 | `bench_v0_fix0` | Repaired loop 0: MedMCQA key fixed (0 gold mismatches of 15,915 verified), `noul`/`score` readout fixed (label mass 0.996+), D12 readout-health gate added, benchmark rebuilt as v0.1 (22,594 tier-1 + 23,582 balanced fresh items, window 2026-03-01), all 6 ladder models + JEV-9B + 2 Laya models measured, all 53 bench_v0 claims dispositioned (4 withdrawn). Teacher gate still blocked; audit staged. Advisor note: its Summary item 7 ("~0.50 on every fresh `noul`") holds only for the 350M model. | `loops/bench_v0_fix0/FINDINGS.md` |
 | `student_v1` | Three matched heads on Qwen3.5-0.8B (pointer, letter-readout LoRA, Unsloth joint head; 15k steps, 482,889 rows, 24 templates) finished within 0.6 pts overall (A 0.7591, C 0.7545, B 0.7528). All pass G1 on seen fresh templates; held-out: A and C FAIL, B NOT MEASURED (D12 label-mass failure on 8/11 fresh templates — mass on non-offered letters). Held-out skill falls with training; decision-path MedQA/MedMCQA fell to about the majority rate. | `loops/student_v1/FINDINGS.md` |

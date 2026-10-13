@@ -87,6 +87,12 @@ re-measured on MedDecide-Bench.
 | D23 | **Default readout: option-code readout with a separate head** (pplx-style): a `[K, d]` readout matrix (K ≤ 255 option codes), rows initialised from the base `lm_head` rows of the code tokens, trained with the decision-path LoRA, softmax over the valid codes of the current question, temperature per question type applied once. It exports to a plain `lm_head` (row i → token id i) so standard serving stacks reproduce it. The base stays frozen; the LoRA is applied on the decision path only. Pointer head and non-causal full attention are matched ablations at 4B | 2026-10-09 | operator + advisor review: student_v1's heads were within 0.6 pts at 0.8B; the letter readout starts from a readout the base already has and ships through standard stacks; the separate head removes the off-option mass that failed D12 |
 | D24 | **Gate O1** (osler_v0): for Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B} and Osler-9B vs {MedDecider-9B, JEV-9B}: item-paired bootstrap 95 % CI (1,000 resamples, items within datasets/templates) of Osler − B in macro accuracy and in mean Brier. PASS iff accuracy CI lower bound > 0 **and** Brier CI upper bound < 0 against **both** baselines on **(i)** the headline fresh set, seen templates (as D16) **and (ii)** the external clinical panel; plus a **knowledge guard**: on MedQA + MedMCQA, the accuracy CI lower bound of Osler − zero-shot same-size base > −0.02. Held-out templates, held-out generators and the robustness pack are reported with the same rule, separately. Other models (27B/31B decision models, sibling arms) are reported as additional, never in the verdict | 2026-10-09 | fixed before results; extends D16 to the sizes and competitors the program now targets |
 | D25 | From `osler_v0` the loop agent is Claude Haiku 5.5 (`claude-haiku-5-5`) running in Claude Code on the 1×PRO 6000 pod; the advisor (plans, reviews at hard stops) is Claude Opus. Supersedes D5 for the agent | 2026-10-09 | operator decision |
+| D26 | **Data first; architecture frozen.** After osler_v0 the readout stays the option-code head (D23; the dev rule kept L) and no further head or attention ablations run until the data work is done. Loops compare **data blocks** with short, matched 4B runs and keep a block only by a pre-registered dev rule; the 9B is trained once per loop, at the end | 2026-10-13 | osler_v0: three heads within 0.5 pt; every gate failure (external panel, held-out templates, knowledge) traced to data; the arms cost 35 GPU-hours |
+| D27 | **Training text may be written by the teacher; labels never are.** Amends D13/D20: a training item's label is computed by code from structured facts or taken from a structured source field, as before; its text may come from (a) real records (MIMIC, D28), (b) code rendering of real or simulated values, or (c) teacher prose written from the code's facts and **kept only if a second teacher call extracts the same facts back** (`meddecide.mr.teacher_prose`). Teacher-written labels, teacher option distributions and teacher judgements of correctness remain excluded | 2026-10-13 | operator decision; osler_v0's code-templated text did not transfer (external panel loss, held-out templates answered with one option) |
+| D28 | **MIMIC enters training.** MIMIC-III, MIMIC-IV, MIMIC-IV-Note and MIMIC-IV-ED (operator credentialed) are training and evaluation sources for the public model. Processing is local only: MIMIC text or values never go to a hosted service (the hosted teacher receives code-generated facts only; `teacher_prose` refuses credentialed sources unless the teacher is local). Splits are by patient; MIMIC-IV evaluation uses patients with `anchor_year_group` from 2014 (no overlap with MIMIC-III's years). MDACE is evaluation-only. A memorisation / PHI-leak audit precedes any release. Supersedes "MIMIC not before the clinical loop" | 2026-10-13 | operator decision; precedent: BioClinical-ModernBERT (MIMIC-III + MIMIC-IV-Note, MIT, ungated); PhysioNet's responsible-use note concerns hosted APIs, not weights |
+| D29 | **Target domain: medical-record audit and payment-integrity decisions**, alongside general clinical decisions. First task families: record page category (eleven classes + other; vitals pages are flowsheets), ICD-10-CM code support (which code the documentation supports, by the Official Guidelines), clinical-indicator evidence (published thresholds for sepsis, acute respiratory failure, AKI, hyponatraemia). Claim edits (NCCI/MUE), DRG validation and coverage criteria follow in a later loop. CPT descriptors (AMA) and InterQual/MCG criteria are never used | 2026-10-13 | operator decision (the open-source audience of payment-integrity vendors) |
+| D30 | **Teacher service.** The teacher (DeepSeek-V4.1-Flash) may be a hosted endpoint (OpenCode Go or the DeepSeek API, zero data retention) for prose from code-generated facts; anything that reads MIMIC text uses a self-hosted teacher. Credentials only from environment variables (`TEACHER_BASE_URL`, `TEACHER_API_KEY`, `TEACHER_MODEL`, `TEACHER_LOCAL`, `TEACHER_EXTRA_HEADERS`) | 2026-10-13 | operator decision |
+| D31 | **Gate O2** (osler_v1), fixed before results: Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B}, Osler-9B vs {MedDecider-9B, JEV-9B}; item-paired bootstrap 95 % CI (1,000 resamples, within templates) of Osler − B, accuracy = template macro (G1), Brier = item mean. PASS iff **(i) MR audit suite** (the osler_v1 MR test sets, generated and MIMIC parts pooled by template): accuracy lower bound > 0 and Brier upper bound < 0 against both baselines; **(ii) external clinical panel** (osler_v0's): accuracy lower bound > −0.02 against both baselines (non-inferiority; superiority reported separately); **(iii) knowledge guard** as D24. Additional rows (d1-3B, siblings, larger models) never enter a verdict | 2026-10-13 | the loop's question is record-audit skill without losing general clinical skill; the panel moves from superiority to non-inferiority because this loop adds no broad-clinical data (operator to confirm before V9 runs) |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -165,7 +171,7 @@ step 1,000 of 44,152.
   held-out → data diversity / teacher next; arms indistinguishable → keep the simplest.
 - Spec: `loops/student_v1/ADVISORY.md`.
 
-### Loop 1c — `osler_v0`: competitor scoreboard, clinical generators, Osler-4B / -9B  *(current)*
+### Loop 1c — `osler_v0`: competitor scoreboard, clinical generators, Osler-4B / -9B  *(done — see `loops/osler_v0/FINDINGS.md`)*
 
 Inserted after the student_v1 review (D20–D24). Loops 2–4 below are re-planned after its
 review; loop 3's 27B-class baseline runs move here because they fit on one PRO 6000.
@@ -179,6 +185,19 @@ review; loop 3's 27B-class baseline runs move here because they fit on one PRO 6
   Osler-0.8B reference with the chosen head.
 - **Gate O1 (D24).**
 - Spec: `loops/osler_v0/ADVISORY.md`.
+
+### Loop 1d — `osler_v1`: medical-record audit data, MIMIC, teacher prose  *(current)*
+
+Inserted after the osler_v0 review (D26–D31). Data first: no architecture work.
+- **New task families (D29):** page category, ICD-10-CM code support, clinical-indicator evidence — generated by
+  code (labels from rules), from real MIMIC notes with structured labels (D28), and as teacher prose verified by
+  re-extraction (D27, D30).
+- **Knowledge fix:** general replay raised from 3.5 % to the 20 % the osler_v0 ADVISORY set.
+- **Training speed:** larger token batches without gradient checkpointing where memory allows; calibration saved with
+  the checkpoint.
+- **Data blocks** compared by short matched 4B runs and a pre-registered dev keep-rule; then one Osler-4B and one
+  Osler-9B on the kept mix; **Gate O2 (D31)**.
+- Spec: `loops/osler_v1/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat
 
@@ -282,7 +301,7 @@ every headline comparison.
 | loop 1 | `cais/hle` terms accepted on the HF account behind `HF_TOKEN` (for the HLE supplementary test); the 150-item audit file at `outputs/bench_v0_fix0/F10/audit_v0.jsonl` |
 | loop 2 | 4×PRO 6000 teacher window (days); UMLS files available on the pod (`data/private/umls/`) |
 | loop 3 | 4×PRO 6000 window for 27B baselines |
-| loop 4 | MIMIC-IV access: CITI "Data or Specimens Only Research" training uploaded at physionet.org/settings/training/, DUA signed per dataset |
+| loop 1d | MIMIC-III, MIMIC-IV, MIMIC-IV-Note, MIMIC-IV-ED under `data/physionet/` (CITI training approved, DUAs signed; operator download); MDACE annotations; teacher endpoint variables in `/workspace/.secrets.env` (D30) |
 | loop 6 | final name; licence check of every benchmark source for redistribution |
 
 ---

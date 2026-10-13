@@ -88,15 +88,19 @@ def run_arm(
     best_dir = out / "checkpoints" / "best"
     result = trainer.train(train_items, steps=total_steps, eval_items=eval_subset, checkpoint_dir=best_dir,
                            schedule_steps=total_steps)
-    calibration: dict[str, Any] = {}
-    if config.fit_temperature:
-        fits = trainer.fit_calibration(dev_items)
-        calibration = {k: v.to_dict() if hasattr(v, "to_dict") else str(v) for k, v in fits.items()}
     selected = "final model (no checkpoint was saved)"
     final_model = model
     if result.best_step is not None and best_dir.exists():
         final_model = MedDecideModel.load(best_dir, device=device or config.device, dtype=dtype or config.dtype)
         selected = f"best checkpoint at step {result.best_step}"
+    # the temperatures are fitted on the selected model and saved with its checkpoint (osler_v0 deviation 59: they were
+    # fitted on the last-step model and never reached the checkpoint, so every reload scored uncalibrated)
+    calibration: dict[str, Any] = {}
+    if config.fit_temperature:
+        fits = Trainer(final_model, config).fit_calibration(dev_items)
+        calibration = {k: v.to_dict() if hasattr(v, "to_dict") else str(v) for k, v in fits.items()}
+        if final_model is not model:
+            final_model.save(best_dir)
     scored_dev = Trainer(final_model, config).score(dev_items)
     full_dev = scored_dev.metrics()
     full_dev["per_qtype"] = scored_dev.per_qtype_metrics()

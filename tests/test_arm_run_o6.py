@@ -3,6 +3,7 @@ tier-1 diagnostic, the best checkpoint, the temperature fit and the final full-d
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from datetime import date
@@ -81,6 +82,10 @@ def test_one_arm_trains_evaluates_selects_and_reports_on_cpu(tiny_dir, tmp_path)
     assert summary["selected"].startswith("best checkpoint")
     assert (tmp_path / "arm" / "checkpoints" / "best" / "optcode.pt").exists()
     assert summary["temperature_fits"]  # the per-qtype temperature was fitted on dev
+    # the fitted temperatures are saved with the selected checkpoint (osler_v0 deviation 59)
+    saved = json.loads((tmp_path / "arm" / "checkpoints" / "best" / "model.json").read_text(encoding="utf-8"))
+    assert saved["calibration"] == pytest.approx(
+        {k: v["temperature"] for k, v in summary["temperature_fits"].items()})
     assert (tmp_path / "arm" / "arm_result.json").exists()
     rows = (tmp_path / "arm" / "dev_predictions.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(rows) == len(dev) == summary["full_dev_items"]  # one row per dev item (the O9 and O11 input)
