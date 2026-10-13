@@ -19,7 +19,8 @@
 
 - **Loop:** `osler_v1` (loop 1d — medical-record audit data, MIMIC, teacher prose)
 - **Mission:** build medical-record audit decisions (page category, ICD-10-CM code support, clinical-indicator evidence;
-  D29) from code-generated records, real MIMIC notes (D28) and verified teacher prose (D27, D30); raise replay to 20 %;
+  D29) synthetic-first (D32): code-generated records, Synthea encounters, real clinical text (MTSamples, CodiEsp,
+  PMC-Patients) and verified teacher prose (D27, D30), with MIMIC (D28) as a late block if approved in time; raise replay to 20 %;
   measure a faster batching recipe; compare data blocks with short matched 4B runs and a pre-registered dev keep-rule;
   train Osler-4B and Osler-9B on the kept mix; apply Gate O2 (D31) — then hard-stop for review.
 - **Branch:** `loop/osler_v1` (never commit to `main`, `dev` or any other loop branch)

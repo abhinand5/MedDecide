@@ -35,7 +35,7 @@ class ChatClient(Protocol):
 
 @dataclass(frozen=True)
 class ProseRequest:
-    kind: Literal["diagnosis", "chunk"]
+    kind: Literal["diagnosis", "chunk", "page"]
     page_class: str                    # one of meddecide.mr.pages.PAGE_KEYS
     facts: dict[str, Any]              # diagnosis_facts(...) or chunk_facts(...)
     setting: str = "inpatient"
@@ -55,6 +55,12 @@ def diagnosis_facts(dx: icd.Diagnosis) -> dict[str, Any]:
     fam = icd.FAMILY_BY_KEY[dx.family]
     return {"condition": fam.condition, "family": dx.family, "attributes": dict(dx.attributes),
             "certainty": dx.certainty, "subject": dx.subject, "status": dx.status}
+
+
+def page_facts(page_facts: dict[str, Any]) -> dict[str, Any]:
+    """Facts for a whole narrative page (``kind="page"``), e.g. ``synthea.narrative_facts``: the label is the page class
+    the code asked for; verification checks the teacher wrote that kind of page and kept the listed conditions."""
+    return dict(page_facts)
 
 
 def chunk_facts(facts: ChunkFacts) -> dict[str, Any]:
@@ -85,6 +91,15 @@ def write_messages(req: ProseRequest) -> list[dict[str, str]]:
 
 
 def extract_messages(req: ProseRequest, text: str) -> list[dict[str, str]]:
+    if req.kind == "page":
+        from meddecide.mr.pages import PAGE_KEYS
+
+        schema = {"page_type": list(PAGE_KEYS), "conditions_mentioned": ["string"]}
+        ask = ("Classify the page type, and list every condition or diagnosis the page mentions as the patient's.")
+        return [
+            {"role": "system", "content": "You extract facts from medical-record text into JSON. Output only JSON."},
+            {"role": "user", "content": f"{ask}\nSchema: {json.dumps(schema)}\n\nPAGE:\n{text}"},
+        ]
     if req.kind == "diagnosis":
         schema = {"condition": "string", "attributes": {k: list(v) for k, v in
                                                          icd.FAMILY_BY_KEY[req.facts["family"]].attributes.items()},
@@ -122,6 +137,15 @@ def verify(req: ProseRequest, extracted: Mapping[str, Any] | None, *, rel_tol: f
     if extracted is None:
         return ["extraction is not JSON"]
     problems: list[str] = []
+    if req.kind == "page":
+        if extracted.get("page_type") != req.page_class:
+            problems.append(f"page_type: {extracted.get('page_type')!r} != {req.page_class!r}")
+        said = " ".join(str(c).lower() for c in extracted.get("conditions_mentioned") or [])
+        for cond in req.facts.get("conditions") or []:
+            words = [w for w in str(cond).lower().replace(",", " ").split() if len(w) > 3][:3]
+            if words and not all(w in said for w in words):
+                problems.append(f"condition not reported: {cond}")
+        return problems
     if req.kind == "diagnosis":
         f = req.facts
         for key in ("certainty", "subject", "status"):

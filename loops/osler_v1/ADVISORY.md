@@ -13,7 +13,9 @@ osler_v0 (`loops/osler_v0/FINDINGS.md`) ended with **Gate O1 FAIL** for Osler-4B
 - The three heads (L, P, N) were within about half a point; the dev rule kept L, the option-code head.
 - The arms took about 35 GPU-hours, mostly because of small token batches and gradient checkpointing.
 
-The operator's direction (2026-10-13): **data is the moat; stop architecture work** (D26). The target audience is
+The operator's direction (2026-10-13): **data is the moat; stop architecture work** (D26). PhysioNet approval takes about
+two weeks, so this loop is **synthetic-first** (D32): Synthea, MTSamples, CodiEsp and PMC-Patients now; MIMIC as a late
+block only if its files appear before V9. The target audience is
 payment-integrity and medical-record audit work (D29), alongside general clinical decisions. This loop builds the first
 record-audit data from three sources, fixes the knowledge loss with more replay, makes training faster, compares data
 blocks with short matched runs, trains one Osler-4B and one Osler-9B on the kept mix, and applies Gate O2 (D31).
@@ -32,6 +34,9 @@ Code written at planning time (committed with this ADVISORY; tests in `tests/tes
 | `src/meddecide/teacher/client.py` | adds `chat`, `model`, `local` and extra headers (from environment variables only) |
 | `src/meddecide/train/arm_run.py` | **fix:** temperatures are fitted on the selected checkpoint and saved with it (osler_v0 deviation 59) |
 | `scripts/osler_v1/v1_build_mr_generators.py` | V1's builder: splits by patient, the O3 shortcut screen, held-out items moved to `heldout_test.jsonl` |
+| `src/meddecide/mr/synthea.py`, `scripts/osler_v1/v5_synthea.py` | Synthea encounters (LOINC → indicator values with unit checks, MAP from BP pairs, MAR, charges) → page-category and indicator items; facts for teacher narrative pages. The script streams the Hub copy (a 300-encounter probe at planning time read 6 row groups per table) |
+| `src/meddecide/mr/realtext.py` | MTSamples → page classes (deduplicated, conflicts dropped), CodiEsp → ICD-10-CM support items over each category's billable codes, PMC-Patients → similar-patient pairs |
+| `src/meddecide/mr/teacher_prose.py` (kind `page`) | whole narrative pages from Synthea facts; verified by page type and listed conditions |
 
 A probe build (1,500 train patients per generator) ran at planning time; it is not a result. It showed the screen
 pattern to expect: the indicator and ICD generators pass the O3 screen; the tabular page-category generator fails it
@@ -111,7 +116,7 @@ Outcomes and what each implies (write the one that applies into FINDINGS):
    `hosp/diagnoses_icd.csv.gz`, `hosp/patients.csv.gz`, `hosp/admissions.csv.gz`; MIMIC-IV-Note
    `note/discharge.csv.gz`, `note/radiology.csv.gz`; MIMIC-IV-ED `ed/*.csv.gz`). The operator downloads them with
    wget under that directory, so the paths may carry the physionet.org/files/<dataset>/<version>/ prefix. Find them
-   with `find`. Record present or absent and sizes. Absent means V5 waits as BLOCKED.
+   with `find`. Record present or absent and sizes. Absent is expected (D32); V5c then stays PENDING and is re-checked before V7 and V9.
 4. **Speed recipe** (pre-registered choice). On Qwen3.5-4B, mix v2 train rows, option-code head, 150 steps each, time
    these configurations (same seed):
    - (a) the osler_v0 recipe: batch_size 8, max_batch_tokens 8,192, gradient checkpointing on;
@@ -165,7 +170,7 @@ Use the existing converters' pattern (`meddecide.mix.converters`), train splits 
 returns counts and reasons. Run the leakage check (`meddecide.mix.leakage`) against v0.2 test, the panel and the MR
 test sets. If a candidate's licence is unclear, drop it (record it).
 
-### V4 — Teacher prose (network, CPU; BLOCKED until a teacher is configured)
+### V4 — Teacher prose (network, CPU; BLOCKED until a teacher is configured; needs V5a for narrative pages)
 
 Only code-generated facts go to the teacher (§3.1, §3.2). Two prose generators, written as thin scripts over
 `meddecide.mr.teacher_prose`:
@@ -179,12 +184,18 @@ Only code-generated facts go to the teacher (§3.1, §3.2). Two prose generators
   indicator). The page class is progress_note, written as a physician or a nursing progress note. The gold is
   `criteria.supports`. Twins as in the generator.
 
+- **`synthea_narrative_page_v1`**: `synthea.narrative_facts` of a V5a encounter, page class drawn from
+  `synthea.NARRATIVE_PAGES` (radiology only when the encounter has an imaging procedure). `teacher_prose` kind `page`.
+  The gold page class is the one the code asked for; the verifier checks it, and that the listed conditions appear.
+  These pages are page-category items, and their facts give a second indicator question when the encounter's values
+  are stated.
+
 Steps:
 1. **Pilot:** 100 requests per generator. Record the verification pass rate, the failure reasons by count, tokens and
    cost.
    - If the pass rate is below 60 %, fix the prompt (`write_messages`), never the verifier, and re-pilot once.
    - If it is still below 60 %, mark V4 `BLOCKED` with the numbers.
-2. **Build**, within the budget (§3.8): aim for 15,000 verified pairs per generator, split by patient (pid). Run the
+2. **Build**, within the budget (§3.8): aim for 15,000 verified pairs per twin generator and 20,000 narrative pages, split by patient (pid). Run the
    O3 screen on dev, and check that no teacher page contains an ICD code string (regex `[A-TV-Z][0-9][0-9AB]\.?[0-9A-TV-Z]{0,4}`).
    Drop such pages and count them.
 3. Spot-read 20 verified pages per generator in a fresh process. Record the defects you see by type (not the text).
@@ -192,7 +203,42 @@ Steps:
 The OpenCode Go plan is designed for coding agents and monitors for abuse. Send at most 2 requests per second and
 respect HTTP 429 with exponential backoff. If the endpoint starts refusing, stop and record it; do not rotate keys.
 
-### V5 — MIMIC sources (CPU; BLOCKED until the files exist)
+### V5a — Synthea (CPU + network, ~3 h)
+
+1. `scripts/osler_v1/v5_synthea.py extract --encounters 40000` (emergency and inpatient encounters; streamed). Record the
+   extract report: rows, row groups read, and coverage per table. Coverage below 30 % for observations is normal: many
+   ED encounters have no labs.
+2. `scripts/osler_v1/v5_synthea.py build`: `synthea_page_category_v1` and `synthea_indicator_evidence_v1`, split by
+   patient, held-out indicator moved, indicator yes/no balanced per indicator by down-sampling (counts recorded).
+3. O3 screen on dev; read 10 pages per template in a fresh process; append aggregates to `mr_data.md`.
+
+### V5b — Real clinical text (CPU + network, ~4 h)
+
+1. **MTSamples** (`harishnair04/mtsamples`): `realtext.read_mtsamples` → `mtsamples_page_category_v1`. Record kept,
+   unmapped and dropped counts, and pages per class. Split by document hash (`split_of`). The licence is uncertain and
+   the operator accepted it (D32); record that in `mr_data.md`.
+2. **CodiEsp** (`Biomedical-TeMU/CodiEsp_corpus`, CC BY 4.0): `realtext.codiesp_items` over V2's order file, English
+   text. Corpus split: train → train, dev → **test**; CodiEsp's own test has no codes and is unused. Template
+   `codiesp_icd_support_v1`. The English is machine-translated; say so.
+3. **PMC-Patients** (`zhengyun21/PMC-Patients`, all rows; licence subset recorded per row): `realtext.pmc_similar_items`
+   → `pmc_similar_patient_v1`.
+   - Use at most 40,000 anchor patients.
+   - Split by the anchor patient. Then drop every train pair whose other patient is a dev or test anchor or appears
+     in a dev or test pair (count them).
+   - Run the leakage check against the v0.2 test (PubMed-derived templates) and record the overlap.
+4. **Evaluation only** (never trained on):
+   - NHS synthetic clinical notes (`NHSEDataScience/synthetic_clinical_notes`, MIT). If its note table carries a
+     note type that maps cleanly to the page classes, build `nhs_page_category_v1`; otherwise `NOT MEASURED` with the
+     reason. Timebox 1 h.
+   - The commercial config of `mkurman/clinical-case-icd10-diagnosis` (CC BY) as ICD-10-CM support items, in the
+     CodiEsp format: `mkurman_icd_support_v1`.
+5. Never use Hub re-uploads of MIMIC or other credentialed data (D32), whatever their stated licence.
+6. Append aggregates to `mr_data.md`.
+
+### V5c — MIMIC sources (CPU; only when the files exist)
+
+Re-check for the files at V7 and again before V9. If they appear, run the steps below and add them as block B4 (§V7);
+if not, this task ends `BLOCKED — PhysioNet approval pending` at closure. Never wait for it.
 
 1. **Page category (real notes).** `mimic.iter_mimic3_pages` plus `iter_mimic4_notes` for discharge and radiology.
    - Record every kept and dropped reason count.
@@ -219,8 +265,8 @@ respect HTTP 429 with exponential backoff. If the endpoint starts refusing, stop
 
 ### V6 — MR evaluation suite and baselines (GPU, ~6 h)
 
-1. **Assemble the MR test suite.** Test splits of V1 and V4 (if built), plus the late-anchor test split of V5 (if
-   built). Keep the template ids distinct. Write the manifest (ids, hashes, counts per template) to
+1. **Assemble the MR test suite.** Test splits of V1, V4 (if built), V5a and V5b (including the evaluation-only NHS and
+   clinical-case sets), plus the late-anchor test split of V5c (if built). Keep the template ids distinct. Write the manifest (ids, hashes, counts per template) to
    `data/bench/osler_mr_v0/`.
    - Held-out items go to a separate held-out file.
    - Also assemble a **fast dev set**: up to 400 dev items per MR template; 3,000 items of the mix v2 dev split,
@@ -241,10 +287,11 @@ Cumulative blocks, each a superset of the one before:
 
 | block | adds | notes |
 |---|---|---|
-| B0 | mix v2 (osler_v0) + V3 replay so replay ≥ 20 % | the knowledge fix and new control |
-| B1 | + V1 generators | page category tabular capped at 2 % of rows |
-| B2 | + V4 teacher prose | skipped (NOT MEASURED) if V4 is blocked |
-| B3 | + V5 MIMIC | skipped if V5 is blocked |
+| B0 | mix v2 (osler_v0) + V3 replay so replay ≥ 20 % | the knowledge fix and the new control |
+| B1 | + V1 generators + V5a Synthea items | page-category tabular templates capped at 2 % of rows together |
+| B2 | + V4 teacher prose | NOT MEASURED if V4 is blocked |
+| B3 | + V5b real text (MTSamples, CodiEsp train, PMC-Patients) | |
+| B4 | + V5c MIMIC | only if V5c ran before V8 finishes; otherwise next loop |
 
 - No template above 8 % of a block (D17).
 - Held-out rows are excluded everywhere.
@@ -276,12 +323,13 @@ above −0.02.
 
 Write `loops/osler_v1/blocks.md`: each block's dev numbers, the decisions, the realised items and tokens.
 
-**If V4 or V5 is still blocked when V8's last available block finishes:**
-- set V9 `BLOCKED — waiting for <teacher|MIMIC>`;
-- write the question to the operator: "train the final models without it, or wait";
+**If V4 is still blocked when B3's run finishes:**
+- set V9 `BLOCKED — waiting for the teacher`;
+- write the question to the operator: "train the final models without teacher prose, or wait";
 - set the loop STOPPED per GOAL.
 
-Do not train the finals without MIMIC unless the operator answers.
+MIMIC never stops the loop (D32). If V5c ran in time, B4 is decided by the same rule; if not, the finals train on the
+kept blocks without it.
 
 ### V9 — Final Osler-4B and Osler-9B (GPU)
 
@@ -343,9 +391,11 @@ Every task `DONE` or `BLOCKED — <reason>`, with these files present and every 
 | V1 | MR generators | no | V0 |
 | V2 | ICD-10-CM verification | no | V0 |
 | V3 | Replay to 20 % | no | V0 |
-| V4 | Teacher prose | no | V1, V2 |
-| V5 | MIMIC sources | no | V0 |
-| V6 | MR evaluation suite + baselines | yes | V1 (V4, V5 if built) |
+| V4 | Teacher prose | no | V1, V2, V5a |
+| V5a | Synthea | no | V0 |
+| V5b | Real clinical text | no | V2 |
+| V5c | MIMIC sources (only when the files exist) | no | V0 |
+| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) |
 | V7 | Mix v3 blocks | no | V3, V6 |
 | V8 | Block runs + keep rule | yes | V7 |
 | V9 | Final Osler-4B and -9B | yes | V8 |
@@ -354,9 +404,10 @@ Every task `DONE` or `BLOCKED — <reason>`, with these files present and every 
 | V12 | Findings and closure — HARD STOP | no | all |
 
 Order exceptions:
-- V1–V5 may run in any order on CPU.
-- V4 and V5 may run while a GPU task runs.
-- If V4 or V5 becomes available after V6 ran, re-run only V6's assembly and baseline scoring for the new templates
+- V1–V5b may run in any order on CPU.
+- V4, V5a, V5b and V5c may run while a GPU task runs.
+- V5c never blocks a task; it runs when its files appear.
+- If V4 or V5c becomes available after V6 ran, re-run only V6's assembly and baseline scoring for the new templates
   (record it). Never re-run blocks already decided.
 
 ## 7. Explicitly out of scope

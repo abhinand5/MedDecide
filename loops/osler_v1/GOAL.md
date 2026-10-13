@@ -7,9 +7,10 @@ osler_v0 failed Gate O1. Its models led every baseline on our own benchmark, but
 MedDecider, and the 4B lost exam knowledge. The heads made no difference. **This loop works on data only (D26).**
 
 The loop:
-- builds medical-record audit decisions (page category, ICD-10-CM code support, clinical-indicator evidence; D29) from
-  three sources: code-generated records with labels by rule, real MIMIC notes with structured labels (D28), and teacher
-  prose from code-built facts, verified by re-extraction (D27, D30);
+- builds medical-record audit decisions (page category, ICD-10-CM code support, clinical-indicator evidence; D29),
+  synthetic-first (D32): code-generated records with labels by rule, Synthea encounters rendered as record pages, real
+  clinical text with structured labels (MTSamples, CodiEsp, PMC-Patients), and teacher prose from code-built facts,
+  verified by re-extraction (D27, D30). MIMIC (D28) joins as a late block only if its files appear in time;
 - raises general replay to 20 % to protect knowledge;
 - makes training faster;
 - compares data blocks with short matched 4B runs and a pre-registered dev keep-rule;
@@ -61,7 +62,8 @@ it and name the ADVISORY §2 outcome it implies.
 
 ## Do not
 
-- Train on any test split, the external panel, MDACE, or held-out items (indicator `aki_creatinine_rise`, ICD family
+- Use Hub re-uploads of MIMIC or any other credentialed data (D32).
+- Train on any test split, the external panel, MDACE, the NHS synthetic notes, the clinical-case ICD-10 set, or held-out items (indicator `aki_creatinine_rise`, ICD family
   `heart_failure`, and osler_v0's held-out templates and generators).
 - Use a teacher's answer, option distribution or correctness judgement as a label, or keep teacher prose that failed
   verification.
@@ -94,5 +96,5 @@ Then set `Loop status: STOPPED` at the top of STATE.md, commit, push, **stop**, 
 - the Gate O2 verdicts;
 - what you would do next.
 
-Also set `Loop status: STOPPED` (with FINDINGS for what ran) when V8 stops for the operator (ADVISORY V8), or when
+Also set `Loop status: STOPPED` (with FINDINGS for what ran) when V8 stops for the teacher (ADVISORY V8), or when
 every remaining `PENDING` task is blocked on the operator.

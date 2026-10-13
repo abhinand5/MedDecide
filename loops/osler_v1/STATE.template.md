@@ -27,9 +27,11 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V1 | MR generators | no | V0 | PENDING | | |
 | V2 | ICD-10-CM verification | no | V0 | PENDING | | |
 | V3 | Replay to 20 % | no | V0 | PENDING | | |
-| V4 | Teacher prose | no | V1, V2 | PENDING | | |
-| V5 | MIMIC sources | no | V0 | PENDING | | |
-| V6 | MR evaluation suite + baselines | yes | V1 (V4, V5 if built) | PENDING | | |
+| V4 | Teacher prose | no | V1, V2, V5a | PENDING | | |
+| V5a | Synthea | no | V0 | PENDING | | |
+| V5b | Real clinical text | no | V2 | PENDING | | |
+| V5c | MIMIC sources (only when the files exist) | no | V0 | PENDING | | |
+| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | PENDING | | |
 | V7 | Mix v3 blocks | no | V3, V6 | PENDING | | |
 | V8 | Block runs + keep rule | yes | V7 | PENDING | | |
 | V9 | Final Osler-4B and -9B | yes | V8 | PENDING | | |
@@ -37,8 +39,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V11 | Memorisation audit | small | V9 | PENDING | | |
 | V12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
-Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §6: V1–V5 in any order on CPU;
-V4 and V5 may run while a GPU task runs). Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work.
+Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §6: V1–V5b in any order on CPU;
+V4 and V5a–V5c may run while a GPU task runs; V5c runs only when its files appear and never blocks). Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work.
 No row may be left `IN_PROGRESS` at closure.
 
 ---
@@ -54,7 +56,9 @@ No row may be left `IN_PROGRESS` at closure.
 | ICD-10-CM FY2026 order file sha256; verify result | | `data/cms/icd10cm/2026/` | V2 |
 | replay share of B0; sources and licences | | | V3 |
 | teacher: pilot pass rate; pairs built; spend | | | V4 |
-| MIMIC: pages per class; ICD rows per family; late-anchor removals | | `loops/osler_v1/mr_data.md` | V5 |
+| Synthea: encounters, coverage, items per template | | `loops/osler_v1/mr_data.md` | V5a |
+| real text: MTSamples pages per class; CodiEsp items; PMC pairs | | `loops/osler_v1/mr_data.md` | V5b |
+| MIMIC (if it arrives): pages per class; ICD rows per family; late-anchor removals | | `loops/osler_v1/mr_data.md` | V5c |
 | MR baselines (template macro per model) | | `loops/osler_v1/mr_baselines.md` | V6 |
 | blocks: rows, replay share; steps per block run | | | V7 |
 | kept blocks and their dev deltas | | `loops/osler_v1/blocks.md` | V8 |

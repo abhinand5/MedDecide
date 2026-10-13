@@ -276,7 +276,7 @@ def test_mimic3_reader_and_admission_codes(tmp_path) -> None:
 def test_held_out_lists_mark_items() -> None:
     from meddecide.mr.generators import HELD_OUT_ICD_FAMILIES, HELD_OUT_INDICATORS, is_held_out
 
-    assert HELD_OUT_INDICATORS <= set(criteria.INDICATOR_BY_KEY)
-    assert HELD_OUT_ICD_FAMILIES <= set(icd.FAMILY_BY_KEY)
+    assert set(criteria.INDICATOR_BY_KEY) >= HELD_OUT_INDICATORS
+    assert set(icd.FAMILY_BY_KEY) >= HELD_OUT_ICD_FAMILIES
     assert is_held_out({"indicator": "aki_creatinine_rise"}) and is_held_out({"family": "heart_failure"})
     assert not is_held_out({"indicator": "lactate_gt_2"}) and not is_held_out({"page_class": "bill"})

@@ -35,8 +35,9 @@ Do this now:
 
 What this loop does:
 - builds medical-record audit decisions (page category, ICD-10-CM code support,
-  clinical-indicator evidence) from code-generated records, real MIMIC notes, and teacher
-  prose verified by re-extraction;
+  clinical-indicator evidence), synthetic-first: code-generated records, Synthea encounters,
+  real clinical text (MTSamples, CodiEsp, PMC-Patients) and teacher prose verified by
+  re-extraction; MIMIC joins only if its files appear in time (never wait for it);
 - raises general replay to 20 %;
 - measures a faster batching recipe;
 - compares data blocks with short matched 4B runs and a pre-registered dev keep-rule;
@@ -57,8 +58,8 @@ Treat these as defects to investigate first:
 
 One GPU job at a time; no sub-agents for GPU work; poll long jobs at intervals of 20 minutes
 or more. Do not stop to ask the operator anything the ADVISORY already answers: take the
-conservative option, record it under Deviations, and continue. If the teacher or MIMIC is
-not available, mark that task BLOCKED and continue with the rest. ADVISORY V8 says when to
+conservative option, record it under Deviations, and continue. If the teacher is not
+available, mark V4 BLOCKED and continue with the rest; MIMIC (V5c) never blocks anything. ADVISORY V8 says when to
 stop for the operator. Every timestamp comes from `date -u +%FT%TZ`.
 
 Hard rules (full list in AGENTS.md and GOAL.md "Do not"):
@@ -101,6 +102,6 @@ says STOPPED and that change is committed and pushed.
   - `mimic-iv-note/2.2`;
   - `mimic-iv-ed/2.2`.
 
-  Without them, V5 is BLOCKED. V8 then stops for you before the final runs.
+  Without them, V5c simply does not run (D32); the loop does not wait. Never use unofficial MIMIC copies from the Hub.
 - **Review from another machine:** `git fetch`, then read `loop/osler_v1`: `loops/osler_v1/STATE.md`, `CLAIMS.md`,
   `mr_data.md`, `blocks.md`, `gate_o2.md`.
