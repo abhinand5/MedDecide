@@ -62,10 +62,12 @@ def unpack(zip_path: Path, dest_dir: Path) -> list[str]:
     return names
 
 
-def order_file_in(dest_dir: Path) -> Path:
-    hits = sorted(p for p in dest_dir.rglob("*.txt") if "order" in p.name.lower())
+def order_file_in(dest_dir: Path, year: str) -> Path:
+    """The tabular order file for the year (``icd10cm_order_<year>.txt``). The addenda file that the same zip carries is
+    not the order file and is never used for the verification."""
+    hits = sorted(p for p in dest_dir.rglob(f"icd10cm_order_{year}.txt"))
     if len(hits) != 1:
-        raise FileNotFoundError(f"expected one order file under {dest_dir}, found {[p.name for p in hits]}")
+        raise FileNotFoundError(f"expected one icd10cm_order_{year}.txt under {dest_dir}, found {[p.name for p in hits]}")
     return hits[0]
 
 
@@ -73,7 +75,7 @@ def verify_year(year: str) -> dict[str, Any]:
     dest_dir = REPO / "data" / "cms" / "icd10cm" / year
     zip_path = fetch_zip(year, dest_dir)
     members = unpack(zip_path, dest_dir)
-    order_path = order_file_in(dest_dir)
+    order_path = order_file_in(dest_dir, year)
     rows = icd.load_order_file(order_path)
     verdict = icd.verify_codes(rows)
     curated = [code for fam in icd.FAMILIES for code in fam.codes]

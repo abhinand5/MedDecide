@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | V0 | Orientation, environment, speed recipe | small | — | DONE | 2026-10-13T21:32:02Z | 2026-10-13T22:29:31Z |
 | V1 | MR generators | no | V0 | DONE | 2026-10-13T22:30:29Z | 2026-10-13T22:35:18Z |
-| V2 | ICD-10-CM verification | no | V0 | PENDING | | |
+| V2 | ICD-10-CM verification | no | V0 | DONE | 2026-10-13T22:43:25Z | 2026-10-13T22:44:06Z |
 | V3 | Replay to 20 % | no | V0 | PENDING | | |
 | V4 | Teacher prose | no | V1, V2, V5a | PENDING | | |
 | V5a | Synthea | no | V0 | PENDING | | |
@@ -53,7 +53,7 @@ No row may be left `IN_PROGRESS` at closure.
 | MIMIC files present (which, sizes) | none: `data/physionet/` absent; 0 of 5 core files (NOTEEVENTS, diagnoses_icd, patients, admissions, note discharge); V5c stays PENDING | `outputs/osler_v1/V0/env.json` (CLAIMS V004) | V0 |
 | batching constant (batch_size, max_batch_tokens, gradient checkpointing); items/s; peak GB | **batch 8, max_batch_tokens 8192, gradient checkpointing on** (the osler_v0 recipe, unchanged). 4.118 items/s steady state (4.114 first run); 3,661 real tokens/s; peak reserved 21.8 GB. b, c and e ran out of memory; d (batch 32, checkpointing) ran at 3.09 items/s | `outputs/osler_v1/V0/speed.json`, `speed/*.json` (CLAIMS V012–V019) | V0 |
 | MR generators: items per split, screen results | train 28,032 / dev 1,394 / test 1,430 / heldout_test 176; indicator and ICD v2 pass the O3 screen (Naive Bayes 0.796 and 0.804); page category fails as expected (1.000); ICD v1 design failed (0.938) and was replaced (V1-D1) | `loops/osler_v1/mr_data.md`, `outputs/osler_v1/V1/SELF_AUDIT.md` (CLAIMS V022–V033) | V1 |
-| ICD-10-CM FY2026 order file sha256; verify result | | `data/cms/icd10cm/2026/` | V2 |
+| ICD-10-CM FY2026 order file sha256; verify result | order file sha256 6dc95c9c7e96c734…; zip sha256 55a9124a27ca78a4…; 98,186 rows; the 48 curated codes: 0 missing, 0 not billable (PASS). FY2027 additional: 48 of 48 present and billable | `data/cms/icd10cm/2026/` (gitignored); `outputs/osler_v1/V2/verify_fy2026.json` (CLAIMS V035–V037) | V2 |
 | replay share of B0; sources and licences | | | V3 |
 | teacher: pilot pass rate; pairs built; spend | | | V4 |
 | Synthea: encounters, coverage, items per template | | `loops/osler_v1/mr_data.md` | V5a |
@@ -78,7 +78,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Task in flight: none (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
 Working dir:    outputs/osler_v1/V1/
 
 V1 checklist (closed): build (6,000/300/300 per generator); audit; screen checked against §3.6 (page category fails as expected; ICD v1 failed and was replaced by v2, V1-D1); ten items read per generator; mr_data.md; SELF_AUDIT.md; CLAIMS V022–V033; test_icd_template_v2.py and test_mr_v1.py pass.
@@ -143,6 +143,13 @@ V0 checklist (closed):
 - Headline: train 28,032 / dev 1,394 / test 1,430 / heldout_test 176 rows; patients 18,816 with none in two splits (CLAIMS V026–V027). Indicator and ICD v2 pass the O3 screen (Naive Bayes 0.796 and 0.804, dev); the page-category generator fails as ADVISORY §3.6 expects (1.000). The ICD v1 design failed (0.938) and was replaced (CLAIMS V022–V023, deviation V1-D1).
 - Surprises: the planning-time probe passed the ICD v1 design at 1,500 patients, but it fails at 6,000 (more data, a stronger Naive Bayes). The ICD template's laterality wording repeats "knee". No held-out text reaches a training split (CLAIMS V028).
 - Next: V2 (ICD order file, FY2026 acceptance), V3 (replay, permissive sources), V5a and V5b. V4's ICD prose must use the two-diagnosis design of v2 (a teacher page with the target and the distractors), or its screen would fail the same way.
+
+### V2 — DONE — 2026-10-13T22:44:06Z
+- What ran: `v2_icd_verify.py` (downloads the CMS FY2026 and FY2027 "code descriptions in tabular order" zips, unpacks under `data/cms/icd10cm/<year>/`, verifies the 48 curated codes with `icd.verify_codes`); spot-check of 12 codes against their titles and billable flags (CLAIMS V037); `outputs/osler_v1/V2/SELF_AUDIT.md`.
+- Output: `outputs/osler_v1/V2/verify_fy2026.json`, `verify_fy2027.json`, `logs/verify.log` (gitignored); the zip and the order file stay in `data/cms/icd10cm/` (gitignored).
+- Headline: FY2026 (ADVISORY acceptance year): 48 curated codes in 12 families; 0 missing; 0 not billable; 98,186 order rows (CLAIMS V035). The additional FY2027 check: 48 of 48 present and billable (V036). The curated table was not edited.
+- Surprises: the zip carries two files with "order" in the name (`icd10cm_order_2026.txt` and `icd10cm_order_addenda_2026.txt`); the first run stopped on that and the script was fixed to take the exact order file (the addenda file is not used). FY2027 took effect on 2026-10-01 (Question 4).
+- Next: V3 (replay, permissive sources), V5a (Synthea), V5b (real text). V4 waits for V1, V2 and V5a.
 
 ## 5. Blocked items
 
