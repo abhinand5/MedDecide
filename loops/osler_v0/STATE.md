@@ -10,7 +10,7 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
 Last updated (UTC): `2026-10-13T02:35:00Z`
 Iterations so far: `4`
@@ -29,13 +29,13 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O3 | Clinical generators (gold by construction) + held-out list | no | O0 | DONE | 2026-10-09T18:12:46Z | 2026-10-09T18:30:07Z |
 | O4 | Training mix v2 | no | O1, O3 | DONE | 2026-10-09T18:31:34Z | 2026-10-09T19:01:39Z |
 | O5 | Readouts: option-code head, non-causal mode, export | small | O0 | DONE — merged-adapter export READOUT_FAIL under the as-run precision; separate export PASS; Question 14 | 2026-10-09T19:02:52Z | 2026-10-09T20:33:07Z |
-| O6 | Arm L: option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, the final step is the selected checkpoint (template macro 0.8639 on the 6,000 subset); full dev (10,843 items, dev only): accuracy 0.8932, template macro 0.8636, per-letter macro 0.6789, Brier 0.1609; self-audit CLAIMS O190–O193; the zero-shot tier-1 dev reference is still running (see the O6 closure checklist) | 2026-10-10T17:58:36Z | 2026-10-11T05:42:31Z |
+| O6 | Arm L: option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, the final step is the selected checkpoint (template macro 0.8639 on the 6,000 subset); full dev (10,843 items, dev only): accuracy 0.8932, template macro 0.8636, per-letter macro 0.6789, Brier 0.1609; self-audit CLAIMS O190–O193; the zero-shot tier-1 dev reference was run on the GPU and recorded at CLAIMS O246–O248 (the knowledge flag) | 2026-10-10T17:58:36Z | 2026-10-11T05:42:31Z |
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8696 on the 6,000 subset, best by 0.0001 over 22,500); full dev (10,843 items, dev only): accuracy 0.8939, template macro 0.8687, per-letter 0.7889, Brier 0.1603; self-audit CLAIMS O215; CLAIMS O211–O216 | 2026-10-11T05:42:31Z | 2026-10-11T17:38:11Z |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8673 on the 6,000 subset, the best of its evals); full dev (10,843 items, dev only): accuracy 0.8940, template macro 0.8663, per-letter 0.6657, Brier 0.1593; self-audit CLAIMS O239; CLAIMS O235–O240 | 2026-10-11T17:38:11Z | 2026-10-12T06:02:33Z |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | DONE — chosen head L (the option-code head, causal): no challenger reaches +0.010 on the dev template macro with a lower bound above 0 (P +0.0051, N +0.0027; CLAIMS O241); run by the O6–O8 → O9–O11 chain, the report is `loops/osler_v0/head_choice.md` | 2026-10-12T06:03:27Z | 2026-10-12T06:03:28Z |
 | O10 | Osler-9B + Osler-0.8B reference | yes | O9 | DONE — both runs finished 25,000 steps with no tripwire. Osler-9B: full dev accuracy 0.9021, template macro 0.8691, Brier 0.1489 (CLAIMS O261–O266); Osler-0.8B: accuracy 0.8285, template macro 0.8143, Brier 0.2359 (CLAIMS O279–O283). Knowledge flag on both: the trained models' tier-1 medqa is below the zero-shot base on the same dev items (9B −0.4 at the end, 0.8B −6.4) and the 4B arms are below their base on both sources (CLAIMS O248, O280) | 2026-10-12T06:03:39Z | 2026-10-13T01:54:41Z |
 | O11 | Evaluation + Gate O1 | yes | O2, O10 | DONE — Gate O1 on the calibrated outputs: Osler-4B FAIL (external panel vs MedDecider-4B; knowledge guard −0.0156), Osler-9B FAIL (external panel vs MedDecider-9B) (CLAIMS O303–O306); every arm and the 0.8B on the common set and the held-out items (CLAIMS O298–O324); results.md; SELF_AUDIT in outputs/osler_v0/O11/. Deviations 44, 52–53, 56–59. Not measured: results.md section 6 | 2026-10-13T01:54:41Z | 2026-10-13T13:43:42Z |
-| O12 | Findings and closure — HARD STOP | no | all | IN_PROGRESS — FINDINGS.md, NEXT.md, the five-claim spot-check and the closure feed | 2026-10-13T13:43:42Z | |
+| O12 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md (Summary first; ADVISORY §2 outcomes 2, 3 and 4 apply, outcome 5 not cleanly); NEXT.md; the five-claim spot-check (in FINDINGS.md); the closure feed (§8). Loop status STOPPED | 2026-10-13T13:43:42Z | 2026-10-13T13:46:23Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §6:
 O3/O4 may run on CPU while O2 uses the GPU; O5 may use the GPU between O2 jobs). Never run two
@@ -381,6 +381,13 @@ O6–O8 readiness for arms P and N (CPU; checked before those arms start):
 - Surprises: the nfcorpus dev–test gap on a seen template is the one item here that FINDINGS must discuss; the student loop recorded this template as a bag-of-words shortcut
 - Next: the held-out items for osler_4b_P (running), osler_4b_N and osler_0p8b; the CPU held-out report; then results.md, FINDINGS.md and NEXT.md
 
+### O12 — closure — 2026-10-13T13:46:23Z
+- What ran: `loops/osler_v0/FINDINGS.md` (Summary first; the ADVISORY §2 outcomes that apply: 3 and 2 (4B and 9B), 4 for the pointer arm; 5 not met cleanly), `loops/osler_v0/NEXT.md` (proposals, with CLAIMS ids), the five-claim spot-check (O304, O305, O299, O319, O313; all reproduced, outputs in FINDINGS.md), the closure feed (§8), and the board: every row is DONE or BLOCKED (none BLOCKED)
+- Output: `loops/osler_v0/FINDINGS.md`, `loops/osler_v0/NEXT.md`, `loops/osler_v0/results.md`, `loops/osler_v0/gate_o1.md`, `loops/osler_v0/heldout_generators.md`; CLAIMS O001–O324
+- Headline: Gate O1 FAIL for Osler-4B (external panel; knowledge guard) and FAIL for Osler-9B (external panel). Both beat both baselines on the headline seen-template set
+- Surprises: the calibration defect (deviation 59), found by the self-audit of the second run, changed every Brier number of the O11 record; the accuracy of single passes was unaffected
+- Next: the operator decides the time-versus-scope choice (deviation 56), the next loop's first job (the knowledge fix, outcome 3), and the non-causal serving-cost question
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -625,4 +632,12 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | Gate O1 (pre-registered; calibrated outputs): FAIL for Osler-4B and FAIL for Osler-9B | O303, O304, O305 | loops/osler_v0/gate_o1.md; results.md §1 |
+| 2 | Osler-4B fails the knowledge guard (−0.0156) and loses the external panel to MedDecider-4B (−0.0526); Osler-9B passes the knowledge guard (−0.0075) and loses the panel to MedDecider-9B (−0.0169) | O304, O305 | gate_o1.md |
+| 3 | Both Osler models beat both of their baselines on the headline seen-template set (accuracy +0.09 to +0.13) | O304, O305 | gate_o1.md |
+| 4 | The non-causal arm is ahead of the option-code arm on test by a small margin (+0.0050 on the common set, +0.0152 on the panel); the pointer arm does not differ; the head fixed on dev stays L | O241, O313, O314 | results.md §3 |
+| 5 | A calibration defect was found and fixed: the fitted temperatures never reached the saved checkpoints; single-pass accuracy is unaffected, Brier was not (deviation 59) | O293–O300 | results.md §5; deviation 59 |
+| 6 | Constant answers sit on held-out templates and on one unseen template; no pipeline defect; no training–test leakage | O307, O317, O324 | results.md §5 |
+| 7 | Held-out generators: the 9B reaches 0.8383 (template macro); the 0.8B is below the majority baseline; the four baselines were not scored on these items | O319–O321 | loops/osler_v0/heldout_generators.md |
+| 8 | Not measured: baselines on the held-out items, the 0.8B against a zero-shot base, the quantised export, selective accuracy, latency, HLE, the long-record slice | results.md §6 | — |
+| 9 | Time: the O11 stage took about twelve hours; the calibrated GPU scoring 7.8 hours; the time-versus-scope choice is the operator's | O298, O301, O308, O311, O315 | deviation 56 |
