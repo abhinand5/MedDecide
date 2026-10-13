@@ -37,15 +37,18 @@ class TeacherClient:
 
     @classmethod
     def from_env(cls, *, timeout_s: float = DEFAULT_TIMEOUT_S) -> TeacherClient:
-        """Build a client from ``TEACHER_BASE_URL`` / ``TEACHER_API_KEY``, plus ``TEACHER_MODEL``, ``TEACHER_LOCAL``
+        """Build a client from ``TEACHER_BASE_URL`` / ``TEACHER_API_KEY`` (falling back to ``OPENAI_API_BASE`` or
+        ``OPENAI_BASE_URL`` / ``OPENAI_API_KEY``), plus ``TEACHER_MODEL`` (or ``OPENAI_MODEL``), ``TEACHER_LOCAL``
         ("1" for an operator-hosted endpoint) and ``TEACHER_EXTRA_HEADERS`` (a JSON object, e.g. the
         ``x-opencode-session`` header a hosted gateway asks for; never a secret)."""
         extra = os.environ.get("TEACHER_EXTRA_HEADERS", "")
+        env = os.environ.get
         return cls(
-            base_url=os.environ.get("TEACHER_BASE_URL", "").rstrip("/"),
-            api_key=os.environ.get("TEACHER_API_KEY", ""),
+            # the standard OpenAI-client variables are the fallback, so an existing setup works unchanged
+            base_url=(env("TEACHER_BASE_URL") or env("OPENAI_API_BASE") or env("OPENAI_BASE_URL") or "").rstrip("/"),
+            api_key=env("TEACHER_API_KEY") or env("OPENAI_API_KEY") or "",
             timeout_s=timeout_s,
-            model=os.environ.get("TEACHER_MODEL", ""),
+            model=env("TEACHER_MODEL") or env("OPENAI_MODEL") or "",
             local=os.environ.get("TEACHER_LOCAL", "") == "1",
             extra_headers=dict(json.loads(extra)) if extra else {},
         )

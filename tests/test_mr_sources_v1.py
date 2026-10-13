@@ -130,3 +130,17 @@ def test_page_prose_verification() -> None:
     assert verify(req, ok) == []
     assert verify(req, {**ok, "page_type": "consult_note"})
     assert verify(req, {**ok, "conditions_mentioned": ["hypertension"]})
+
+
+def test_teacher_client_falls_back_to_openai_variables(monkeypatch) -> None:
+    from meddecide.teacher.client import TeacherClient
+
+    for v in ("TEACHER_BASE_URL", "TEACHER_API_KEY", "TEACHER_MODEL", "OPENAI_BASE_URL"):
+        monkeypatch.delenv(v, raising=False)
+    monkeypatch.setenv("OPENAI_API_BASE", "https://example.org/v1/")
+    monkeypatch.setenv("OPENAI_API_KEY", "k")
+    monkeypatch.setenv("OPENAI_MODEL", "m")
+    c = TeacherClient.from_env()
+    assert (c.base_url, c.api_key, c.model, c.local) == ("https://example.org/v1", "k", "m", False)
+    monkeypatch.setenv("TEACHER_BASE_URL", "https://teacher.example/v1")
+    assert TeacherClient.from_env().base_url == "https://teacher.example/v1"

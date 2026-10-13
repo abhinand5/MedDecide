@@ -94,7 +94,8 @@ says STOPPED and that change is committed and pushed.
   - `TEACHER_MODEL`: the endpoint's id for DeepSeek V4.1 Flash;
   - optionally `TEACHER_EXTRA_HEADERS='{"x-opencode-session": "osler-v1"}'`.
 
-  Leave `TEACHER_LOCAL` unset for a hosted endpoint. Without these, V4 is BLOCKED and the rest runs.
+  The standard `OPENAI_API_BASE` (or `OPENAI_BASE_URL`), `OPENAI_API_KEY` and `OPENAI_MODEL` work as fallbacks. Leave
+  `TEACHER_LOCAL` unset for a hosted endpoint. Without these, V4 is BLOCKED and the rest runs.
 - **MIMIC (D28):** download into `/workspace/MedDecide/data/physionet/` (gitignored). Use
   `wget -r -N -c -np --user <you> --ask-password https://physionet.org/files/<dataset>/<version>/` for:
   - `mimiciii/1.4`;
