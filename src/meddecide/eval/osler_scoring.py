@@ -47,6 +47,10 @@ def o2_row_to_item(row: Mapping[str, Any]) -> Item:
     options = [Option(key=o["key"], label=o["label"], **({"description": o["description"]} if o.get("description")
                                                         else {})) for o in row["options"]]
     source_url = row.get("source_url") or ""
+    qtype = QuestionType(row["qtype"])
+    # make_item requires a noul item's options in the canonical ['yes', 'no'] order. A reversed noul row (the robustness
+    # pack's reverse_options perturbation) is built in that order and permuted back to the row's own order below.
+    reversed_noul = qtype is QuestionType.NOUL and [o.key for o in options] == ["no", "yes"]
     item = make_item(
         tier=_tier(meta),
         source=row["set_name"],
@@ -57,13 +61,15 @@ def o2_row_to_item(row: Mapping[str, Any]) -> Item:
         split=Split(row["split"]) if row.get("split") in {s.value for s in Split} else Split.TEST,
         template_id=row["template_id"],
         skill=str(meta.get("skill") or row["template_id"]),
-        qtype=QuestionType(row["qtype"]),
+        qtype=qtype,
         state=row["state"],
         question=row["question"],
-        options=options,
+        options=options[::-1] if reversed_noul else options,
         gold=row["gold"],
         option_order_seed=0,
     )
+    if reversed_noul:
+        item = reorder_options(item, [1, 0])  # back to the row's ['no', 'yes'] order; the gold stays with its key
     item_id = str(row["item_id"])
     if len(item_id) != len(item.item_id):
         raise ValueError(f"item id {item_id!r} does not have the benchmark id length {len(item.item_id)}")

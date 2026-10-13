@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 
 from meddecide.eval.o2_io import Scope, completed_ids, iter_items, open_predictions, write_row
-from meddecide.eval.osler_scoring import score_rows
+from meddecide.eval.osler_scoring import o2_row_to_item, score_rows
 from meddecide.model.meddecide_model import MedDecideModel
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -33,6 +33,22 @@ OUT = REPO / "outputs/osler_v0/O11"
 SCOPE = Scope("common_set", ("v0.2", "ext_panel", "robustness"))
 MAX_BATCH_TOKENS = 8192
 MAX_PROMPT_TOKENS = 16384
+
+
+def preflight(in_scope: list[dict]) -> None:
+    """Every in-scope row must convert to an Item, and every item id must be unique (resuming skips rows by id).
+
+    Runs on the CPU before the model loads: a row that does not convert then stops the run before any GPU time is spent,
+    instead of part-way through a long scoring run.
+    """
+    for row in in_scope:
+        try:
+            o2_row_to_item(row)
+        except (KeyError, ValueError) as exc:
+            raise ValueError(f"row {row['item_id']} ({row['set_name']}, {row['qtype']}) does not convert: {exc}") from exc
+    ids = [row["item_id"] for row in in_scope]
+    if len(set(ids)) != len(ids):
+        raise ValueError(f"{len(ids) - len(set(ids))} duplicated item ids in scope; resuming by id would drop rows")
 
 
 def main() -> None:
@@ -54,6 +70,8 @@ def main() -> None:
     single_path = out_dir / "single_order.jsonl"
     done = completed_ids(both_path) & completed_ids(single_path)
     in_scope = list(iter_items(args.items, SCOPE))
+    preflight(in_scope)
+    print(f"{args.name}: pre-flight passed: {len(in_scope)} rows convert, item ids unique", flush=True)
     remaining = [row for row in in_scope if row["item_id"] not in done]
     if args.limit:
         remaining = remaining[: args.limit]
@@ -84,6 +102,7 @@ def main() -> None:
         "items_file": str(args.items),
         "scope": list(SCOPE.benchmarks),
         "items_in_scope": len(in_scope),
+        "rows_converted_preflight": len(in_scope),  # preflight() raises before this line if any row does not convert
         "rows_written_before": len(done),
         "rows_scored_now": scored,
         "device": args.device,

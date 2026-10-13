@@ -69,3 +69,21 @@ def test_rows_follow_the_input_order_across_batches() -> None:
     assert [r["item_id"] for r in both] == [r["item_id"] for r in rows]
     assert [r["item_id"] for r in single] == [r["item_id"] for r in rows]
     assert len(both) == len(single) == 6
+
+
+class _KeyScorer:
+    """A stub model whose probability for "yes" is 0.9 wherever "yes" is displayed."""
+
+    def score_items(self, items, **_kwargs):
+        probs = [np.array([0.9 if o.key == "yes" else 0.1 for o in item.options]) for item in items]
+        n = len(items)
+        return SimpleNamespace(probs=probs, latency_s=[0.01] * n, prompt_tokens=[7] * n)
+
+
+def test_a_reversed_noul_row_is_scored_in_its_own_order_with_its_probabilities_aligned() -> None:
+    row = _noul_row()
+    row["options"] = [{"key": "no", "label": "No"}, {"key": "yes", "label": "Yes"}]
+    both, single = score_rows(_KeyScorer(), [row], rows_per_call=8)
+    assert both[0]["option_keys"] == single[0]["option_keys"] == ["no", "yes"]
+    assert both[0]["probs"] == single[0]["probs"] == pytest.approx([0.1, 0.9])  # p(yes) = 0.9, shown second
+    assert both[0]["gold"] == "yes" and both[0]["extras"]["orders"] == 1

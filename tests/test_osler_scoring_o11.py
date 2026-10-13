@@ -7,6 +7,7 @@ import pytest
 
 from meddecide.bench.schema import QuestionType
 from meddecide.eval.osler_scoring import average_both_orders, o2_row_to_item, reversed_order
+from meddecide.eval.readout import canonicalise_options
 
 
 def _row(**overrides) -> dict:
@@ -73,6 +74,34 @@ def test_noul_and_score_are_not_reversed() -> None:
     noul = o2_row_to_item(_row(qtype="noul", gold="yes", options=[{"key": "yes", "label": "Yes"},
                                                                  {"key": "no", "label": "No"}]))
     assert reversed_order(noul) is None
+
+
+def _reversed_noul_row() -> dict:
+    # the robustness pack's reverse_options stores a noul row with its options as ['no', 'yes']
+    return _row(qtype="noul", gold="yes", options=[{"key": "no", "label": "No"}, {"key": "yes", "label": "Yes"}])
+
+
+def test_a_reversed_noul_row_keeps_its_option_order_and_its_gold() -> None:
+    item = o2_row_to_item(_reversed_noul_row())
+    assert item.qtype is QuestionType.NOUL
+    assert item.option_keys == ["no", "yes"]
+    assert item.gold == "yes" and item.options[item.gold_index].label == "Yes"
+    assert item.item_id == "a1b2c3d4e5f60718"
+    assert reversed_order(item) is None  # noul is never reversed for scoring
+
+
+def test_a_reversed_noul_item_is_rendered_in_its_display_order() -> None:
+    # the prompt lists the options in display order ("A. No", "B. Yes"), so the gold letter is B
+    canonical, original_keys = canonicalise_options(o2_row_to_item(_reversed_noul_row()))
+    assert original_keys == ["no", "yes"]
+    assert [o.label for o in canonical.options] == ["No", "Yes"]
+    assert canonical.gold == "B"
+
+
+def test_a_noul_row_with_other_keys_is_still_refused() -> None:
+    with pytest.raises(ValueError, match="noul option keys"):
+        o2_row_to_item(_row(qtype="noul", gold="yes", options=[{"key": "yes", "label": "Yes"},
+                                                             {"key": "maybe", "label": "Maybe"}]))
 
 
 def test_both_orders_average_back_to_the_original_positions() -> None:
