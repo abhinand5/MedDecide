@@ -64,3 +64,71 @@ Defects by type, none changes a label:
 
 MIMIC (V5c), Synthea (V5a), MTSamples, CodiEsp and PMC-Patients (V5b), and the teacher prose (V4) are later tasks. No external data
 is read in V1.
+
+## 8. V5a — Synthea encounters (CPU; `richardyoung/synthea-575k-patients`, MIT, streamed)
+
+Extract (40,000 emergency and inpatient encounters; 33,879 emergency and 6,121 inpatient): observation rows cover 37.1 % of the
+encounters (14,855; 127 of 11,424 row groups read, the patience rule stops the scan after matches end); medications 63.6 %,
+procedures 64.4 %, conditions 53.6 %. Coverage is recorded, never assumed (CLAIMS V042).
+
+| template | train | dev | test | heldout_test |
+|---|---|---|---|---|
+| `synthea_page_category_v1` (tabular pages rendered from Synthea facts) | 53,153 | 6,962 | 5,891 | 0 |
+| `synthea_indicator_evidence_v1` | 6,696 | 740 | 618 | 1,342 (aki only) |
+
+Patients: train 3,270; dev 383; test 412; held-out pool 225. No training patient appears in any other split; dev and test share
+no patient. The held-out pool shares 225 patients with dev or test (deviation V5a-D2). Those patients' other items stay in dev and
+test; no training item belongs to them.
+
+Page-category classes in train: MAR 20,554, bill 20,220, laboratory 5,793, flowsheet 3,321, emergency department 3,265 (the
+renderers are the V1 tabular renderers; the class mix is heavy in MAR and bill).
+
+Indicator balance (yes / no, per indicator, after down-sampling in train, dev and test):
+
+| indicator | train | dev | test |
+|---|---|---|---|
+| bilirubin_ge_1_2 | 812 / 812 | 84 / 84 | 62 / 62 |
+| sirs_wbc | 988 / 988 | 109 / 109 | 72 / 72 |
+| sirs_heart_rate | 822 / 822 | 107 / 107 | 92 / 92 |
+| platelets_lt_150 | 314 / 314 | 38 / 38 | 35 / 35 |
+| sirs_temperature | 303 / 303 | 25 / 25 | 39 / 39 |
+| pao2_lt_60 | 37 / 37 | **2 / 2** | **4 / 4** |
+| map_lt_65 | 44 / 44 | **2 / 2** | **1 / 1** |
+| lactate_gt_2 | 28 / 28 | **3 / 3** | **4 / 4** |
+| aki_creatinine_rise (held out; `heldout_test` only, not balanced) | — | — | 60 yes / 1,282 no (majority 0.955) |
+
+Limits, recorded: three indicators have at most four positives per class in dev and test, so their template accuracies are not
+measurable at useful precision; the held-out indicator is 4.5 % yes. A larger Synthea extract would be needed for those indicators
+(the NEXT proposal); this loop keeps the ADVISORY's 40,000.
+
+O3 screen on dev (ADVISORY §3.6): `synthea_indicator_evidence_v1` PASS (Naive Bayes 0.576; string presence not applicable).
+`synthea_page_category_v1` FAIL, expected (lexical page headers): string presence 0.278; Naive Bayes 1.000; gold label in the
+record text for 261 dev items. Accepted under the same rule as the tabular page category (V5a-D1, V1-D2); its share of any mix is
+capped in V7.
+
+Read check (ten items per template, fresh process, terminal only): page headers and titles name the class (lexical, expected);
+OCR-style noise and fax banners appear as designed; the indicator pages carry the trap structure (prior-encounter lines, room-air
+versus oxygen, held versus given medications) and the gold follows the values. Dropped rows, counted: held-out aki items of train
+patients 5,652; observations with non-numeric values 124,502; temperatures in °F 8 (not converted; counted).
+
+## 9. V5b — real clinical text (CPU and network)
+
+| template | role | train | dev | test | source and licence | notes |
+|---|---|---|---|---|---|---|
+| `mtsamples_page_category_v1` | training (page category) | 668 | 97 | 111 | MTSamples (`harishnair04/mtsamples`); licence uncertain, accepted by the operator (D32) | pages per class (train and dev and test together): radiology 269, consult 255, progress 153, discharge 103, ED 63, admission 25, laboratory 8. Rows read 4,999: unmapped 3,971 (by reason in the manifest); under 200 characters 97; mapped 931 rows, which merge to 876 items after duplicates are merged and 23 transcriptions with conflicting classes are dropped |
+| `codiesp_icd_support_v1` | training (ICD support) | 3,374 | none | 1,654 | CodiEsp (`Biomedical-TeMU/CodiEsp_corpus`, CC BY 4.0); the English text is **machine-translated**; corpus train is our train, corpus dev is our test; the corpus test set has no codes and is unused | dropped: code not billable in FY2026 673; category with a single billable code 914; category with several coded codes 787 |
+| `pmc_similar_patient_v1` | training (similar-patient pairs) | 52,549 | 7,990 | 8,100 | PMC-Patients (`zhengyun21/PMC-Patients`, CC BY-NC-SA 4.0 overall, operator choice; subset per row: all 24,144 rows are `comm`) | anchors: up to 40,000 patients (file order) that link to another patient in the file, out of 167,034 read; a partner may be any patient in the file. Train pairs whose other patient is a dev or test anchor or in a dev or test pair: 11,361 dropped |
+| `mkurman_icd_support_v1` | **evaluation only** (test) | — | — | 1,490 | mkurman (`mkurman/clinical-case-icd10-diagnosis`, commercial config; CC BY 4.0 rows; the 3 CC BY-ND 4.0 rows dropped) | dropped: single-billable-code category 37 |
+| NHS synthetic notes | **NOT MEASURED** | | | | `NHSEDataScience/synthetic_clinical_notes` (MIT) | `note_type` takes 26 department or care-setting values (for example "Medicine Inpatients", "Physiotherapy Documentation", "Pre-op Consent"); none maps cleanly to the page classes (timebox used) |
+
+Leakage: no real-text item's text key matches the v0.2 test, dev, panel, robustness or held-out sets, nor the osler_v1 MR dev, test or
+held-out items (zero for every template; `outputs/osler_v1/V5b/audit.json`). Problems found by the audit: none.
+
+Chance and majority on dev or test (the audit file): MTSamples dev 0.083 and 0.361, test 0.083 and 0.288; CodiEsp test 0.130 and
+0.177; PMC dev 0.5 and 0.5, test 0.5 and 0.5; mkurman test chance and majority in CLAIMS V056.
+
+Informational Naive Bayes on dev (not a gate; real text): MTSamples 0.590; PMC 0.520 (near chance: the lexical overlap of the two
+case summaries does not predict the citation link). CodiEsp has no dev split, so its Naive Bayes is NOT MEASURED.
+
+Limits, recorded: MTSamples has very few laboratory (8) and admission (25) pages; CodiEsp is machine-translated; PMC-Patients
+pairs all come from the `comm` subset in this build (68,639 of 68,639); the NHS set is not measured.

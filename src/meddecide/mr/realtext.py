@@ -126,7 +126,8 @@ def _category(code: str) -> str:
 
 
 def codiesp_items(case_id: str, text: str, codes: Iterable[str], order: Mapping[str, OrderRow],
-                  counts: dict[str, int] | None = None, max_options: int = 9) -> list[GeneratedItem]:
+                  counts: dict[str, int] | None = None, max_options: int = 9, template: str = "codiesp_icd_support_v1",
+                  source: str = "codiesp") -> list[GeneratedItem]:
     """One choice item per unambiguous coded billable code: options = the billable codes of its category (at most
     ``max_options``, gold always included) + "none"; template ``codiesp_icd_support_v1``. The item's hashed split is
     replaced by the builder with the corpus split (CodiEsp train -> train, dev -> test; its test set has no codes)."""
@@ -153,14 +154,14 @@ def codiesp_items(case_id: str, text: str, codes: Iterable[str], order: Mapping[
             counts["dropped: category has a single billable code"] = counts.get(
                 "dropped: category has a single billable code", 0) + 1
             continue
-        rng = rng_for("codiesp_icd_support_v1", case_id, gold)
+        rng = rng_for(template, case_id, gold)
         others = [c for c in siblings if c != gold]
         chosen = sorted([*rng.sample(others, min(max_options - 1, len(others))), gold])
         options = [(LETTERS[i], f"{c} - {order[c].long}") for i, c in enumerate(chosen)]
         options.append((LETTERS[len(chosen)], "None of these codes is supported by the documentation"))
-        out.append(make_item("codiesp_icd_support_v1", "MR_icd_support", f"codiesp:{case_id}:{cat}", "base", "choice",
+        out.append(make_item(template, "MR_icd_support", f"{source}:{case_id}:{cat}", "base", "choice",
                              text, "Which ICD-10-CM code does this documentation support, as the most specific code?",
-                             options, LETTERS[chosen.index(gold)], {"code": gold, "source": "codiesp"}))
+                             options, LETTERS[chosen.index(gold)], {"code": gold, "source": source}))
     return out
 
 
@@ -188,8 +189,8 @@ def read_pmc_patients(csv_path: str | Path, limit: int | None = None) -> Iterato
                              (row.get("file_path") or "").split("/", 1)[0])
 
 
-def pmc_similar_items(patients: list[PmcPatient], seed: int = 0, counts: dict[str, int] | None = None
-                      ) -> list[GeneratedItem]:
+def pmc_similar_items(patients: list[PmcPatient], seed: int = 0, counts: dict[str, int] | None = None,
+                      anchor_uids: set[str] | None = None) -> list[GeneratedItem]:
     """For each patient with a similar-patient link: one positive pair (a linked patient) and one negative pair (a
     random unlinked patient); template ``pmc_similar_patient_v1``. Pairs are keyed by the first patient, so the split
     is by that patient; the builder must keep both patients of a test pair out of training (``pair_uids`` in meta)."""
@@ -199,6 +200,8 @@ def pmc_similar_items(patients: list[PmcPatient], seed: int = 0, counts: dict[st
     rng = random.Random(seed)
     out = []
     for p in patients:
+        if anchor_uids is not None and p.uid not in anchor_uids:
+            continue  # partners may be any patient in the file; only the anchors get pairs (ADVISORY V5b: at most 40,000)
         linked = [u for u in sorted(p.similar) if u in by_uid]
         if not linked:
             counts["skipped: no linked patient in the file"] = counts.get("skipped: no linked patient in the file", 0) + 1

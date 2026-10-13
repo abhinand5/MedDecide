@@ -28,8 +28,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V2 | ICD-10-CM verification | no | V0 | DONE | 2026-10-13T22:43:25Z | 2026-10-13T22:44:06Z |
 | V3 | Replay to 20 % | no | V0 | DONE | 2026-10-13T22:44:15Z | 2026-10-13T22:45:36Z |
 | V4 | Teacher prose | no | V1, V2, V5a | PENDING | | |
-| V5a | Synthea | no | V0 | PENDING | | |
-| V5b | Real clinical text | no | V2 | PENDING | | |
+| V5a | Synthea | no | V0 | DONE | 2026-10-13T22:45:53Z | 2026-10-13T22:51:28Z |
+| V5b | Real clinical text | no | V2 | DONE | 2026-10-13T22:52:20Z | 2026-10-13T22:56:31Z |
 | V5c | MIMIC sources (only when the files exist) | no | V0 | PENDING | | |
 | V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | PENDING | | |
 | V7 | Mix v3 blocks | no | V3, V6 | PENDING | | |
@@ -56,8 +56,8 @@ No row may be left `IN_PROGRESS` at closure.
 | ICD-10-CM FY2026 order file sha256; verify result | order file sha256 6dc95c9c7e96c734…; zip sha256 55a9124a27ca78a4…; 98,186 rows; the 48 curated codes: 0 missing, 0 not billable (PASS). FY2027 additional: 48 of 48 present and billable | `data/cms/icd10cm/2026/` (gitignored); `outputs/osler_v1/V2/verify_fy2026.json` (CLAIMS V035–V037) | V2 |
 | replay share of B0; sources and licences | B0 replay share 0.1531 (100,132 of 653,914 train rows), **target 20 % NOT met** (38,314 rows short under D20). Sources: HellaSwag (MIT, 39,905), WinoGrande (CC-BY, 40,398); mix v2's CommonsenseQA and QASC (19,829) kept. Dropped: ARC, BoolQ, SNLI (CC BY-SA), OpenBookQA (licence unknown) | `outputs/osler_v1/V3/replay_manifest.json`, `outputs/osler_v1/V3/SELF_AUDIT.md` (CLAIMS V038–V041) | V3 |
 | teacher: pilot pass rate; pairs built; spend | | | V4 |
-| Synthea: encounters, coverage, items per template | | `loops/osler_v1/mr_data.md` | V5a |
-| real text: MTSamples pages per class; CodiEsp items; PMC pairs | | `loops/osler_v1/mr_data.md` | V5b |
+| Synthea: encounters, coverage, items per template | 40,000 encounters (33,879 emergency, 6,121 inpatient); observation coverage 37.1 %; items train 59,849 / dev 7,702 / test 6,509 / heldout 1,342. Indicator screen PASS (NB 0.576); page-category screen FAIL, expected (1.000; V5a-D1). Rare indicators have at most 4 positives per class in dev and test (limit) | `loops/osler_v1/mr_data.md` §8, `outputs/osler_v1/V5a/SELF_AUDIT.md` (CLAIMS V042–V048) | V5a |
+| real text: MTSamples pages per class; CodiEsp items; PMC pairs | MTSamples items train 668 / dev 97 / test 111 (radiology 269, consult 255, progress 153, discharge 103, ED 63, admission 25, laboratory 8). CodiEsp train 3,374 / test 1,654 (machine-translated). PMC pairs train 52,549 / dev 7,990 / test 8,100 (up to 40,000 anchors across the whole file; partners anywhere in it). mkurman eval-only 1,490. NHS NOT MEASURED. Audit: no problems; text overlap zero | `loops/osler_v1/mr_data.md` §9, `outputs/osler_v1/V5b/SELF_AUDIT.md` (CLAIMS V049–V056) | V5b |
 | MIMIC (if it arrives): pages per class; ICD rows per family; late-anchor removals | | `loops/osler_v1/mr_data.md` | V5c |
 | MR baselines (template macro per model) | | `loops/osler_v1/mr_baselines.md` | V6 |
 | blocks: rows, replay share; steps per block run | | | V7 |
@@ -78,7 +78,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Task in flight: none (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
 Working dir:    outputs/osler_v1/V1/
 
 V1 checklist (closed): build (6,000/300/300 per generator); audit; screen checked against §3.6 (page category fails as expected; ICD v1 failed and was replaced by v2, V1-D1); ten items read per generator; mr_data.md; SELF_AUDIT.md; CLAIMS V022–V033; test_icd_template_v2.py and test_mr_v1.py pass.
@@ -158,6 +158,20 @@ V0 checklist (closed):
 - Surprises: the licence conflict between ADVISORY V3's candidate list and D20 (the three CC BY-SA sources would give the SNLI pool, 550k rows, and reach 20 %); OpenBookQA's own licence is not stated on the Hub.
 - Next: V5a (Synthea) and V5b (real clinical text), both CPU and network; V4 once V1, V2 and V5a are done; V5c re-check before V7.
 
+### V5a — DONE — 2026-10-13T22:51:28Z
+- What ran: `v5_synthea.py extract --encounters 40000` (streams the Hub copy; 8 encounter row groups; observation scan 127 of 11,424 row groups, coverage recorded); `v5_synthea.py build` (run twice: once with a held-out-pool variant that was reverted, and once with the committed logic, which is the one used); `v5a_audit.py` (splits, held-out isolation, balance, O3 screens, chance and majority; `SELF_AUDIT.md`); ten items read per template.
+- Output: `data/synthea/osler_v1/` and `data/gen/osler_v1_synthea/` (gitignored); `outputs/osler_v1/V5a/` (`extract_report` in data, `screen.json`, `audit.json`, `SELF_AUDIT.md`, `logs/`).
+- Headline: 40,000 encounters; train 59,849 / dev 7,702 / test 6,509 / held-out 1,342 rows; the indicator template passes the O3 screen (Naive Bayes 0.576), the page category fails as expected (1.000; V5a-D1). No training patient is in any other split (CLAIMS V042–V046).
+- Surprises: an earlier build variant that removed a held-out patient's other items from dev and test cut dev indicator items from 740 to 72; it was reverted (V5a-D2). The held-out aki items are 4.5 % yes and are not balanced. Three indicators have at most 4 positives per class in dev and test.
+- Next: V5b (MTSamples, CodiEsp, PMC-Patients, NHS and mkurman evaluation sets); V4 once V1, V2 and V5a are done.
+
+### V5b — DONE — 2026-10-13T22:56:31Z
+- What ran: `v5b_realtext.py fetch` (five public sources into the Hub cache, never the repo); `v5b_realtext.py build` (MTSamples page items; CodiEsp train and corpus dev; PMC-Patients (anchors selected across the whole file, up to 40,000) with the leakage drop, run twice (the first build superseded); mkurman evaluation set; NHS checked for a clean note-type mapping); `v5b_audit.py` (splits, PMC leakage re-derived, text overlap with the v0 protected sets and the MR test sets, chance and majority, informational Naive Bayes; `SELF_AUDIT.md`); two items read per template.
+- Output: `data/gen/osler_v1/realtext/` (gitignored; `manifest.json` with sha256 per file); `outputs/osler_v1/V5b/` (`audit.json`, `report.json`, `SELF_AUDIT.md`, `logs/`).
+- Headline: training real text: MTSamples 668 / 97 / 111; CodiEsp 3,374 train and 1,654 test (corpus dev); PMC pairs 52,549 / 7,990 / 8,100. Evaluation only: mkurman 1,490 test items. NHS NOT MEASURED (department labels). No real-text item overlaps a protected or MR test text (CLAIMS V049–V054).
+- Surprises: a first build took the first 40,000 rows as the anchor set, which left 24,821 of them without an internal partner; the build was corrected to select anchors across the whole file (the ADVISORY's 'all rows'). Every pair is from the `comm` licence subset. MTSamples has 8 laboratory and 25 admission pages (very small classes). CodiEsp is machine-translated English.
+- Next: V4 (teacher prose) needs V1, V2 and V5a, which are DONE. The ICD prose must use the two-diagnosis design of v2. V5c (MIMIC) is re-checked before V7. V6 (MR suite and baselines, GPU) needs V1, V5a and V5b, which are DONE.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -220,6 +234,13 @@ deviation — that is a `BLOCKED`.
 - **V1-D2 (page category).** The page-category screen failure is accepted as ADVISORY §3.6 expects. Its share of any mix is capped in V7.
 - **V1-D3 (twins).** The page-category generator emits one item per patient id, so the twin audit does not apply to it.
 - **V3-D1 (replay target).** The 20 % replay share is not reached. D20 (settled) requires permissive licences; with the permissive pool (HellaSwag, WinoGrande, and the two sources already in mix v2) the share is 15.31 %. Nothing is removed from the non-replay rows to reach 20 %: the ADVISORY says 'add', so the gap is reported (Question 2). CLAIMS V038–V040.
+- **V5a-D1 (Synthea page category).** `synthea_page_category_v1` fails the O3 screen (Naive Bayes 1.000) because its page headers name the class. The same lexical failure is recorded and accepted for the tabular page category (V1-D2). Its share of any mix is capped (V7).
+- **V5a-D2 (held-out pool and dev and test).** The held-out pool shares 225 patients with dev and test, not with train (the audit: train 0, dev and test 0 shared with each other). A strict rule that moves each held-out patient out of dev and test was tried and reverted: it cut dev indicator items from 740 to 72, too few for the keep rule. The held-out set is evaluated only and no training item belongs to its patients. CLAIMS V044.
+- **V5b-D1 (PMC anchors).** The ADVISORY reads 'all rows' with 'at most 40,000 anchor patients'. The build selects the first 40,000 patients (in file order) that link to another patient in the file, out of 167,034 read; a partner may be any patient in the file. A first build used the first 40,000 rows as the whole set, which left most anchors without a partner; that build is superseded (CLAIMS V051, V057). Every pair is from the `comm` licence subset.
+- **V5b-D2 (CodiEsp).** Corpus train is our train; corpus dev is our test; the corpus test set has no codes and is unused. The English text is machine-translated and is labelled so.
+- **V5b-D3 (mkurman).** The three CC BY-ND 4.0 rows are dropped (no derivatives), so evaluation items come only from the CC BY 4.0 rows (1,490).
+- **V5b-D4 (NHS synthetic notes).** NOT MEASURED: `note_type` labels are departments and care settings, not page classes; the timebox was used.
+- **V5b-D5 (MTSamples licence).** Its licence is uncertain; the operator accepted it under D32 and it is recorded in the manifest and in mr_data §9.
 - **V0-D7 (speed evidence).** The first run of config a stored only its last 50 step records, so its throughput could not be
   re-derived from the file. Config a was re-run with every record stored (`speed/a.json`; the first run is kept as `speed/a_run1.json`),
   and the choice is recomputed from these files (`outputs/osler_v1/V0/SELF_AUDIT.md`, 12 PASS). The driver now stores all records; the
