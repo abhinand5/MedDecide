@@ -21,6 +21,7 @@ from typing import Any, Literal, Protocol
 
 from meddecide.mr import icd
 from meddecide.mr.criteria import ChunkFacts
+from meddecide.mr.pages import PAGE_KEYS
 
 CREDENTIALED_SOURCES = ("mimic", "physionet", "mdace")
 
@@ -67,58 +68,76 @@ def chunk_facts(facts: ChunkFacts) -> dict[str, Any]:
     return {"observations": [asdict(o) for o in facts.observations], "medications": [asdict(m) for m in facts.meds]}
 
 
-STYLE_DEFAULTS = {"length": "one page", "voice": "a hospital clinician"}
+STYLE_DEFAULTS = {"length": "half a page (about 250-350 words)", "voice": "a hospital clinician"}
+
+# Prompts are laid out for the endpoint's automatic prefix cache: everything that is the same for every request of a
+# kind sits in the system message (sent first, byte-identical), and only the request's own facts follow. Cached input
+# is billed at about 2 % of the uncached rate on the OpenCode Go plan.
+WRITE_SYSTEM = "\n".join([
+    "You write synthetic medical-record pages for training data. Follow every rule exactly.",
+    "- Write one page of the type and setting given in the request, in the voice and length given there.",
+    "- Use realistic clinical language, abbreviations and section headings, and plausible unrelated narrative detail "
+    "(history, exam findings without numbers, plans) so the page reads like a real record.",
+    "- Every item in FACTS must be stated exactly as given: same values, units, times relative to admission, certainty "
+    "words, who has the condition, and whether it is current or past. State plainly when a value is from a prior "
+    "admission, when it is the patient's documented baseline, and whether an oxygen saturation was on room air or on "
+    "oxygen. State the administration status of every medication.",
+    "- Do not state any vital sign, laboratory value or medication administration other than those in FACTS, and do not "
+    "add any other diagnosis of the same condition.",
+    "- Do not state or hint at any billing code, and do not say whether any criteria are met.",
+    "- Use only invented names, dates and identifiers.",
+    "- Output only the page text.",
+])
+
+OBS_NAMES = ("lactate", "map", "temperature", "heart_rate", "respiratory_rate", "wbc", "platelets", "bilirubin", "pao2",
+             "spo2", "paco2", "ph", "fio2", "creatinine", "sodium")
+EXTRACT_SYSTEM = {
+    "page": "You extract facts from medical-record text into JSON. Output only JSON with the schema "
+            '{"page_type": one of ' + json.dumps(list(PAGE_KEYS))
+            + ', "conditions_mentioned": [every condition or diagnosis the page attributes to the patient]}.',
+    "diagnosis": "You extract facts from medical-record text into JSON. Output only JSON with the schema "
+                 '{"condition": string, "attributes": {attribute: value}, "certainty": "confirmed"|"probable"|'
+                 '"suspected"|"ruled_out", "subject": "patient"|"family", "status": "current"|"history"}. '
+                 "Report how the page documents the condition named in the request, using only the attribute names and "
+                 'values the request lists, and "unspecified" for an attribute the page does not state.',
+    "chunk": "You extract facts from medical-record text into JSON. Output only JSON with the schema "
+             '{"observations": [{"name", "value", "encounter": "current"|"prior", "baseline": bool, '
+             '"on_room_air": bool}], "medications": [{"drug", "status": "given"|"held"|"refused"|"not_given", '
+             '"encounter": "current"|"prior"}]}. List EVERY vital sign and laboratory value on the page and EVERY '
+             "medication administration. Use these names: " + ", ".join(OBS_NAMES) + " (map = mean arterial pressure; "
+             'spo2 = pulse-oximetry saturation; fio2 in percent); give each value in the canonical unit (lactate mmol/L, '
+             "creatinine and bilirubin mg/dL, temperature Celsius, PaO2 and PaCO2 mmHg, counts x10^9/L or x10^3/uL); "
+             'any other measurement gets the name "other". on_room_air is true unless the page says oxygen was given.',
+}
 
 
 def write_messages(req: ProseRequest) -> list[dict[str, str]]:
     style = {**STYLE_DEFAULTS, **req.style}
-    rules = [
-        f"Write one {req.page_class.replace('_', ' ')} page of an {req.setting} medical record, as {style['voice']} "
-        f"would write it, about {style['length']} long.",
-        "Use realistic clinical language, abbreviations and section headings. Add unrelated but plausible clinical detail "
-        "(other problems, plans, exam findings) so the page reads like a real record.",
-        "The FACTS below must all be stated exactly as given: same values, units, times relative to admission, certainty "
-        "words, who has the condition, and whether it is current or past. Do not add any other diagnosis or measurement of "
-        "the same condition or quantity, and do not contradict a fact.",
-        "Do not state or hint at any billing code, and do not explain whether criteria are met.",
-        "Use only invented names, dates and identifiers.",
-        "Output only the page text.",
-    ]
-    return [
-        {"role": "system", "content": "You write synthetic medical-record pages for training data. Follow the rules exactly."},
-        {"role": "user", "content": "\n".join(f"- {r}" for r in rules) + "\n\nFACTS:\n" + json.dumps(req.facts, indent=2)},
-    ]
+    user = (f"PAGE TYPE: {req.page_class.replace('_', ' ')}\nSETTING: {req.setting}\nVOICE: {style['voice']}\n"
+            f"LENGTH: {style['length']}\n\nFACTS:\n{json.dumps(req.facts, indent=1)}")
+    return [{"role": "system", "content": WRITE_SYSTEM}, {"role": "user", "content": user}]
 
 
 def extract_messages(req: ProseRequest, text: str) -> list[dict[str, str]]:
-    if req.kind == "page":
-        from meddecide.mr.pages import PAGE_KEYS
-
-        schema = {"page_type": list(PAGE_KEYS), "conditions_mentioned": ["string"]}
-        ask = ("Classify the page type, and list every condition or diagnosis the page mentions as the patient's.")
-        return [
-            {"role": "system", "content": "You extract facts from medical-record text into JSON. Output only JSON."},
-            {"role": "user", "content": f"{ask}\nSchema: {json.dumps(schema)}\n\nPAGE:\n{text}"},
-        ]
     if req.kind == "diagnosis":
-        schema = {"condition": "string", "attributes": {k: list(v) for k, v in
-                                                         icd.FAMILY_BY_KEY[req.facts["family"]].attributes.items()},
-                  "certainty": ["confirmed", "probable", "suspected", "ruled_out"], "subject": ["patient", "family"],
-                  "status": ["current", "history"]}
-        ask = (f"Read the page and report how it documents {req.facts['condition']}. Use exactly these fields and allowed "
-               f"values; use \"unspecified\" for an attribute the page does not state.")
+        fam = icd.FAMILY_BY_KEY[req.facts["family"]]
+        head = (f"CONDITION: {req.facts['condition']}\nATTRIBUTES: "
+                f"{json.dumps({k: [*v, 'unspecified'] for k, v in fam.attributes.items()})}\n\n")
     else:
-        schema = {"observations": [{"name": "string", "value": "number (canonical unit)", "encounter": ["current", "prior"],
-                                    "baseline": "boolean", "on_room_air": "boolean"}],
-                  "medications": [{"drug": "string", "status": ["given", "held", "refused", "not_given"],
-                                   "encounter": ["current", "prior"]}]}
-        ask = ("List every measurement and medication administration the page states for these quantities: "
-               + ", ".join(sorted({o["name"] for o in req.facts["observations"]} |
-                                  {m["drug"] for m in req.facts["medications"]})) + ".")
-    return [
-        {"role": "system", "content": "You extract facts from medical-record text into JSON. Output only JSON."},
-        {"role": "user", "content": f"{ask}\nSchema: {json.dumps(schema)}\n\nPAGE:\n{text}"},
-    ]
+        head = ""
+    return [{"role": "system", "content": EXTRACT_SYSTEM[req.kind]}, {"role": "user", "content": f"{head}PAGE:\n{text}"}]
+
+
+SYNONYMS = {"mean arterial pressure": "map", "temp": "temperature", "hr": "heart_rate", "heart rate": "heart_rate",
+            "rr": "respiratory_rate", "respiratory rate": "respiratory_rate", "white blood cells": "wbc",
+            "leukocytes": "wbc", "plt": "platelets", "total bilirubin": "bilirubin", "sao2": "spo2",
+            "oxygen saturation": "spo2", "po2": "pao2", "pco2": "paco2", "na": "sodium", "creat": "creatinine",
+            "lactic acid": "lactate"}
+
+
+def _obs_name(name: object) -> str:
+    n = str(name).strip().lower().replace("-", "_")
+    return SYNONYMS.get(n, n)
 
 
 def _json(text: str) -> dict[str, Any] | None:
@@ -161,13 +180,16 @@ def verify(req: ProseRequest, extracted: Mapping[str, Any] | None, *, rel_tol: f
     got_obs = []
     for o in extracted.get("observations") or []:
         try:
-            got_obs.append((str(o["name"]), float(o["value"]), o.get("encounter", "current"),
+            name = _obs_name(o["name"])
+            if name not in OBS_NAMES:
+                continue  # "other" measurements (weight, glucose, ...) do not touch any indicator
+            got_obs.append((name, float(o["value"]), o.get("encounter", "current"),
                             bool(o.get("baseline", False)), bool(o.get("on_room_air", True))))
         except (KeyError, TypeError, ValueError):
             problems.append(f"malformed observation {o!r}")
     got_obs.sort(key=lambda t: (t[0], t[1]))
     if len(got_obs) != len(want):
-        problems.append(f"observation count {len(got_obs)} != {len(want)}")
+        problems.append(f"indicator-relevant observation count {len(got_obs)} != {len(want)} (an invented value?)")
     for (wn, wv, we, wb, wr) in want:
         match = [g for g in got_obs if g[0] == wn and abs(g[1] - wv) <= rel_tol * max(abs(wv), 1e-9)
                  and g[2] == we and g[3] == wb and g[4] == wr]

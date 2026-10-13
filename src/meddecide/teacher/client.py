@@ -14,12 +14,52 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 DEFAULT_TIMEOUT_S = 120.0
+
+# OpenCode Go list prices for DeepSeek V4.1 Flash, USD per 1M tokens (2026-10-13): (uncached input, output, cached read)
+OFF_PEAK = (0.15, 0.60, 0.003)
+PEAK = (0.30, 1.20, 0.006)
+
+
+def is_peak(when: datetime | None = None) -> bool:
+    """OpenCode Go peak hours: 01:00-04:00 and 06:00-10:00 UTC, Monday to Friday."""
+    t = when or datetime.now(UTC)
+    return t.weekday() < 5 and (1 <= t.hour < 4 or 6 <= t.hour < 10)
+
+
+@dataclass
+class UsageMeter:
+    """Running token counts and an estimated cost at list price (peak or off-peak by the time of each call)."""
+
+    calls: int = 0
+    prompt_tokens: int = 0
+    cached_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    cost_usd: float = 0.0
+
+    def add(self, usage: dict[str, Any], when: datetime | None = None) -> None:
+        prompt = int(usage.get("prompt_tokens") or 0)
+        cached = int((usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
+        out = int(usage.get("completion_tokens") or 0)
+        rate_in, rate_out, rate_cached = PEAK if is_peak(when) else OFF_PEAK
+        self.calls += 1
+        self.prompt_tokens += prompt
+        self.cached_tokens += cached
+        self.completion_tokens += out
+        self.reasoning_tokens += int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
+        self.cost_usd += ((prompt - cached) * rate_in + cached * rate_cached + out * rate_out) / 1e6
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"calls": self.calls, "prompt_tokens": self.prompt_tokens, "cached_tokens": self.cached_tokens,
+                "completion_tokens": self.completion_tokens, "reasoning_tokens": self.reasoning_tokens,
+                "cost_usd": round(self.cost_usd, 4)}
 
 
 @dataclass
@@ -33,6 +73,11 @@ class TeacherClient:
     # True only for a teacher on an operator-controlled machine; credentialed data (MIMIC) may go only to a local teacher
     local: bool = False
     extra_headers: dict[str, str] = field(default_factory=dict)
+    # thinking is off by default: measured on 2026-10-13, DeepSeek V4.1 Flash on OpenCode Go spent 3,000-6,000 reasoning
+    # tokens on a 150-word note (default and "max" effort used the whole budget and returned no text), and reasoning is
+    # billed as output. "disabled" sends thinking={"type": "disabled"}; any other value is sent as reasoning_effort.
+    thinking: str = "disabled"
+    usage: UsageMeter = field(default_factory=lambda: UsageMeter())
     _client: httpx.Client | None = field(default=None, repr=False)
 
     @classmethod
@@ -50,7 +95,9 @@ class TeacherClient:
             timeout_s=timeout_s,
             model=env("TEACHER_MODEL") or env("OPENAI_MODEL") or "",
             local=os.environ.get("TEACHER_LOCAL", "") == "1",
-            extra_headers=dict(json.loads(extra)) if extra else {},
+            extra_headers={"User-Agent": "osler-datagen/1.0", "x-opencode-session": env("TEACHER_SESSION") or "osler-v1",
+                           **(dict(json.loads(extra)) if extra else {})},
+            thinking=env("TEACHER_THINKING") or "disabled",
         )
 
     # ---- plumbing ------------------------------------------------------------
@@ -93,13 +140,21 @@ class TeacherClient:
         return self.client().post(self._url(path), json=payload, **kwargs)
 
     def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.7, max_tokens: int = 1024) -> str:
-        """One ``/chat/completions`` call; returns the assistant text (raises on an HTTP error)."""
+        """One ``/chat/completions`` call; returns the assistant text (raises on an HTTP error). Token usage, including
+        cached prompt tokens and reasoning tokens, is added to ``self.usage``."""
         if not self.model:
             raise RuntimeError("TEACHER_MODEL is not set")
-        response = self.post("chat/completions", {"model": self.model, "messages": messages,
-                                                  "temperature": temperature, "max_tokens": max_tokens})
+        payload: dict[str, Any] = {"model": self.model, "messages": messages, "temperature": temperature,
+                                   "max_tokens": max_tokens}
+        if self.thinking == "disabled":
+            payload["thinking"] = {"type": "disabled"}
+        elif self.thinking:
+            payload["reasoning_effort"] = self.thinking
+        response = self.post("chat/completions", payload)
         response.raise_for_status()
-        return str(response.json()["choices"][0]["message"]["content"] or "")
+        body = response.json()
+        self.usage.add(body.get("usage") or {})
+        return str(body["choices"][0]["message"]["content"] or "")
 
     # ---- endpoint checks -----------------------------------------------------
     def list_models(self) -> dict[str, Any]:

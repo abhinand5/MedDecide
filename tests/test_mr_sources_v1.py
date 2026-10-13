@@ -144,3 +144,38 @@ def test_teacher_client_falls_back_to_openai_variables(monkeypatch) -> None:
     assert (c.base_url, c.api_key, c.model, c.local) == ("https://example.org/v1", "k", "m", False)
     monkeypatch.setenv("TEACHER_BASE_URL", "https://teacher.example/v1")
     assert TeacherClient.from_env().base_url == "https://teacher.example/v1"
+
+
+def test_usage_meter_prices_cache_and_peak_hours() -> None:
+    from datetime import datetime
+
+    from meddecide.teacher.client import UsageMeter, is_peak
+
+    assert is_peak(datetime(2026, 10, 13, 7, 0)) and not is_peak(datetime(2026, 10, 13, 12, 0))
+    assert not is_peak(datetime(2026, 10, 17, 7, 0))  # Saturday
+    m = UsageMeter()
+    usage = {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
+             "prompt_tokens_details": {"cached_tokens": 500_000}, "completion_tokens_details": {"reasoning_tokens": 0}}
+    m.add(usage, when=datetime(2026, 10, 13, 12, 0))
+    assert abs(m.cost_usd - (0.5 * 0.15 + 0.5 * 0.003 + 0.60)) < 1e-9
+    m.add(usage, when=datetime(2026, 10, 13, 7, 0))
+    assert abs(m.cost_usd - 2 * (0.5 * 0.15 + 0.5 * 0.003 + 0.60) - (0.5 * 0.15 + 0.5 * 0.003 + 0.60)) < 1e-9
+
+
+def test_chat_payload_turns_thinking_off_by_default(monkeypatch) -> None:
+    from meddecide.teacher.client import TeacherClient
+
+    sent = {}
+
+    class Resp:
+        def raise_for_status(self) -> None: ...
+        def json(self):
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
+
+    c = TeacherClient(base_url="https://x/v1", model="m")
+    monkeypatch.setattr(c, "post", lambda path, payload: sent.update(payload) or Resp())
+    assert c.chat([{"role": "user", "content": "hi"}]) == "ok"
+    assert sent["thinking"] == {"type": "disabled"} and "reasoning_effort" not in sent
+    c.thinking = "high"
+    c.chat([{"role": "user", "content": "hi"}])
+    assert sent["reasoning_effort"] == "high" and c.usage.calls == 2

@@ -86,9 +86,9 @@ Outcomes and what each implies (write the one that applies into FINDINGS):
    recorded as expected (deviation), and its share of the mix is capped (§V7).
 7. **No CPT descriptors, no InterQual or MCG content, nothing from any payment-integrity vendor.** HCPCS Level II,
    ICD-10-CM, CMS public files and published clinical criteria only.
-8. **Teacher budget.** At most $60 of hosted teacher spend in this loop, counted from the API's reported token usage at
-   list price ($0.15/M input, $0.60/M output for V4.1 Flash unless the endpoint reports cost). Stop at the cap and
-   record what was built.
+8. **Teacher budget.** At most $60 of hosted teacher spend in this loop, counted by `TeacherClient.usage` from the
+   API's reported tokens at list price (off-peak $0.15/M input, $0.60/M output, $0.003/M cached; peak is double).
+   Window and weekly guards are in V4. Stop at the cap and record what was built.
 9. **One GPU job at a time**; detached jobs with logs; poll at 20 minutes or more (AGENTS.md).
 10. **Recipe constants.**
     - Base: Qwen3.5-4B and -9B at the osler_v0 revisions.
@@ -200,8 +200,23 @@ Steps:
    Drop such pages and count them.
 3. Spot-read 20 verified pages per generator in a fresh process. Record the defects you see by type (not the text).
 
-The OpenCode Go plan is designed for coding agents and monitors for abuse. Send at most 2 requests per second and
-respect HTTP 429 with exponential backoff. If the endpoint starts refusing, stop and record it; do not rotate keys.
+**Teacher settings (measured by the advisor on 2026-10-13; OpenCode Go, `deepseek-v4.1-flash`):**
+- **Thinking off** (`TeacherClient` default; `TEACHER_THINKING` overrides). With thinking on, a 150-word note spent
+  3,000–6,000 reasoning tokens, billed as output. At default and `max` effort it used the whole 6,000-token budget and
+  returned no text. With thinking off, 8 of 8 verified pages cost $0.0044 in total, about $0.00055 a page.
+- **Cost is output.** Input is a small share; the prompts already put the fixed instructions first, so the automatic
+  prefix cache serves them. Keep pages at the default "half a page" length unless the page class needs more.
+- **Headers:** a stable `x-opencode-session` per worker and the `osler-datagen/1.0` user agent (client defaults).
+- **Off-peak first.** Peak hours (01:00–04:00 and 06:00–10:00 UTC, Monday–Friday) cost twice as much; pause bulk
+  generation during them (`teacher.client.is_peak`).
+- **Throughput:** at most 8 concurrent workers and 2 requests per second in total. Respect HTTP 429 with exponential
+  backoff. If the endpoint starts refusing, stop and record it; do not rotate keys.
+- **Budget guard:** read `client.usage.as_dict()` after every batch and write it to the task log.
+  - Stop for the current 5-hour window at $14 (the plan's window allowance is $16).
+  - Stop for the week at $36 (allowance $40).
+  - Stop for the loop at $60.
+
+  The Go plan is designed for coding agents and monitors for abuse, so stay well inside these limits.
 
 ### V5a — Synthea (CPU + network, ~3 h)
 
