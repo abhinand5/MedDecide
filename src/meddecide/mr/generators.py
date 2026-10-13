@@ -20,6 +20,7 @@ with the next variant seed and raises if it cannot.
 from __future__ import annotations
 
 import random
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 
@@ -449,8 +450,77 @@ def mr_icd_support_template_v1(pid: str) -> list[GeneratedItem]:
     raise RuntimeError(f"mr_icd_support_template_v1/{pid}: no flipping twin in {MAX_TRIES} tries")
 
 
+# ---- ICD-10-CM code support, v2: distractor diagnoses (osler_v1 V1) ------------------------------------------------
+# The v1 design failed the O3 screen at full size: a bag-of-words Naive Bayes reached 0.938 on dev (threshold 0.90),
+# because one diagnosis's attribute words name its code (CLAIMS V022). v2 documents two unrelated diagnoses in the same
+# note and names the target condition in the question, so the words of the other diagnoses cannot be read as the answer.
+# The draw of the target, its gold and the twin rule are the same as v1. Distractors are never a held-out family and never
+# share a word with the target condition, so the question stays unambiguous; a draw that breaks either rule is retried.
+
+ICD_DISTRACTORS = 2
+
+
+def _content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 4}
+
+
+def mr_icd_support_template_v2(pid: str) -> list[GeneratedItem]:
+    for attempt in range(MAX_TRIES):
+        rng = rng_for("mr_icd_support_template_v2", pid, str(attempt))
+        family = rng.choice([f.key for f in icd.FAMILIES])
+        setting = rng.choice(("inpatient", "outpatient"))
+        base = _random_dx(rng, family)
+        g_base = icd.supported_code(base, setting)
+        flips = [t for t in _one_fact_changes(base) if icd.supported_code(t, setting) != g_base]
+        if not flips:
+            continue
+        twin = rng.choice(flips)
+        g_twin = icd.supported_code(twin, setting)
+        fam = icd.FAMILY_BY_KEY[family]
+        codes = sorted(fam.codes)
+        options = [(LETTERS[i], f"{c} - {fam.codes[c]}") for i, c in enumerate(codes)]
+        none_key = LETTERS[len(codes)]
+        options.append((none_key, "None of these codes is supported by the documentation"))
+        render_seed = rng.randrange(10**9)
+        question = rng.choice((
+            f"Which ICD-10-CM code does the documentation support for the {fam.condition}, as the most specific code?",
+            f"Select the correct ICD-10-CM code for the documented {fam.condition}, if any.",
+        ))
+        target_words = _content_words(fam.condition)
+        others = [f.key for f in icd.FAMILIES if f.key != family and f.key not in HELD_OUT_ICD_FAMILIES
+                  and not (_content_words(f.condition) & target_words)]
+        distractor_families = rng.sample(others, ICD_DISTRACTORS)
+        distractors = [_random_dx(rng, key) for key in distractor_families]
+        distractor_seeds = [rng.randrange(10**9) for _ in distractors]
+        target_at = rng.randrange(len(distractors) + 1)
+        pair = [(base, g_base), (twin, g_twin)]
+        if rng.random() < 0.5:  # either diagnosis may be the base
+            pair.reverse()
+        distractor_lines = [render_dx_template(d, setting, random.Random(s)).split("\n")[1]
+                            for d, s in zip(distractors, distractor_seeds, strict=True)]
+        if any(fam.condition.lower() in line.lower() for line in distractor_lines):
+            continue
+        out = []
+        for role, (dx, gold_code) in zip(("base", "twin"), pair, strict=True):
+            head, target_line, plan = render_dx_template(dx, setting, random.Random(render_seed)).split("\n")
+            lines = list(distractor_lines)
+            lines.insert(target_at, target_line)
+            state = "\n".join([head, *lines, plan])
+            gold = none_key if gold_code is None else LETTERS[codes.index(gold_code)]
+            out.append(make_item("mr_icd_support_template_v2", "MR_icd_support", pid, role, "choice", state, question,
+                                 options, gold, {"family": family, "setting": setting, "code": gold_code,
+                                                 "certainty": dx.certainty, "subject": dx.subject,
+                                                 "status": dx.status, "attributes": dict(dx.attributes),
+                                                 "distractor_families": list(distractor_families),
+                                                 "distractors": [{"family": d.family, "attributes": dict(d.attributes),
+                                                                  "certainty": d.certainty, "subject": d.subject,
+                                                                  "status": d.status} for d in distractors]}))
+        return out
+    raise RuntimeError(f"mr_icd_support_template_v2/{pid}: no flipping twin in {MAX_TRIES} tries")
+
+
 GENERATORS: tuple[MRGenerator, ...] = (
     MRGenerator("mr_page_category_tabular_v1", "MR_page_category", False, mr_page_category_tabular_v1),
     MRGenerator("mr_indicator_evidence_v1", "MR_indicator_evidence", False, mr_indicator_evidence_v1),
-    MRGenerator("mr_icd_support_template_v1", "MR_icd_support", False, mr_icd_support_template_v1),
+    MRGenerator("mr_icd_support_template_v2", "MR_icd_support", False, mr_icd_support_template_v2),
 )

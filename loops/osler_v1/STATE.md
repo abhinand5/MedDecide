@@ -24,7 +24,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
 | V0 | Orientation, environment, speed recipe | small | — | DONE | 2026-10-13T21:32:02Z | 2026-10-13T22:29:31Z |
-| V1 | MR generators | no | V0 | PENDING | | |
+| V1 | MR generators | no | V0 | DONE | 2026-10-13T22:30:29Z | 2026-10-13T22:35:18Z |
 | V2 | ICD-10-CM verification | no | V0 | PENDING | | |
 | V3 | Replay to 20 % | no | V0 | PENDING | | |
 | V4 | Teacher prose | no | V1, V2, V5a | PENDING | | |
@@ -52,7 +52,7 @@ No row may be left `IN_PROGRESS` at closure.
 | teacher: configured? model id, status | configured via the OPENAI_* fallback; model `deepseek-v4.1-flash`; models endpoint 200 (39 ids); one harmless chat call OK; list-price cost $0.00 | `outputs/osler_v1/V0/env.json` (CLAIMS V003) | V0 |
 | MIMIC files present (which, sizes) | none: `data/physionet/` absent; 0 of 5 core files (NOTEEVENTS, diagnoses_icd, patients, admissions, note discharge); V5c stays PENDING | `outputs/osler_v1/V0/env.json` (CLAIMS V004) | V0 |
 | batching constant (batch_size, max_batch_tokens, gradient checkpointing); items/s; peak GB | **batch 8, max_batch_tokens 8192, gradient checkpointing on** (the osler_v0 recipe, unchanged). 4.118 items/s steady state (4.114 first run); 3,661 real tokens/s; peak reserved 21.8 GB. b, c and e ran out of memory; d (batch 32, checkpointing) ran at 3.09 items/s | `outputs/osler_v1/V0/speed.json`, `speed/*.json` (CLAIMS V012–V019) | V0 |
-| MR generators: items per split, screen results | | `loops/osler_v1/mr_data.md` | V1 |
+| MR generators: items per split, screen results | train 28,032 / dev 1,394 / test 1,430 / heldout_test 176; indicator and ICD v2 pass the O3 screen (Naive Bayes 0.796 and 0.804); page category fails as expected (1.000); ICD v1 design failed (0.938) and was replaced (V1-D1) | `loops/osler_v1/mr_data.md`, `outputs/osler_v1/V1/SELF_AUDIT.md` (CLAIMS V022–V033) | V1 |
 | ICD-10-CM FY2026 order file sha256; verify result | | `data/cms/icd10cm/2026/` | V2 |
 | replay share of B0; sources and licences | | | V3 |
 | teacher: pilot pass rate; pairs built; spend | | | V4 |
@@ -78,8 +78,13 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (V0 DONE 2026-10-13T22:29:31Z; its checklist is closed in the V0 iteration entry in section 4)
-Working dir:    outputs/osler_v1/V0/
+Task in flight: none (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Working dir:    outputs/osler_v1/V1/
+
+V1 checklist (closed): build (6,000/300/300 per generator); audit; screen checked against §3.6 (page category fails as expected; ICD v1 failed and was replaced by v2, V1-D1); ten items read per generator; mr_data.md; SELF_AUDIT.md; CLAIMS V022–V033; test_icd_template_v2.py and test_mr_v1.py pass.
+
+V0 checklist (closed):
+V0 checklist (closed):
 
 V0 checklist (closed):
 - [x] read ADVISORY, PROGRAM D26-D32, osler_v0 FINDINGS and NEXT (done at start)
@@ -131,6 +136,13 @@ V0 checklist (closed):
   initialisation were unseeded, now seeded (V0-D6). ADVISORY V3's candidate list conflicts with D20 (V0-D4).
 - Next: V1 (MR generators), V2 (ICD order file, FY2026 acceptance), V3 (replay, permissive sources), V5a and V5b (CPU and network).
   V4 waits for V1, V2 and V5a. V5c is re-checked before V7.
+
+### V1 — DONE — 2026-10-13T22:35:18Z
+- What ran: `v1_build_mr_generators.py` (first build with the ICD v1 design, kept as evidence; second build with the ICD v2 design); `v1_audit.py` (writes `SELF_AUDIT.md`); `v1_generator_fingerprint.py` (refactor check, identical); ten items read per generator in a fresh process (terminal only).
+- Output: `data/gen/osler_v1/` (gitignored); `outputs/osler_v1/V1/` (`screen.json`, `self_audit.json`, `SELF_AUDIT.md`, `screen_build1_icd_v1design.json`, `logs/`); `loops/osler_v1/mr_data.md` (aggregates).
+- Headline: train 28,032 / dev 1,394 / test 1,430 / heldout_test 176 rows; patients 18,816 with none in two splits (CLAIMS V026–V027). Indicator and ICD v2 pass the O3 screen (Naive Bayes 0.796 and 0.804, dev); the page-category generator fails as ADVISORY §3.6 expects (1.000). The ICD v1 design failed (0.938) and was replaced (CLAIMS V022–V023, deviation V1-D1).
+- Surprises: the planning-time probe passed the ICD v1 design at 1,500 patients, but it fails at 6,000 (more data, a stronger Naive Bayes). The ICD template's laterality wording repeats "knee". No held-out text reaches a training split (CLAIMS V028).
+- Next: V2 (ICD order file, FY2026 acceptance), V3 (replay, permissive sources), V5a and V5b. V4's ICD prose must use the two-diagnosis design of v2 (a teacher page with the target and the distractors), or its screen would fail the same way.
 
 ## 5. Blocked items
 
@@ -190,6 +202,9 @@ deviation — that is a `BLOCKED`.
   change touches no head, attention or base and no check. It is exercised by the V8 block runs. The V0 speed JSONs were produced before
   this change, so their loss columns vary between runs (config a: 1.2132 and 1.0880 for the same window, CLAIMS V019); their
   throughput does not (4.1137 and 4.1183, CLAIMS V017).
+- **V1-D1 (ICD template design).** The ADVISORY V1 template (one diagnosis per page) failed the O3 screen at full size (Naive Bayes 0.938, dev 550; CLAIMS V022). The v2 template adds two distractor diagnoses and names the target condition in the question. The draw, the gold and the twin rule are unchanged. v1 stays in `generators.py` as the failing record. v2 is the registered generator, and its name is `mr_icd_support_template_v2`. The teacher ICD variant must use the same two-diagnosis design (V4).
+- **V1-D2 (page category).** The page-category screen failure is accepted as ADVISORY §3.6 expects. Its share of any mix is capped in V7.
+- **V1-D3 (twins).** The page-category generator emits one item per patient id, so the twin audit does not apply to it.
 - **V0-D7 (speed evidence).** The first run of config a stored only its last 50 step records, so its throughput could not be
   re-derived from the file. Config a was re-run with every record stored (`speed/a.json`; the first run is kept as `speed/a_run1.json`),
   and the choice is recomputed from these files (`outputs/osler_v1/V0/SELF_AUDIT.md`, 12 PASS). The driver now stores all records; the
