@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (O12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-09T06:23:41Z`
-Last updated (UTC): `2026-10-13T00:55:00Z`
+Last updated (UTC): `2026-10-13T02:00:00Z`
 Iterations so far: `4`
 
 ---
@@ -33,8 +33,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | O7 | Arm P: pointer head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8696 on the 6,000 subset, best by 0.0001 over 22,500); full dev (10,843 items, dev only): accuracy 0.8939, template macro 0.8687, per-letter 0.7889, Brier 0.1603; self-audit CLAIMS O215; CLAIMS O211–O216 | 2026-10-11T05:42:31Z | 2026-10-11T17:38:11Z |
 | O8 | Arm N: non-causal option-code head (4B) | yes | O4, O5 | DONE — 25,000 steps, no tripwire, step 25,000 selected (template macro 0.8673 on the 6,000 subset, the best of its evals); full dev (10,843 items, dev only): accuracy 0.8940, template macro 0.8663, per-letter 0.6657, Brier 0.1593; self-audit CLAIMS O239; CLAIMS O235–O240 | 2026-10-11T17:38:11Z | 2026-10-12T06:02:33Z |
 | O9 | Head choice at 4B (dev rule) | no | O6–O8 | DONE — chosen head L (the option-code head, causal): no challenger reaches +0.010 on the dev template macro with a lower bound above 0 (P +0.0051, N +0.0027; CLAIMS O241); run by the O6–O8 → O9–O11 chain, the report is `loops/osler_v0/head_choice.md` | 2026-10-12T06:03:27Z | 2026-10-12T06:03:28Z |
-| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | IN_PROGRESS — the chain wrote the configs from O9's choice (L) and started Osler-9B at 2026-10-12T06:03:39Z (worker PID 1239843, uv wrapper 1239837); log `outputs/osler_v0/O10/logs/osler_9b.log`; trainer log `outputs/osler_v0/O10/osler_9b/logs/train.jsonl`; Osler-0.8B follows in the chain (log `outputs/osler_v0/O10/logs/osler_0p8b.log`) | 2026-10-12T06:03:39Z | |
-| O11 | Evaluation + Gate O1 | yes | O2, O10 | PENDING — the same chain scores arms L, P, N and both O10 models (core scope, deviation 52), then runs the gate; results.md and the generator scope are the agent's, after the chain | | |
+| O10 | Osler-9B + Osler-0.8B reference | yes | O9 | DONE — both runs finished 25,000 steps with no tripwire. Osler-9B: full dev accuracy 0.9021, template macro 0.8691, Brier 0.1489 (CLAIMS O261–O266); Osler-0.8B: accuracy 0.8285, template macro 0.8143, Brier 0.2359 (CLAIMS O279–O283). Knowledge flag on both: the trained models' tier-1 medqa is below the zero-shot base on the same dev items (9B −0.4 at the end, 0.8B −6.4) and the 4B arms are below their base on both sources (CLAIMS O248, O280) | 2026-10-12T06:03:39Z | 2026-10-13T01:54:41Z |
+| O11 | Evaluation + Gate O1 | yes | O2, O10 | IN_PROGRESS — the O9–O11 chain (PID 1021060) started the O11 scoring at about 01:54Z: `o11_score.py` for osler_4b_L (worker PID 1337086, uv wrapper 1337083), then osler_4b_P, osler_4b_N, osler_9b, osler_0p8b; then `o11_gate.py --osler-4b osler_4b_L --osler-9b osler_9b`. Logs `outputs/osler_v0/O11/logs/<name>.log`; chain log `outputs/osler_v0/O9/logs/chain.log` | 2026-10-13T01:54:41Z | |
 | O12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §6:
