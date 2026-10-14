@@ -23,7 +23,7 @@ BASE = REPO / "outputs" / "osler_v1" / "V6" / "baselines"
 SUMMARY = REPO / "outputs" / "osler_v1" / "V6" / "baseline_summary.json"
 OUT_JSON = REPO / "outputs" / "osler_v1" / "V6" / "self_audit.json"
 OUT_MD = REPO / "outputs" / "osler_v1" / "V6" / "SELF_AUDIT.md"
-MODELS = ["qwen35-4b", "qwen35-9b", "meddecider-4b", "meddecider-9b", "jev-9b"]
+MODELS = ["qwen35-4b", "qwen35-9b", "meddecider-4b", "meddecider-9b", "jev-9b", "d1-3b"]
 SETS = ["mr_test", "mr_heldout"]
 TOL = 1e-4  # the summary rounds to four decimals
 
@@ -128,10 +128,10 @@ def main() -> None:
             supports.append({r["item_id"] for r in raw[slug] if r["set_name"] == set_name and r["status"] == "scored"})
         support = supports[0] & supports[1]
         check(f"{set_name} common support items", block["support_items"], len(support))
-        fail_all = set(block["readout_fail_templates_excluded"])
         for slug in MODELS:
+            excluded = set(block["models"][slug]["excluded_templates"])
             rows = [r for r in raw[slug] if r["set_name"] == set_name and r["item_id"] in support
-                    and r["status"] == "scored" and r["template_id"] not in fail_all]
+                    and r["status"] == "scored" and r["template_id"] not in excluded]
             m = block["models"][slug]
             check(f"{set_name} matched items {slug}", m["items"], len(rows))
             if rows:

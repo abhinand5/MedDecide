@@ -96,8 +96,9 @@ On the 176 held-out items the order changes, and the intervals overlap widely. T
 
 - Page-category templates are lexical by construction (V1-D2, V5a-D1): the section headers name the class, which is why the
   zero-shot accuracies there are near 1.0. This is accepted; it is not evidence of clinical skill.
-- The `d1-3B` additional row is NOT MEASURED: `envs/d1/` does not exist, the GPU queue for V8 had priority, and its
-  two-hour timebox was not used (ADVISORY V6 step 2). It is an additional row only (D31).
+- The `d1-3B` additional row was measured after this section was first written, in the GPU idle window before V4 closed
+  (section 8). It is an additional row only (D31); no Gate O2 verdict uses it. `envs/d1/` was not needed: the main
+  environment has transformers 5.18, which meets the card's requirement of 5.14.
 - The zero-shot Qwen3.5-9B has the highest held-out template macro of the zero-shot models; the held-out sets have 74 to
   1,342 items per template, so per-template differences of a few points are within the intervals.
 - These baselines are on the MR suite only. The knowledge baselines of Gate O2 come from the O2 common set (V10).
@@ -109,3 +110,18 @@ On the 176 held-out items the order changes, and the intervals overlap widely. T
   `570b37090c379ad722186a79a3432a31be463fc9`, MedDecider-9B `ec8a69da2cd96b2ddd2ff4e314ba9a40b71936c3`).
 - The first baseline attempt is in STATE (V6-D1); its zero-shot 4B predictions were removed before the rerun.
 - Recompute: `uv run --frozen python scripts/osler_v1/v6_analyse.py` then `uv run --frozen python -I scripts/osler_v1/v6_self_audit.py`.
+
+## 8. Addendum: d1-3B (additional row, measured 2026-10-14)
+
+LiquidAI/d1-3B (revision `051bcc464b01b9f92942b364d9586b0ef5912432`) through its own code (`system_one`), with both option orders
+for choice items averaged per option, as the O2 protocol does for the competitors. Additional only (D31): no Gate O2 verdict
+uses it. Predictions: `outputs/osler_v1/V6/baselines/d1-3b/predictions.jsonl` (20,812 rows, 0 skipped; CLAIMS V114–V117).
+
+| set | scored | pass-cell items | accuracy [95 % CI] | template macro | Brier | ECE | readout-failed templates |
+|---|---|---|---|---|---|---|---|
+| `mr_test` | 19,294 of 19,294 | 9,540 | 0.8062 [0.7984, 0.8142] | 0.6921 | 0.2494 | 0.0554 | codiesp_icd_support_v1, pmc_similar_patient_v1 |
+| `mr_heldout` | 1,518 of 1,518 | 176 | 0.5227 [0.4489, 0.5966] | 0.5344 | 0.5441 | 0.1113 | synthea_indicator_evidence_v1 |
+
+On the matched block (the common support of the Gate O2 comparators, unchanged from section 3), d1-3B scores 0.4756 on the
+3,238 `mr_test` items that are outside its own two failing templates (CI [0.4586, 0.4914]), and 0.5227 on the 176 held-out
+items. Its readout failures are on CodiEsp and PMC-Patients, where the D21 check fails; the comparators pass there.

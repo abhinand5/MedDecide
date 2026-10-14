@@ -34,8 +34,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | DONE | 2026-10-13T23:24:35Z | 2026-10-14T01:41:00Z |
 | V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS | 2026-10-13T23:40:48Z | |
 | V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
-| V9 | Final Osler-4B and -9B | yes | V8 | PENDING | | |
-| V10 | Evaluation + Gate O2 | yes | V9 | PENDING | | |
+| V9 | Final Osler-4B (Osler-9B deferred to the next loop by the operator, V9-D1) | yes | V8 | PENDING | | |
+| V10 | Evaluation + Gate O2 (Osler-4B only; the 9B verdict is NOT MEASURED — deferred by the operator) | yes | V9 | PENDING | | |
 | V11 | Memorisation audit | small | V9 | PENDING | | |
 | V12 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -205,6 +205,9 @@ V0 checklist (closed):
 - Surprises: MedDecider cannot take 12-option items (its letter set is A to J). JEV-9B has the highest template macro on mr_test (0.7336). The page-category templates are lexical (V1-D2, V5a-D1). The d1-3B row is NOT MEASURED: envs/d1 does not exist, the GPU queue had priority, and its two-hour timebox was not used.
 - Next: V8 (B0 running from 01:35Z, then B1); the V4 teacher build; once V4 is complete, re-run the V6 assembly and baseline scoring for the teacher templates (ADVISORY §6); the MIMIC re-check before V9.
 
+### V6 addendum — 2026-10-14T17:45Z (appended; the entry above is unchanged)
+- The additional d1-3B row was measured in the GPU idle window: its own code (`system_one`), both option orders, 20,812 rows, 0 skipped (`scripts/osler_v1/v6_d1_run.py`). It is in `mr_baselines.md` section 8 and CLAIMS V114–V117. The d1-3B row is additional only (D31); the matched block for the comparators is unchanged. The self-audit now runs 127 checks, 0 failed.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -248,6 +251,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 - **Q7 (bare-id rows): option (b).** The 40 rows and the 1 fast-dev row stay dropped (V7-D3, V7-D4).
 - **Q9 (dev–train overlap): option (a).** The osler_v0 split is kept and the overlap is reported as a limitation of the general dev numbers (CLAIMS V100).
 - **Q8 (teacher budget): operator instruction (received during V8).** If the V4 weekly teacher guard ($36) is reached, do not wait for the next week: finish V4 with the verified pages built so far, record the counts, and continue with B2 and B3. Recorded as V4-D5.
+- **Osler-9B: deferred to the next loop (operator decision, V9-D1).** V9 trains Osler-4B only; V10 applies Gate O2 to Osler-4B only and reports the 9B verdict as NOT MEASURED — deferred by the operator.
 - Q1 (padding test) and Q3 (run time) had no answer; the defaults in this file stand: the padding test stays as committed, and the ADVISORY run sizes stay.
 
 
@@ -316,6 +320,7 @@ deviation — that is a `BLOCKED`.
 - **V4-D5 (budget-limited finish, operator instruction).** If the weekly teacher guard ($36, rolling seven days) is reached, V4 finishes with the verified pages built so far, and its counts are recorded; the build does not wait for the next week. The narrative target (20,000 pages) is then reported as reached or not, with the counts. ADVISORY V4 requires building within the budget, and this instruction is the operator's reading of that rule.
 - **V7-D5 (B2 content, operator Q5a).** B2 = B1 plus the indicator and narrative prose; the ICD prose is not in any block (V4-D1).
 - **V8-D6 (run time).** At 4.12 items per second, an 80,000-item block runs about 5.4 hours, not the ADVISORY's 2–3 hours (Question 3). Recorded as measured.
+- **V9-D1 (Osler-9B deferred, operator decision, received during V8 at 2026-10-14T17:25Z).** The operator decided to skip Osler-9B in this loop. V9 trains Osler-4B only, on the kept mix, with the same recipe and the 250,000-item cap; the 9B is deferred to the next loop. V10 applies Gate O2 to Osler-4B only, against its own baselines (MedDecider-4B and zero-shot Qwen3.5-4B for the MR suite, as D31 names them), and writes the Osler-9B verdict as NOT MEASURED — deferred by the operator. The 9B baselines measured in V6 (zero-shot 9B, MedDecider-9B, JEV-9B) stay as recorded and are not used in any 4B verdict. Everything else in the plan is unchanged.
 - **V8-D7 (item ids in the cross-model join).** The trainer's `Item` derives its id from the identity fields (`make_item`), so the block predictions carry ids that differ from the fast dev rows' ids. The knowledge comparison against zero-shot maps each O2 row id to the trainer's id by `mix_row_to_item` on the same fast dev row; a row with no fast dev id raises. The block-against-block keep comparison joins two files written by the same code and is unaffected. All 500 knowledge items mapped (CLAIMS V104).
 
 ---

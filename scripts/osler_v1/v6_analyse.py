@@ -33,6 +33,7 @@ MODELS = {  # slug -> (label, zero_shot, the O2 role)
     "meddecider-4b": ("MedDecider-4B", False, "competitor (Gate O2 baseline for Osler-4B)"),
     "meddecider-9b": ("MedDecider-9B", False, "competitor (Gate O2 baseline for Osler-9B)"),
     "jev-9b": ("JEV-9B", False, "competitor (Gate O2 baseline for Osler-9B)"),
+    "d1-3b": ("d1-3B", False, "additional row only (LFM licence; D31); its own code (system_one), both orders for choice"),
 }
 SETS = ("mr_test", "mr_heldout")
 
@@ -114,25 +115,31 @@ def main() -> None:
             support = ids if support is None else support & ids
         if support is None:
             continue
-        # one common item set for every model: the templates that fail the gate for any model are excluded for all of them
-        fail_all: set[str] = set()
-        for slug in all_rows:
-            fail_all |= set(summary["models"][slug].get("sets", {}).get(set_name, {}).get("readout_fail_templates", []))
-        block: dict[str, Any] = {"support_items": len(support), "readout_fail_templates_excluded": sorted(fail_all),
+        # one common item set for the Gate O2 comparators: the templates that fail the gate for any of them are excluded for
+        # all of them. d1-3B is an additional row: it is excluded from that set, and its own failing templates are excluded
+        # from its own numbers on top of the common set
+        comparators = [slug for slug in all_rows if slug != "d1-3b"]
+        fail_common: set[str] = set()
+        for slug in comparators:
+            fail_common |= set(summary["models"][slug].get("sets", {}).get(set_name, {}).get("readout_fail_templates", []))
+        block: dict[str, Any] = {"support_items": len(support), "readout_fail_templates_excluded": sorted(fail_common),
                                  "models": {}}
         for slug, rows in all_rows.items():
-            if "readout_fail_templates" not in summary["models"][slug].get("sets", {}).get(set_name, {}):
+            sset = summary["models"][slug].get("sets", {}).get(set_name, {})
+            if "readout_fail_templates" not in sset:
                 continue
+            excluded = fail_common | set(sset["readout_fail_templates"])
             matched = [r for r in rows if r.get("set_name") == set_name and r["item_id"] in support
-                       and r["status"] == "scored" and r["template_id"] not in fail_all]
+                       and r["status"] == "scored" and r["template_id"] not in excluded]
             if not matched:
-                block["models"][slug] = {"items": 0, "accuracy": None}
+                block["models"][slug] = {"items": 0, "accuracy": None, "excluded_templates": sorted(excluded)}
                 continue
             m = summarise(matched)
             block["models"][slug] = {"items": len(matched), "accuracy": round(m.accuracy, 4),
                                      "accuracy_ci95": [round(x, 4) for x in m.accuracy_ci95],
                                      "macro_accuracy": round(m.macro_accuracy, 4) if m.macro_accuracy is not None else None,
-                                     "brier": round(m.brier, 4) if m.brier is not None else None}
+                                     "brier": round(m.brier, 4) if m.brier is not None else None,
+                                     "excluded_templates": sorted(excluded)}
         summary["matched_to_meddecider_support"][set_name] = block
     write_json(OUT, summary)
     for slug, model in summary["models"].items():
