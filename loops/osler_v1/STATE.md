@@ -101,7 +101,8 @@ V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predate
 - [x] smoke B0 OK (8 steps; 46 realised items; 8 logged steps with 0 mismatches on items, real tokens and padded tokens; evaluations at 2, 4, 6, 8; `outputs/osler_v1/V8/smoke/B0/block_result.json`)
 - [x] B0 run done 2026-10-14T07:28:07Z: 13,992 steps, 80,008 realised items, selected step 13,992, 0 log mismatches (CLAIMS V103). Dev (5,723 items): accuracy 0.8548, template macro 0.8582 (CLAIMS V105). Knowledge 500 items 0.624 (zero-shot 4B 0.684 on the same items).
 - [x] knowledge check of B0 FAILED: B0 minus zero-shot is −0.060, lower bound −0.102 against −0.02 (CLAIMS V104); so B0b is run as ADVISORY V8 says. The knowledge check and the keep rule join items by the trainer's id (the trainer's `Item` derives its id from identity fields; `v8_keep.py` maps the O2 ids through `mix_row_to_item`)
-- [ ] B1 run (started 2026-10-14T07:28:07Z; `outputs/osler_v1/V8/B1/`), then B0b (`scripts/osler_v1/v8_chain_b0b.sh` starts after "V8 CHAIN DONE"), then `v8_keep.py --knowledge-check B0b`; C = B0b if its check passes, else B0; keep rule B1 against C (`v8_keep.py --candidate B1 --current C`)
+- [x] B1 run done 2026-10-14T13:25:57Z (13,992 steps, 80,851 realised items, 0 log mismatches; full dev accuracy 0.9037, template macro 0.8781; CLAIMS V107–V108). The preview of B1 against B0 passes all three checks (CLAIMS V109); it is not the decision, because C may change to B0b
+- [ ] B0b (queued: the main queue finished at 13:25:57Z, so B0b starts now; `outputs/osler_v1/V8/B0b/`), then (`scripts/osler_v1/v8_chain_b0b.sh` starts after "V8 CHAIN DONE"), then `v8_keep.py --knowledge-check B0b`; C = B0b if its check passes, else B0; keep rule B1 against C (`v8_keep.py --candidate B1 --current C`)
 - [ ] B2 and B3 once V4 is final, each with its keep rule against the last kept block
 - [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
 
