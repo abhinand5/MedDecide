@@ -23,11 +23,13 @@ from typing import Any
 
 from meddecide.eval.o2_metrics import cell_health
 from meddecide.train.blocks import keep_comparison, knowledge_comparison
+from meddecide.train.mix_items import mix_row_to_item
 from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v1" / "V8"
+FAST_DEV = REPO / "data" / "bench" / "osler_mr_v0" / "fastdev_mix.jsonl"
 ZS_PREDICTIONS = OUT / "knowledge_zs" / "qwen35-4b" / "predictions.jsonl"
 ZS_LABEL = "zero-shot Qwen3.5-4B"
 
@@ -39,12 +41,23 @@ def keep_report(candidate: str, current: str) -> dict[str, Any]:
             **keep_comparison(x_rows, c_rows, candidate=candidate, current=current)}
 
 
+def trainer_item_ids() -> dict[str, str]:
+    """The trainer's item id of every fast dev row, keyed by the row's own id. The trainer's ``Item`` derives its id from
+    the identity fields (``make_item``), so the block predictions carry these ids, while the O2 rows carry the row's id."""
+    ids: dict[str, str] = {}
+    for raw in iter_jsonl(FAST_DEV):
+        ids[raw["item_id"]] = mix_row_to_item(raw).item_id
+    return ids
+
+
 def knowledge_report(block: str) -> dict[str, Any]:
     block_rows = list(iter_jsonl(OUT / block / "dev_predictions.jsonl"))
     zs_rows = list(iter_jsonl(ZS_PREDICTIONS))
     skipped = [r["item_id"] for r in zs_rows if r["status"] == "skipped"]
     if skipped:  # refused before the readout gate reads the rows (a skipped row has no probabilities)
         raise ValueError(f"the zero-shot run skipped {len(skipped)} knowledge items: decide before comparing")
+    ids = trainer_item_ids()  # a zero-shot row whose id is not a fast dev row raises here, nothing is dropped
+    zs_rows = [{**r, "item_id": ids[r["item_id"]]} for r in zs_rows]
     by_template: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in zs_rows:
         by_template[r["template_id"]].append(r)

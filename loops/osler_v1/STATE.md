@@ -99,7 +99,9 @@ V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predate
 - [x] v8_chain.sh launched 2026-10-14T00:02:40Z; it waits for the V6 chain (zero-shot 9B and MedDecider and JEV-9B were still running at 00:02Z), then zero-shot knowledge, smoke B0, B0, B1 (log outputs/osler_v1/V8/logs/chain.log)
 - [x] zero-shot Qwen3.5-4B on the 500 fast-dev knowledge items: 500 of 500 scored; medmcqa_4opt_v1 0.712 and medqa_usmle4_v1 0.656; both PASS D12 (`outputs/osler_v1/V8/knowledge_zs/`)
 - [x] smoke B0 OK (8 steps; 46 realised items; 8 logged steps with 0 mismatches on items, real tokens and padded tokens; evaluations at 2, 4, 6, 8; `outputs/osler_v1/V8/smoke/B0/block_result.json`)
-- [ ] B0 run (started 2026-10-14T01:35:22Z; `outputs/osler_v1/V8/B0/`); then the knowledge check of B0 (`v8_keep.py --knowledge-check B0`; B0b only if it fails); B1 run (queued by the chain); keep rule B1 against B0 (`v8_keep.py --candidate B1 --current B0`)
+- [x] B0 run done 2026-10-14T07:28:07Z: 13,992 steps, 80,008 realised items, selected step 13,992, 0 log mismatches (CLAIMS V103). Dev (5,723 items): accuracy 0.8548, template macro 0.8582 (CLAIMS V105). Knowledge 500 items 0.624 (zero-shot 4B 0.684 on the same items).
+- [x] knowledge check of B0 FAILED: B0 minus zero-shot is −0.060, lower bound −0.102 against −0.02 (CLAIMS V104); so B0b is run as ADVISORY V8 says. The knowledge check and the keep rule join items by the trainer's id (the trainer's `Item` derives its id from identity fields; `v8_keep.py` maps the O2 ids through `mix_row_to_item`)
+- [ ] B1 run (started 2026-10-14T07:28:07Z; `outputs/osler_v1/V8/B1/`), then B0b (`scripts/osler_v1/v8_chain_b0b.sh` starts after "V8 CHAIN DONE"), then `v8_keep.py --knowledge-check B0b`; C = B0b if its check passes, else B0; keep rule B1 against C (`v8_keep.py --candidate B1 --current C`)
 - [ ] B2 and B3 once V4 is final, each with its keep rule against the last kept block
 - [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
 
@@ -309,6 +311,7 @@ deviation — that is a `BLOCKED`.
 - **V4-D4 (peak-hour pause removed, operator Q6).** The teacher build no longer waits in the peak windows. The budget guards are unchanged and checked before every submission. The build was restarted from its progress file at 2026-10-14T06:42Z (4,097 ids done). The peak tariff applies to the calls made in those hours, so the spend projection is higher than the off-peak figure (Question 8).
 - **V7-D5 (B2 content, operator Q5a).** B2 = B1 plus the indicator and narrative prose; the ICD prose is not in any block (V4-D1).
 - **V8-D6 (run time).** At 4.12 items per second, an 80,000-item block runs about 5.4 hours, not the ADVISORY's 2–3 hours (Question 3). Recorded as measured.
+- **V8-D7 (item ids in the cross-model join).** The trainer's `Item` derives its id from the identity fields (`make_item`), so the block predictions carry ids that differ from the fast dev rows' ids. The knowledge comparison against zero-shot maps each O2 row id to the trainer's id by `mix_row_to_item` on the same fast dev row; a row with no fast dev id raises. The block-against-block keep comparison joins two files written by the same code and is unaffected. All 500 knowledge items mapped (CLAIMS V104).
 
 ---
 
