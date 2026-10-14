@@ -29,20 +29,22 @@ KNOWLEDGE_CHECK_MARGIN = -0.02  # B0's knowledge dev minus zero-shot Qwen3.5-4B 
 Pair = tuple[Mapping[str, Any], Mapping[str, Any]]
 
 
-def steps_for_items(batch_sizes: Iterable[int], target_items: int) -> int:
-    """The smallest step count, a multiple of ``EVAL_QUARTERS``, whose batches hold at least ``target_items`` items.
+def steps_for_items(batch_sizes: Iterable[int], target_items: int, multiple: int = EVAL_QUARTERS) -> int:
+    """The smallest step count, a multiple of ``multiple``, whose batches hold at least ``target_items`` items.
 
-    ``batch_sizes`` is consumed lazily (the items of each batch, in the trainer's order). The multiple of four keeps the
-    evaluations at 25, 50, 75 and 100 % on whole steps.
+    ``batch_sizes`` is consumed lazily (the items of each batch, in the trainer's order). The default multiple of four keeps
+    the block runs' evaluations at 25, 50, 75 and 100 % on whole steps; the final run uses eight (ADVISORY V9).
     """
     if target_items < 1:
         raise ValueError("target_items must be positive")
+    if multiple < 1:
+        raise ValueError("multiple must be positive")
     total = 0
     steps = 0
     for size in batch_sizes:
         steps += 1
         total += int(size)
-        if total >= target_items and steps % EVAL_QUARTERS == 0:
+        if total >= target_items and steps % multiple == 0:
             return steps
     raise ValueError(f"the batches hold {total} items after {steps} steps, fewer than the target {target_items}")
 

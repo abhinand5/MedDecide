@@ -26,7 +26,7 @@ from transformers import AutoTokenizer
 
 from meddecide.bench.schema import Item
 from meddecide.model.meddecide_model import LINEAR_ATTENTION_CHUNK, MedDecideModel
-from meddecide.train.blocks import REALISED_ITEM_TARGET, steps_for_items
+from meddecide.train.blocks import EVAL_QUARTERS, REALISED_ITEM_TARGET, steps_for_items
 from meddecide.train.config import load_config
 from meddecide.train.data import iter_batches, shuffled_order
 from meddecide.train.mix_items import mix_row_to_item
@@ -70,7 +70,7 @@ def batch_record(batch: list[Any]) -> tuple[int, int, int]:
 
 
 def replay_block(config: Any, items: list[Item], encoder: _Encoder, *, steps: int | None = None,
-                 target_items: int | None = None) -> tuple[int, list[tuple[int, int, int]]]:
+                 target_items: int | None = None, multiple: int = EVAL_QUARTERS) -> tuple[int, list[tuple[int, int, int]]]:
     """Replay the batches of one block: exactly ``steps`` batches, or the batches up to the smallest valid step count
     holding ``target_items`` items. Returns the step count and one record per consumed batch."""
     order = shuffled_order(len(items), seed=config.seed, epoch=0)
@@ -96,7 +96,7 @@ def replay_block(config: Any, items: list[Item], encoder: _Encoder, *, steps: in
     if steps is None:
         if target_items is None:
             raise ValueError("replay_block needs a step count or a target")
-        steps = steps_for_items(stream(), target_items)
+        steps = steps_for_items(stream(), target_items, multiple=multiple)
     else:
         for _ in itertools.islice(stream(), steps):
             pass
@@ -121,15 +121,20 @@ def summarise(name: str, steps: int, records: list[tuple[int, int, int]]) -> dic
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--blocks", nargs="+", default=["B0", "B1", "B3"], choices=list(BLOCKS))
+    parser.add_argument("--blocks", nargs="+", default=["B0", "B1", "B3"], choices=list(BLOCKS),
+                        help="the first block sets the step count for the rest (B0 for the block runs of V8)")
+    parser.add_argument("--target-items", type=int, default=REALISED_ITEM_TARGET,
+                        help="the realised-item target of the first block (80,000 for V8; 250,000 for the final run V9)")
+    parser.add_argument("--multiple", type=int, default=EVAL_QUARTERS,
+                        help="the step count is a multiple of this (4 for V8's quarter evaluations; 8 for V9)")
+    parser.add_argument("--out", default=str(OUT), help="where the replay files go (default: the V8 directory)")
     args = parser.parse_args()
-    if args.blocks[0] != "B0":
-        raise SystemExit("B0 must come first: its replay sets the step count for every block")
+    out = Path(args.out)
     started = time.time()
     config = load_config(CONFIG)
     tokenizer = AutoTokenizer.from_pretrained(config.base_model, revision=config.revision, local_files_only=True)
     encoder = _Encoder(tokenizer, config.variant, config.max_prompt_tokens)
-    (OUT / "replay").mkdir(parents=True, exist_ok=True)
+    (out / "replay").mkdir(parents=True, exist_ok=True)
 
     steps: int | None = None
     summaries: dict[str, Any] = {}
@@ -137,7 +142,7 @@ def main() -> None:
         t0 = time.time()
         items = read_block(name)
         if steps is None:
-            steps, records = replay_block(config, items, encoder, target_items=REALISED_ITEM_TARGET)
+            steps, records = replay_block(config, items, encoder, target_items=args.target_items, multiple=args.multiple)
         else:
             steps, records = replay_block(config, items, encoder, steps=steps)
         summary = summarise(name, steps, records)
@@ -145,15 +150,15 @@ def main() -> None:
         summary["train_file_sha256"] = file_sha256(TRAIN_DIR / f"block_{name}.jsonl")
         summary["replay_wall_clock_s"] = round(time.time() - t0, 1)
         summaries[name] = summary
-        write_json(OUT / "replay" / f"{name}.json", {**summary, "sizes": [r[0] for r in records],
+        write_json(out / "replay" / f"{name}.json", {**summary, "sizes": [r[0] for r in records],
                                                      "real_tokens": [r[1] for r in records],
                                                      "padded_tokens": [r[2] for r in records]})
         print(f"{name}: {steps} steps, {summary['realised_items']} realised items, "
               f"{summary['real_tokens']} real tokens, mean {summary['mean_items_per_step']} items/step", flush=True)
-    write_json(OUT / "replay_steps.json", {
+    write_json(out / "replay_steps.json", {
         "written_utc": utcnow(), "git_commit": git_commit(REPO), "config": str(CONFIG.relative_to(REPO)),
-        "target_realised_items_on_B0": REALISED_ITEM_TARGET, "steps": steps,
-        "blocks": summaries, "wall_clock_s": round(time.time() - started, 1),
+        "first_block": args.blocks[0], "target_realised_items": args.target_items, "multiple": args.multiple,
+        "steps": steps, "blocks": summaries, "wall_clock_s": round(time.time() - started, 1),
     })
 
 

@@ -36,6 +36,12 @@ def test_steps_consume_the_batches_lazily() -> None:
     assert steps_for_items(itertools.repeat(8), 80) == 12
 
 
+def test_the_final_run_steps_are_a_multiple_of_eight() -> None:
+    # ADVISORY V9: eight evaluations, so the step count is a multiple of eight; 6 items a step, target 1,000
+    assert steps_for_items([6] * 400, 1000, multiple=8) == 168  # 168 steps hold 1,008 items; 167 hold 1,002 but 167 is odd
+    assert steps_for_items([6] * 400, 1002, multiple=8) == 168
+
+
 def test_steps_fail_loudly_when_the_batches_cannot_reach_the_target() -> None:
     with pytest.raises(ValueError):
         steps_for_items([1, 1, 1], 10)
