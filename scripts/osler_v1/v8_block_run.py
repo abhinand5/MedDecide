@@ -35,6 +35,7 @@ from meddecide.train.arm_run import run_arm
 from meddecide.train.blocks import EVAL_QUARTERS
 from meddecide.train.config import load_config
 from meddecide.train.mix_items import mix_row_to_item
+from meddecide.train.osler_arm import stratified_subset
 from meddecide.utils.hashing import file_sha256
 from meddecide.utils.io import read_json, write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -44,7 +45,7 @@ CONFIG = REPO / "configs" / "osler_v1" / "block_arm.yaml"
 DEV = REPO / "data" / "bench" / "osler_mr_v0" / "fastdev_mix.jsonl"
 OUT = REPO / "outputs" / "osler_v1" / "V8"
 V7_MANIFEST = REPO / "outputs" / "osler_v1" / "V7" / "blocks.json"
-BLOCK_FILE ={"B0": "B0", "B0b": "B0", "B1": "B1", "B2": "B2", "B3": "B3"}  # the training file of each block
+BLOCK_FILE = {"B0": "B0", "B0b": "B0", "B1": "B1", "B2": "B2", "B3": "B3"}  # the training file of each block
 REPLAY_OF = {"B0b": "B0"}  # B0b replays B0's batches: the same file, the same batcher
 ATTENTION_TARGETS = ("q_proj", "k_proj", "v_proj", "o_proj")
 SMOKE_DEV_ITEMS = 200
@@ -129,8 +130,8 @@ def main() -> None:
     print(f"{name}: loading {train_path.name}", flush=True)
     train_items = read_mix(train_path)
     dev_items = read_mix(DEV)
-    if args.smoke:
-        dev_items = dev_items[:SMOKE_DEV_ITEMS]
+    if args.smoke:  # a template-stratified subset, so the temperature fits see every question type
+        dev_items = stratified_subset(dev_items, key="template_id", size=SMOKE_DEV_ITEMS, seed=0)
     print(f"{name}: {len(train_items)} train items, {len(dev_items)} dev items, {steps} steps, "
           f"eval every {config.eval_every}", flush=True)
     write_json(out_dir / "provenance.json", {

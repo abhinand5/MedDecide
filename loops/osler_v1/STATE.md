@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-14T00:14:42Z`
-Iterations so far: `2` (V0–V5b closed; V4, V6, V7 and V8 in progress at this checkpoint)
+Last updated (UTC): `2026-10-14T01:44:00Z`
+Iterations so far: `3` (V0–V3, V5a, V5b and V6 closed; V4, V7 and V8 in progress; V5c blocked on absent files)
 
 ---
 
@@ -30,8 +30,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V4 | Teacher prose | no | V1, V2, V5a | IN_PROGRESS | 2026-10-13T23:09:08Z | |
 | V5a | Synthea | no | V0 | DONE | 2026-10-13T22:45:53Z | 2026-10-13T22:51:28Z |
 | V5b | Real clinical text | no | V2 | DONE | 2026-10-13T22:52:20Z | 2026-10-13T22:56:31Z |
-| V5c | MIMIC sources (only when the files exist) | no | V0 | PENDING | | |
-| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | IN_PROGRESS | 2026-10-13T23:24:35Z | |
+| V5c | MIMIC sources (only when the files exist) | no | V0 | BLOCKED — PhysioNet files absent (re-checked 2026-10-14T00:15Z, CLAIMS V097); re-check before V9 | | |
+| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | DONE | 2026-10-13T23:24:35Z | 2026-10-14T01:41:00Z |
 | V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS | 2026-10-13T23:40:48Z | |
 | V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
 | V9 | Final Osler-4B and -9B | yes | V8 | PENDING | | |
@@ -78,7 +78,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: V8 (marked 2026-10-13T23:53:00Z), V7 (started 2026-10-13T23:40:48Z), V6 (started 2026-10-13T23:24:35Z) and V4 (started 2026-10-13T23:09:08Z; pilots done; ICD prose BLOCKED; indicator and narrative prose building under scripts/osler_v1/v4_build_chain.sh, log outputs/osler_v1/V4/logs/build_chain.log, progress outputs/osler_v1/V4/*_progress.jsonl). V5b closed earlier (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Task in flight: V8 (marked 2026-10-13T23:53:00Z; smoke OK; the B0 run started 2026-10-14T01:35:22Z, then B1), V7 (started 2026-10-13T23:40:48Z; B2 and B3 wait for the final teacher prose), and V4 (started 2026-10-13T23:09:08Z; pilots done; ICD prose BLOCKED; indicator and narrative prose building under scripts/osler_v1/v4_build_chain.sh, log outputs/osler_v1/V4/logs/build_chain.log, progress outputs/osler_v1/V4/*_progress.jsonl). V5b closed earlier (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
 Working dir:    outputs/osler_v1/V1/
 
 V7 checklist (in progress; started 2026-10-13T23:40:48Z):
@@ -97,7 +97,9 @@ V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predate
 - [x] v8_chain.sh written and syntax-checked: waits for the V6 chain; zero-shot 4B on the knowledge items; smoke B0 (8 steps; the queue stops if its check fails); B0; B1
 - [x] replay steps for B0 and B1: 13,992 steps; B0 80,008 realised items, B1 80,851 (CLAIMS V076–V078; hashes match the V7 records)
 - [x] v8_chain.sh launched 2026-10-14T00:02:40Z; it waits for the V6 chain (zero-shot 9B and MedDecider and JEV-9B were still running at 00:02Z), then zero-shot knowledge, smoke B0, B0, B1 (log outputs/osler_v1/V8/logs/chain.log)
-- [ ] smoke B0 (the chain stops if its check fails); B0 run; knowledge check of B0 (`v8_keep.py --knowledge-check B0`; B0b only if it fails); B1 run; keep rule B1 against B0 (`v8_keep.py --candidate B1 --current B0`)
+- [x] zero-shot Qwen3.5-4B on the 500 fast-dev knowledge items: 500 of 500 scored; medmcqa_4opt_v1 0.712 and medqa_usmle4_v1 0.656; both PASS D12 (`outputs/osler_v1/V8/knowledge_zs/`)
+- [x] smoke B0 OK (8 steps; 46 realised items; 8 logged steps with 0 mismatches on items, real tokens and padded tokens; evaluations at 2, 4, 6, 8; `outputs/osler_v1/V8/smoke/B0/block_result.json`)
+- [ ] B0 run (started 2026-10-14T01:35:22Z; `outputs/osler_v1/V8/B0/`); then the knowledge check of B0 (`v8_keep.py --knowledge-check B0`; B0b only if it fails); B1 run (queued by the chain); keep rule B1 against B0 (`v8_keep.py --candidate B1 --current B0`)
 - [ ] B2 and B3 once V4 is final, each with its keep rule against the last kept block
 - [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
 
@@ -192,11 +194,19 @@ V0 checklist (closed):
 - Surprises: a first build took the first 40,000 rows as the anchor set, which left 24,821 of them without an internal partner; the build was corrected to select anchors across the whole file (the ADVISORY's 'all rows'). Every pair is from the `comm` licence subset. MTSamples has 8 laboratory and 25 admission pages (very small classes). CodiEsp is machine-translated English.
 - Next: V4 (teacher prose) needs V1, V2 and V5a, which are DONE. The ICD prose must use the two-diagnosis design of v2. V5c (MIMIC) is re-checked before V7. V6 (MR suite and baselines, GPU) needs V1, V5a and V5b, which are DONE.
 
+### V6 — DONE — 2026-10-14T01:41:00Z (checklist closed in this entry)
+- What ran: the baseline chain `scripts/osler_v1/v6_baselines_run.sh` (zero-shot Qwen3.5-4B and -9B, MedDecider-4B and -9B, JEV-9B; the O2 runners; 20,812 rows each; all rc=0); `v6_analyse.py` (set summaries, the readout gate per template, the matched block); `v6_self_audit.py` (107 checks in a fresh process, 0 failed).
+- Output: `loops/osler_v1/mr_baselines.md`; `outputs/osler_v1/V6/` (baseline_summary.json, SELF_AUDIT.md, self_audit.json, baselines/, logs/); CLAIMS V082–V095.
+- Headline: on mr_test (19,294 items) zero-shot Qwen3.5-4B scores 0.7383, -9B 0.7480 and JEV-9B 0.7473, all items scored. MedDecider-4B and -9B score 67.34 % of the items (12,992; the 12-option items are skipped) with 0.6681 and 0.6653 on those items, and the zero-shot models score 0.6177 and 0.6312 on the same items (matched block, additional). On mr_heldout the synthea indicator template fails the competitors' readout gate, so their held-out figures cover 176 items.
+- Surprises: MedDecider cannot take 12-option items (its letter set is A to J). JEV-9B has the highest template macro on mr_test (0.7336). The page-category templates are lexical (V1-D2, V5a-D1). The d1-3B row is NOT MEASURED: envs/d1 does not exist, the GPU queue had priority, and its two-hour timebox was not used.
+- Next: V8 (B0 running from 01:35Z, then B1); the V4 teacher build; once V4 is complete, re-run the V6 assembly and baseline scoring for the teacher templates (ADVISORY §6); the MIMIC re-check before V9.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
 | V4-ICD | the ICD prose (`mr_icd_support_prose_v1`) | the pilot pass rate is 59.8 % (58 of 97 eligible) after the one permitted prompt fix (V059, V060); the ADVISORY threshold is 60 % (V063) | an operator decision: accept a lower threshold; or change the ICD page design; or drop the ICD teacher prose (the template ICD items stay, and B2 contains indicator and narrative prose only) |
+| V5c | the MIMIC sources (D28) | the PhysioNet files are absent on the volume (re-checked 2026-10-14T00:15Z; CLAIMS V097); ADVISORY V5c never blocks the loop | none for this loop: the finals train without MIMIC (D32; ADVISORY V8) and the V11 audit is recorded as not applicable |
 
 ---
 
@@ -276,6 +286,7 @@ deviation — that is a `BLOCKED`.
   other configurations' files keep their last-50 records, so their summaries cannot be re-derived from disk. Their numbers are recorded as
   measured (CLAIMS V013–V016).
 - **V6-D1 (baseline chain restart).** The first baseline script used a short MedDecider-9B revision, so the chain was stopped and restarted as `scripts/osler_v1/v6_baselines_run.sh` at 2026-10-13T23:30Z. The first attempt's zero-shot 4B predictions were removed before the rerun. The chain log keeps the first `START zs4b` line (23:30:14Z) from that attempt; only the 23:30:45Z run produced predictions.
+- **V6-D2 (set-level figures and the readout gate).** ADVISORY V6 applies D12 to the zero-shot cells and does not say how a set's accuracy treats a failing cell. D12 reports no accuracy for a READOUT_FAIL cell, so each set's figures are taken over the passing cells and the failing cells are named (`readout_fail_templates`). On `mr_heldout` this leaves 1,518 items for the zero-shot models and 176 for the three competitors. The matched block (additional, labelled) puts all five models on the same 176 items; coverage (scored over in scope) is reported beside every figure. CLAIMS V082–V093.
 - **V7-D1 (block contents and the teacher gate).** B0 and B1 hold only the sources of ADVISORY V7 with train splits. B0 = mix v2 train + the V3 replay: 653,874 rows, replay 15.31 %, largest template 6.48 %. B1 = B0 + the V1 and Synthea train items with the tabular cap: 696,532 rows, replay 14.38 %, tabular 2.00 %, largest template 6.08 %. B2 and B3 read the teacher files and are built only with `--teacher-final`, once V4 is final (the V4 writer appends verified items as they are made). The first B3 build (23:44Z) included 610 partial teacher rows; that record and file are stale and are refused by the block driver.
 - **V7-D2 (tabular cap).** The 2 % cap removes 45,223 tabular page-category rows from B1 (deterministic sample, seed 0), counted under `dropped` in `outputs/osler_v1/V7/blocks.json`.
 - **V7-D3 (bare-id drop, Question 7).** 40 PubHealth mix v2 training rows are dropped from every block (25 with a panel id only, 15 with a panel and a robustness id). After the drop, the bare-id check and the dataset-qualified check both report zero hits in B0 and B1.
