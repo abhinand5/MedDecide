@@ -30,6 +30,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from meddecide.eval.o2_io import (
     ALL_SETS,
+    MIX_V2,
+    MR_V0,
     PANEL_ROBUSTNESS,
     completed_ids,
     iter_items,
@@ -71,12 +73,14 @@ def canonical_item(row: dict[str, Any]) -> tuple[SimpleNamespace, list[str]]:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--model", required=True)
-    ap.add_argument("--scope", choices=["all", "panel_robustness"], default="panel_robustness")
+    ap.add_argument("--scope", choices=["all", "panel_robustness", "mr_v0", "mix_v2"], default="panel_robustness")
     ap.add_argument("--limit", type=int, default=0, help="score only the first N new items (smoke tests)")
+    ap.add_argument("--items", default=str(ITEMS), help="the common-set item file (default: O2)")
+    ap.add_argument("--out-root", default=str(OUT_ROOT), help="where predictions are written (default: O2)")
     args = ap.parse_args()
-    scope = ALL_SETS if args.scope == "all" else PANEL_ROBUSTNESS
+    scope = {"all": ALL_SETS, "mr_v0": MR_V0, "mix_v2": MIX_V2}.get(args.scope, PANEL_ROBUSTNESS)
     slug = args.model.split("/")[-1].lower().replace(".", "")
-    out_dir = OUT_ROOT / slug
+    out_dir = Path(args.out_root) / slug
     out_path = out_dir / "predictions.jsonl"
 
     tok = AutoTokenizer.from_pretrained(args.model)
@@ -92,7 +96,7 @@ def main() -> None:
     n_new = 0
     t_start = time.time()
     with open_predictions(out_path) as fh, torch.inference_mode():
-        for row in iter_items(ITEMS, scope):
+        for row in iter_items(Path(args.items), scope):
             if row["item_id"] in done:
                 continue
             if args.limit and n_new >= args.limit:

@@ -31,6 +31,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from meddecide.eval.o2_io import (
     ALL_SETS,
+    MR_V0,
     PANEL_ROBUSTNESS,
     completed_ids,
     iter_items,
@@ -59,14 +60,16 @@ def load_f7():
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--repo", required=True)
-    ap.add_argument("--scope", choices=["all", "panel_robustness"], default="all")
+    ap.add_argument("--scope", choices=["all", "panel_robustness", "mr_v0"], default="all")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--verify", type=int, default=20,
                     help="items where logits_to_keep=1 is checked against the full-sequence logits")
+    ap.add_argument("--items", default=str(ITEMS), help="the common-set item file (default: O2)")
+    ap.add_argument("--out-root", default=str(OUT_ROOT), help="where predictions are written (default: O2)")
     args = ap.parse_args()
-    scope = ALL_SETS if args.scope == "all" else PANEL_ROBUSTNESS
+    scope = {"all": ALL_SETS, "mr_v0": MR_V0}.get(args.scope, PANEL_ROBUSTNESS)
     slug = args.repo.split("/")[-1].lower()
-    out_dir = OUT_ROOT / slug
+    out_dir = Path(args.out_root) / slug
     out_path = out_dir / "predictions.jsonl"
 
     f7 = load_f7()
@@ -83,7 +86,7 @@ def main() -> None:
 
     verify_diffs: list[float] = []
     if args.verify:
-        sample = [r for r in iter_items(ITEMS, scope)
+        sample = [r for r in iter_items(Path(args.items), scope)
                   if len(r["options"]) <= SLOTS[r["qtype"]]][: args.verify]
         with torch.inference_mode():
             for r in sample:
@@ -104,7 +107,7 @@ def main() -> None:
     print(f"resume_rows={len(done)} -> {out_path}", flush=True)
     n_new = 0
     with open_predictions(out_path) as fh, torch.inference_mode():
-        for row in iter_items(ITEMS, scope):
+        for row in iter_items(Path(args.items), scope):
             if row["item_id"] in done:
                 continue
             if args.limit and n_new >= args.limit:

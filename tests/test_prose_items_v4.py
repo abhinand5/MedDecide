@@ -10,7 +10,7 @@ import pytest
 
 from meddecide.mr import icd
 from meddecide.mr.criteria import supports
-from meddecide.mr.generators import indicator_pair, is_held_out, mr_icd_support_template_v1
+from meddecide.mr.generators import indicator_pair, is_held_out, mr_icd_support_template_v2
 from meddecide.mr.prose_build import bucket, process_icd, process_indicator
 from meddecide.mr.prose_items import (
     ICD_PAGE_CLASSES,
@@ -42,6 +42,15 @@ class StubTeacher:
             return "Assessment and plan, as documented on the day of the encounter."
         facts = self.last
         assert facts is not None
+        if "diagnoses" in facts:  # several diagnoses on one page: every entry comes back, the first one corrupted on request
+            entries = []
+            for i, d in enumerate(facts["diagnoses"]):
+                certainty = d["certainty"]
+                if self.corrupt == "certainty" and i == 0:
+                    certainty = "probable" if certainty == "confirmed" else "confirmed"
+                entries.append({"condition": d["condition"], "attributes": d["attributes"], "certainty": certainty,
+                                "subject": d["subject"], "status": d["status"]})
+            return json.dumps({"diagnoses": entries})
         if "condition" in facts:  # a diagnosis
             certainty = facts["certainty"]
             if self.corrupt == "certainty":
@@ -83,7 +92,7 @@ def test_icd_page_classes_follow_the_setting() -> None:
 def test_the_diagnosis_rebuilt_from_a_template_item_gives_the_template_gold() -> None:
     checked = 0
     for k in range(40):
-        for item in mr_icd_support_template_v1(f"round-trip-{k:04d}"):
+        for item in mr_icd_support_template_v2(f"round-trip-{k:04d}"):
             dx = dx_from_meta(item.meta)
             assert icd.supported_code(dx, item.meta["setting"]) == item.meta["code"]
             checked += 1
@@ -91,7 +100,7 @@ def test_the_diagnosis_rebuilt_from_a_template_item_gives_the_template_gold() ->
 
 
 def test_a_prose_icd_item_keeps_the_template_decision() -> None:
-    template = mr_icd_support_template_v1("keep-decision-0000001")[0]
+    template = mr_icd_support_template_v2("keep-decision-0000001")[0]
     item = icd_prose_item(template, "mr_icd_support_prose_v1-x", "Discharge summary text.", "discharge_summary")
     assert item.generator == "mr_icd_support_prose_v1"
     assert item.options == template.options and item.gold == template.gold and item.question == template.question
@@ -110,7 +119,7 @@ def test_an_indicator_prose_item_is_labelled_by_the_criteria_rule() -> None:
 
 
 def test_the_request_builders_describe_the_facts_and_the_setting() -> None:
-    template = mr_icd_support_template_v1("request-0000001")[0]
+    template = mr_icd_support_template_v2("request-0000001")[0]
     dx = dx_from_meta(template.meta)
     req = icd_request(dx, "outpatient", "progress_note")
     assert isinstance(req, ProseRequest)
@@ -122,7 +131,7 @@ def test_the_request_builders_describe_the_facts_and_the_setting() -> None:
 
 
 def test_a_faithful_teacher_passes_both_twins_of_an_icd_pair() -> None:
-    pid = _first_pid("mr_icd_support_prose_v1", lambda p: not is_held_out(mr_icd_support_template_v1(p)[0].meta))
+    pid = _first_pid("mr_icd_support_prose_v1", lambda p: not is_held_out(mr_icd_support_template_v2(p)[0].meta))
     stub = StubTeacher()
     outcome = process_icd(pid, stub)
     assert outcome.verdict == "accepted", outcome.reasons
@@ -132,14 +141,14 @@ def test_a_faithful_teacher_passes_both_twins_of_an_icd_pair() -> None:
 
 
 def test_a_teacher_that_changes_a_certainty_is_rejected_with_its_reason() -> None:
-    pid = _first_pid("mr_icd_support_prose_v1", lambda p: not is_held_out(mr_icd_support_template_v1(p)[0].meta))
+    pid = _first_pid("mr_icd_support_prose_v1", lambda p: not is_held_out(mr_icd_support_template_v2(p)[0].meta))
     outcome = process_icd(pid, StubTeacher(corrupt="certainty"))
     assert outcome.verdict == "rejected" and outcome.items == []
     assert outcome.reasons == ["certainty"]
 
 
 def test_held_out_families_are_skipped_without_a_teacher_call() -> None:
-    pid = _first_pid("mr_icd_support_prose_v1", lambda p: is_held_out(mr_icd_support_template_v1(p)[0].meta))
+    pid = _first_pid("mr_icd_support_prose_v1", lambda p: is_held_out(mr_icd_support_template_v2(p)[0].meta))
     stub = StubTeacher()
     outcome = process_icd(pid, stub)
     assert outcome.verdict == "skipped" and stub.calls == 0

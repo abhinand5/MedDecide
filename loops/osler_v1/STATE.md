@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-13T22:29:31Z`
-Iterations so far: `2`
+Last updated (UTC): `2026-10-14T00:14:42Z`
+Iterations so far: `2` (V0–V5b closed; V4, V6, V7 and V8 in progress at this checkpoint)
 
 ---
 
@@ -27,13 +27,13 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V1 | MR generators | no | V0 | DONE | 2026-10-13T22:30:29Z | 2026-10-13T22:35:18Z |
 | V2 | ICD-10-CM verification | no | V0 | DONE | 2026-10-13T22:43:25Z | 2026-10-13T22:44:06Z |
 | V3 | Replay to 20 % | no | V0 | DONE | 2026-10-13T22:44:15Z | 2026-10-13T22:45:36Z |
-| V4 | Teacher prose | no | V1, V2, V5a | PENDING | | |
+| V4 | Teacher prose | no | V1, V2, V5a | IN_PROGRESS | 2026-10-13T23:09:08Z | |
 | V5a | Synthea | no | V0 | DONE | 2026-10-13T22:45:53Z | 2026-10-13T22:51:28Z |
 | V5b | Real clinical text | no | V2 | DONE | 2026-10-13T22:52:20Z | 2026-10-13T22:56:31Z |
 | V5c | MIMIC sources (only when the files exist) | no | V0 | PENDING | | |
-| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | PENDING | | |
-| V7 | Mix v3 blocks | no | V3, V6 | PENDING | | |
-| V8 | Block runs + keep rule | yes | V7 | PENDING | | |
+| V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | IN_PROGRESS | 2026-10-13T23:24:35Z | |
+| V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS | 2026-10-13T23:40:48Z | |
+| V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
 | V9 | Final Osler-4B and -9B | yes | V8 | PENDING | | |
 | V10 | Evaluation + Gate O2 | yes | V9 | PENDING | | |
 | V11 | Memorisation audit | small | V9 | PENDING | | |
@@ -78,8 +78,28 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Task in flight: V8 (marked 2026-10-13T23:53:00Z), V7 (started 2026-10-13T23:40:48Z), V6 (started 2026-10-13T23:24:35Z) and V4 (started 2026-10-13T23:09:08Z; pilots done; ICD prose BLOCKED; indicator and narrative prose building under scripts/osler_v1/v4_build_chain.sh, log outputs/osler_v1/V4/logs/build_chain.log, progress outputs/osler_v1/V4/*_progress.jsonl). V5b closed earlier (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
 Working dir:    outputs/osler_v1/V1/
+
+V7 checklist (in progress; started 2026-10-13T23:40:48Z):
+- [x] rules: ADVISORY V7 (cumulative blocks, 2 % tabular cap, 8 % template cap, leakage per block); B2 and B3 read the teacher files, so they need --teacher-final
+- [x] first build (23:40Z) rejected by the leakage check: 40 unique PubHealth training rows whose bare id equals a panel id (15 of them also equal a robustness id); O4's build.json recorded the same bare hits and kept them under its dataset-qualified identity rule (V7-D4). Its B3 also held 610 teacher rows from an unfinished V4 build: that B3 record and file are stale (the block driver refuses them: leakage_clean false, no teacher flag)
+- [x] rebuild with the rules (B0, B1; launched 2026-10-13T23:50:41Z; log outputs/osler_v1/V7/logs/blocks_build_v2.log)
+- [ ] B2 and B3 once V4 is final (`v7_blocks.py --blocks B2 B3 --teacher-final`), and the B3 record replaced
+- [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
+
+V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predates this mark):
+- [x] configs/osler_v1/block_arm.yaml (loads; B0 defaults)
+- [x] fast dev in the mix schema: v8_prepare.py -> fastdev_mix.jsonl (5,723 rows: MR 2,397, mix 3,326, tier-1 500 inside mix; one PubHealth row dropped, V7-D4) and fastdev_knowledge.jsonl (500)
+- [x] step budget, keep rule, keep and knowledge reports (the D12 gate included): src/meddecide/train/blocks.py (tests/test_blocks_v8.py 14 pass; tests/test_bare_collisions_v8.py 3 pass); the scripts are thin
+- [x] v8_replay_steps.py (the trainer's batcher; padded tokens with the chunk rounding); v8_block_run.py (refuses a block whose V7 record is missing, not clean, hash-mismatched or not teacher-final; checks the replay hash; validates logged steps and the evaluation steps); v8_keep.py (keep rule; knowledge check with the D12 gate)
+- [x] scope mix_v2 added to o2_io.py and o2_run_zeroshot.py (defaults unchanged)
+- [x] v8_chain.sh written and syntax-checked: waits for the V6 chain; zero-shot 4B on the knowledge items; smoke B0 (8 steps; the queue stops if its check fails); B0; B1
+- [x] replay steps for B0 and B1: 13,992 steps; B0 80,008 realised items, B1 80,851 (CLAIMS V076–V078; hashes match the V7 records)
+- [x] v8_chain.sh launched 2026-10-14T00:02:40Z; it waits for the V6 chain (zero-shot 9B and MedDecider and JEV-9B were still running at 00:02Z), then zero-shot knowledge, smoke B0, B0, B1 (log outputs/osler_v1/V8/logs/chain.log)
+- [ ] smoke B0 (the chain stops if its check fails); B0 run; knowledge check of B0 (`v8_keep.py --knowledge-check B0`; B0b only if it fails); B1 run; keep rule B1 against B0 (`v8_keep.py --candidate B1 --current B0`)
+- [ ] B2 and B3 once V4 is final, each with its keep rule against the last kept block
+- [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
 
 V1 checklist (closed): build (6,000/300/300 per generator); audit; screen checked against §3.6 (page category fails as expected; ICD v1 failed and was replaced by v2, V1-D1); ten items read per generator; mr_data.md; SELF_AUDIT.md; CLAIMS V022–V033; test_icd_template_v2.py and test_mr_v1.py pass.
 
@@ -176,6 +196,7 @@ V0 checklist (closed):
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| V4-ICD | the ICD prose (`mr_icd_support_prose_v1`) | the pilot pass rate is 59.8 % (58 of 97 eligible) after the one permitted prompt fix (V059, V060); the ADVISORY threshold is 60 % (V063) | an operator decision: accept a lower threshold; or change the ICD page design; or drop the ICD teacher prose (the template ICD items stay, and B2 contains indicator and narrative prose only) |
 
 ---
 
@@ -199,6 +220,11 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 4. **Code-set year (V2).** The ADVISORY names FY2026. FY2027 took effect on 2026-10-01 and is the current code set. V2 checks
    FY2026 as the acceptance year and FY2027 as an additional row. I would pick: keep FY2026 as written, and the operator decides
    whether the curated table should move to FY2027.
+5. **ICD teacher prose (V4, BLOCKED).** The two-diagnosis ICD page passed 43 % of pilot ids with the first prompt and 59.8 % with the revised one (CLAIMS V059–V063); the threshold is 60 %. Most rejections are status (history against current) and subject (family against patient): the teacher writes past or family conditions in ways the extraction reads otherwise. Options: (a) accept the template ICD items only and drop the ICD prose (B2 = indicator and narrative prose); (b) accept 59.8 % with the rejection bias recorded; (c) change the ICD page design (for example one diagnosis per prose page, with the distractors as separate notes). I would pick (a): it keeps every training decision verified and costs no further budget.
+6. **Teacher build scale (V4).** The ADVISORY aims are 15,000 verified pairs per twin generator and 20,000 narrative pages. At two requests per second (the endpoint limit), the indicator build (21,000 patient ids, about 15,000 pairs at 71 %) and the narrative build (28,600 encounters, about 20,000 pages at 70 %) take roughly 17 to 20 hours together, and the spend is about $31 against the $60 cap. I am building to the aims as written; the operator may cut them.
+7. **Bare-id collisions (V7-D4).** Forty PubHealth training rows have a bare source record id equal to a panel id (fifteen of them also equal a robustness id), and one PubHealth fast-dev row does the same. The ids are small numbers in two datasets (PubHealth against the MMLU-Pro health panel), so the collision is a namespace accident. O4 (osler_v0) recorded the same bare hits (`outputs/osler_v0/O4/build.json`: train panel 40 and robustness 15; dev 1 and 1) and kept the rows, because its protected-set docstring says a record is identified by the dataset-qualified id, and that id has no hits here. I dropped the rows as the conservative reading (AGENTS.md): 40 of 573,611 mix v2 training rows, and 1 of the 3,327 mix rows of the fast dev set. Options: (a) follow O4 and drop nothing; (b) keep the drop. I would pick (b): it costs nothing measurable and removes the question from the evaluation.
+8. **Teacher budget (V4), corrected at 2026-10-14T00:03Z.** An earlier estimate here put the spend at the 7-day cap of $36 before the narrative aim was reached. That estimate used $0.0013 per indicator item. The measured cost is $0.000928 per indicator id (1,136 ids in the progress file, 69 % accepted; CLAIMS V079) and $0.00039 per narrative item (100 items in the ledger). The full aims (21,000 indicator ids and 28,600 narrative encounters) therefore cost about $31 on top of the $1.35 already spent, which is below the $36 weekly cap. No decision is needed unless the measured cost changes; the build runs to its aims as written.
+
 
 ---
 
@@ -241,11 +267,24 @@ deviation — that is a `BLOCKED`.
 - **V5b-D3 (mkurman).** The three CC BY-ND 4.0 rows are dropped (no derivatives), so evaluation items come only from the CC BY 4.0 rows (1,490).
 - **V5b-D4 (NHS synthetic notes).** NOT MEASURED: `note_type` labels are departments and care settings, not page classes; the timebox was used.
 - **V5b-D5 (MTSamples licence).** Its licence is uncertain; the operator accepted it under D32 and it is recorded in the manifest and in mr_data §9.
+- **V4-D1 (the three prose generators).** ADVISORY V4 has one teacher task for three generators. The ICD generator is BLOCKED by the 60 % rule (V063). The indicator and narrative generators passed it (71 % and 70 %, V061–V062) and are built; B2 is indicator and narrative prose only, unless the operator decides otherwise (Question 5).
+- **V4-D2 (the ICD prompt changed once).** After the first pilot the prompt gained the rules for a page with several diagnoses and explicit definitions for certainty, subject and status in the extraction. It was applied only to the diagnoses kind, so the indicator and narrative prompts, and their pilots, are unchanged. The first pilot is kept as evidence (V059).
+- **V4-D3 (narrative facts).** The Synthea descriptors are cleaned of SNOMED semantic tags ('(disorder)', '(finding)') before the teacher sees them. The narrative pilot ran before this change; its 70 accepted pages are the pilot record and are not used for training.
 - **V0-D7 (speed evidence).** The first run of config a stored only its last 50 step records, so its throughput could not be
   re-derived from the file. Config a was re-run with every record stored (`speed/a.json`; the first run is kept as `speed/a_run1.json`),
   and the choice is recomputed from these files (`outputs/osler_v1/V0/SELF_AUDIT.md`, 12 PASS). The driver now stores all records; the
   other configurations' files keep their last-50 records, so their summaries cannot be re-derived from disk. Their numbers are recorded as
   measured (CLAIMS V013–V016).
+- **V6-D1 (baseline chain restart).** The first baseline script used a short MedDecider-9B revision, so the chain was stopped and restarted as `scripts/osler_v1/v6_baselines_run.sh` at 2026-10-13T23:30Z. The first attempt's zero-shot 4B predictions were removed before the rerun. The chain log keeps the first `START zs4b` line (23:30:14Z) from that attempt; only the 23:30:45Z run produced predictions.
+- **V7-D1 (block contents and the teacher gate).** B0 and B1 hold only the sources of ADVISORY V7 with train splits. B0 = mix v2 train + the V3 replay: 653,874 rows, replay 15.31 %, largest template 6.48 %. B1 = B0 + the V1 and Synthea train items with the tabular cap: 696,532 rows, replay 14.38 %, tabular 2.00 %, largest template 6.08 %. B2 and B3 read the teacher files and are built only with `--teacher-final`, once V4 is final (the V4 writer appends verified items as they are made). The first B3 build (23:44Z) included 610 partial teacher rows; that record and file are stale and are refused by the block driver.
+- **V7-D2 (tabular cap).** The 2 % cap removes 45,223 tabular page-category rows from B1 (deterministic sample, seed 0), counted under `dropped` in `outputs/osler_v1/V7/blocks.json`.
+- **V7-D3 (bare-id drop, Question 7).** 40 PubHealth mix v2 training rows are dropped from every block (25 with a panel id only, 15 with a panel and a robustness id). After the drop, the bare-id check and the dataset-qualified check both report zero hits in B0 and B1.
+- **V8-D1 (zero-shot knowledge comparison).** The knowledge items of the fast dev set are not in the MR evaluation file, so zero-shot Qwen3.5-4B is run on the 500 tier-1 fast-dev items: the same runner and protocol, with scope `mix_v2` added to the O2 I/O module and the zero-shot runner (defaults unchanged). It is an additional, labelled comparison for B0's knowledge check.
+- **V8-D2 (partitions).** MR = items of the MR sources; general = every other fast-dev item (mix v2, including the 500 tier-1 items); knowledge = the tier-1 items (MedQA, MedMCQA). ADVISORY V8 names the 'mix v2 dev part' for the general set; this is the non-MR part of the fixed set.
+- **V8-D3 (keep-rule statistics).** The lower bound is the 2.5th percentile of the paired bootstrap (the lower end of a 95 % two-sided interval), with 1,000 resamples, seed 0, resampling within templates. MR and general use the template macro of paired differences (`stratified_macro_difference`); knowledge uses the item mean (`paired_mean_difference_stratified`). ADVISORY V8 does not state the percentile; this reading is used.
+- **V8-D4 (step count).** The step count is the smallest multiple of four whose batches hold at least 80,000 realised items on B0. Multiples of four keep the 25, 50, 75 and 100 % evaluations on whole steps; realised items may exceed 80,000 by at most three batches.
+- **V8-D5 (evaluation set).** Each evaluation uses the full fast dev set (5,723 items), not the trainer's default 6,000-item subset, so the selection is on the pooled fast-dev template macro as ADVISORY V8 requires.
+- **V8-D6 (run time).** At 4.12 items per second, an 80,000-item block runs about 5.4 hours, not the ADVISORY's 2–3 hours (Question 3). Recorded as measured.
 
 ---
 

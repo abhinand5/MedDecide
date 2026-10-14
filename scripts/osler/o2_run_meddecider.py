@@ -31,6 +31,7 @@ from huggingface_hub import snapshot_download
 
 from meddecide.eval.o2_io import (
     ALL_SETS,
+    MR_V0,
     completed_ids,
     iter_items,
     open_predictions,
@@ -69,9 +70,13 @@ def main() -> None:
     ap.add_argument("--revision", required=True, help="pinned commit sha (configs/osler_v0/competitors.json)")
     ap.add_argument("--verify", type=int, default=50, help="items checked against the authors' decide()")
     ap.add_argument("--limit", type=int, default=0, help="score only the first N new items (smoke tests)")
+    ap.add_argument("--items", default=str(ITEMS), help="the common-set item file (default: O2)")
+    ap.add_argument("--out-root", default=str(OUT_ROOT), help="where predictions are written (default: O2)")
+    ap.add_argument("--scope", choices=["all", "mr_v0"], default="all")
     args = ap.parse_args()
+
     slug = "meddecider-" + args.model.split("MedDecider-")[-1].lower()
-    out_dir = OUT_ROOT / slug
+    out_dir = Path(args.out_root) / slug
     out_path = out_dir / "predictions.jsonl"
 
     local = Path(snapshot_download(args.model, revision=args.revision))
@@ -88,7 +93,7 @@ def main() -> None:
     checked = 0
     diffs: list[float] = []
     if args.verify:
-        rows = [r for r in iter_items(ITEMS, ALL_SETS) if len({o["label"] for o in r["options"]}) == len(r["options"])
+        rows = [r for r in iter_items(Path(args.items), {'all': ALL_SETS, 'mr_v0': MR_V0}[args.scope]) if len({o["label"] for o in r["options"]}) == len(r["options"])
                 and len(r["options"]) <= MAX_OPTIONS][: args.verify * 4]
         for row in rows:
             if checked >= args.verify:
@@ -109,7 +114,7 @@ def main() -> None:
     n_new = 0
     t_start = time.time()
     with open_predictions(out_path) as fh:
-        for row in iter_items(ITEMS, ALL_SETS):
+        for row in iter_items(Path(args.items), {'all': ALL_SETS, 'mr_v0': MR_V0}[args.scope]):
             if row["item_id"] in done:
                 continue
             if args.limit and n_new >= args.limit:

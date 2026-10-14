@@ -36,7 +36,7 @@ class ChatClient(Protocol):
 
 @dataclass(frozen=True)
 class ProseRequest:
-    kind: Literal["diagnosis", "chunk", "page"]
+    kind: Literal["diagnosis", "diagnoses", "chunk", "page"]
     page_class: str                    # one of meddecide.mr.pages.PAGE_KEYS
     facts: dict[str, Any]              # diagnosis_facts(...) or chunk_facts(...)
     setting: str = "inpatient"
@@ -100,6 +100,15 @@ EXTRACT_SYSTEM = {
                  '"suspected"|"ruled_out", "subject": "patient"|"family", "status": "current"|"history"}. '
                  "Report how the page documents the condition named in the request, using only the attribute names and "
                  'values the request lists, and "unspecified" for an attribute the page does not state.',
+    "diagnoses": "You extract facts from medical-record text into JSON. Output only JSON with the schema "
+                 '{"diagnoses": [{"condition": string, "attributes": {attribute: value}, "certainty": "confirmed"|'
+                 '"probable"|"suspected"|"ruled_out", "subject": "patient"|"family", "status": "current"|"history"}]}. '
+                 "List every diagnosis the page documents, one entry each, and no other. Use the attribute names and values "
+                 'the request lists for each condition, and "unspecified" for an attribute the page does not state. '
+                 'certainty: "ruled_out" when the page says the condition was excluded or ruled out; "suspected" for suspected '
+                 'or possible; "probable" for probable or likely; otherwise "confirmed". subject: "family" only when the page '
+                 'attributes the condition to a relative; otherwise "patient". status: "history" only when the page describes '
+                 'the condition as past or resolved; a condition described as active, or as recently found, is "current".',
     "chunk": "You extract facts from medical-record text into JSON. Output only JSON with the schema "
              '{"observations": [{"name", "value", "encounter": "current"|"prior", "baseline": bool, '
              '"on_room_air": bool}], "medications": [{"drug", "status": "given"|"held"|"refused"|"not_given", '
@@ -111,10 +120,24 @@ EXTRACT_SYSTEM = {
 }
 
 
+DIAGNOSES_RULES = "\n".join([
+    "RULES FOR THIS PAGE (each diagnosis in FACTS must read exactly as its own status says):",
+    "- certainty: write 'confirmed' as a plain diagnosis; 'probable' as probable or likely; 'suspected' as suspected or possible; "
+    "'ruled_out' as ruled out or excluded.",
+    "- subject 'family' means the condition belongs to a blood relative only: write it as a relative's condition (for example "
+    "'mother had ...' or 'family history of ...'). Never write a family condition as the patient's own.",
+    "- status 'history' means the condition is past and resolved: write it as 'history of ..., resolved'. Status 'current' means "
+    "an active problem today: do not describe it as past, resolved or a recent episode.",
+    "- do not mention any other admission, visit or episode of a listed condition; the page documents only what FACTS say.",
+    "- write every name, date and identifier in full; never use bracketed placeholders.",
+])
+
+
 def write_messages(req: ProseRequest) -> list[dict[str, str]]:
     style = {**STYLE_DEFAULTS, **req.style}
+    rules = f"{DIAGNOSES_RULES}\n\n" if req.kind == "diagnoses" else ""
     user = (f"PAGE TYPE: {req.page_class.replace('_', ' ')}\nSETTING: {req.setting}\nVOICE: {style['voice']}\n"
-            f"LENGTH: {style['length']}\n\nFACTS:\n{json.dumps(req.facts, indent=1)}")
+            f"LENGTH: {style['length']}\n\n{rules}FACTS:\n{json.dumps(req.facts, indent=1)}")
     return [{"role": "system", "content": WRITE_SYSTEM}, {"role": "user", "content": user}]
 
 
@@ -123,6 +146,13 @@ def extract_messages(req: ProseRequest, text: str) -> list[dict[str, str]]:
         fam = icd.FAMILY_BY_KEY[req.facts["family"]]
         head = (f"CONDITION: {req.facts['condition']}\nATTRIBUTES: "
                 f"{json.dumps({k: [*v, 'unspecified'] for k, v in fam.attributes.items()})}\n\n")
+    elif req.kind == "diagnoses":
+        seen: dict[str, str] = {}
+        for dx in req.facts["diagnoses"]:
+            fam = icd.FAMILY_BY_KEY[dx["family"]]
+            seen.setdefault(fam.condition, json.dumps({k: [*v, "unspecified"] for k, v in fam.attributes.items()}))
+        head = "CONDITIONS AND ATTRIBUTES:\n" + "\n".join(
+            f"- {cond}: {attrs}" for cond, attrs in seen.items()) + "\n\n"
     else:
         head = ""
     return [{"role": "system", "content": EXTRACT_SYSTEM[req.kind]}, {"role": "user", "content": f"{head}PAGE:\n{text}"}]
@@ -151,6 +181,29 @@ def _json(text: str) -> dict[str, Any] | None:
     return out if isinstance(out, dict) else None
 
 
+def _condition_words(text: str) -> list[str]:
+    """Content words of a condition name, with the British "ae" read as "e" (hyponatraemia, hyponatremia)."""
+    return [w for w in re.findall(r"[a-z]+", text.lower().replace("ae", "e")) if len(w) >= 4]
+
+
+def condition_matches(family: str, reported: str) -> bool:
+    """Whether a condition name in the extraction is the family's condition: every content word of the family's name is in it."""
+    text = reported.lower().replace("ae", "e")
+    return all(w in text for w in _condition_words(icd.FAMILY_BY_KEY[family].condition))
+
+
+def _diagnosis_differences(entry: Mapping[str, Any], expected: Mapping[str, Any]) -> list[str]:
+    out = []
+    for key in ("certainty", "subject", "status"):
+        if entry.get(key) != expected[key]:
+            out.append(f"{key}: {entry.get(key)!r} != {expected[key]!r}")
+    got = entry.get("attributes") or {}
+    for k, v in expected["attributes"].items():
+        if got.get(k) != v:
+            out.append(f"attribute {k}: {got.get(k)!r} != {v!r}")
+    return out
+
+
 def verify(req: ProseRequest, extracted: Mapping[str, Any] | None, *, rel_tol: float = 0.02) -> list[str]:
     """Differences between the source facts and what the teacher's page states (empty = verified)."""
     if extracted is None:
@@ -164,6 +217,15 @@ def verify(req: ProseRequest, extracted: Mapping[str, Any] | None, *, rel_tol: f
             words = [w for w in str(cond).lower().replace(",", " ").split() if len(w) > 3][:3]
             if words and not all(w in said for w in words):
                 problems.append(f"condition not reported: {cond}")
+        return problems
+    if req.kind == "diagnoses":
+        found = [e for e in (extracted.get("diagnoses") or []) if isinstance(e, Mapping)]
+        for expected in req.facts["diagnoses"]:
+            matches = [e for e in found if condition_matches(expected["family"], str(e.get("condition", "")))]
+            if not matches:
+                problems.append(f"condition not reported: {icd.FAMILY_BY_KEY[expected['family']].condition}")
+                continue
+            problems.extend(min((_diagnosis_differences(e, expected) for e in matches), key=len))
         return problems
     if req.kind == "diagnosis":
         f = req.facts

@@ -56,6 +56,25 @@ def dx_from_meta(meta: Mapping[str, Any]) -> icd.Diagnosis:
     )
 
 
+def dx_from_dict(entry: Mapping[str, Any]) -> icd.Diagnosis:
+    """A distractor diagnosis from the ``distractors`` meta of a v2 template item (the same fields as ``dx_from_meta``)."""
+    return icd.Diagnosis(
+        family=str(entry["family"]),
+        attributes={str(k): str(v) for k, v in dict(entry["attributes"]).items()},
+        certainty=entry["certainty"],
+        subject=entry["subject"],
+        status=entry["status"],
+    )
+
+
+def icd_multi_request(target: icd.Diagnosis, distractors: list[icd.Diagnosis], setting: str,
+                      page_class: str) -> ProseRequest:
+    """One page that documents the target diagnosis and its distractors (ADVISORY V4 with the v2 design): the teacher
+    writes every diagnosis, and the verifier checks each one."""
+    facts = {"diagnoses": [diagnosis_facts(target), *[diagnosis_facts(d) for d in distractors]]}
+    return ProseRequest(kind="diagnoses", page_class=page_class, facts=facts, setting=setting, source="generated")
+
+
 def icd_request(dx: icd.Diagnosis, setting: str, page_class: str) -> ProseRequest:
     return ProseRequest(kind="diagnosis", page_class=page_class, facts=diagnosis_facts(dx), setting=setting,
                         source="generated")

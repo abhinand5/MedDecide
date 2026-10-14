@@ -38,6 +38,25 @@ def leak_counts(rows: Iterable[Mapping[str, Any]], protected_text: Mapping[str, 
     return counts
 
 
+def bare_collisions(row: Mapping[str, Any], protected_records: Mapping[str, set[str]]) -> list[str]:
+    """The names of the protected record sets that hold the row's bare source record id, sorted.
+
+    A bare id identifies a record only within its dataset (osler_v1 V7-D4): two datasets can both use the id ``280``. The
+    caller decides which sets apply; O4 used every set for training rows and every set but the v0.2 dev set for dev rows.
+    """
+    rid = str(row.get("source_record_id"))
+    return sorted(name for name, ids in protected_records.items() if rid in ids)
+
+
+def qualified_collisions(row: Mapping[str, Any], protected_qualified: Mapping[str, set[str]]) -> list[str]:
+    """The names of the protected sets that hold the row's dataset-qualified id (``<source>/<source_record_id>``), sorted.
+
+    This is the record identity of the osler_v0 protected sets (O4): a record is the same record when its source and id match.
+    """
+    key = f"{row.get('source')}/{row.get('source_record_id')}"
+    return sorted(name for name, keys in protected_qualified.items() if key in keys)
+
+
 def date_violations(rows: Iterable[Mapping[str, Any]], window_start: str) -> int:
     """Rows dated on or after the window start. Undated rows (empty record_date) are counted separately by the caller."""
     return sum(1 for r in rows if r["record_date"] and r["record_date"] >= window_start)

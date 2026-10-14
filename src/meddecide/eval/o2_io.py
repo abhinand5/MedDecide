@@ -26,6 +26,10 @@ class Scope:
 
 ALL_SETS = Scope("all", ("v0.2", "ext_panel", "robustness"))
 PANEL_ROBUSTNESS = Scope("panel_robustness", PANEL_AND_ROBUSTNESS)
+# osler_v1 V6: the MR evaluation suite (data/bench/osler_mr_v0), scored by the same runners
+MR_V0 = Scope("mr_v0", ("mr_v0",))
+# osler_v1 V8: the tier-1 knowledge items of the fast dev set (data/bench/osler_mr_v0/fastdev_knowledge.jsonl)
+MIX_V2 = Scope("mix_v2", ("mix_v2",))
 
 
 def iter_items(path: Path, scope: Scope) -> Iterator[dict[str, Any]]:

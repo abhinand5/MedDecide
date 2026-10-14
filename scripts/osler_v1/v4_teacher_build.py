@@ -25,11 +25,14 @@ import sys
 import threading
 import time
 from collections import Counter
+from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from functools import partial
 from pathlib import Path
 from typing import Any
 
-from meddecide.mr.prose_build import PROCESS, PROSE_PREFIX, Outcome
+from meddecide.mr.narrative import load_encounters, sample_encounters
+from meddecide.mr.prose_build import PROCESS, PROSE_PREFIX, Outcome, process_narrative
 from meddecide.teacher.budget import RateLimiter, SpendLedger
 from meddecide.teacher.client import TeacherClient, is_peak
 from meddecide.teacher.guarded import GuardedChat, Halt
@@ -50,9 +53,10 @@ FAILED_REASONS = ("write failed", "extract failed", "RuntimeError", "HTTPStatusE
 class Worker:
     """One thread's teacher client, so the usage meter is never shared between threads."""
 
-    def __init__(self, limiter: RateLimiter, halt: Halt) -> None:
+    def __init__(self, limiter: RateLimiter, halt: Halt, process_fn: Callable[[str, Any], Outcome]) -> None:
         self.limiter = limiter
         self.halt = halt
+        self.process_fn = process_fn
         self._local = threading.local()
 
     def guarded(self) -> tuple[TeacherClient, GuardedChat]:
@@ -62,11 +66,11 @@ class Worker:
             self._local.guarded = GuardedChat(teacher, self.limiter, self.halt)
         return self._local.teacher, self._local.guarded
 
-    def run(self, gen: str, pid: str) -> Outcome:
+    def run(self, pid: str) -> Outcome:
         teacher, guarded = self.guarded()
         before = teacher.usage.as_dict()
         try:
-            outcome = PROCESS[gen](pid, guarded)
+            outcome = self.process_fn(pid, guarded)
         except Exception as exc:
             outcome = Outcome(pid, "error", [type(exc).__name__])
         after = teacher.usage.as_dict()
@@ -85,10 +89,11 @@ def load_done(progress: Path) -> set[str]:
         return {json.loads(line)["pid"] for line in fh}
 
 
-def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: int, rps: float) -> dict[str, Any]:
+def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: int, rps: float,
+        process_fn: Callable[[str, Any], Outcome]) -> dict[str, Any]:
     ledger = SpendLedger(LEDGER)
     halt = Halt()
-    worker = Worker(RateLimiter(rps), halt)
+    worker = Worker(RateLimiter(rps), halt, process_fn)
     verdicts: Counter[str] = Counter()
     reasons: Counter[str] = Counter()
     totals: Counter[str] = Counter()
@@ -140,7 +145,7 @@ def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: 
                 for future in done:
                     inflight.pop(future)
                     handle(future.result())
-            inflight[pool.submit(worker.run, gen, pid)] = pid
+            inflight[pool.submit(worker.run, pid)] = pid
         for future in list(inflight):
             handle(future.result())
             inflight.pop(future)
@@ -175,21 +180,34 @@ def main() -> None:
     parser.add_argument("--rps", type=float, default=REQUESTS_PER_S)
     args = parser.parse_args()
     prefix = PROSE_PREFIX[args.gen]
-    if args.mode == "pilot":
+    process_fn: Callable[[str, Any], Outcome] = PROCESS.get(args.gen, PROCESS.get("icd"))
+    if args.gen == "narrative":
+        # one page per Synthea encounter (V5a extract); the pid carries the encounter id after the colon
+        store = load_encounters(REPO / "data" / "synthea" / "osler_v1")
+        ids = (sample_encounters(store, args.n, seed=0) if args.mode == "pilot"
+               else sorted(store)[args.start: args.start + args.count])
+        pids = [f"synthea-narr:{eid}" for eid in ids]
+        process_fn = partial(process_narrative, store=store)
+        print(f"{utcnow()} encounters loaded: {len(store)}; this run: {len(pids)}", flush=True)
+    elif args.mode == "pilot":
         pids = [f"{prefix}-pilot-{k:07d}" for k in range(args.n)]
+    else:
+        if args.count < 1:
+            raise SystemExit("--count must be at least 1 in build mode")
+        pids = [f"{prefix}-{k:07d}" for k in range(args.start, args.start + args.count)]
+    if args.mode == "pilot":
         out_items = TEACHER_DIR / f"{args.gen}_pilot.jsonl"
         progress = V4_DIR / f"{args.gen}_pilot_progress.jsonl"
     else:
         if args.count < 1:
             raise SystemExit("--count must be at least 1 in build mode")
-        pids = [f"{prefix}-{k:07d}" for k in range(args.start, args.start + args.count)]
         out_items = TEACHER_DIR / f"{args.gen}.jsonl"
         progress = V4_DIR / f"{args.gen}_progress.jsonl"
     done = load_done(progress)
     todo = [p for p in pids if p not in done]
     print(f"{utcnow()} {args.mode} {args.gen}: {len(todo)} to do ({len(done)} already done)", flush=True)
     started = time.time()
-    summary = run(args.gen, todo, out_items, progress, workers=args.workers, rps=args.rps)
+    summary = run(args.gen, todo, out_items, progress, workers=args.workers, rps=args.rps, process_fn=process_fn)
     summary.update({"mode": args.mode, "git_commit": git_commit(REPO), "written_utc": utcnow(),
                     "wall_clock_s": round(time.time() - started, 1), "pids_already_done": len(done),
                     "items_file": str(out_items.relative_to(REPO))})

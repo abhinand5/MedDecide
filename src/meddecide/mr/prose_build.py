@@ -7,7 +7,7 @@ schedules these calls and writes their results. Teacher text is returned to the 
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -16,20 +16,28 @@ from meddecide.mr.generators import (
     HELD_OUT_INDICATORS,
     indicator_pair,
     is_held_out,
-    mr_icd_support_template_v1,
+    mr_icd_support_template_v2,
+)
+from meddecide.mr.narrative import (
+    EncounterRecord,
+    narrative_item,
+    narrative_page_class,
+    narrative_request,
 )
 from meddecide.mr.prose_items import (
+    dx_from_dict,
     dx_from_meta,
     has_code_string,
+    icd_multi_request,
     icd_page_class,
     icd_prose_item,
-    icd_request,
     indicator_prose_item,
     indicator_request,
 )
 from meddecide.mr.teacher_prose import ProseResult, generate
 
-PROSE_PREFIX = {"icd": "mr_icd_support_prose_v1", "indicator": "mr_indicator_prose_v1"}
+PROSE_PREFIX = {"icd": "mr_icd_support_prose_v1", "indicator": "mr_indicator_prose_v1",
+                "narrative": "synthea_narrative_page_v1"}
 
 
 class ChatLike(Protocol):
@@ -74,17 +82,17 @@ def _rejected(pid: str, result: ProseResult) -> Outcome:
 
 
 def process_icd(pid: str, client: ChatLike) -> Outcome:
-    """One base and twin of ``mr_icd_support_template_v1``, each written as a page of the same class and setting."""
-    base, twin = mr_icd_support_template_v1(pid)
-    if base.role != "base":
-        base, twin = twin, base
+    """One base and twin of ``mr_icd_support_template_v2``, each written as a page of the same class and setting that
+    documents the target diagnosis and the two distractor diagnoses of the template."""
+    base, twin = mr_icd_support_template_v2(pid)
     if is_held_out(base.meta):  # heart_failure is held out of every training source (ADVISORY §3.3)
         return Outcome(pid, "skipped", ["held-out family"])
     setting = str(base.meta["setting"])
     page_class = icd_page_class(rng_for("mr_icd_support_prose_v1", pid, "page"), setting)
+    distractors = [dx_from_dict(d) for d in base.meta["distractors"]]
     pages: list[tuple[GeneratedItem, str]] = []
     for template in (base, twin):
-        result = generate(client, icd_request(dx_from_meta(template.meta), setting, page_class))
+        result = generate(client, icd_multi_request(dx_from_meta(template.meta), distractors, setting, page_class))
         if not result.ok:
             return _rejected(pid, result)
         if has_code_string(result.text or ""):
@@ -109,6 +117,19 @@ def process_indicator(pid: str, client: ChatLike) -> Outcome:
     items = [indicator_prose_item(pid, role, facts, pair.indicator, pair.trap, pair.question, text)
              for role, facts, text in pages]
     return Outcome(pid, "accepted", [], items)
+
+
+def process_narrative(pid: str, client: ChatLike, *, store: Mapping[str, EncounterRecord]) -> Outcome:
+    """One Synthea encounter: one teacher page of the class the code draws, kept when it verifies (ADVISORY V4)."""
+    enc_id = pid.split(":", 1)[1]
+    rec = store[enc_id]
+    page_class = narrative_page_class(enc_id, rec.has_imaging)
+    result = generate(client, narrative_request(rec.encounter, page_class))
+    if not result.ok:
+        return _rejected(pid, result)
+    if has_code_string(result.text or ""):
+        return Outcome(pid, "rejected", ["icd_code_string"])
+    return Outcome(pid, "accepted", [], [narrative_item(rec.encounter, page_class, result.text or "", rec.split)])
 
 
 PROCESS: dict[str, Callable[[str, ChatLike], Outcome]] = {"icd": process_icd, "indicator": process_indicator}
