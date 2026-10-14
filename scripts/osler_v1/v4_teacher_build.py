@@ -6,7 +6,8 @@ Two generators: ``mr_icd_support_prose_v1`` (ICD-10-CM support, one base and twi
 
 Guards (ADVISORY V4 and §3.8): at most 8 workers and 2 requests per second in total; HTTP 429 and 5xx retried with
 exponential backoff; HTTP 401 or 403 halts the run; the spend ledger is checked before every submission (5-hour window $14,
-week $36, loop $60); bulk requests pause during the teacher's peak hours; a streak of 25 failed requests halts the run.
+week $36, loop $60); bulk requests may run in the teacher's peak hours (operator decision, STATE §6 Q6); a streak of 25 failed
+requests halts the run.
 Spend is recorded per patient id as a USD cost only. Teacher text goes only to data/gen (gitignored).
 
 Modes:
@@ -34,7 +35,7 @@ from typing import Any
 from meddecide.mr.narrative import load_encounters, sample_encounters
 from meddecide.mr.prose_build import PROCESS, PROSE_PREFIX, Outcome, process_narrative
 from meddecide.teacher.budget import RateLimiter, SpendLedger
-from meddecide.teacher.client import TeacherClient, is_peak
+from meddecide.teacher.client import TeacherClient
 from meddecide.teacher.guarded import GuardedChat, Halt
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -134,8 +135,8 @@ def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: 
                 halt.set(f"{consecutive_errors} failed requests in a row")
                 stop_reason = halt.reason
                 break
-            while is_peak():
-                time.sleep(60)  # bulk generation pauses in the teacher's peak hours (ADVISORY V4)
+            # bulk generation may run in the teacher's peak hours (operator decision, STATE §6 Q6); the budget guard below
+            # still applies to every submission
             check = ledger.check()
             if not check.ok:
                 stop_reason = f"spend guard: {check.reason}"
