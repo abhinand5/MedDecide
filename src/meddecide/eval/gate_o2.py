@@ -25,6 +25,11 @@ def panel_non_inferior(accuracy: Difference) -> bool:
     return accuracy.lo > PANEL_NON_INFERIORITY_FLOOR
 
 
+def panel_superior(accuracy: Difference) -> bool:
+    """Additional, never in the verdict (D31 (ii): superiority is reported separately): the accuracy lower bound is above zero."""
+    return accuracy.lo > 0.0
+
+
 def o2_verdict(
     mr_suite: Mapping[str, Comparison | None],
     panel: Mapping[str, Comparison | None],

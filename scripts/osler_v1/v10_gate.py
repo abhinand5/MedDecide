@@ -34,7 +34,7 @@ from meddecide.eval.gate import (
     compare_rows,
     knowledge_guard,
 )
-from meddecide.eval.gate_o2 import PANEL_NON_INFERIORITY_FLOOR, o2_verdict
+from meddecide.eval.gate_o2 import PANEL_NON_INFERIORITY_FLOOR, o2_verdict, panel_superior
 from meddecide.eval.paired import Difference
 from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -78,7 +78,8 @@ def compared(scope: str, name: str, members: list[dict], osler: Mapping, base: M
     record = {"scope": scope, "baseline": name, "n_scope": paired.n_scope, "n_paired": paired.n_paired,
               "n_baseline_skipped": paired.n_baseline_skipped, "n_baseline_missing": paired.n_baseline_missing,
               "n_osler_missing": paired.n_osler_missing, "accuracy": comp.accuracy.__dict__, "brier": comp.brier.__dict__,
-              "passes_mr_rule": comp.passes, "accuracy_lower_above_panel_floor": comp.accuracy.lo > PANEL_NON_INFERIORITY_FLOOR}
+              "passes_mr_rule": comp.passes, "accuracy_lower_above_panel_floor": comp.accuracy.lo > PANEL_NON_INFERIORITY_FLOOR,
+              "accuracy_lower_above_zero": panel_superior(comp.accuracy)}
     return record, comp
 
 
@@ -88,7 +89,8 @@ def table_row(record: dict[str, Any], check: str, rule: str | None) -> str:
         cells = [check, record["baseline"], "NOT MEASURED", "", "", "—", record["not_measured"]]
     else:
         a, b = record["accuracy"], record["brier"]
-        passes = {"mr": record["passes_mr_rule"], "panel": record["accuracy_lower_above_panel_floor"]}.get(rule or "")
+        passes = {"mr": record["passes_mr_rule"], "panel": record["accuracy_lower_above_panel_floor"],
+                  "superiority": record["accuracy_lower_above_zero"]}.get(rule or "")
         cells = [check, record["baseline"], str(record["n_paired"]),
                  f"{a['point']:+.4f} [{a['lo']:+.4f}, {a['hi']:+.4f}]", f"{b['point']:+.4f} [{b['lo']:+.4f}, {b['hi']:+.4f}]",
                  "—" if passes is None else ("yes" if passes else "no"),
@@ -168,6 +170,7 @@ def main() -> None:
             "osler_9b": {"verdict": "NOT MEASURED", "verdict_reason": "deferred to the next loop by the operator (V9-D1)"},
         },
         "additional": {"held_out_test": held_out, "d1_3b_mr_test": d1_record, "single_order_mr_test": single_mr,
+                       "panel_superiority": {name: panel_records[name] for name in PANEL_BASELINES},
                        "single_order_external_panel": single_panel,
                        "mdace": {"not_measured": "the MDACE data is not on the volume"},
                        "mr_mimic_part": {"not_measured": "MIMIC is absent (V5c); the MR test suite is the generated part"}},
@@ -194,7 +197,9 @@ def main() -> None:
               "**Osler-9B verdict: NOT MEASURED — deferred to the next loop by the operator (V9-D1).**", "",
               "## Additional rows (labelled; never in the verdict)", "", *head,
               *[table_row(held_out[name], "held-out MR, test rows", "mr") for name in MR_BASELINES],
-              table_row(d1_record, "d1-3B, MR test", "mr"), "",
+              table_row(d1_record, "d1-3B, MR test", "mr"),
+              *[table_row(panel_records[name], "external panel superiority (additional; never in the verdict)", "superiority")
+                for name in PANEL_BASELINES], "",
               "Single-order rows (the original option order only; reported beside the gate, never in it):", "", *head,
               *[table_row(single_mr[name], "single order, MR test", "mr") for name in MR_BASELINES],
               *[table_row(single_panel[name], "single order, external panel", "panel") for name in PANEL_BASELINES], "",

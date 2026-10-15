@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from meddecide.eval.gate import Comparison
-from meddecide.eval.gate_o2 import o2_verdict, panel_non_inferior
+from meddecide.eval.gate_o2 import o2_verdict, panel_non_inferior, panel_superior
 from meddecide.eval.paired import Difference
 
 
@@ -29,6 +29,21 @@ def test_panel_rule_is_non_inferiority_with_a_strict_floor() -> None:
 def test_panel_superiority_is_not_needed() -> None:
     # the interval may contain zero: non-inferiority is enough for D31 (ii)
     assert panel_non_inferior(diff(-0.01, 0.03))
+
+
+def test_panel_superiority_is_a_separate_check_at_zero() -> None:
+    assert panel_superior(diff(0.001, 0.03))
+    assert not panel_superior(diff(0.0, 0.03))  # the lower bound at zero is not superior
+    assert not panel_superior(diff(-0.01, 0.03))
+
+
+def test_superiority_never_enters_the_verdict() -> None:
+    # non-inferior to both baselines but not superior (the interval contains zero): the verdict is still PASS
+    mr = {name: comparison(0.01, -0.01, name) for name in ("MedDecider-4B", "zero-shot Qwen3.5-4B")}
+    panel = {name: Comparison(scope="external_panel", baseline=name, accuracy=diff(-0.01, 0.03), brier=diff(-0.1, 0.0))
+             for name in ("MedDecider-4B", "zero-shot Qwen3.5-4B")}
+    verdict, _ = o2_verdict(mr, panel, diff(0.01, 0.05))
+    assert verdict == "PASS"
 
 
 def test_mr_rule_needs_both_bounds_strictly() -> None:

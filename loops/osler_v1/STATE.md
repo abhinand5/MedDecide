@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T14:28:08Z`
-Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b, B1 and B2 done; B1 KEPT against B0 (C = B1); B2 NOT KEPT against B1; the B3 run is in progress; V10 prepared on the CPU, not run; V5c blocked on absent files)
+Last updated (UTC): `2026-10-15T14:31:06Z`
+Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b, B1 and B2 done; B1 KEPT against B0 (C = B1); B2 NOT KEPT against B1; the B3 run is in progress; Q13 confirmed, so V9 follows B3; V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
 
@@ -34,7 +34,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | DONE | 2026-10-13T23:24:35Z | 2026-10-14T01:41:00Z |
 | V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS — B0, B1, B2 and B3 built (B2 734,514 rows and B3 792,260 rows, 2026-10-15T07:57–08:01Z); blocks.md pending | 2026-10-13T23:40:48Z | |
 | V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
-| V9 | Final Osler-4B on the kept block, attention-only LoRA (Osler-9B deferred by the operator, V9-D1; LoRA targets by the operator, V9-D2) | yes | V8 | PENDING | | |
+| V9 | Final Osler-4B on the kept block, attention-only LoRA (Osler-9B deferred by the operator, V9-D1; LoRA targets by the operator, V9-D2) | yes | V8 | PENDING — unblocked: Q13 confirmed 2026-10-15; starts after the B3 keep decision | | |
 | V10 | Evaluation + Gate O2 (Osler-4B only; the 9B verdict is NOT MEASURED — deferred by the operator) | yes | V9 | PENDING | | |
 | V11 | Memorisation audit | small | V9 | PENDING | | |
 | V12 | Findings and closure — HARD STOP | no | all | PENDING | | |
@@ -143,6 +143,19 @@ V10 preparation (CPU; checked 2026-10-15, not yet run on the GPU; the verdict is
 - [x] `scripts/osler_v1/v10_score.py`: O2-format rows in both orders and single order; calibrated with the arm's dev fits; refuses a checkpoint whose saved calibration differs from the dev fits (ADVISORY V10). Smoke run on the B0b checkpoint: 16 of 16 rows scored, calibration match True (throwaway output, removed)
 - [x] `src/meddecide/eval/gate_o2.py` (D31 rules as pure functions) and `tests/test_gate_o2.py` (9 pass); `scripts/osler_v1/v10_gate.py` writes `loops/osler_v1/gate_o2.md`. Wiring check on a scratch copy only: an oracle file (the gold labels) gave PASS, and MedDecider-4B's own rows gave NOT MEASURED for the 6,302 MR and 212 panel items it did not score. Neither is a result.
 - [ ] V10 GPU scoring of Osler-4B (after V9); the 9B verdict stays NOT MEASURED (V9-D1); MDACE NOT MEASURED (data absent); the MIMIC part NOT MEASURED (V5c)
+
+V9 checklist (opened 2026-10-15T14:31Z; unblocked by Q13):
+- [ ] B3 run finished (the watcher `ban5c4mjh` waits for `END B3` in the chain log; B3 pid 2275082)
+- [ ] B3 keep decision (`scripts/osler_v1/v8_keep.py --candidate B3 --current B1`), then `scripts/osler_v1/v8_blocks_report.py`; CLAIMS rows for the B3 run and its decision
+- [ ] defect screen of B3 before V9 (below chance, a constant answer, divergence, knowledge below zero-shot, a result that looks too good); any defect is investigated and recorded, not tuned
+- [ ] the kept block K recorded (B3 if kept, otherwise B1) in §2 and in the V9 provenance
+- [ ] MIMIC re-check before V9 (`data/physionet` absent at 2026-10-15T14:31Z; V5c stays BLOCKED)
+- [ ] replay for K at 250,000 items with eight evaluations (CPU): `scripts/osler_v1/v8_replay_steps.py --blocks K --target-items 250000 --multiple 8 --out outputs/osler_v1/V9`; the file hash must equal the block's V7 record
+- [ ] `scripts/osler_v1/v9_final.py --block K`, launched detached (one GPU job; log `outputs/osler_v1/V9/logs/osler_4b.log`; PID recorded here), with the attention-only LoRA targets (V9-D2)
+- [ ] completeness: `outputs/osler_v1/V9/osler_4b/block_result.json`, `checkpoints/best`, `arm_result.json` with the fitted temperatures; eight evaluations on the planned steps; 0 log mismatches
+- [ ] V10 after V9: `scripts/osler_v1/v10_score.py` (detached GPU job, log `outputs/osler_v1/V10/logs/osler_4b.log`), then `scripts/osler_v1/v10_gate.py` → `loops/osler_v1/gate_o2.md`; `loops/osler_v1/results.md`; the Osler-9B verdict NOT MEASURED (V9-D1)
+- [ ] V11: MIMIC is not in the final mix, so the memorisation audit is not applicable (record at closure)
+- [ ] V12: `FINDINGS.md` (summary first; §2 outcome; every number with a CLAIMS row; the five-claim spot-check re-run), `NEXT.md` (proposals only), `Loop status: STOPPED`, commit, push, stop
 
 ## 4. Iteration log (append only, newest last)
 
@@ -257,13 +270,18 @@ V10 preparation (CPU; checked 2026-10-15, not yet run on the GPU; the verdict is
 - B3 (B2 plus V5b) is running in the chain and is decided against C = B1, the last kept block. Its teacher prose is Question 14.
 - blocks.md regenerated (B3 pending). Next: `v8_keep.py --candidate B3 --current B1` when `END B3` appears in the chain log; then the blocks report; then the V9 check (Question 13).
 
+### V8 (checkpoint: operator answers recorded; Gate O2 superiority rows) — 2026-10-15T14:31Z
+- Operator answers: Q10 do not run the DeepSeek continuation (V4 stays closed); Q11 option (a), no change; Q12 no action; Q13 confirmed (D31 non-inferiority, superiority reported separately). V9 proceeds after B3. Q14 has no answer; its default is V8-D8.
+- `v10_gate.py` now reports the external panel's superiority as labelled additional rows (accuracy lower bound above 0; never in the verdict), via `panel_superior` in `src/meddecide/eval/gate_o2.py`. tests/test_gate_o2.py: 11 pass (CLAIMS V141).
+- B3 running (step 200 at 14:31Z). Next: the B3 keep decision, the defect screen, the kept block, the MIMIC re-check, the replay and V9 (detached).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
 | V4-ICD | the ICD prose (`mr_icd_support_prose_v1`) | the pilot pass rate is 59.8 % (58 of 97 eligible) after the one permitted prompt fix (V059, V060); the ADVISORY threshold is 60 % (V063) | an operator decision: accept a lower threshold; or change the ICD page design; or drop the ICD teacher prose (the template ICD items stay, and B2 contains indicator and narrative prose only) |
 | V5c | the MIMIC sources (D28) | the PhysioNet files are absent on the volume (re-checked 2026-10-14T00:15Z; CLAIMS V097); ADVISORY V5c never blocks the loop | none for this loop: the finals train without MIMIC (D32; ADVISORY V8) and the V11 audit is recorded as not applicable |
-| V4-DS | the DeepSeek API phase (operator instruction; V4-D7) | not run: V4 closed at the OpenCode guard on 2026-10-15T07:56:54Z with no approval file; D30 requires zero data retention, and the third-party reports (Question 10) are unverified | a later approval would need the narrative build resumed and B2 and B3 rebuilt before their runs; the operator decides (Question 10). It blocks nothing now |
+| V4-DS | the DeepSeek API phase (operator instruction; V4-D7) | not run: V4 closed at the OpenCode guard on 2026-10-15T07:56:54Z with no approval file; D30 requires zero data retention, and the third-party reports (Question 10) are unverified | the operator decided not to run the DeepSeek phase in this loop (Question 10, answered 2026-10-15); V4 stays closed as it is. It blocks nothing |
 
 ---
 
@@ -302,6 +320,13 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 13. **Gate O2 panel rule, operator confirmation (D31; needed before V9).** The D31 row in `docs/plans/PROGRAM.md` says the external panel moves from superiority to non-inferiority "because this loop adds no broad-clinical data (operator to confirm before V9 runs)". No confirmation is recorded in this file. The gate as written is used (accuracy lower bound > −0.02 against both baselines). V9 is about 12 hours away, behind B2 and B3. If the operator has not confirmed by then, V9 is recorded BLOCKED on this item and the gate is not changed (AGENTS.md: gates are never changed after results).
 
 14. **Cumulative blocks and a non-kept source (V8; decided by the rule at the B3 keep).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 is B2 plus the V5b real text, so B3 contains the prose, and its only comparison is against C = B1, the last kept block. If B3 is kept, the kept mix holds prose that failed on its own. ADVISORY §2 outcome 4 says a source that does not help on dev is dropped, not tuned. Options: (a) follow the rule: the kept mix is B3 if it passes against B1, and the B2 result is reported next to it; (b) drop the teacher rows from the final mix (B1 plus V5b), which no V8 run measured. I would pick (a): it is the pre-registered decision, and the operator's V9-D2 instruction says the B2 and B3 keep decisions stay as the rule makes them. Context (a lexical association, measured, not tested): indicator pages with the phrase 'documented baseline' have gold 'yes' in 47.05 % of pages with it against 56.88 % without (CLAIMS V130). If B3 is not kept, the final mix is B1 and this question closes.
+
+**Operator answers (received 2026-10-15, after B2 and during B3):**
+- **Q10 (DeepSeek continuation): do not run it in this loop.** V4 stays closed as it is (closed 2026-10-15T07:56:54Z on the OpenCode pages). No `DEEPSEEK_APPROVED` file exists and the DeepSeek ledger is unused.
+- **Q11 (SNOMED and RxNorm strings to the hosted endpoint): option (a), confirm the route, no change.** The operator's reason: the Synthea display names are public synthetic strings, and the AGENTS.md rule targets licensed UMLS-file strings; the advisor will clarify that wording at the hard stop. The narrative pages stay as built (16,450 verified; the 624 pages with the residual SNOMED tag, CLAIMS V131, are unchanged).
+- **Q12 (padding test): no action.** The test stays as committed and is deselected on the command line, as in every run.
+- **Q13 (Gate O2 panel rule, D31): confirmed.** Gate O2 is applied as written: the external panel is non-inferior when the accuracy lower bound is above −0.02 against both baselines. Superiority is reported separately and never enters the verdict. V9 proceeds after B3.
+- **Q14 (cumulative blocks): no answer given.** The default applies (V8-D8, Deviations): the kept mix follows the keep rule.
 
 **Operator answers (received during V8, 2026-10-14):**
 - **Q2 (replay share): accepted.** The 15.3 % replay share stands for this loop; the 20 % target is not pursued (V3-D1 accepted).
@@ -390,6 +415,8 @@ deviation — that is a `BLOCKED`.
 - **V4-D8 (narrative target and the defects found).** The 20,000-page narrative aim is not reached: 16,450 pages from 23,351 encounters at the OpenCode Go weekly guard, 82.3 % of the aim (V4-D5). The spot read (20 pages per generator, 40 in all) and the defect counts (CLAIMS V130–V131) found artefacts the verifier does not catch: unrounded decimal values; the rule-restating phrase 'documented baseline', which goes with gold 'no' in the indicator pages; bracketed placeholders; a residual SNOMED semantic tag in 624 narrative pages; and a synthetic MRN repeated across pages. They are recorded, not fixed: the build is closed, and rewriting verified text would change the verified set after its verification and cost budget. They are candidates for the next loop's generator revision. The keep decisions (V8) use the blocks as built.
 
 ---
+
+- **V8-D8 (the kept mix when a superset of a non-kept block is decided, Question 14).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 contains that prose, and its only comparison is against C = B1. The operator has not answered Question 14, so the default applies: the kept mix follows the keep rule (if B3 passes against B1, the final mix is B3 and the B2 result is reported beside it). Recorded as a deviation so the operator can redirect.
 
 ## 8. Closure summary feed
 
