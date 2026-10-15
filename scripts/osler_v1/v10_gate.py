@@ -47,6 +47,7 @@ V6_BASELINES = REPO / "outputs/osler_v1/V6/baselines"
 O2_BASELINES = REPO / "outputs/osler_v0/O2"
 MR_BASELINES = {"MedDecider-4B": V6_BASELINES / "meddecider-4b", "zero-shot Qwen3.5-4B": V6_BASELINES / "qwen35-4b"}
 PANEL_BASELINES = {"MedDecider-4B": O2_BASELINES / "meddecider-4b", "zero-shot Qwen3.5-4B": O2_BASELINES / "qwen35-4b"}
+PMC_TEMPLATE = "pmc_similar_patient_v1"  # V9-D3: a B3-only seen template, 42.0 % of the MR test items (CLAIMS V150)
 GUARD_NAME = "zero-shot Qwen3.5-4B"
 GUARD_DIR = O2_BASELINES / "qwen35-4b"
 ADDITIONAL_D1 = ("d1-3B", V6_BASELINES / "d1-3b")
@@ -114,6 +115,8 @@ def main() -> None:
     osler_single = by_item(v10_root / "osler_4b" / "single_order.jsonl")
 
     mr = members_of(rows, "mr_test")
+    mr_without_pmc = [m for m in mr if m["template_id"] != PMC_TEMPLATE]  # additional rows only (V9-D3)
+    pmc_items = len(mr) - len(mr_without_pmc)
     panel = members_of(rows, "external_panel")
     knowledge = members_of(rows, "knowledge")
     held_out_test = members_of(rows, "mr_heldout", test_only=True)
@@ -156,6 +159,9 @@ def main() -> None:
         single_mr[name], _ = compared("mr_test", name, mr, osler_single, by_item(path / "predictions.jsonl"))
     for name, path in PANEL_BASELINES.items():
         single_panel[name], _ = compared("external_panel", name, panel, osler_single, by_item(path / "predictions.jsonl"))
+    no_pmc: dict[str, dict[str, Any]] = {}
+    for name, path in MR_BASELINES.items():
+        no_pmc[name], _ = compared("mr_test_without_pmc", name, mr_without_pmc, osler_both, by_item(path / "predictions.jsonl"))
 
     results: dict[str, Any] = {
         "kind": "osler_v1_V10_gate_o2", "built_at_utc": utcnow(), "git_commit": git_commit(REPO),
@@ -170,6 +176,9 @@ def main() -> None:
             "osler_9b": {"verdict": "NOT MEASURED", "verdict_reason": "deferred to the next loop by the operator (V9-D1)"},
         },
         "additional": {"held_out_test": held_out, "d1_3b_mr_test": d1_record, "single_order_mr_test": single_mr,
+                       "mr_test_composition": {"template": PMC_TEMPLATE, "items": pmc_items, "mr_test_items": len(mr),
+                                               "share": round(pmc_items / len(mr), 4)},
+                       "mr_test_without_pmc": no_pmc,
                        "panel_superiority": {name: panel_records[name] for name in PANEL_BASELINES},
                        "single_order_external_panel": single_panel,
                        "mdace": {"not_measured": "the MDACE data is not on the volume"},
@@ -182,7 +191,8 @@ def main() -> None:
     lines = ["# osler_v1 — Gate O2 (PROGRAM D31), Osler-4B", "",
              "Osler rows: both-order averages for choice items, noul and score items scored once (the O2 convention). Accuracy is the",
              f"template macro, bootstrapped within templates ({N_RESAMPLES} resamples, seed {SEED}); Brier is the item mean. An interval",
-             "is shown as point [lower, upper]. Items in scope: " + ", ".join(f"{k} {v}" for k, v in scope_sizes.items()) + ".", ""]
+             "is shown as point [lower, upper]. Items in scope: " + ", ".join(f"{k} {v}" for k, v in scope_sizes.items()) + ".",
+             f"{PMC_TEMPLATE} is {pmc_items} of {len(mr)} MR test items ({pmc_items / len(mr):.1%}); its rows are additional only.", ""]
     lines += head
     lines += [table_row(mr_records[name], "(i) MR suite", "mr") for name in MR_BASELINES]
     lines += [table_row(panel_records[name], "(ii) external panel", "panel") for name in PANEL_BASELINES]
@@ -198,6 +208,8 @@ def main() -> None:
               "## Additional rows (labelled; never in the verdict)", "", *head,
               *[table_row(held_out[name], "held-out MR, test rows", "mr") for name in MR_BASELINES],
               table_row(d1_record, "d1-3B, MR test", "mr"),
+              *[table_row(no_pmc[name], f"MR test without {PMC_TEMPLATE} (additional; never in the verdict)", "mr")
+                for name in MR_BASELINES],
               *[table_row(panel_records[name], "external panel superiority (additional; never in the verdict)", "superiority")
                 for name in PANEL_BASELINES], "",
               "Single-order rows (the original option order only; reported beside the gate, never in it):", "", *head,
