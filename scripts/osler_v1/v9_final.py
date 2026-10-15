@@ -2,7 +2,8 @@
 
 The kept mix is the last kept block of the V8 keep rules (STATE §3, CLAIMS). One pass over it, capped at 250,000 realised
 items: the replay at that cap (eight evaluations, so the step count is a multiple of eight) sets the step count. The recipe
-is configs/osler_v1/block_arm.yaml, the same as the block runs. Eight evaluations on the fast dev set; the selected checkpoint
+is configs/osler_v1/block_arm.yaml, except the LoRA targets: attention-only (q_proj, k_proj, v_proj, o_proj), B0b's
+configuration, by the operator's decision (V9-D2); the B0 default targets are not used for the final model. Eight evaluations on the fast dev set; the selected checkpoint
 is the best on the pooled template macro accuracy (the trainer's selection); the temperatures are fitted on the dev split and
 saved with the selected checkpoint (run_arm). The checks, the arm and the logged-step validation are the V8 block driver's,
 imported from scripts/osler_v1/v8_block_run.py, which is not changed by this script.
@@ -70,11 +71,13 @@ def main() -> None:
     base = load_config(CONFIG)
     train_path = TRAIN_DIR / f"block_{block}.jsonl"
     out_dir = OUT / "osler_4b"
+    # V9-D2 (operator decision): the final model trains with B0b's attention-only LoRA targets, not B0's default targets
     config = dataclasses.replace(
         base,
         train_path=str(train_path.relative_to(REPO)),
         output_dir=str(out_dir.relative_to(REPO)),
         eval_every=steps // EVALUATIONS,
+        lora=dataclasses.replace(base.lora, target_modules=v8.ATTENTION_TARGETS),
     )
     out_dir.mkdir(parents=True, exist_ok=True)
     block_record = v8.check_block_manifest(block, train_path)
@@ -93,6 +96,8 @@ def main() -> None:
         "train_sha256": block_record["sha256_file"], "dev_file": str(v8.DEV.relative_to(REPO)),
         "dev_sha256": file_sha256(v8.DEV), "dev_items_used": len(dev_items), "train_items": len(train_items),
         "steps": steps, "evaluations": EVALUATIONS, "target_realised_items": TARGET_ITEMS,
+        "lora_target_modules": list(config.lora.target_modules),
+        "lora_decision": "V9-D2: attention-only targets (B0b's configuration), operator decision",
         "base_model": config.base_model, "revision": config.revision,
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
         "torch": torch.__version__, "python": sys.version.split()[0],

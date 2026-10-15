@@ -10,6 +10,7 @@ Usage (after the build has finished or has been stopped at the weekly guard):
 
 from __future__ import annotations
 
+import argparse
 import json
 from collections import Counter
 from pathlib import Path
@@ -51,15 +52,38 @@ def closure_for(name: str) -> dict[str, Any]:
     return entry
 
 
+def progress_counts(name: str) -> dict[str, Any]:
+    """The verdicts of every id the build has processed (the progress file holds one row per id, across restarts)."""
+    path = REPO / "outputs" / "osler_v1" / "V4" / f"{name}_progress.jsonl"
+    rows = read_rows(path) if path.exists() else []
+    return {"ids_processed": len(rows), "verdicts": dict(Counter(r["verdict"] for r in rows)),
+            "cost_usd_in_progress_file": round(sum(float(r.get("cost_usd", 0.0)) for r in rows), 4)}
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--finalize", action="store_true",
+                        help="write outputs/osler_v1/V4/FINAL.json, which releases the B2 and B3 queue")
+    parser.add_argument("--reason", default="", help="why V4 is closed (for example: complete, or the weekly guard)")
+    args = parser.parse_args()
     report = {"written_utc": utcnow(), "git_commit": git_commit(REPO),
-              "indicator": closure_for("indicator"), "narrative": closure_for("narrative")}
+              "indicator": closure_for("indicator"), "narrative": closure_for("narrative"),
+              "progress": {"indicator": progress_counts("indicator"), "narrative": progress_counts("narrative")}}
     write_json(OUT, report)
     for name in ("indicator", "narrative"):
         e = report[name]
         print(name, e["rows"], e["by_split"], "code-string hits", e["code_string_hits"], "screen",
               e["screen"].get("passes", e["screen"].get("status")), flush=True)
+    print("progress", report["progress"], flush=True)
     print(f"wrote {OUT.relative_to(REPO)}", flush=True)
+    if args.finalize:
+        if not args.reason:
+            raise SystemExit("--finalize needs --reason")
+        final = {"closed_utc": utcnow(), "reason": args.reason, "closure": str(OUT.relative_to(REPO)),
+                 "indicator_pairs": report["indicator"]["rows"] // 2,
+                 "narrative_pages": report["narrative"]["rows"]}
+        write_json(REPO / "outputs" / "osler_v1" / "V4" / "FINAL.json", final)
+        print(f"wrote FINAL.json: {final}", flush=True)
 
 
 if __name__ == "__main__":

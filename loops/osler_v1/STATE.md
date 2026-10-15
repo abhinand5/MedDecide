@@ -34,7 +34,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | DONE | 2026-10-13T23:24:35Z | 2026-10-14T01:41:00Z |
 | V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS | 2026-10-13T23:40:48Z | |
 | V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
-| V9 | Final Osler-4B (Osler-9B deferred to the next loop by the operator, V9-D1) | yes | V8 | PENDING | | |
+| V9 | Final Osler-4B on the kept block, attention-only LoRA (Osler-9B deferred by the operator, V9-D1; LoRA targets by the operator, V9-D2) | yes | V8 | PENDING | | |
 | V10 | Evaluation + Gate O2 (Osler-4B only; the 9B verdict is NOT MEASURED — deferred by the operator) | yes | V9 | PENDING | | |
 | V11 | Memorisation audit | small | V9 | PENDING | | |
 | V12 | Findings and closure — HARD STOP | no | all | PENDING | | |
@@ -252,6 +252,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 - **Q9 (dev–train overlap): option (a).** The osler_v0 split is kept and the overlap is reported as a limitation of the general dev numbers (CLAIMS V100).
 - **Q8 (teacher budget): operator instruction (received during V8).** If the V4 weekly teacher guard ($36) is reached, do not wait for the next week: finish V4 with the verified pages built so far, record the counts, and continue with B2 and B3. Recorded as V4-D5.
 - **Osler-9B: deferred to the next loop (operator decision, V9-D1).** V9 trains Osler-4B only; V10 applies Gate O2 to Osler-4B only and reports the 9B verdict as NOT MEASURED — deferred by the operator.
+- **Final LoRA targets (operator decision, V9-D2).** The final Osler-4B trains with B0b's attention-only LoRA targets (`q_proj`, `k_proj`, `v_proj`, `o_proj`), not B0's defaults; the data follows the kept block; the B2 and B3 keep decisions stay as the rule makes them. The operator's reason is in V9-D2.
 - Q1 (padding test) and Q3 (run time) had no answer; the defaults in this file stand: the padding test stays as committed, and the ADVISORY run sizes stay.
 
 
@@ -321,6 +322,7 @@ deviation — that is a `BLOCKED`.
 - **V7-D5 (B2 content, operator Q5a).** B2 = B1 plus the indicator and narrative prose; the ICD prose is not in any block (V4-D1).
 - **V8-D6 (run time).** At 4.12 items per second, an 80,000-item block runs about 5.4 hours, not the ADVISORY's 2–3 hours (Question 3). Recorded as measured.
 - **V9-D1 (Osler-9B deferred, operator decision, received during V8 at 2026-10-14T17:25Z).** The operator decided to skip Osler-9B in this loop. V9 trains Osler-4B only, on the kept mix, with the same recipe and the 250,000-item cap; the 9B is deferred to the next loop. V10 applies Gate O2 to Osler-4B only, against its own baselines (MedDecider-4B and zero-shot Qwen3.5-4B for the MR suite, as D31 names them), and writes the Osler-9B verdict as NOT MEASURED — deferred by the operator. The 9B baselines measured in V6 (zero-shot 9B, MedDecider-9B, JEV-9B) stay as recorded and are not used in any 4B verdict. Everything else in the plan is unchanged.
+- **V9-D2 (final LoRA targets, operator decision, received 2026-10-15T05:25Z).** The final Osler-4B trains with B0b's attention-only LoRA targets (`q_proj`, `k_proj`, `v_proj`, `o_proj`; `scripts/osler_v1/v9_final.py` sets them from `v8_block_run.ATTENTION_TARGETS`), not B0's default targets (12 module names, which add the linear-attention and MLP projections). The data follows the kept block, as V9-D1 says. The B2 and B3 block runs keep the default targets that B0 and B1 used, and their keep decisions stay as the rule makes them. The operator's reason: on the 500 knowledge-dev items, B0b minus zero-shot Qwen3.5-4B is −0.008 [−0.042, +0.026], against B0's −0.060 [−0.102, −0.020]; the fast-dev template macro is equal (B0b 0.8573, B0 0.8582; CLAIMS V104, V105, V110, V111). The attention-only names apply to the full-attention projections of this hybrid model; the other projections of the base stay frozen in the final run.
 - **V8-D7 (item ids in the cross-model join).** The trainer's `Item` derives its id from the identity fields (`make_item`), so the block predictions carry ids that differ from the fast dev rows' ids. The knowledge comparison against zero-shot maps each O2 row id to the trainer's id by `mix_row_to_item` on the same fast dev row; a row with no fast dev id raises. The block-against-block keep comparison joins two files written by the same code and is unaffected. All 500 knowledge items mapped (CLAIMS V104).
 
 ---
