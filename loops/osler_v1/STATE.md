@@ -78,9 +78,9 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Running jobs at 2026-10-15T08:03:00Z (GPU idle until the first B2 run starts):
-- The V4 build (pid 2000630) and its switch script (pid 2084854) exited: V4 closed at 2026-10-15T07:56:54Z.
-- B2 and B3 queue: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It has built B2 and B3 and runs the replays, then the B2 and B3 runs, one GPU job at a time.
+Running jobs at 2026-10-15T08:41:56Z (GPU busy with the B2 run):
+- B2 run: pid 2180924 (`scripts/osler_v1/v8_block_run.py --block B2`, started 2026-10-15T08:20:02Z; step 800 of 13,992 at 08:42Z, about 38 steps a minute), log `outputs/osler_v1/V8/logs/B2.log`, run record `outputs/osler_v1/V8/B2/logs/train.jsonl`. The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
+- B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It has built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), and runs B2 then B3, one GPU job at a time.
 
 Task in flight: V8 (B0, B1 and B0b done; B2 and B3 runs queued in the chain), V7 (B0 to B3 built; blocks.md pending), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
 Working dir:    outputs/osler_v1/V1/
