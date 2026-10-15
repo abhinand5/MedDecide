@@ -6,6 +6,8 @@ margins below are the pre-registered keep rule and are not changed after any res
 
 from __future__ import annotations
 
+import math
+from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
@@ -152,6 +154,59 @@ def starting_block(b0_passes: bool | None, b0b_passes: bool | None) -> str | Non
     if b0b_passes is None:
         return None
     return "B0b" if b0b_passes else "B0"
+
+
+DEFECT_MIN_ITEMS = 30  # templates with fewer dev items are not screened one by one
+CONSTANT_SHARE = 0.9  # a template whose predicted option is this common, while its gold is not, is flagged
+TOO_GOOD_ACCURACY = 0.99  # a template this accurate (with TOO_GOOD_MIN_ITEMS items or more) is flagged for a look
+TOO_GOOD_MIN_ITEMS = 100
+
+
+def defect_screen(predictions: Sequence[Mapping[str, Any]], losses: Sequence[float]) -> dict[str, Any]:
+    """The defect checks run before a block's keep decision or a final run (the loop's goal: defects are investigated first).
+
+    Four flags: below chance (accuracy at or under the mean chance of the offered options); a constant answer (a template's
+    predicted option is at least CONSTANT_SHARE of its items while its gold is not); too good (a template at TOO_GOOD_ACCURACY
+    or more); divergence (a non-finite logged loss, or a last-quarter mean loss above the first quarter's). Aggregates only.
+    A flag is a reason to look at the run, never a reason to change a rule or an item (R8).
+    """
+    if not predictions:
+        raise ValueError("no dev predictions to screen")
+    n = len(predictions)
+    accuracy = sum(bool(r["correct"]) for r in predictions) / n
+    chance = sum(1.0 / int(r["n_options"]) for r in predictions) / n
+    by_template: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in predictions:
+        by_template[str(row["template_id"])].append(row)
+    constant: list[str] = []
+    too_good: list[str] = []
+    screened = 0
+    for template, rows in sorted(by_template.items()):
+        if len(rows) < DEFECT_MIN_ITEMS:
+            continue
+        screened += 1
+        top_predicted = Counter(int(r["predicted_index"]) for r in rows).most_common(1)[0][1] / len(rows)
+        top_gold = Counter(int(r["gold_index"]) for r in rows).most_common(1)[0][1] / len(rows)
+        if top_predicted >= CONSTANT_SHARE and top_gold < CONSTANT_SHARE:
+            constant.append(template)
+        template_accuracy = sum(bool(r["correct"]) for r in rows) / len(rows)
+        if len(rows) >= TOO_GOOD_MIN_ITEMS and template_accuracy >= TOO_GOOD_ACCURACY:
+            too_good.append(template)
+    finite = [float(x) for x in losses if math.isfinite(float(x))]
+    nonfinite = len(losses) - len(finite)
+    quarter = max(1, len(finite) // 4)
+    first = sum(finite[:quarter]) / quarter if finite else None
+    last = sum(finite[-quarter:]) / quarter if finite else None
+    flags = {
+        "below_chance": accuracy <= chance,
+        "constant_answer": bool(constant),
+        "too_good": bool(too_good),
+        "divergence": nonfinite > 0 or (first is not None and last is not None and last > first),
+    }
+    return {"items": n, "accuracy": accuracy, "mean_chance": chance, "templates_screened": screened,
+            "constant_answer_templates": constant, "too_good_templates": too_good, "logged_losses": len(losses),
+            "nonfinite_losses": nonfinite, "loss_first_quarter": first, "loss_last_quarter": last,
+            "flags": flags, "any_flag": any(flags.values())}
 
 
 def keep_comparison(x_rows: Sequence[Mapping[str, Any]], c_rows: Sequence[Mapping[str, Any]], *, candidate: str,

@@ -275,6 +275,11 @@ V9 checklist (opened 2026-10-15T14:31Z; unblocked by Q13):
 - `v10_gate.py` now reports the external panel's superiority as labelled additional rows (accuracy lower bound above 0; never in the verdict), via `panel_superior` in `src/meddecide/eval/gate_o2.py`. tests/test_gate_o2.py: 11 pass (CLAIMS V141).
 - B3 running (step 200 at 14:31Z). Next: the B3 keep decision, the defect screen, the kept block, the MIMIC re-check, the replay and V9 (detached).
 
+### V8 (checkpoint: defect screen and the too-good investigation) — 2026-10-15T14:55Z
+- Defect screen (`defect_screen` in `src/meddecide/train/blocks.py`, six tests; CLI `scripts/osler_v1/v8_defect_screen.py`) on the finished runs: B1 and B2 show no below-chance, constant-answer or divergence flag (CLAIMS V144). Both flag too good on the same four templates: mr_icd_support_template_v2, mr_page_category_tabular_v1, synthea_indicator_evidence_v1, synthea_page_category_v1.
+- Investigation of the too-good flags: (1) no MR dev item shares text or a dataset-qualified record with any block's training file, B0 to B3 (CLAIMS V143); (2) the shortcut screens: the indicator (Naive Bayes 0.7964, V024), the ICD v2 template (0.804, V023) and the Synthea indicator (0.5757, V046) pass; the two page-category templates are lexical by design and fail as expected (1.000; V025, V045; ADVISORY §3.6, V5a-D1); (3) the splits are by patient (V1, V5a). No leakage path was found. The flags stay in the record. osler_v0 FINDINGS already measured a seen-template effect (+9 to +13 points on fresh seen templates), so the flags are expected for generated templates. An options-only check for the generated ICD and indicator templates is proposed for NEXT.md.
+- The keep decisions and the V9 screen are unchanged by this entry. B3 is still running (step 550 at 14:44Z).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
