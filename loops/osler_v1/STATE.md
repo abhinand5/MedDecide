@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T10:09:28Z`
-Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b and B1 done, B1 KEPT against B0 (C = B1), the B2 run is in progress and B3 is queued in the chain; V10 prepared on the CPU, not run; V5c blocked on absent files)
+Last updated (UTC): `2026-10-15T14:28:08Z`
+Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b, B1 and B2 done; B1 KEPT against B0 (C = B1); B2 NOT KEPT against B1; the B3 run is in progress; V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
 
@@ -78,11 +78,11 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Running jobs at 2026-10-15T10:09:28Z (GPU busy with the B2 run, 100 % utilisation):
-- B2 run: pid 2180924 (`scripts/osler_v1/v8_block_run.py --block B2`, started 2026-10-15T08:20:02Z; step 3,450 at 09:42Z, step 4,000 at 10:09Z; the first evaluation was at step 3,498; watcher `b1xq1jj3e` waits for `END B2` in the chain log), log `outputs/osler_v1/V8/logs/B2.log`, run record `outputs/osler_v1/V8/B2/logs/train.jsonl`. The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
-- B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It has built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), and runs B2 then B3, one GPU job at a time.
+Running jobs at 2026-10-15T14:28:08Z (GPU busy with the B3 run, 100 % utilisation):
+- B3 run: pid 2275082 (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
+- B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), ran B2, and is running B3, one GPU job at a time.
 
-Task in flight: V8 (B0, B0b and B1 done; B1 KEPT against B0, so C = B1; B2 running; B3 queued in the chain), V7 (B0 to B3 built; blocks.md pending), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
+Task in flight: V8 (B0, B0b, B1 and B2 done; B1 KEPT against B0, C = B1; B2 NOT KEPT against B1; B3 running, its keep decision is against B1), V7 (B0 to B3 built; blocks.md pending), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
 Working dir:    outputs/osler_v1/V1/
 
 V7 checklist (in progress; started 2026-10-13T23:40:48Z):
@@ -108,7 +108,8 @@ V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predate
 - [x] B1 run done 2026-10-14T13:25:57Z (13,992 steps, 80,851 realised items, 0 log mismatches; full dev accuracy 0.9037, template macro 0.8781; CLAIMS V107–V108). The preview of B1 against B0 passes all three checks (CLAIMS V109); it is not the decision, because C may change to B0b
 - [x] B0b done 2026-10-14T17:21:51Z (CLAIMS V110–V112): its knowledge check FAILED (point −0.008, lower bound −0.042), so C stays B0 (ADVISORY V8). B1 is KEPT against B0 (MR +0.0947, general +0.0062, knowledge +0.0480; all lower bounds pass), so C becomes B1 for B2 and B3. Queued earlier: `outputs/osler_v1/V8/B0b/`), then (`scripts/osler_v1/v8_chain_b0b.sh` starts after "V8 CHAIN DONE"), then `v8_keep.py --knowledge-check B0b`; C = B0b if its check passes, else B0; keep rule B1 against C (`v8_keep.py --candidate B1 --current C`)
 - [x] keep report follows the chain (2026-10-15T09:55Z): `starting_block` in `src/meddecide/train/blocks.py` (C = B0, or B0b when B0 fails and B0b passes; 2 new tests in tests/test_blocks_v8.py, 17 pass); `v8_blocks_report.py` compares B3 with the last kept block (B2 if kept, else B1), shows it as pending while an earlier decision is open, and refuses a keep record that names a different C. blocks.md regenerated: B1 KEPT against B0; B2 and B3 pending
-- [ ] B2 and B3 runs: `scripts/osler_v1/v8_chain_b2b3.sh` (replays of B0 to B3, then the B2 and B3 runs; in progress). Then the keep decisions: B2 against C = B1 (`v8_keep.py --candidate B2 --current B1`), then B3 against the last kept block
+- [x] B2 run done 2026-10-15T14:24:15Z (rc 0): 13,992 steps, 82,826 realised items, 0 log mismatches on 279 logged steps; full-dev accuracy 0.9015, template macro 0.8742 (CLAIMS V138–V139). Keep against C = B1: NOT KEPT (all three lower bounds fail; CLAIMS V140)
+- [ ] B3 run (chain; started 2026-10-15T14:24:15Z; pid 2275082, `scripts/osler_v1/v8_chain_b2b3.sh`): its keep decision is against C = B1, the last kept block (`v8_keep.py --candidate B3 --current B1`). B3 contains B2's teacher prose, which failed on its own (Question 14)
 - [x] V4 closure (2026-10-15T07:56:54Z): the O3 screen (indicator PASS; narrative FAIL, V4-D6); the code-string check (0 hits in both files); spot reads of 40 pages (terminal only); counts and spend in SELF_AUDIT (19 PASS) and CLAIMS V126–V131; FINAL.json written
 - [x] second endpoint prepared (V4-D7, 2026-10-15): `v4_teacher_build.py` takes `--ledger`, `--total-cap`, `--tag`; the endpoint host and model are recorded on every progress row and every written item; `v4_closure.py` counts by endpoint; `v4_deepseek_chain.sh` waits for the OpenCode build, closes V4 at the OpenCode weekly guard unless `outputs/osler_v1/V4/DEEPSEEK_APPROVED` exists, and otherwise runs the DeepSeek phase in chunks of 200 with a balance check before each (ledger cap $9.00, floor $0.40). The old chain (`v4_build_chain.sh`) was stopped at 2026-10-15T06:22:46Z; its running build (pid 2000630) continues. Tests: CLAIMS V119–V121.
 - [ ] operator answer to Question 10. The default (hold) was applied at the guard: the DeepSeek phase did not run, and V4 closed on the OpenCode pages. The answer is still open; a later DeepSeek phase would need B2 and B3 rebuilt (V4-D7)
@@ -250,6 +251,12 @@ V10 preparation (CPU; checked 2026-10-15, not yet run on the GPU; the verdict is
 - B2 run at step 4,000 of 13,992 at 10:09Z (pid 2180924; log `outputs/osler_v1/V8/logs/B2.log`; CLAIMS V137 for its step time). The chain (pid 1965958) starts B3 after it without waiting for the B2 decision.
 - Next: `v8_keep.py --candidate B2 --current B1` when `END B2` appears in the chain log; then B3 against the last kept block; then the blocks report.
 
+### V8 (checkpoint: B2 done and NOT KEPT against B1; B3 running) — 2026-10-15T14:28Z
+- B2 finished 2026-10-15T14:24:15Z (rc 0): 13,992 steps, 82,826 realised items, the four evaluations on the full fast dev set, 0 log mismatches (CLAIMS V138–V139). Full-dev accuracy 0.9015, template macro 0.8742.
+- Keep decision against C = B1 (CLAIMS V140): MR −0.0046 [−0.0181, +0.0072]; general −0.0038 [−0.0149, +0.0080]; knowledge −0.0220 [−0.0640, +0.0220]. Every lower bound fails, so B2 is NOT KEPT (ADVISORY §2 outcome 4); C stays B1.
+- B3 (B2 plus V5b) is running in the chain and is decided against C = B1, the last kept block. Its teacher prose is Question 14.
+- blocks.md regenerated (B3 pending). Next: `v8_keep.py --candidate B3 --current B1` when `END B3` appears in the chain log; then the blocks report; then the V9 check (Question 13).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -293,6 +300,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 12. **Padding test, observed again (Question 1).** The full suite on 2026-10-15 (`outputs/osler_v1/V4/logs/pytest_2026-10-15_with_padding.log`) reported `tests/test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant` as FAILED: its assertion passed, and as a `strict=True` xfail that is an XPASS failure. Observed outcomes so far: XPASS at planning (ADVISORY), XFAIL on 2026-10-13 (V0), XPASS now. The test is unedited and is deselected on the command line, as in every run since V0, so the committed config is unchanged. The residual is at the test's 1e-3 tolerance boundary (V2 measured 1.92e-3 for a padded batch; the value is not printed by the test). Question 1 remains open.
 
 13. **Gate O2 panel rule, operator confirmation (D31; needed before V9).** The D31 row in `docs/plans/PROGRAM.md` says the external panel moves from superiority to non-inferiority "because this loop adds no broad-clinical data (operator to confirm before V9 runs)". No confirmation is recorded in this file. The gate as written is used (accuracy lower bound > −0.02 against both baselines). V9 is about 12 hours away, behind B2 and B3. If the operator has not confirmed by then, V9 is recorded BLOCKED on this item and the gate is not changed (AGENTS.md: gates are never changed after results).
+
+14. **Cumulative blocks and a non-kept source (V8; decided by the rule at the B3 keep).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 is B2 plus the V5b real text, so B3 contains the prose, and its only comparison is against C = B1, the last kept block. If B3 is kept, the kept mix holds prose that failed on its own. ADVISORY §2 outcome 4 says a source that does not help on dev is dropped, not tuned. Options: (a) follow the rule: the kept mix is B3 if it passes against B1, and the B2 result is reported next to it; (b) drop the teacher rows from the final mix (B1 plus V5b), which no V8 run measured. I would pick (a): it is the pre-registered decision, and the operator's V9-D2 instruction says the B2 and B3 keep decisions stay as the rule makes them. Context (a lexical association, measured, not tested): indicator pages with the phrase 'documented baseline' have gold 'yes' in 47.05 % of pages with it against 56.88 % without (CLAIMS V130). If B3 is not kept, the final mix is B1 and this question closes.
 
 **Operator answers (received during V8, 2026-10-14):**
 - **Q2 (replay share): accepted.** The 15.3 % replay share stands for this loop; the 20 % target is not pursued (V3-D1 accepted).

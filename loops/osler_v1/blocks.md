@@ -1,6 +1,6 @@
 # osler_v1 — V8 blocks, run results and keep decisions
 
-Written 2026-10-15T09:44:26Z by `scripts/osler_v1/v8_blocks_report.py` from the V7 manifest (`outputs/osler_v1/V7/blocks.json`), the V8 block results and the keep records. Aggregates only. A run that has not finished reads `pending`.
+Written 2026-10-15T14:27:53Z by `scripts/osler_v1/v8_blocks_report.py` from the V7 manifest (`outputs/osler_v1/V7/blocks.json`), the V8 block results and the keep records. Aggregates only. A run that has not finished reads `pending`.
 
 ## 1. Block contents (V7)
 
@@ -20,7 +20,7 @@ The replay is the same 100,132 rows in every block (HellaSwag 39,905, WinoGrande
 | B0 | 13,992 | 4 | 80,008 | 69,413,742 | 76,590,400 | 13,992 | done |
 | B0b | 13,992 | 4 | 80,008 | 69,413,742 | 76,590,400 | 13,992 | done |
 | B1 | 13,992 | 4 | 80,851 | 68,687,777 | 78,513,024 | 13,992 | done |
-| B2 | pending | | | | | | not run |
+| B2 | 13,992 | 4 | 82,826 | 67,996,093 | 78,445,952 | 13,992 | done |
 | B3 | pending | | | | | | not run |
 
 Every run uses the same step count (13,992 optimiser steps, the 80,000-item replay of B0; V8-D4) and the same recipe (Qwen3.5-4B, the option-code head, the batching constant of V0). B0b changes only the LoRA targets (attention projections).
@@ -32,6 +32,7 @@ Every run uses the same step count (13,992 optimiser steps, the 80,000-item repl
 | B0 | 0.8548 | 0.8582 | 0.2165 | 0.4080 | choice, noul, score |
 | B0b | 0.8406 | 0.8573 | 0.2490 | 0.5351 | choice, noul, score |
 | B1 | 0.9037 | 0.8781 | 0.1409 | 0.2696 | choice, noul, score |
+| B2 | 0.9015 | 0.8742 | 0.1447 | 0.2849 | choice, noul, score |
 
 The keep rule compares partitions (MR, general, knowledge), not these full-dev figures; the partition statistics are in section 4.
 
@@ -44,8 +45,10 @@ A block X is kept against the current C iff the lower bound of X minus C is abov
 | B1 vs B0 | mr | 2,397 | +0.0947 [+0.0807, +0.1098] | +0.00 | yes |
 | B1 vs B0 | general | 3,326 | +0.0062 [-0.0048, +0.0177] | -0.01 | yes |
 | B1 vs B0 | knowledge | 500 | +0.0480 [+0.0080, +0.0900] | -0.02 | yes |
-| B2 vs B1 | | pending | | | |
-| B3 | | pending (its C waits for an earlier decision) | | | |
+| B2 vs B1 | mr | 2,397 | -0.0046 [-0.0181, +0.0072] | +0.00 | no |
+| B2 vs B1 | general | 3,326 | -0.0038 [-0.0149, +0.0080] | -0.01 | no |
+| B2 vs B1 | knowledge | 500 | -0.0220 [-0.0640, +0.0220] | -0.02 | no |
+| B3 vs B1 | | pending | | | |
 
 ## 5. Knowledge checks (B0 and B0b against zero-shot Qwen3.5-4B, 500 fast-dev items; D12 gate)
 
@@ -58,6 +61,6 @@ A block X is kept against the current C iff the lower bound of X minus C is abov
 
 - Knowledge checks: B0: fails; B0b: fails.
 - Starting block C (ADVISORY V8: B0b only when B0 fails and B0b passes): B0.
-- Keep decisions: B1 against B0: KEPT; B2 against B1: pending; B3: pending.
+- Keep decisions: B1 against B0: KEPT; B2 against B1: not kept; B3 against B1: pending.
 - Last kept block: B1.
 
