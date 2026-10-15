@@ -67,8 +67,11 @@ class SpendLedger:
     ledger grows (the build checks before every submission).
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, total_cap_usd: float | None = None) -> None:
+        """``total_cap_usd`` adds a cap on this ledger's own total (osler_v1 V4-D7: the DeepSeek ledger, $9.00); the
+        window, week and loop caps above apply to every ledger as before."""
         self.path = Path(path)
+        self.total_cap_usd = total_cap_usd
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._times: list[datetime] = []
@@ -126,5 +129,7 @@ class SpendLedger:
             reasons.append(f"week at ${week:.2f} (cap ${WEEK_CAP_USD:g})")
         if loop >= LOOP_CAP_USD:
             reasons.append(f"loop at ${loop:.2f} (cap ${LOOP_CAP_USD:g})")
+        if self.total_cap_usd is not None and loop >= self.total_cap_usd:
+            reasons.append(f"ledger total at ${loop:.2f} (cap ${self.total_cap_usd:g})")
         return SpendCheck(ok=not reasons, reason="; ".join(reasons) or "within caps",
                           window_usd=window, week_usd=week, loop_usd=loop)

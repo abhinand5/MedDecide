@@ -95,3 +95,21 @@ def test_the_ledger_survives_a_restart(tmp_path) -> None:
 def test_a_missing_ledger_is_zero_spend(tmp_path) -> None:
     check = SpendLedger(tmp_path / "none.jsonl").check(datetime(2026, 10, 13, tzinfo=UTC))
     assert check.ok and check.loop_usd == 0.0
+
+
+def test_a_ledger_total_cap_refuses_before_its_own_total_reaches_the_cap(tmp_path) -> None:
+    # V4-D7: the DeepSeek ledger has its own total cap of $9.00; the other caps are the same as before
+    ledger = SpendLedger(tmp_path / "deepseek.jsonl", total_cap_usd=9.0)
+    now = datetime(2026, 10, 15, 6, 0, tzinfo=UTC)
+    ledger.record(8.99, label="narrative:accepted:deepseek", when=now)
+    assert ledger.check(now).ok is True
+    ledger.record(0.02, label="narrative:accepted:deepseek", when=now)
+    check = ledger.check(now)
+    assert check.ok is False and "ledger total" in check.reason and "$9" in check.reason
+
+
+def test_without_a_total_cap_only_the_window_week_and_loop_caps_apply(tmp_path) -> None:
+    ledger = SpendLedger(tmp_path / "plain.jsonl")
+    now = datetime(2026, 10, 15, 6, 0, tzinfo=UTC)
+    ledger.record(10.0, label="narrative:accepted", when=now)  # under the window ($14), week ($36) and loop ($60) caps
+    assert ledger.check(now).ok is True

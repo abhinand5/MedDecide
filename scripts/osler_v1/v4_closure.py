@@ -31,6 +31,10 @@ def read_rows(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in fh if line.strip()]
 
 
+# rows and progress entries written before the second endpoint (V4-D7) carry no endpoint field: they are OpenCode Go rows
+LEGACY_ENDPOINT = "not recorded (OpenCode Go, before V4-D7)"
+
+
 def closure_for(name: str) -> dict[str, Any]:
     path = TEACHER / f"{name}.jsonl"
     rows = read_rows(path) if path.exists() else []
@@ -42,6 +46,8 @@ def closure_for(name: str) -> dict[str, Any]:
         "by_split": dict(Counter(r["split"] for r in rows)),
         "by_generator": dict(Counter(r["generator"] for r in rows)),
         "by_role": dict(Counter(r.get("role", "") for r in rows)),
+        "by_endpoint": dict(Counter(r.get("teacher_endpoint") or LEGACY_ENDPOINT for r in rows)),
+        "by_model": dict(Counter(r.get("teacher_model") or "not recorded (deepseek-v4.1-flash via OpenCode Go)" for r in rows)),
         "code_string_hits": code_hits,
     }
     if dev and train:
@@ -56,8 +62,16 @@ def progress_counts(name: str) -> dict[str, Any]:
     """The verdicts of every id the build has processed (the progress file holds one row per id, across restarts)."""
     path = REPO / "outputs" / "osler_v1" / "V4" / f"{name}_progress.jsonl"
     rows = read_rows(path) if path.exists() else []
+    by_endpoint: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        group = by_endpoint.setdefault(r.get("endpoint") or LEGACY_ENDPOINT, {"ids": 0, "verdicts": Counter(), "cost_usd": 0.0})
+        group["ids"] += 1
+        group["verdicts"][r["verdict"]] += 1
+        group["cost_usd"] += float(r.get("cost_usd", 0.0))
     return {"ids_processed": len(rows), "verdicts": dict(Counter(r["verdict"] for r in rows)),
-            "cost_usd_in_progress_file": round(sum(float(r.get("cost_usd", 0.0)) for r in rows), 4)}
+            "cost_usd_in_progress_file": round(sum(float(r.get("cost_usd", 0.0)) for r in rows), 4),
+            "by_endpoint": {k: {"ids": v["ids"], "verdicts": dict(v["verdicts"]), "cost_usd": round(v["cost_usd"], 4)}
+                            for k, v in by_endpoint.items()}}
 
 
 def main() -> None:

@@ -14,6 +14,11 @@ Modes:
     --mode pilot --gen icd --n 100                    first 100 pilot ids; stats to outputs/osler_v1/V4/pilot_<gen>.json
     --mode build --gen icd --start 0 --count 15000    resumable; verified items appended to data/gen/osler_v1/teacher/
 
+Second endpoint (osler_v1 V4-D7): the endpoint comes from the environment (TEACHER_BASE_URL, TEACHER_MODEL, TEACHER_API_KEY).
+Each progress row and each written item records the endpoint host and the model id. ``--ledger`` gives the endpoint its own
+spend ledger, ``--total-cap`` caps that ledger's total, and ``--tag`` names the stats file so the runs do not overwrite each
+other. The progress file is shared, so a build on a second endpoint resumes where the first one stopped.
+
 Usage:
     source scripts/pod_env.sh && uv run --frozen python scripts/osler_v1/v4_teacher_build.py --mode pilot --gen icd
 """
@@ -31,6 +36,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from functools import partial
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from meddecide.mr.narrative import load_encounters, sample_encounters
 from meddecide.mr.prose_build import PROCESS, PROSE_PREFIX, Outcome, process_narrative
@@ -43,7 +49,7 @@ from meddecide.utils.provenance import git_commit, utcnow
 REPO = Path(__file__).resolve().parents[2]
 TEACHER_DIR = REPO / "data" / "gen" / "osler_v1" / "teacher"
 V4_DIR = REPO / "outputs" / "osler_v1" / "V4"
-LEDGER = V4_DIR / "spend_ledger.jsonl"
+LEDGER = V4_DIR / "spend_ledger.jsonl"  # the OpenCode Go ledger (the default); the DeepSeek API uses its own (V4-D7)
 WORKERS = 8
 REQUESTS_PER_S = 2.0
 INFLIGHT = 16
@@ -91,8 +97,9 @@ def load_done(progress: Path) -> set[str]:
 
 
 def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: int, rps: float,
-        process_fn: Callable[[str, Any], Outcome]) -> dict[str, Any]:
-    ledger = SpendLedger(LEDGER)
+        process_fn: Callable[[str, Any], Outcome], ledger_path: Path = LEDGER, total_cap_usd: float | None = None,
+        endpoint: str = "", model: str = "") -> dict[str, Any]:
+    ledger = SpendLedger(ledger_path, total_cap_usd=total_cap_usd)
     halt = Halt()
     worker = Worker(RateLimiter(rps), halt, process_fn)
     verdicts: Counter[str] = Counter()
@@ -113,11 +120,15 @@ def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: 
         if outcome.verdict == "accepted":
             with out_items.open("a", encoding="utf-8") as fh:
                 for item in outcome.items:
-                    fh.write(json.dumps(item.as_dict(), ensure_ascii=False) + "\n")
-        ledger.record(outcome.cost_usd, label=f"{gen}:{outcome.verdict}")
+                    row = item.as_dict()
+                    row["teacher_endpoint"] = endpoint
+                    row["teacher_model"] = model
+                    fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+        ledger.record(outcome.cost_usd, label=f"{gen}:{outcome.verdict}:{endpoint or 'unrecorded'}")
         with progress.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps({"pid": outcome.pid, "verdict": outcome.verdict, "reasons": outcome.reasons,
-                                 "calls": outcome.calls, "cost_usd": outcome.cost_usd}) + "\n")
+                                 "calls": outcome.calls, "cost_usd": outcome.cost_usd,
+                                 "endpoint": endpoint, "model": model}) + "\n")
         failed = any(r.startswith(FAILED_REASONS) for r in outcome.reasons)
         consecutive_errors = consecutive_errors + 1 if failed else 0
         n = sum(verdicts.values())
@@ -167,6 +178,10 @@ def run(gen: str, pids: list[str], out_items: Path, progress: Path, *, workers: 
         "stop_reason": stop_reason or "completed",
         "workers": workers,
         "requests_per_s": rps,
+        "endpoint": endpoint,
+        "model": model,
+        "ledger": str(ledger_path),
+        "ledger_total_cap_usd": total_cap_usd,
     }
 
 
@@ -179,7 +194,14 @@ def main() -> None:
     parser.add_argument("--count", type=int, default=0)
     parser.add_argument("--workers", type=int, default=WORKERS)
     parser.add_argument("--rps", type=float, default=REQUESTS_PER_S)
+    parser.add_argument("--ledger", type=Path, default=LEDGER, help="the spend ledger of this endpoint (V4-D7)")
+    parser.add_argument("--total-cap", type=float, default=None,
+                        help="cap on this ledger's own total in USD (V4-D7: 9.00 for the DeepSeek API)")
+    parser.add_argument("--tag", default="", help="suffix of the stats file, so a second endpoint does not overwrite it")
     args = parser.parse_args()
+    # the endpoint and model are read from the environment only; no request is sent here
+    configured = TeacherClient.from_env()
+    endpoint, model = urlparse(configured.base_url).hostname or "", configured.model
     prefix = PROSE_PREFIX[args.gen]
     process_fn: Callable[[str, Any], Outcome] = PROCESS.get(args.gen, PROCESS.get("icd"))
     if args.gen == "narrative":
@@ -208,11 +230,12 @@ def main() -> None:
     todo = [p for p in pids if p not in done]
     print(f"{utcnow()} {args.mode} {args.gen}: {len(todo)} to do ({len(done)} already done)", flush=True)
     started = time.time()
-    summary = run(args.gen, todo, out_items, progress, workers=args.workers, rps=args.rps, process_fn=process_fn)
+    summary = run(args.gen, todo, out_items, progress, workers=args.workers, rps=args.rps, process_fn=process_fn,
+                  ledger_path=args.ledger, total_cap_usd=args.total_cap, endpoint=endpoint, model=model)
     summary.update({"mode": args.mode, "git_commit": git_commit(REPO), "written_utc": utcnow(),
                     "wall_clock_s": round(time.time() - started, 1), "pids_already_done": len(done),
                     "items_file": str(out_items.relative_to(REPO))})
-    stats_path = V4_DIR / (f"pilot_{args.gen}.json" if args.mode == "pilot" else f"build_{args.gen}_stats.json")
+    stats_path = V4_DIR / (f"pilot_{args.gen}.json" if args.mode == "pilot" else f"build_{args.gen}{args.tag}_stats.json")
     write_json(stats_path, summary)
     print(json.dumps({k: summary[k] for k in ("verdicts", "cost_usd", "stop_reason", "wall_clock_s")}), flush=True)
     sys.exit(0)
