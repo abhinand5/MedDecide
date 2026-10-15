@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T17:59:23Z`
-Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b, B1 and B2 done; B1 KEPT against B0 (C = B1); B2 NOT KEPT against B1; the B3 run is in progress; Q13 confirmed, so V9 follows B3; V10 prepared on the CPU, not run; V5c blocked on absent files)
+Last updated (UTC): `2026-10-15T21:00:55Z`
+Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 DONE: B0, B0b, B1, B2 and B3 done; B1 KEPT against B0 (C = B1); B2 and B3 NOT KEPT against B1; the kept block is B1; Q13 confirmed; V9 in progress (replay started); V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
 
@@ -33,8 +33,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | V5c | MIMIC sources (only when the files exist) | no | V0 | BLOCKED — PhysioNet files absent (re-checked 2026-10-14T00:15Z, CLAIMS V097); re-check before V9 | | |
 | V6 | MR evaluation suite + baselines | yes | V1, V5a, V5b (V4, V5c if built) | DONE | 2026-10-13T23:24:35Z | 2026-10-14T01:41:00Z |
 | V7 | Mix v3 blocks | no | V3, V6 | IN_PROGRESS — B0, B1, B2 and B3 built (B2 734,514 rows and B3 792,260 rows, 2026-10-15T07:57–08:01Z); blocks.md pending | 2026-10-13T23:40:48Z | |
-| V8 | Block runs + keep rule | yes | V7 | IN_PROGRESS | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | |
-| V9 | Final Osler-4B on the kept block, attention-only LoRA (Osler-9B deferred by the operator, V9-D1; LoRA targets by the operator, V9-D2) | yes | V8 | PENDING — unblocked: Q13 confirmed 2026-10-15; starts after the B3 keep decision | | |
+| V8 | Block runs + keep rule | yes | V7 | DONE — kept block B1 (B1 KEPT against B0; B2 and B3 NOT KEPT against B1; the B0 and B0b knowledge checks failed; CLAIMS V104–V152; SELF_AUDIT.md) | 2026-10-13T23:53:00Z (marked late: the block config and the first V8 files predate this mark) | 2026-10-15T20:58:32Z |
+| V9 | Final Osler-4B on the kept block, attention-only LoRA (Osler-9B deferred by the operator, V9-D1; LoRA targets by the operator, V9-D2) | yes | V8 | IN_PROGRESS — kept block B1; the replay for B1 at 250,000 items runs on the CPU (started 2026-10-15T20:50:30Z); the GPU run follows | 2026-10-15T20:50:30Z | |
 | V10 | Evaluation + Gate O2 (Osler-4B only; the 9B verdict is NOT MEASURED — deferred by the operator) | yes | V9 | PENDING | | |
 | V11 | Memorisation audit | small | V9 | PENDING | | |
 | V12 | Findings and closure — HARD STOP | no | all | PENDING | | |
@@ -61,7 +61,7 @@ No row may be left `IN_PROGRESS` at closure.
 | MIMIC (if it arrives): pages per class; ICD rows per family; late-anchor removals | | `loops/osler_v1/mr_data.md` | V5c |
 | MR baselines (template macro per model) | | `loops/osler_v1/mr_baselines.md` | V6 |
 | blocks: rows, replay share; steps per block run | B0 653,874 rows (replay 15.31 %); B1 696,532 (14.38 %); B2 734,514 (13.63 %; largest template 5.77 %; tabular 2.00 %); B3 792,260 (12.64 %; largest template 6.63 %; tabular 2.00 %); steps per block run: the 13,992 of V8 (80,000 realised items on B0); the B2 and B3 counts are in the V7 logs, CLAIMS rows to follow | `outputs/osler_v1/V7/blocks.json`, `outputs/osler_v1/V7/logs/blocks_build_b2b3.log` | V7 |
-| kept blocks and their dev deltas | | `loops/osler_v1/blocks.md` | V8 |
+| kept blocks and their dev deltas | kept block for V9: **B1** (KEPT against B0: MR +0.0947, general +0.0062, knowledge +0.0480; CLAIMS V112). B2 NOT KEPT against B1 (V140). B3 NOT KEPT against B1: MR +0.0539 passes; general −0.0035 (lower −0.0141) and knowledge −0.0400 (lower −0.0860) fail (V148). Knowledge checks against zero-shot: B0 failed (V104), B0b failed (V111), so C = B0 until B1 was kept | `loops/osler_v1/blocks.md`, `outputs/osler_v1/V8/keep/` | V8 |
 | Osler-4B / -9B: selected step, dev template macro | | | V9 |
 | Gate O2 verdicts | | `loops/osler_v1/gate_o2.md` | V10 |
 
@@ -78,11 +78,12 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Running jobs at 2026-10-15T17:59:23Z (GPU busy with the B3 run, 100 % utilisation):
-- B3 run progress: step 8,200 of 13,992 at 2026-10-15T17:59:23Z (164 logged steps; evals at steps 3,498 and 6,996 ran on the full fast dev, the next at 10,494; about 40 steps a minute; expected finish about 20:30–20:45Z; watcher `ban5c4mjh` waits for `END B3`). B3 run: pid 2275082 (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
-- B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), ran B2, and is running B3, one GPU job at a time.
+Running jobs at 2026-10-15T21:00:55Z (one GPU job: the V9 final Osler-4B run on B1):
+- V9 final Osler-4B run on B1 (GPU): pid 2401836 (`scripts/osler_v1/v9_final.py --block B1`; `uv run` wrapper pid 2401832), launched 2026-10-15T21:00:25Z, log `outputs/osler_v1/V9/logs/osler_4b.log`, run record `outputs/osler_v1/V9/osler_4b/`. Its replay (`outputs/osler_v1/V9/logs/replay_B1.log`) finished 2026-10-15T20:59Z: 43,136 steps, 250,024 realised items (CLAIMS V153). The test suite finished before the launch: 723 passed, 1 deselected (CLAIMS V154).
+- B3 run: finished 2026-10-15T20:33:42Z (rc 0; 13,992 steps; the watcher `ban5c4mjh` woke on `END B3`; CLAIMS V146–V148). Its process (pid 2275082) has exited. Launch details: (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
+- B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), ran B2 and B3, one GPU job at a time, and ended with `V8 B2B3 DONE` at 2026-10-15T20:33:42Z.
 
-Task in flight: V8 (B0, B0b, B1 and B2 done; B1 KEPT against B0, C = B1; B2 NOT KEPT against B1; B3 running, its keep decision is against B1), V7 (B0 to B3 built; blocks.md pending), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
+Task in flight: V9 (the replay for B1 on the CPU; the GPU run follows). V8 DONE (B1 KEPT against B0, C = B1; B2 and B3 NOT KEPT against B1), V7 (B0 to B3 built; blocks.md regenerated by the V8 report), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
 Working dir:    outputs/osler_v1/V1/
 
 V7 checklist (in progress; started 2026-10-13T23:40:48Z):
@@ -109,11 +110,11 @@ V8 checklist (in progress; marked 2026-10-13T23:53:00Z; the block config predate
 - [x] B0b done 2026-10-14T17:21:51Z (CLAIMS V110–V112): its knowledge check FAILED (point −0.008, lower bound −0.042), so C stays B0 (ADVISORY V8). B1 is KEPT against B0 (MR +0.0947, general +0.0062, knowledge +0.0480; all lower bounds pass), so C becomes B1 for B2 and B3. Queued earlier: `outputs/osler_v1/V8/B0b/`), then (`scripts/osler_v1/v8_chain_b0b.sh` starts after "V8 CHAIN DONE"), then `v8_keep.py --knowledge-check B0b`; C = B0b if its check passes, else B0; keep rule B1 against C (`v8_keep.py --candidate B1 --current C`)
 - [x] keep report follows the chain (2026-10-15T09:55Z): `starting_block` in `src/meddecide/train/blocks.py` (C = B0, or B0b when B0 fails and B0b passes; 2 new tests in tests/test_blocks_v8.py, 17 pass); `v8_blocks_report.py` compares B3 with the last kept block (B2 if kept, else B1), shows it as pending while an earlier decision is open, and refuses a keep record that names a different C. blocks.md regenerated: B1 KEPT against B0; B2 and B3 pending
 - [x] B2 run done 2026-10-15T14:24:15Z (rc 0): 13,992 steps, 82,826 realised items, 0 log mismatches on 279 logged steps; full-dev accuracy 0.9015, template macro 0.8742 (CLAIMS V138–V139). Keep against C = B1: NOT KEPT (all three lower bounds fail; CLAIMS V140)
-- [ ] B3 run (chain; started 2026-10-15T14:24:15Z; pid 2275082, `scripts/osler_v1/v8_chain_b2b3.sh`): its keep decision is against C = B1, the last kept block (`v8_keep.py --candidate B3 --current B1`). B3 contains B2's teacher prose, which failed on its own (Question 14)
+- [x] B3 run (chain; started 2026-10-15T14:24:15Z; pid 2275082, `scripts/osler_v1/v8_chain_b2b3.sh`; done 2026-10-15T20:33:42Z, rc 0): 13,992 steps, 81,721 realised items, 0 log mismatches on 279 logged steps; full-dev accuracy 0.9123, template macro 0.8835 (CLAIMS V146–V147). Keep against C = B1: NOT KEPT (MR passes; general and knowledge fail; CLAIMS V148). B3 contains B2's teacher prose (Question 14); the rule decides, so the final mix is B1
 - [x] V4 closure (2026-10-15T07:56:54Z): the O3 screen (indicator PASS; narrative FAIL, V4-D6); the code-string check (0 hits in both files); spot reads of 40 pages (terminal only); counts and spend in SELF_AUDIT (19 PASS) and CLAIMS V126–V131; FINAL.json written
 - [x] second endpoint prepared (V4-D7, 2026-10-15): `v4_teacher_build.py` takes `--ledger`, `--total-cap`, `--tag`; the endpoint host and model are recorded on every progress row and every written item; `v4_closure.py` counts by endpoint; `v4_deepseek_chain.sh` waits for the OpenCode build, closes V4 at the OpenCode weekly guard unless `outputs/osler_v1/V4/DEEPSEEK_APPROVED` exists, and otherwise runs the DeepSeek phase in chunks of 200 with a balance check before each (ledger cap $9.00, floor $0.40). The old chain (`v4_build_chain.sh`) was stopped at 2026-10-15T06:22:46Z; its running build (pid 2000630) continues. Tests: CLAIMS V119–V121.
-- [ ] operator answer to Question 10. The default (hold) was applied at the guard: the DeepSeek phase did not run, and V4 closed on the OpenCode pages. The answer is still open; a later DeepSeek phase would need B2 and B3 rebuilt (V4-D7)
-- [ ] blocks.md; CLAIMS rows; SELF_AUDIT.md; commit
+- [x] operator answer to Question 10 (received 2026-10-15: do not run the DeepSeek continuation; V4 stays closed). The default (hold) was applied at the guard: the DeepSeek phase did not run, and V4 closed on the OpenCode pages. The answer is still open; a later DeepSeek phase would need B2 and B3 rebuilt (V4-D7)
+- [x] blocks.md regenerated (B1 KEPT against B0; B2 and B3 NOT KEPT against B1; last kept B1); CLAIMS V146–V152; defect screen of B3 (CLAIMS V149; the too-good flag on pmc_similar_patient_v1 investigated: V150–V152); SELF_AUDIT.md at `outputs/osler_v1/V8/SELF_AUDIT.md`; commit with the V9 launch
 
 V1 checklist (closed): build (6,000/300/300 per generator); audit; screen checked against §3.6 (page category fails as expected; ICD v1 failed and was replaced by v2, V1-D1); ten items read per generator; mr_data.md; SELF_AUDIT.md; CLAIMS V022–V033; test_icd_template_v2.py and test_mr_v1.py pass.
 
@@ -145,15 +146,15 @@ V10 preparation (CPU; checked 2026-10-15, not yet run on the GPU; the verdict is
 - [ ] V10 GPU scoring of Osler-4B (after V9); the 9B verdict stays NOT MEASURED (V9-D1); MDACE NOT MEASURED (data absent); the MIMIC part NOT MEASURED (V5c)
 
 V9 checklist (opened 2026-10-15T14:31Z; unblocked by Q13):
-- [ ] B3 run finished (the watcher `ban5c4mjh` waits for `END B3` in the chain log; B3 pid 2275082)
-- [ ] B3 keep decision (`scripts/osler_v1/v8_keep.py --candidate B3 --current B1`), then `scripts/osler_v1/v8_blocks_report.py`; CLAIMS rows for the B3 run and its decision
-- [ ] defect screen of B3 before V9 (below chance, a constant answer, divergence, knowledge below zero-shot, a result that looks too good); any defect is investigated and recorded, not tuned
-- [ ] the kept block K recorded (B3 if kept, otherwise B1) in §2 and in the V9 provenance
-- [ ] MIMIC re-check before V9 (`data/physionet` absent at 2026-10-15T14:31Z; V5c stays BLOCKED)
-- [ ] replay for K at 250,000 items with eight evaluations (CPU): `scripts/osler_v1/v8_replay_steps.py --blocks K --target-items 250000 --multiple 8 --out outputs/osler_v1/V9`; the file hash must equal the block's V7 record
-- [ ] `scripts/osler_v1/v9_final.py --block K`, launched detached (one GPU job; log `outputs/osler_v1/V9/logs/osler_4b.log`; PID recorded here), with the attention-only LoRA targets (V9-D2)
+- [x] B3 run finished 2026-10-15T20:33:42Z (the watcher `ban5c4mjh` woke on `END B3`)
+- [x] B3 keep decision (`scripts/osler_v1/v8_keep.py --candidate B3 --current B1`): NOT KEPT (CLAIMS V148); `scripts/osler_v1/v8_blocks_report.py` run; CLAIMS V146–V152
+- [x] defect screen of B3 (CLAIMS V149): no below-chance, constant-answer or divergence flag; the too-good flag on five templates, the fifth new (pmc_similar_patient_v1): investigated (V150–V152), not a decision input because B3 is not kept; recorded, not tuned
+- [x] the kept block K = B1 (B1 KEPT against B0, CLAIMS V112; B2 and B3 NOT KEPT against B1, CLAIMS V140 and V148); recorded in §2; `v9_final.py --block B1` writes it into the V9 provenance
+- [x] MIMIC re-check 2026-10-15T20:50Z: `data/physionet` absent; V5c stays BLOCKED
+- [x] replay for K = B1 at 250,000 items, done 2026-10-15T20:59Z: 43,136 steps, 250,024 realised items (CLAIMS V153; log `outputs/osler_v1/V9/logs/replay_B1.log`): `scripts/osler_v1/v8_replay_steps.py --blocks B1 --target-items 250000 --multiple 8 --out outputs/osler_v1/V9`; `v9_final.py` refuses a replay whose file hash differs from the block's V7 record
+- [x] `scripts/osler_v1/v9_final.py --block B1` launched detached 2026-10-15T21:00:25Z (pid 2401836; one GPU job; log `outputs/osler_v1/V9/logs/osler_4b.log`), with the attention-only LoRA targets (V9-D2); the run is in progress
 - [ ] completeness: `outputs/osler_v1/V9/osler_4b/block_result.json`, `checkpoints/best`, `arm_result.json` with the fitted temperatures; eight evaluations on the planned steps; 0 log mismatches
-- [ ] V10 after V9: `scripts/osler_v1/v10_score.py` (detached GPU job, log `outputs/osler_v1/V10/logs/osler_4b.log`), then `scripts/osler_v1/v10_gate.py` → `loops/osler_v1/gate_o2.md`; `loops/osler_v1/results.md`; the Osler-9B verdict NOT MEASURED (V9-D1)
+- [ ] V10 after V9: `scripts/osler_v1/v10_score.py` (detached GPU job, log `outputs/osler_v1/V10/logs/osler_4b.log`), then `scripts/osler_v1/v10_gate.py` → `loops/osler_v1/gate_o2.md`; `loops/osler_v1/results.md`; the Osler-9B verdict NOT MEASURED (V9-D1); before the gate runs, add the labelled additional MR rows without pmc_similar_patient_v1 (V9-D3; never in the verdict)
 - [ ] V11: MIMIC is not in the final mix, so the memorisation audit is not applicable (record at closure)
 - [ ] V12: `FINDINGS.md` (summary first; §2 outcome; every number with a CLAIMS row; the five-claim spot-check re-run), `NEXT.md` (proposals only), `Loop status: STOPPED`, commit, push, stop
 
@@ -280,6 +281,17 @@ V9 checklist (opened 2026-10-15T14:31Z; unblocked by Q13):
 - Investigation of the too-good flags: (1) no MR dev item shares text or a dataset-qualified record with any block's training file, B0 to B3 (CLAIMS V143); (2) the shortcut screens: the indicator (Naive Bayes 0.7964, V024), the ICD v2 template (0.804, V023) and the Synthea indicator (0.5757, V046) pass; the two page-category templates are lexical by design and fail as expected (1.000; V025, V045; ADVISORY §3.6, V5a-D1); (3) the splits are by patient (V1, V5a). No leakage path was found. The flags stay in the record. osler_v0 FINDINGS already measured a seen-template effect (+9 to +13 points on fresh seen templates), so the flags are expected for generated templates. An options-only check for the generated ICD and indicator templates is proposed for NEXT.md.
 - The keep decisions and the V9 screen are unchanged by this entry. B3 is still running (step 550 at 14:44Z).
 
+### V8 — DONE — 2026-10-15T20:58:32Z (kept block B1)
+- B3 finished 2026-10-15T20:33:42Z (rc 0; 13,992 steps; 81,721 realised items; 0 log mismatches; full-dev accuracy 0.9123, template macro 0.8835; CLAIMS V146–V147). Keep against B1: NOT KEPT (MR +0.0539 passes; general −0.0035, lower −0.0141, and knowledge −0.0400, lower −0.0860, fail; CLAIMS V148). Kept block for V9: B1.
+- Defect screen of B3 (CLAIMS V149): no below-chance, constant-answer or divergence flag; too-good flag on five templates, one new (pmc_similar_patient_v1: a B3-only seen template, 8,100 of 19,294 mr_test items, word-overlap AUC 0.9734; CLAIMS V150–V151). Without it the MR template macro difference is +0.0399 (CLAIMS V152). Recorded, not tuned.
+- SELF_AUDIT.md (`outputs/osler_v1/V8/SELF_AUDIT.md`): headline numbers re-derived in a fresh process; denominators close; open items recorded (the in-run versus post-run one-item difference at 13,992 steps; the knowledge drop, an untested hypothesis).
+- Next: the V9 replay for B1 (CPU, started 2026-10-15T20:50:30Z), then `v9_final.py --block B1` detached.
+
+### V9 (launched) — 2026-10-15T21:00:25Z (kept block B1)
+- The replay for B1 at 250,000 items: 43,136 steps (a multiple of eight), 250,024 realised items, 211,304,913 real tokens (CLAIMS V153). `v9_final.py --block B1` was launched detached (pid 2401836; log `outputs/osler_v1/V9/logs/osler_4b.log`). Its checks passed (the replay hash and the block's V7 record); it is reading the 696,532 rows of B1 before the model loads.
+- Eight evaluations, every 5,392 steps (43,136 / 8). The run time is an estimate, not a measurement: about 19 hours at the B3 rate of about 40 steps a minute.
+- Next: the completeness check (`block_result.json`, `checkpoints/best`, `arm_result.json` with the fitted temperatures, eight evaluations on the planned steps, 0 log mismatches); the defect screen of the V9 run; then V10 (scoring, the gate, the labelled additional rows).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -324,14 +336,14 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 13. **Gate O2 panel rule, operator confirmation (D31; needed before V9).** The D31 row in `docs/plans/PROGRAM.md` says the external panel moves from superiority to non-inferiority "because this loop adds no broad-clinical data (operator to confirm before V9 runs)". No confirmation is recorded in this file. The gate as written is used (accuracy lower bound > −0.02 against both baselines). V9 is about 12 hours away, behind B2 and B3. If the operator has not confirmed by then, V9 is recorded BLOCKED on this item and the gate is not changed (AGENTS.md: gates are never changed after results).
 
-14. **Cumulative blocks and a non-kept source (V8; decided by the rule at the B3 keep).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 is B2 plus the V5b real text, so B3 contains the prose, and its only comparison is against C = B1, the last kept block. If B3 is kept, the kept mix holds prose that failed on its own. ADVISORY §2 outcome 4 says a source that does not help on dev is dropped, not tuned. Options: (a) follow the rule: the kept mix is B3 if it passes against B1, and the B2 result is reported next to it; (b) drop the teacher rows from the final mix (B1 plus V5b), which no V8 run measured. I would pick (a): it is the pre-registered decision, and the operator's V9-D2 instruction says the B2 and B3 keep decisions stay as the rule makes them. Context (a lexical association, measured, not tested): indicator pages with the phrase 'documented baseline' have gold 'yes' in 47.05 % of pages with it against 56.88 % without (CLAIMS V130). If B3 is not kept, the final mix is B1 and this question closes.
+14. **Cumulative blocks and a non-kept source (V8; decided by the rule at the B3 keep).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 is B2 plus the V5b real text, so B3 contains the prose, and its only comparison is against C = B1, the last kept block. If B3 is kept, the kept mix holds prose that failed on its own. ADVISORY §2 outcome 4 says a source that does not help on dev is dropped, not tuned. Options: (a) follow the rule: the kept mix is B3 if it passes against B1, and the B2 result is reported next to it; (b) drop the teacher rows from the final mix (B1 plus V5b), which no V8 run measured. I would pick (a): it is the pre-registered decision, and the operator's V9-D2 instruction says the B2 and B3 keep decisions stay as the rule makes them. Context (a lexical association, measured, not tested): indicator pages with the phrase 'documented baseline' have gold 'yes' in 47.05 % of pages with it against 56.88 % without (CLAIMS V130). If B3 is not kept, the final mix is B1 and this question closes. **Status (2026-10-15T20:58Z): decided by the rule. B3 was NOT KEPT against B1 (CLAIMS V148), so the final mix is B1: it holds no teacher prose from V4 and no real clinical text from V5b. The question closes; the operator may still redirect it.**
 
 **Operator answers (received 2026-10-15, after B2 and during B3):**
 - **Q10 (DeepSeek continuation): do not run it in this loop.** V4 stays closed as it is (closed 2026-10-15T07:56:54Z on the OpenCode pages). No `DEEPSEEK_APPROVED` file exists and the DeepSeek ledger is unused.
 - **Q11 (SNOMED and RxNorm strings to the hosted endpoint): option (a), confirm the route, no change.** The operator's reason: the Synthea display names are public synthetic strings, and the AGENTS.md rule targets licensed UMLS-file strings; the advisor will clarify that wording at the hard stop. The narrative pages stay as built (16,450 verified; the 624 pages with the residual SNOMED tag, CLAIMS V131, are unchanged).
 - **Q12 (padding test): no action.** The test stays as committed and is deselected on the command line, as in every run.
 - **Q13 (Gate O2 panel rule, D31): confirmed.** Gate O2 is applied as written: the external panel is non-inferior when the accuracy lower bound is above −0.02 against both baselines. Superiority is reported separately and never enters the verdict. V9 proceeds after B3.
-- **Q14 (cumulative blocks): no answer given.** The default applies (V8-D8, Deviations): the kept mix follows the keep rule.
+- **Q14 (cumulative blocks): no answer given.** The default applies (V8-D8, Deviations): the kept mix follows the keep rule. Applied: B3 was not kept (V148), so the final mix is B1.
 
 **Operator answers (received during V8, 2026-10-14):**
 - **Q2 (replay share): accepted.** The 15.3 % replay share stands for this loop; the 20 % target is not pursued (V3-D1 accepted).
@@ -422,6 +434,10 @@ deviation — that is a `BLOCKED`.
 ---
 
 - **V8-D8 (the kept mix when a superset of a non-kept block is decided, Question 14).** B2 (B1 plus the V4 teacher prose) was NOT KEPT against B1 (CLAIMS V140). B3 contains that prose, and its only comparison is against C = B1. The operator has not answered Question 14, so the default applies: the kept mix follows the keep rule (if B3 passes against B1, the final mix is B3 and the B2 result is reported beside it). Recorded as a deviation so the operator can redirect.
+
+- **V8-D9 (too-good flag on a B3-only template; the rule is unchanged).** pmc_similar_patient_v1 (a yes/no template on PMC-Patients vignette pairs) is flagged too good in B3 (396 of 400 fast dev items right) and is trained only in B3 (52,549 rows; CLAIMS V150). A word-overlap score alone reaches AUC 0.9734 on its dev items (V151). It is recorded as a measurement-validity concern for the MR suite, where it is 8,100 of 19,294 mr_test items (42.0 %; V150). The keep decision stands (B3 is not kept), and the final mix B1 has no such rows. Not tuned; reported in FINDINGS and NEXT.
+
+- **V9-D3 (labelled additional MR rows for the gate).** Because this template is 42.0 % of the MR test items, `v10_gate.py` adds labelled additional rows for the MR test suite without it, never in the Gate O2 verdict (the D31 rules are unchanged). Additional analyses are labelled, as R4 requires. Recorded before the V10 run.
 
 ## 8. Closure summary feed
 
