@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T06:24:04Z`
-Iterations so far: `3` (V0–V3, V5a, V5b and V6 closed; V4, V7 and V8 in progress; V5c blocked on absent files)
+Last updated (UTC): `2026-10-15T07:15:39Z`
+Iterations so far: `4` (V0–V3, V5a, V5b and V6 closed; V4, V7 and V8 in progress; V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
 
@@ -78,7 +78,12 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: V8 (marked 2026-10-13T23:53:00Z; smoke OK; the B0 run started 2026-10-14T01:35:22Z, then B1), V7 (started 2026-10-13T23:40:48Z; B2 and B3 wait for the final teacher prose), and V4 (started 2026-10-13T23:09:08Z; pilots done; ICD prose BLOCKED; indicator and narrative prose building under scripts/osler_v1/v4_build_chain.sh, log outputs/osler_v1/V4/logs/build_chain.log, progress outputs/osler_v1/V4/*_progress.jsonl). V5b closed earlier (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
+Running jobs at 2026-10-15T07:15:39Z (GPU idle; one teacher process and two shell watchers):
+- OpenCode Go narrative build: pid 2000630 (python; started 2026-10-14T22:11:02Z by the old chain `v4_build_chain.sh`, which was stopped at 2026-10-15T06:22:46Z while this process kept running), log `outputs/osler_v1/V4/logs/build_narrative.log`, progress `outputs/osler_v1/V4/narrative_progress.jsonl` (21,611 of 28,600 encounters at 07:14Z; ledger $34.70 of the $36 week).
+- Switch script: pid 2084854 (`scripts/osler_v1/v4_deepseek_chain.sh 2000630`), log `outputs/osler_v1/V4/logs/deepseek_chain.log`. It waits for pid 2000630. At the week guard it holds unless `outputs/osler_v1/V4/DEEPSEEK_APPROVED` exists, and then closes V4 (`v4_closure.py --finalize`, which writes FINAL.json).
+- B2 and B3 queue: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`; it waits for `outputs/osler_v1/V4/FINAL.json`.
+
+Task in flight: V8 (marked 2026-10-13T23:53:00Z; smoke OK; the B0 run started 2026-10-14T01:35:22Z, then B1), V7 (started 2026-10-13T23:40:48Z; B2 and B3 wait for the final teacher prose), and V4 (started 2026-10-13T23:09:08Z; pilots done; ICD prose BLOCKED; indicator and narrative prose building; the old chain `v4_build_chain.sh` was stopped at 2026-10-15T06:22:46Z and the build it started continues under the switch script). V5b closed earlier (V5b DONE 2026-10-13T22:56:31Z; its checklist is closed in the V5b iteration entry); V5a closed earlier (V5a DONE 2026-10-13T22:51:28Z; its checklist is closed in the V5a iteration entry); V3 closed earlier (V3 DONE 2026-10-13T22:45:36Z; its checklist is closed in the V3 iteration entry); V2 closed earlier (V2 DONE 2026-10-13T22:44:06Z; its checklist is closed in the V2 iteration entry); V1 closed earlier (V1 DONE 2026-10-13T22:35:18Z; its checklist is closed in the V1 iteration entry in section 4)
 Working dir:    outputs/osler_v1/V1/
 
 V7 checklist (in progress; started 2026-10-13T23:40:48Z):
