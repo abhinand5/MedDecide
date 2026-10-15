@@ -104,8 +104,9 @@ def main() -> None:
     ledgers = {"opencode_go": ledger_totals(V4 / "spend_ledger.jsonl", now),
                "deepseek_api": ledger_totals(V4 / "spend_ledger_deepseek.jsonl", now)}
     # the pilots wrote to the same OpenCode ledger, so every progress file (pilots included) is summed against the ledgers
-    pilot_cost = sum(float(r.get("cost_usd", 0.0)) for path in sorted(V4.glob("*_progress.jsonl"))
-                     if path.name.endswith("_pilot_progress.jsonl") for r in read_jsonl(path))
+    build_files = {"indicator_progress.jsonl", "narrative_progress.jsonl"}
+    pilot_files = [path for path in sorted(V4.glob("*progress*.jsonl")) if path.name not in build_files]
+    pilot_cost = sum(float(r.get("cost_usd", 0.0)) for path in pilot_files for r in read_jsonl(path))
     progress_cost = sum(v["cost_usd"] for p in progress.values() for v in p["by_endpoint"].values()) + pilot_cost
     check("spend: progress-file cost (builds and pilots) equals the ledgers' total (OpenCode and DeepSeek)",
           abs(progress_cost - sum(v["total_usd"] for v in ledgers.values())) < 0.01,
