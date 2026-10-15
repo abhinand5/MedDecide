@@ -1,6 +1,6 @@
 # osler_v1 — V8 blocks, run results and keep decisions
 
-Written 2026-10-15T08:11:10Z by `scripts/osler_v1/v8_blocks_report.py` from the V7 manifest (`outputs/osler_v1/V7/blocks.json`), the V8 block results and the keep records. Aggregates only. A run that has not finished reads `pending`.
+Written 2026-10-15T09:44:26Z by `scripts/osler_v1/v8_blocks_report.py` from the V7 manifest (`outputs/osler_v1/V7/blocks.json`), the V8 block results and the keep records. Aggregates only. A run that has not finished reads `pending`.
 
 ## 1. Block contents (V7)
 
@@ -45,7 +45,7 @@ A block X is kept against the current C iff the lower bound of X minus C is abov
 | B1 vs B0 | general | 3,326 | +0.0062 [-0.0048, +0.0177] | -0.01 | yes |
 | B1 vs B0 | knowledge | 500 | +0.0480 [+0.0080, +0.0900] | -0.02 | yes |
 | B2 vs B1 | | pending | | | |
-| B3 vs B2 | | pending | | | |
+| B3 | | pending (its C waits for an earlier decision) | | | |
 
 ## 5. Knowledge checks (B0 and B0b against zero-shot Qwen3.5-4B, 500 fast-dev items; D12 gate)
 
@@ -56,6 +56,8 @@ A block X is kept against the current C iff the lower bound of X minus C is abov
 
 ## 6. Decisions and the current C
 
-- Knowledge checks: B0: fails; B0b: fails. C stays B0 when B0 and B0b both fail (ADVISORY V8).
-- B1 against B0: KEPT; B2 against B1: pending; B3 against B2: pending.
+- Knowledge checks: B0: fails; B0b: fails.
+- Starting block C (ADVISORY V8: B0b only when B0 fails and B0b passes): B0.
+- Keep decisions: B1 against B0: KEPT; B2 against B1: pending; B3: pending.
+- Last kept block: B1.
 

@@ -16,6 +16,7 @@ from meddecide.train.blocks import (
     micro_difference,
     pair_by_item,
     partition_pairs,
+    starting_block,
     steps_for_items,
 )
 
@@ -162,3 +163,16 @@ def test_skipped_zero_shot_items_are_refused_not_dropped() -> None:
            "reason": "too long", "probs": None}]
     with pytest.raises(ValueError):
         knowledge_comparison(block, zs, block="B0", comparison="zero-shot", health={"k1": "PASS"})
+
+
+def test_the_starting_block_is_b0_unless_b0_fails_and_b0b_passes() -> None:
+    assert starting_block(True, None) == "B0"
+    assert starting_block(True, False) == "B0"
+    assert starting_block(False, False) == "B0"
+    assert starting_block(False, True) == "B0b"
+
+
+def test_the_starting_block_waits_for_the_knowledge_checks_it_depends_on() -> None:
+    assert starting_block(None, None) is None
+    assert starting_block(None, True) is None
+    assert starting_block(False, None) is None

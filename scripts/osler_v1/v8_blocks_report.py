@@ -4,6 +4,10 @@ Aggregates only: block contents, realised items and tokens, full fast-dev metric
 decisions. Every number is read from a file written by the pipeline (V7 manifest, V8 block_result.json, V8 keep JSON files); a run
 not yet finished is shown as pending, never estimated (R3).
 
+The chain of comparisons follows ADVISORY V8: the starting block C is B0, or B0b when B0 fails its knowledge check and B0b passes
+it (meddecide.train.blocks.starting_block). Each candidate is compared with the last kept block; a candidate whose comparison
+record names a different C than the chain gives is an error, not a silent change.
+
 Usage (after each block run and keep decision):
     uv run --frozen python scripts/osler_v1/v8_blocks_report.py
 """
@@ -14,6 +18,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from meddecide.train.blocks import starting_block
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
@@ -29,6 +34,7 @@ ADDS = {
     "B3": "+ V5b real text: MTSamples, CodiEsp train, PMC-Patients pairs",
 }
 RUNS = {"B0": "B0", "B0b": "B0b", "B1": "B1", "B2": "B2", "B3": "B3"}
+CANDIDATES = ("B1", "B2", "B3")  # each is compared with the last kept block (ADVISORY V8)
 
 
 def load(path: Path) -> dict[str, Any] | None:
@@ -86,33 +92,50 @@ def main() -> None:
     lines += ["", "The keep rule compares partitions (MR, general, knowledge), not these full-dev figures; the partition statistics "
               "are in section 4.", ""]
 
+    knowledge = {name: load(KEEP / f"knowledge_check_{name}.json") for name in ("B0", "B0b")}
+    b0, b0b = knowledge["B0"], knowledge["B0b"]
+    start = starting_block(None if b0 is None else b0["passes"], None if b0b is None else b0b["passes"])
+
     lines += ["## 4. Keep rule (ADVISORY V8; paired bootstrap within templates, 1,000 resamples, seed 0)", "",
               "A block X is kept against the current C iff the lower bound of X minus C is above 0 on MR, above -0.01 on general and "
               "above -0.02 on knowledge.", "",
               "| candidate vs C | partition | items | difference [lower, upper] | margin | passes |", "|---|---|---|---|---|---|"]
     decisions: list[str] = []
-    for candidate, current in (("B1", "B0"), ("B2", "B1"), ("B3", "B2")):
+    kept: list[str] = []
+    current = start  # C for the next candidate; None while an earlier decision that sets it is pending
+    for candidate in CANDIDATES:
+        if current is None:
+            lines.append(f"| {candidate} | | pending (its C waits for an earlier decision) | | | |")
+            decisions.append(f"{candidate}: pending")
+            continue
         record = load(KEEP / f"{candidate}_vs_{current}.json")
         if record is None:
             lines.append(f"| {candidate} vs {current} | | pending | | | |")
             decisions.append(f"{candidate} against {current}: pending")
+            current = None
             continue
+        if record["current"] != current:
+            raise ValueError(f"{candidate} keep record compares against {record['current']}, but the chain's C is {current}")
         for part in ("mr", "general", "knowledge"):
             s = record["statistics"][part]
             lines.append(f"| {candidate} vs {current} | {part} | {s['n']:,} | {s['point']:+.4f} [{s['ci_lo']:+.4f}, {s['ci_hi']:+.4f}] | "
                          f"{record['margins'][part]:+.2f} | {'yes' if record['verdict']['checks'][part] else 'no'} |")
-        verdict = "KEPT" if record["verdict"]["kept"] else "not kept"
-        decisions.append(f"{candidate} against {current}: {verdict}")
+        kept_now = bool(record["verdict"]["kept"])
+        decisions.append(f"{candidate} against {current}: {'KEPT' if kept_now else 'not kept'}")
+        if kept_now:
+            kept.append(candidate)
+            current = candidate
     lines += [""]
 
     lines += ["## 5. Knowledge checks (B0 and B0b against zero-shot Qwen3.5-4B, 500 fast-dev items; D12 gate)", "",
               "| block | items | difference [lower, upper] | margin | status | passes |", "|---|---|---|---|---|---|"]
     knowledge_decisions: list[str] = []
     for name in ("B0", "B0b"):
-        record = load(KEEP / f"knowledge_check_{name}.json")
+        record = knowledge[name]
         if record is None:
-            lines.append(f"| {name} | | pending | | | |")
-            knowledge_decisions.append(f"{name}: pending")
+            note = "not run (B0 passes)" if name == "B0b" and b0 is not None and b0["passes"] else "pending"
+            lines.append(f"| {name} | | {note} | | | |")
+            knowledge_decisions.append(f"{name}: {note}")
             continue
         s = record["statistic"]
         lines.append(f"| {name} | {record['items_block']} | {s['point']:+.4f} [{s['ci_lo']:+.4f}, {s['ci_hi']:+.4f}] | {record['margin']:+.2f} | "
@@ -120,11 +143,15 @@ def main() -> None:
         knowledge_decisions.append(f"{name}: {'passes' if record['passes'] else 'fails'}")
     lines += [""]
 
+    last_kept = kept[-1] if kept else start
     lines += ["## 6. Decisions and the current C", "",
-              "- Knowledge checks: " + "; ".join(knowledge_decisions) + ". C stays B0 when B0 and B0b both fail (ADVISORY V8).",
-              "- " + "; ".join(decisions) + ".", ""]
+              "- Knowledge checks: " + "; ".join(knowledge_decisions) + ".",
+              f"- Starting block C (ADVISORY V8: B0b only when B0 fails and B0b passes): {start or 'pending'}.",
+              "- Keep decisions: " + "; ".join(decisions) + ".",
+              f"- Last kept block: {last_kept or 'pending'}.", ""]
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    write_json(V8 / "blocks_report.json", {"written_utc": utcnow(), "git_commit": git_commit(REPO), "decisions": decisions,
+    write_json(V8 / "blocks_report.json", {"written_utc": utcnow(), "git_commit": git_commit(REPO), "starting_block": start,
+                                           "kept": kept, "last_kept": last_kept, "decisions": decisions,
                                            "knowledge": knowledge_decisions})
     print(f"wrote {REPORT.relative_to(REPO)}", flush=True)
 

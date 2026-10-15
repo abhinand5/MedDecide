@@ -140,6 +140,20 @@ def knowledge_check_passes(lower_bound: float) -> bool:
     return float(lower_bound) > KNOWLEDGE_CHECK_MARGIN
 
 
+def starting_block(b0_passes: bool | None, b0b_passes: bool | None) -> str | None:
+    """The block C before any keep decision (ADVISORY V8): B0, unless B0 fails its knowledge check and B0b passes it.
+
+    None while the check that decides it is still pending (B0 not measured, or B0 failed and B0b not measured).
+    """
+    if b0_passes is None:
+        return None
+    if b0_passes:
+        return "B0"
+    if b0b_passes is None:
+        return None
+    return "B0b" if b0b_passes else "B0"
+
+
 def keep_comparison(x_rows: Sequence[Mapping[str, Any]], c_rows: Sequence[Mapping[str, Any]], *, candidate: str,
                     current: str) -> dict[str, Any]:
     """The keep rule for a candidate block against the last kept block, from their fast dev predictions (aggregates only)."""
