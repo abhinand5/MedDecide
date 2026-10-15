@@ -132,6 +132,12 @@ V0 checklist (closed):
 
 ---
 
+V10 preparation (CPU; checked 2026-10-15, not yet run on the GPU; the verdict is NOT MEASURED until the Osler-4B scoring runs):
+- [x] `scripts/osler_v1/v10_items.py`: 30,621 rows selected of 80,350 (MR test 19,294; MR held-out 1,518 of which 584 test; external panel 4,353; knowledge MedQA and MedMCQA test 5,456); 49,729 O2 rows not in V10, counted by benchmark; every row converts with `o2_row_to_item`; ids unique (manifest `outputs/osler_v1/V10/items_manifest.json`; CLAIMS V124)
+- [x] `scripts/osler_v1/v10_score.py`: O2-format rows in both orders and single order; calibrated with the arm's dev fits; refuses a checkpoint whose saved calibration differs from the dev fits (ADVISORY V10). Smoke run on the B0b checkpoint: 16 of 16 rows scored, calibration match True (throwaway output, removed)
+- [x] `src/meddecide/eval/gate_o2.py` (D31 rules as pure functions) and `tests/test_gate_o2.py` (9 pass); `scripts/osler_v1/v10_gate.py` writes `loops/osler_v1/gate_o2.md`. Wiring check on a scratch copy only: an oracle file (the gold labels) gave PASS, and MedDecider-4B's own rows gave NOT MEASURED for the 6,302 MR and 212 panel items it did not score. Neither is a result.
+- [ ] V10 GPU scoring of Osler-4B (after V9); the 9B verdict stays NOT MEASURED (V9-D1); MDACE NOT MEASURED (data absent); the MIMIC part NOT MEASURED (V5c)
+
 ## 4. Iteration log (append only, newest last)
 
 <!-- Template for each entry:
@@ -215,6 +221,11 @@ V0 checklist (closed):
 - Ledger at 06:23Z: OpenCode Go $33.07 of the $36 week ($6.90 in the last 5 h); 19,453 narrative encounters processed of 28,600; the OpenCode build (pid 2000630) continues under the switch script.
 - Full suite: 704 passed with the padding test deselected on the command line; the padding test itself XPASSed on the GPU (Question 12).
 - Open: Question 10 (DeepSeek hold, default) and Question 11 (SNOMED and RxNorm strings to hosted endpoints). Neither blocks other tasks.
+
+### V10 (preparation; checkpoint) — 2026-10-15T06:45Z
+- Built on the CPU and tested: the V10 items file and manifest, the calibrated scorer (smoke-tested on the GPU with 16 rows), the Gate O2 rules and their 9 tests, and the gate report. The verdict waits for the V9 checkpoint.
+- The V4 closure tools are written and will run at closure: `v4_self_audit.py` (re-derives every headline count and reconciles the spend with the ledgers; the audit reads the files while the build runs, so its figures are final only after closure) and `v4_spot_read.py` (20 pages per generator, printed to the terminal only).
+- Open: Q10 (DeepSeek hold, default), Q11 (SNOMED and RxNorm), Q12 (padding), Q13 (D31 confirmation before V9).
 
 ## 5. Blocked items
 
