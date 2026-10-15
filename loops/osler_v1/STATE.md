@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T15:59:15Z`
+Last updated (UTC): `2026-10-15T17:59:23Z`
 Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 in progress: B0, B0b, B1 and B2 done; B1 KEPT against B0 (C = B1); B2 NOT KEPT against B1; the B3 run is in progress; Q13 confirmed, so V9 follows B3; V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
@@ -78,8 +78,8 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Running jobs at 2026-10-15T15:59:15Z (GPU busy with the B3 run, 100 % utilisation):
-- B3 run progress: step 3,450 of 13,992 at 2026-10-15T15:59:15Z (69 logged steps; about 40 steps a minute since the test run ended; the eval at step 3,498 is next; watcher `ban5c4mjh` waits for `END B3`). B3 run: pid 2275082 (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
+Running jobs at 2026-10-15T17:59:23Z (GPU busy with the B3 run, 100 % utilisation):
+- B3 run progress: step 8,200 of 13,992 at 2026-10-15T17:59:23Z (164 logged steps; evals at steps 3,498 and 6,996 ran on the full fast dev, the next at 10,494; about 40 steps a minute; expected finish about 20:30–20:45Z; watcher `ban5c4mjh` waits for `END B3`). B3 run: pid 2275082 (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
 - B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), ran B2, and is running B3, one GPU job at a time.
 
 Task in flight: V8 (B0, B0b, B1 and B2 done; B1 KEPT against B0, C = B1; B2 NOT KEPT against B1; B3 running, its keep decision is against B1), V7 (B0 to B3 built; blocks.md pending), V4 (DONE 2026-10-15T07:56:54Z). V0 to V3, V5a, V5b and V6 are closed (see the iteration log). V5c BLOCKED (files absent). V9 to V12 are PENDING.
