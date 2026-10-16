@@ -3,7 +3,7 @@
 The Osler-9B verdict is NOT MEASURED: it is deferred to the next loop by the operator (V9-D1).
 
 Primary checks (they decide the verdict):
-  (i)   MR audit suite, scope mr_test (the MR test suite; MIMIC is absent, so these are the generated parts), against MedDecider-4B
+  (i)   MR audit suite, scope mr_test (the whole MR test suite: generated and real-text items; MIMIC is absent), against MedDecider-4B
         and zero-shot Qwen3.5-4B: accuracy lower bound > 0 and Brier upper bound < 0 (``Comparison.passes``);
   (ii)  external clinical panel, against both baselines: accuracy lower bound > -0.02 (non-inferiority);
   (iii) knowledge guard (D24), Osler-4B against zero-shot Qwen3.5-4B on MedQA and MedMCQA test: lower bound > -0.02.
@@ -51,8 +51,17 @@ PMC_TEMPLATE = "pmc_similar_patient_v1"  # V9-D3: a B3-only seen template, 42.0 
 GUARD_NAME = "zero-shot Qwen3.5-4B"
 GUARD_DIR = O2_BASELINES / "qwen35-4b"
 ADDITIONAL_D1 = ("d1-3B", V6_BASELINES / "d1-3b")
+V6_SUMMARY = REPO / "outputs/osler_v1/V6/baseline_summary.json"
+BASELINE_KEYS = {"MedDecider-4B": "meddecider-4b", "zero-shot Qwen3.5-4B": "qwen35-4b"}
 N_RESAMPLES = 1000
 SEED = 0
+
+
+def readout_failed(name: str) -> set[str]:
+    """The held-out templates whose readout fails the gate for one baseline (V6 summary). A failing cell reports no accuracy
+    and is excluded (CLAIMS V089: MedDecider-4B on synthea_indicator_evidence_v1 in the held-out set)."""
+    summary = json.loads(V6_SUMMARY.read_text(encoding="utf-8"))
+    return set(summary["models"][BASELINE_KEYS[name]]["sets"]["mr_heldout"]["readout_fail_templates"])
 
 
 def members_of(rows: Sequence[Mapping[str, Any]], scope: str, *, test_only: bool = False) -> list[dict[str, Any]]:
@@ -150,7 +159,10 @@ def main() -> None:
     # additional rows: never in the verdict
     held_out: dict[str, dict[str, Any]] = {}
     for name, path in MR_BASELINES.items():
-        held_out[name], _ = compared("mr_heldout_test", name, held_out_test, osler_both, by_item(path / "predictions.jsonl"))
+        failed = readout_failed(name)
+        pass_cells = [m for m in held_out_test if m["template_id"] not in failed]
+        held_out[name], _ = compared("mr_heldout_test", name, pass_cells, osler_both, by_item(path / "predictions.jsonl"))
+        held_out[name]["readout_failed_templates_excluded"] = sorted(failed)
     d1_name, d1_dir = ADDITIONAL_D1
     d1_record, _ = compared("mr_test", d1_name, mr, osler_both, by_item(d1_dir / "predictions.jsonl"))
     single_mr: dict[str, dict[str, Any]] = {}
@@ -182,7 +194,7 @@ def main() -> None:
                        "panel_superiority": {name: panel_records[name] for name in PANEL_BASELINES},
                        "single_order_external_panel": single_panel,
                        "mdace": {"not_measured": "the MDACE data is not on the volume"},
-                       "mr_mimic_part": {"not_measured": "MIMIC is absent (V5c); the MR test suite is the generated part"}},
+                       "mr_mimic_part": {"not_measured": "MIMIC is absent (V5c); the MR test suite holds generated and real-text items (V5b); its parts are in v10_additional.py"}},
     }
     write_json(v10_root / "gate_o2.json", results)
 
@@ -206,7 +218,7 @@ def main() -> None:
     lines += ["", f"**Osler-4B verdict: {verdict}.** {reason}.", "",
               "**Osler-9B verdict: NOT MEASURED — deferred to the next loop by the operator (V9-D1).**", "",
               "## Additional rows (labelled; never in the verdict)", "", *head,
-              *[table_row(held_out[name], "held-out MR, test rows", "mr") for name in MR_BASELINES],
+              *[table_row(held_out[name], "held-out MR, test rows (readout pass cells)", "mr") for name in MR_BASELINES],
               table_row(d1_record, "d1-3B, MR test", "mr"),
               *[table_row(no_pmc[name], f"MR test without {PMC_TEMPLATE} (additional; never in the verdict)", "mr")
                 for name in MR_BASELINES],
@@ -216,7 +228,7 @@ def main() -> None:
               *[table_row(single_mr[name], "single order, MR test", "mr") for name in MR_BASELINES],
               *[table_row(single_panel[name], "single order, external panel", "panel") for name in PANEL_BASELINES], "",
               "- MDACE: NOT MEASURED — the dataset is not on the volume.",
-              "- The MIMIC part of the MR suite: NOT MEASURED — MIMIC is absent (V5c). The MR test suite is the generated part."]
+              "- The MIMIC part of the MR suite: NOT MEASURED — MIMIC is absent (V5c). The MR test suite holds generated and real-text items (V5b); its parts are reported as additional rows (v10_additional.py)."]
     args.report.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Osler-4B: {verdict}. {reason}", flush=True)
     print(f"wrote {args.report} and {v10_root / 'gate_o2.json'}", flush=True)
