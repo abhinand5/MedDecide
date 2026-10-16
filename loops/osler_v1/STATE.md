@@ -12,8 +12,8 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (V12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-13T21:32:02Z`
-Last updated (UTC): `2026-10-15T21:00:55Z`
-Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 DONE: B0, B0b, B1, B2 and B3 done; B1 KEPT against B0 (C = B1); B2 and B3 NOT KEPT against B1; the kept block is B1; Q13 confirmed; V9 in progress (replay started); V10 prepared on the CPU, not run; V5c blocked on absent files)
+Last updated (UTC): `2026-10-16T03:58:55Z`
+Iterations so far: `5` (V0–V3, V4, V5a, V5b and V6 closed; V7 built, blocks.md written for B0 to B1; V8 DONE: B0, B0b, B1, B2 and B3 done; B1 KEPT against B0 (C = B1); B2 and B3 NOT KEPT against B1; the kept block is B1; Q13 confirmed; V9 in progress (replay done; final run at step 26,200 of 43,136 at 2026-10-16T03:58:55Z); V10 prepared on the CPU, not run; V5c blocked on absent files)
 
 ---
 
@@ -78,8 +78,8 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Running jobs at 2026-10-15T21:14:40Z (one GPU job: the V9 final Osler-4B run on B1):
-- V9 final Osler-4B run on B1 (GPU): pid 2401836 (`scripts/osler_v1/v9_final.py --block B1`; `uv run` wrapper pid 2401832), launched 2026-10-15T21:00:25Z, log `outputs/osler_v1/V9/logs/osler_4b.log`, run record `outputs/osler_v1/V9/osler_4b/`. Step 500 of 43,136 at 21:14:40Z (about 40 steps a minute; the loss series shows the usual batch-to-batch swings, no divergence). The test suite for the gate change passed at 21:14Z (723 passed, 1 deselected; CLAIMS V155). Its replay (`outputs/osler_v1/V9/logs/replay_B1.log`) finished 2026-10-15T20:59Z: 43,136 steps, 250,024 realised items (CLAIMS V153). The test suite finished before the launch: 723 passed, 1 deselected (CLAIMS V154).
+Running jobs at 2026-10-16T03:58:55Z (one GPU job: the V9 final Osler-4B run on B1; watchers armed: `buq90vybo` (bash pid 2402327; wakes when pid 2401836 exits) and `by5hyejoc` (bash pid 2431017; wakes on a non-finite loss or an exit), each polling every 20 minutes):
+- V9 final Osler-4B run on B1 (GPU): pid 2401836 (`scripts/osler_v1/v9_final.py --block B1`; `uv run` wrapper pid 2401832), launched 2026-10-15T21:00:25Z, log `outputs/osler_v1/V9/logs/osler_4b.log`, run record `outputs/osler_v1/V9/osler_4b/`. Step 26,200 of 43,136 at 03:58:55Z (about 64 steps a minute, measured from the log; four dev evaluations done at steps 5,392, 10,784, 16,176 and 21,568; no non-finite loss; gradient clipping at 1.0; the loss series shows the usual batch-to-batch swings). Estimated finish 08:30–08:45Z on 2026-10-16. The test suite for the gate change passed at 21:14Z (723 passed, 1 deselected; CLAIMS V155). Its replay (`outputs/osler_v1/V9/logs/replay_B1.log`) finished 2026-10-15T20:59Z: 43,136 steps, 250,024 realised items (CLAIMS V153). The test suite finished before the launch: 723 passed, 1 deselected (CLAIMS V154).
 - B3 run: finished 2026-10-15T20:33:42Z (rc 0; 13,992 steps; the watcher `ban5c4mjh` woke on `END B3`; CLAIMS V146–V148). Its process (pid 2275082) has exited. Launch details: (`scripts/osler_v1/v8_block_run.py --block B3`, started by the chain at 2026-10-15T14:24:15Z; 792,260 train items; 13,992 steps), log `outputs/osler_v1/V8/logs/B3.log`, run record `outputs/osler_v1/V8/B3/logs/train.jsonl`. B2 finished at 2026-10-15T14:24:15Z (rc 0; NOT KEPT against B1, CLAIMS V140). The V4 build and its switch script exited (V4 closed at 2026-10-15T07:56:54Z).
 - B2 and B3 chain: pid 1965958 (`scripts/osler_v1/v8_chain_b2b3.sh`), log `outputs/osler_v1/V8/logs/chain.log`. It built B2 and B3, replayed B0 to B3 (B2 82,826 realised items; B3 81,721), ran B2 and B3, one GPU job at a time, and ended with `V8 B2B3 DONE` at 2026-10-15T20:33:42Z.
 
