@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W1 | Audits; MR suite v1 frozen | small | W0 | DONE | 2026-10-17T14:07:22Z | 2026-10-17T14:13:48Z |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | DONE (C3 replay caveat, Q4) | 2026-10-17T14:14:14Z | 2026-10-17T14:19:31Z |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
-| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | PENDING | | |
+| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | IN_PROGRESS | 2026-10-17T14:19:50Z | |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
 | W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
@@ -70,8 +70,20 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (W2 DONE at 2026-10-17T14:19:31Z)
-Working dir:    outputs/osler_v2/W2/
+Task in flight: W3b (started 2026-10-17T14:19:50Z)
+Working dir:    outputs/osler_v2/W3b/
+
+- [ ] vLLM 0.31.0 in envs/vllm (own venv, not the project env); torch works on this Blackwell GPU
+- [ ] chat template examples/tool_chat_template_gemma4.jinja from the vLLM tag fetched into envs/vllm/examples/
+- [ ] vllm serve google/gemma-4-31B-it-qat-w4a16-ct (detached; log in outputs/osler_v2/W3b/logs/)
+- [ ] pilot: w3b_charts.py --count 200 (charts kept, items by template, drop reasons, charts/h, tokens)
+- [ ] read 10 charts in a fresh process (not committed); acceptance: ≥ 50 % full charts and no label-tracking phrase
+- [ ] build up to --count 20000 (resumable) or 12 GPU hours; stop server
+- [ ] O3 NB screen per chart template on dev; leakage check vs test sets; loops/osler_v2/charts.md
+- [ ] acceptance check run and passed
+- [ ] self-audit (R6) written to SELF_AUDIT.md
+- [ ] CLAIMS.md rows appended
+- [ ] STATE updated, committed, pushed
 
 ```
 
