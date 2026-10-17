@@ -17,19 +17,18 @@
 
 ## Current loop
 
-- **Loop:** `osler_v1` (loop 1d — medical-record audit data, MIMIC, teacher prose)
-- **Mission:** build medical-record audit decisions (page category, ICD-10-CM code support, clinical-indicator evidence;
-  D29) synthetic-first (D32): code-generated records, Synthea encounters, real clinical text (MTSamples, CodiEsp,
-  PMC-Patients) and verified teacher prose (D27, D30), with MIMIC (D28) as a late block if approved in time; raise replay to 20 %;
-  measure a faster batching recipe; compare data blocks with short matched 4B runs and a pre-registered dev keep-rule;
-  train Osler-4B and Osler-9B on the kept mix; apply Gate O2 (D31) — then hard-stop for review.
-- **Branch:** `loop/osler_v1` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v1/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v1/STATE.md`
-- **Outputs:** `outputs/osler_v1/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v1/CLAIMS.md`
+- **Loop:** `osler_v2` (loop 1e — real text with the attention-only adapter, replay 20 %, Osler-4B and -9B)
+- **Mission:** fix the osler_v1 evaluation defects (MR suite v1, D35), raise replay to 20 % (D36), add real clinical text
+  (CodiEsp, MTSamples, EHR-Rel) and the teacher prose as blocks on the attention-only adapter (D33) with the block design v2
+  (D34), add official MIMIC as a block if the files arrive, train Osler-4B and Osler-9B on the kept mix, apply Gate O3
+  (D35) — then hard-stop for review.
+- **Branch:** `loop/osler_v2` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v2/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/osler_v2/STATE.md`
+- **Outputs:** `outputs/osler_v2/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v2/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-13T21:32:02Z`
+- **Started:** `<fill in at W0>`
 
 ---
 
@@ -101,8 +100,10 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 - **Public repo.** This GitHub repo is public. Never commit raw benchmark items,
   predictions, teacher labels, UMLS-derived text, or MIMIC-derived text. Commit code,
   configs, manifests (IDs, hashes, counts), and aggregate results only.
-- **UMLS / SNOMED / RxNorm-restricted strings** are private-only. They never go to a
-  hosted third-party API — only to self-hosted models.
+- **UMLS / SNOMED / RxNorm-restricted strings** taken from licensed UMLS or SNOMED release files are private-only. They
+  never go to a hosted third-party API — only to self-hosted models. Display names that a public, permissively licensed
+  dataset already publishes (e.g. Synthea's condition and medication names) are not covered by this rule (operator
+  answer, osler_v1 Question 11).
 - **MIMIC and other PhysioNet credentialed data** (D28) may only be processed on
   operator-controlled machines by local models; never sent to a hosted third-party
   API (including the hosted teacher); never printed into anything committed. It is a training and
@@ -214,6 +215,7 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
+| `osler_v1` | Synthetic-first medical-record audit data (generators, Synthea, MTSamples, CodiEsp, PMC-Patients, 31,000 verified teacher pages), replay 15 %, four data blocks (B1 kept: generators + Synthea; teacher prose and real text not kept), attention-only final Osler-4B (9B deferred). **Gate O2 FAIL**: MR suite +8.1 accuracy vs MedDecider-4B but Brier worse (real-text ICD, overconfident); external panel −2.2 (limit −2.0). Knowledge guard passes at +4.4 — the attention-only adapter fixed osler_v0's loss. Generated MR items +23.5 vs MedDecider-4B; real text −7.4. The MR suite was dominated by a vocabulary-solvable template and three ceiling templates. | `loops/osler_v1/FINDINGS.md` |
 | `osler_v0` | Scoreboard of 11 models on a 59,538-item common set (v0.2, a 4,353-item external clinical panel, a 20,109-item robustness pack); nine clinical generators (two held out); three matched 4B arms within half a point (dev rule kept the option-code head); Osler-9B and -0.8B. **Gate O1 FAIL** for both sizes: they beat every baseline on fresh seen templates (+9 to +13 pts) and robustness, but lose the external panel to MedDecider (4B −5.3, 9B −1.7) and the 4B fails the knowledge guard (−1.6). Calibration temperatures were not saved with checkpoints (fixed in osler_v1). | `loops/osler_v0/FINDINGS.md` |
 | `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
 | `bench_v0_fix0` | Repaired loop 0: MedMCQA key fixed (0 gold mismatches of 15,915 verified), `noul`/`score` readout fixed (label mass 0.996+), D12 readout-health gate added, benchmark rebuilt as v0.1 (22,594 tier-1 + 23,582 balanced fresh items, window 2026-03-01), all 6 ladder models + JEV-9B + 2 Laya models measured, all 53 bench_v0 claims dispositioned (4 withdrawn). Teacher gate still blocked; audit staged. Advisor note: its Summary item 7 ("~0.50 on every fresh `noul`") holds only for the 350M model. | `loops/bench_v0_fix0/FINDINGS.md` |

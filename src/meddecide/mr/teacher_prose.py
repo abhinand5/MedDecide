@@ -16,12 +16,12 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from meddecide.mr import icd
-from meddecide.mr.criteria import ChunkFacts
-from meddecide.mr.pages import PAGE_KEYS
+from meddecide.mr.criteria import CANONICAL_UNITS, ChunkFacts
+from meddecide.mr.pages import PAGE_KEYS, _fmt
 
 CREDENTIALED_SOURCES = ("mimic", "physionet", "mdace")
 
@@ -65,7 +65,19 @@ def page_facts(page_facts: dict[str, Any]) -> dict[str, Any]:
 
 
 def chunk_facts(facts: ChunkFacts) -> dict[str, Any]:
-    return {"observations": [asdict(o) for o in facts.observations], "medications": [asdict(m) for m in facts.meds]}
+    """Facts for a chunk, with every value rounded as a record would print it (osler_v1 V4-D8: unrounded values such as
+    "lactate 2.873" leaked into teacher pages). The generators keep values away from each threshold by more than this
+    rounding, so the code's label is unchanged."""
+    obs = []
+    for o in facts.observations:
+        shown, unit = o.displayed()
+        obs.append({"name": o.name, "value": float(_fmt(o.value, o.name)), "unit": CANONICAL_UNITS[o.name],
+                    "display_value": _fmt(shown, o.name, unit), "display_unit": unit,
+                    "hours_from_admission": round(o.time_h, 1), "encounter": o.encounter, "baseline": o.baseline,
+                    "on_room_air": o.on_room_air})
+    meds = [{"drug": m.drug, "dose": m.dose, "hours_from_admission": round(m.time_h, 1), "status": m.status,
+             "encounter": m.encounter} for m in facts.meds]
+    return {"observations": obs, "medications": meds}
 
 
 STYLE_DEFAULTS = {"length": "half a page (about 250-350 words)", "voice": "a hospital clinician"}
@@ -79,9 +91,10 @@ WRITE_SYSTEM = "\n".join([
     "- Use realistic clinical language, abbreviations and section headings, and plausible unrelated narrative detail "
     "(history, exam findings without numbers, plans) so the page reads like a real record.",
     "- Every item in FACTS must be stated exactly as given: same values, units, times relative to admission, certainty "
-    "words, who has the condition, and whether it is current or past. State plainly when a value is from a prior "
-    "admission, when it is the patient's documented baseline, and whether an oxygen saturation was on room air or on "
-    "oxygen. State the administration status of every medication.",
+    "words, who has the condition, and whether it is current or past. Give each value as display_value with display_unit. "
+    "Make clear, in your own varied wording, when a value is from a prior admission, when it is the patient's usual or "
+    "chronic level (baseline), and whether an oxygen saturation was on room air or on oxygen; never reuse one fixed "
+    "phrase for these. State the administration status of every medication.",
     "- Do not state any vital sign, laboratory value or medication administration other than those in FACTS, and do not "
     "add any other diagnosis of the same condition.",
     "- Do not state or hint at any billing code, and do not say whether any criteria are met.",

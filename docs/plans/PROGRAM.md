@@ -94,6 +94,11 @@ re-measured on MedDecide-Bench.
 | D30 | **Teacher service.** The teacher (DeepSeek-V4.1-Flash) may be a hosted endpoint (OpenCode Go or the DeepSeek API, zero data retention) for prose from code-generated facts; anything that reads MIMIC text uses a self-hosted teacher. Credentials only from environment variables (`TEACHER_BASE_URL`, `TEACHER_API_KEY`, `TEACHER_MODEL`, `TEACHER_LOCAL`, `TEACHER_EXTRA_HEADERS`) | 2026-10-13 | operator decision |
 | D31 | **Gate O2** (osler_v1), fixed before results: Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B}, Osler-9B vs {MedDecider-9B, JEV-9B}; item-paired bootstrap 95 % CI (1,000 resamples, within templates) of Osler − B, accuracy = template macro (G1), Brier = item mean. PASS iff **(i) MR audit suite** (the osler_v1 MR test sets, generated and MIMIC parts pooled by template): accuracy lower bound > 0 and Brier upper bound < 0 against both baselines; **(ii) external clinical panel** (osler_v0's): accuracy lower bound > −0.02 against both baselines (non-inferiority; superiority reported separately); **(iii) knowledge guard** as D24. Additional rows (d1-3B, siblings, larger models) never enter a verdict | 2026-10-13 | the loop's question is record-audit skill without losing general clinical skill; the panel moves from superiority to non-inferiority because this loop adds no broad-clinical data (operator to confirm before V9 runs) |
 | D32 | **Synthetic-first; MIMIC when approved.** PhysioNet approval takes about two weeks, so osler_v1 does not wait for it. Pre-MIMIC sources: **Synthea** (MIT; `richardyoung/synthea-575k-patients`, streamed, never downloaded whole) for encounter values, medications and charges rendered as record pages and as facts for teacher narrative pages; **MTSamples** (licence uncertain; operator accepts it) for real note-type text; **CodiEsp** (CC BY 4.0) for ICD-10 coding of real clinical cases; **PMC-Patients** (CC BY-NC-SA 4.0 overall; operator chose all of it, the `comm`/`noncomm` subset is recorded per row) for citation-linked patient similarity; NHS synthetic notes (MIT) and the CC BY clinical-case ICD-10 set as evaluation only. Unofficial re-uploads of MIMIC on the Hub are never used (DUA). MIMIC (D28) joins as a block when the files exist, in this loop or the next | 2026-10-13 | operator decision after the Hub survey; PhysioNet review time |
+| D33 | **Attention-only LoRA is the default adapter** from osler_v2: LoRA on the attention projections only (osler_v1 B0b's targets), the readout unchanged (D23). Block runs and final runs use it | 2026-10-17 | osler_v1: knowledge dev −0.008 [−0.042, +0.026] (B0b) vs −0.060 [−0.102, −0.020] (B0) at equal dev template macro; the final Osler-4B (attention-only) passed the knowledge guard at +0.044 [+0.032, +0.055] on 5,456 test items, where osler_v0's all-layer 4B failed it |
+| D34 | **Block design v2.** Each candidate block adds one source to the **last kept** block (not to every earlier candidate), so a rejected source never rides along. The fixed dev set is assembled once, before any block runs, and holds the dev items of **every** candidate source. The knowledge dev set uses all MedQA and MedMCQA dev items available in the mix's dev splits, at least 4,000 items, so the −0.02 margin can be met by a model equal to its base. The keep rule (three lower bounds: MR > 0, general > −0.01, knowledge > −0.02) is unchanged | 2026-10-17 | osler_v1: B3 contained B2's rejected prose; B2 was judged on a dev set without its own templates; the 500-item knowledge check failed a model 0.8 points from its base |
+| D35 | **MR suite v1 and Gate O3** (osler_v2), fixed before any osler_v2 result. The MR suite v1 is the osler_v1 MR test suite plus the new sources' test templates, **minus** (a) any template on which zero-shot Qwen3.5-4B scores ≥ 0.97 on its dev items (ceiling), and (b) any template whose O3 Naive Bayes screen on dev is ≥ 0.90 (vocabulary shortcut); both are reported, never in the verdict. Gate O3 = D31's three checks on the MR suite v1, the external panel (non-inferiority, lower bound > −0.02) and the knowledge guard, for Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B} and Osler-9B vs {MedDecider-9B, JEV-9B} | 2026-10-17 | osler_v1: three templates at 1.000 and a vocabulary-solvable template (42 % of the MR test items; word overlap AUC 0.97) dominated the MR suite |
+| D36 | **Replay at 20 % or more**, with share-alike sources (CC BY-SA: ARC, BoolQ, SNLI) allowed for training: the training data is never distributed (release policy), so the share-alike clause does not reach the weights. Licences are recorded per source | 2026-10-17 | osler_v1 replay stayed at 12.6–15.3 % and knowledge fell as the replay share fell (B2 −0.022, B3 −0.040 against B1) |
+| D37 | **No unofficial copies of credentialed data, ever** — including Hub datasets that reproduce MIMIC tables or notes (e.g. `lucky9-cyou/MIMIC-IV`, `ricardosantoss/ehrcomplete_icdfiltered`), before or after the operator's PhysioNet approval. MIMIC enters only from the official PhysioNet files (D28) | 2026-10-17 | the operator's PhysioNet approval is pending; these copies would breach the data-use agreement and taint the release |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -187,7 +192,7 @@ review; loop 3's 27B-class baseline runs move here because they fit on one PRO 6
 - **Gate O1 (D24).**
 - Spec: `loops/osler_v0/ADVISORY.md`.
 
-### Loop 1d — `osler_v1`: medical-record audit data, MIMIC, teacher prose  *(current)*
+### Loop 1d — `osler_v1`: medical-record audit data, MIMIC, teacher prose  *(done — see `loops/osler_v1/FINDINGS.md`)*
 
 Inserted after the osler_v0 review (D26–D32). Data first: no architecture work; synthetic-first while MIMIC approval is pending (D32).
 - **New task families (D29):** page category, ICD-10-CM code support, clinical-indicator evidence — generated by
@@ -199,6 +204,17 @@ Inserted after the osler_v0 review (D26–D32). Data first: no architecture work
 - **Data blocks** compared by short matched 4B runs and a pre-registered dev keep-rule; then one Osler-4B and one
   Osler-9B on the kept mix; **Gate O2 (D31)**.
 - Spec: `loops/osler_v1/ADVISORY.md`.
+
+### Loop 1e — `osler_v2`: real text with the attention-only adapter, replay 20 %, Osler-4B and -9B  *(current)*
+
+Inserted after the osler_v1 review (D33–D37). osler_v1's Osler-4B passed the knowledge guard (+4.4 points) but lost real-text
+ICD coding and the external panel to MedDecider-4B by small margins; its kept mix had no real clinical text.
+- **Adapter:** attention-only LoRA (D33).
+- **Blocks v2 (D34):** replay ≥ 20 % (D36) → real text (CodiEsp, MTSamples, EHR-Rel) → teacher prose → MIMIC when the
+  official files exist; each added to the last kept block; a dev set with every source's templates and a powered
+  knowledge check.
+- **MR suite v1 and Gate O3 (D35)**; Osler-4B and Osler-9B.
+- Spec: `loops/osler_v2/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat
 

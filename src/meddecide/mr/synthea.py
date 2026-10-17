@@ -26,6 +26,7 @@ from meddecide.mr.noise import dress_page
 from meddecide.mr.pages import (
     PAGE_CLASSES,
     Charge,
+    _fmt,
     make_context,
     render_bill_page,
     render_ed_page,
@@ -261,6 +262,7 @@ def narrative_facts(enc: SyntheaEncounter) -> dict[str, object]:
         "age": enc.age, "sex": enc.sex, "encounter": enc.description, "reason": enc.reason,
         "conditions": list(enc.conditions)[:8],
         "medications": sorted({m.drug for m in enc.meds})[:8],
-        "measurements": [{"name": o.name, "value": round(o.displayed()[0], 2), "unit": o.displayed()[1],
-                          "hours_from_start": o.time_h} for o in enc.observations[:20]],
+        "measurements": [{"name": o.name, "value": _fmt(o.displayed()[0], o.name, o.displayed()[1]),
+                          "unit": o.displayed()[1], "hours_from_start": round(o.time_h, 1)}
+                         for o in enc.observations[:20]],
     }
