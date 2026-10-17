@@ -29,8 +29,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
 | W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | BLOCKED — pilot label-tracking phrase remains after the one allowed prompt fix (chart_icd_support_v1); C3 not built | 2026-10-17T14:19:50Z | 2026-10-17T14:56:32Z |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
-| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
-| W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
+| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3b BLOCKED: no chart templates; W3, W4 if built) | DONE (pplx test-side scoring queued after the C0 stage, D-W5-2) | 2026-10-17T14:59:04Z | 2026-10-17T16:04:39Z |
+| W6 | Blocks v2 + keep rule | yes | W5 | IN_PROGRESS — C0q running (PID 2955722) | 2026-10-17T16:04:39Z | |
 | W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | PENDING | | |
 | W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | PENDING | | |
 | W9 | Memorisation audit (only with MIMIC) | small | W7 | PENDING | | |
@@ -70,8 +70,19 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (W3b BLOCKED at 2026-10-17T14:56:32Z)
-Working dir:    outputs/osler_v2/W3b/
+Task in flight: W6 (started 2026-10-17T16:04:39Z); C0q full run running
+Working dir:    outputs/osler_v2/W6/
+Running job:    PID 2955722 (`w6_block_run.py --block C0 --backbone qwen`), log outputs/osler_v2/W6/logs/C0_qwen.log;
+                queue: outputs/osler_v2/W6/logs/chain.log (C0p, base choice, knowledge checks), then scripts/osler_v2/w5_pplx_test.sh
+
+- [x] C0 replays (qwen, pplx) at 13,992 steps (CPU)
+- [x] smoke C0 qwen (stopped by the tripwire at 4 steps; expected for an untrained option-code readout; D-W6-2) and smoke C0 pplx (8/8 steps)
+- [ ] C0q full run (13,992 steps; evals at 25/50/75/100 %)
+- [ ] C0p full run
+- [ ] base choice (D39) written to outputs/osler_v2/W6/keep/base_choice.json and loops/osler_v2/blocks.md BEFORE C1
+- [ ] knowledge checks C0q and C0p (D12-gated zero-shot)
+- [ ] C1 on the chosen base; keep rule vs C0; C2 on the last kept block; keep rule
+- [ ] W7 final Osler-4B; W8 evaluation and Gate O3 (after the queued pplx test-side scoring)
 
 ```
 
@@ -128,6 +139,18 @@ Working dir:    outputs/osler_v2/W3b/
 
 ---
 
+### W5 — DONE — 2026-10-17T16:04:39Z
+- What ran: `w5_knowledge_dev.py` (rebuilt once, D-W5-5); `w5_assemble.py` (fast dev v2 11,323; CodiEsp carve-out 74 cases; blocks C0 771,009 / C1 830,076 / C2 867,298); `w2_ehr_rel.py` (rebuilt for keys and dedupe); the zero-shot runners (Qwen and pplx on knowledge dev v2; five baselines on the EHR-Rel test); `w5_baselines_summary.py`; `loops/osler_v2/baselines_v2.md`.
+- Output: `outputs/osler_v2/W5/` (assembly.json, knowledge_dev_v2.json, baselines_summary.json, predictions, superseded folders).
+- Headline: knowledge dev v2 (3,988 items): zero-shot Qwen3.5-4B 0.6642 (D12 PASS), zero-shot pplx 0.7728 (CLAIMS W037–W038). EHR-Rel test (373): MedDecider-4B 0.5442, Qwen-9B 0.5067, MedDecider-9B 0.4906, Qwen-4B 0.3995, JEV-9B 0.2386 (chance 0.25; CLAIMS W039).
+- Surprises: (1) a duplicated knowledge id (fixed, rebuilt); (2) EHR score keys had to be 1..N; (3) 12 MedMCQA items repeat a label; (4) C2's prose rows are 37,222 (twin rows), so C2's replay share is 20.13 % (CLAIMS W034–W035).
+- Next: W6.
+
+### W6 — IN PROGRESS — 2026-10-17T16:04:39Z
+- Smokes: pplx 8/8 steps validated; Qwen stopped at step 4 by the tripwire (D-W6-2). Replays for C0, C1, C2 on both backbones (CLAIMS W041). C0q full run started at 2026-10-17T16:01:57Z.
+
+---
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -175,6 +198,16 @@ deviation — that is a `BLOCKED`.
 
 - **D-W3b-1 (W3b, 2026-10-17T14:56:32Z):** `ninja` was not on PATH for the first vLLM launch (server crash, log kept as `serve_attempt1_ninja_missing.log`); the relaunch added the venv's bin directory to PATH. No model setting changed.
 - **D-W3b-2 (W3b, 2026-10-17T14:56:32Z):** one prompt fix in `src/meddecide/mr/charts.py` (the discharge diagnosis instruction in `_narrative`: vary the wording, do not use the labels as headings). It was made after pilot 1 and before pilot 2, as the ADVISORY allows. It did not remove the cue; pilot 2 is the reported pilot. The verifier was not changed.
+- **D-W5-1 (W5, 2026-10-17T14:59:04Z):** W5's dependency list names W3b; W3b is BLOCKED, so W5 runs without chart templates. The ADVISORY's W5 text says "the W3b chart templates if W3b built them", so a blocked W3b does not stop W5 (ADVISORY §5: a BLOCKED task does not block unrelated work).
+- **D-W5-2 (W5, 2026-10-17T16:04:39Z):** the zero-shot pplx scoring on the MR suite (test and held-out), the external panel and the knowledge test items (ADVISORY W5 step 3) is queued after the C0 stage, not run in W5. Nothing before W8 reads it, and it is needed only as the substitute baseline if D39 chooses pplx. It must finish before W8.
+- **D-W5-3 (W5, 2026-10-17T16:04:39Z):** the O2 runners of osler_v1 accept only the scopes mr_v0, all and panel_robustness. The EHR-Rel test set was tagged `benchmark: mr_v0` in a copy (`ehr_rel_test_mrv0.jsonl`); only the tag changed.
+- **D-W5-4 (W5, 2026-10-17T16:04:39Z):** the EHR-Rel score keys were 0..3 and failed the bench schema (keys must be 1..N). They are now 1..4 (the paper's 0..3 levels, shifted by one). The EHR-Rel files, fast dev v2, the blocks, the replays and the five EHR baselines were rebuilt and rerun; the superseded baselines are in `outputs/osler_v2/W5/superseded_ehr_keys/`.
+- **D-W5-5 (W5, 2026-10-17T16:04:39Z):** knowledge dev v2 had one duplicated item id (two MedQA questions with the same stem; the hash used the question only). The record hash now includes the options and the answer. The set was rebuilt (4,000 unique ids); its zero-shot runs were redone; the superseded outputs are in `outputs/osler_v2/W5/superseded_dup_id/`.
+- **D-W5-6 (W5, 2026-10-17T16:04:39Z):** 12 knowledge items repeat an option label (MedMCQA). The pplx reference cannot score a repeated label, so they are skipped by pplx and excluded from every knowledge comparison on both sides (3,988 items). CLAIMS W040.
+- **D-W5-7 (W5, 2026-10-17T16:04:39Z):** the keep rule's partitions come from `meddecide.train.blocks.MR_SOURCES` (osler_v1's code). EHR-Rel (source `ehr_rel`) is therefore in the general partition, not MR. The W5 assembly manifest labels it `mr` (its `partition_of` prefix rule); that label is informational only and feeds no decision.
+- **D-W5-8 (W5, 2026-10-17T16:04:39Z):** the CodiEsp carve-out is exactly 15 % of cases by rank (74 of 493). The first draft used a hash threshold (11.4 %) and was replaced before any run used it.
+- **D-W6-1 (W6, 2026-10-17T16:04:39Z):** the pplx replay encoder is `PplxDecisionModel.encode_item` on an object created without weights (`__new__`) that holds the tokenizer, marker, option codes and prompt length. The first attempt loaded the tokenizer from the project root (a path bug, fixed).
+- **D-W6-2 (W6, 2026-10-17T16:04:39Z):** the Qwen smoke stopped at step 4 on the trainer's dev-macro tripwire (two consecutive evaluations below 0.5: template macro 0.361 at step 2). An untrained option-code readout is expected to be near chance at 2–4 steps; the pplx smoke (its readout is pre-trained) ran all 8 steps. The full C0q run is the first validation of its tripwire behaviour; the tripwire is not edited.
 
 ## 8. Closure summary feed
 
