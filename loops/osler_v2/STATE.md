@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (W10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-17T13:34:35Z`
-Last updated (UTC): `2026-10-17T13:34:35Z`
+Last updated (UTC): `2026-10-17T14:06:18Z`
 Iterations so far: `1`
 
 ---
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| W0 | Orientation | no | — | IN_PROGRESS | 2026-10-17T13:34:35Z | |
+| W0 | Orientation | no | — | DONE | 2026-10-17T13:34:35Z | 2026-10-17T14:06:18Z |
 | W1 | Audits; MR suite v1 frozen | small | W0 | PENDING | | |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | PENDING | | |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
@@ -45,13 +45,13 @@ once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PRO
 
 | key | value | source | task |
 |---|---|---|---|
-| teacher allowance / DeepSeek balance; MIMIC files | | | W0 |
+| teacher allowance / DeepSeek balance; MIMIC files | OpenCode Go reachable (HTTP 200, 37 ids, chat OK; 5-hour and weekly allowances NOT MEASURED, not exposed to the client); DeepSeek balance USD 9.88 (loop cap $9.00); MIMIC core 0 of 5 files | `loops/osler_v2/CLAIMS.md` W003–W005; `outputs/osler_v2/W0/env_probe.json` | W0 |
 | too-good ICD probe result; NB screen per template; ceiling statistic; MR suite v1 verdict templates | | `loops/osler_v2/mr_suite_v1.md` | W1 |
 | replay share of the largest block; sources and licences; EHR-Rel items | | | W2 |
 | ICD prose v2 pilot pass rate; pairs built; spend | | | W3 |
 | charts: pilot keep rate, charts/h, items per template, NB screens | | `loops/osler_v2/charts.md` | W3b |
 | fast dev v2 partitions; knowledge dev v2 size; zero-shot knowledge dev | | | W5 |
-| speed check: real tokens/s and peak per backbone | | | W0 |
+| speed check: real tokens/s and peak per backbone | Qwen 6,802 tok/s, peak 58.4 GB; pplx-flash 6,469 tok/s, peak 57.1 GB (both pass: ≥ 5,500, ≤ 85 GB) | `loops/osler_v2/CLAIMS.md` W007–W008; `outputs/osler_v2/W0/speed_summary` logs | W0 |
 | base choice (C0p − C0q, three partitions) and the chosen base | | `loops/osler_v2/blocks.md` | W6 |
 | kept blocks and dev deltas | | `loops/osler_v2/blocks.md` | W6 |
 | Osler-4B: base, steps, selected step, dev template macro | | | W7 |
@@ -70,18 +70,9 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W0 (started 2026-10-17T13:34:35Z)
+Task in flight: none (W0 DONE at 2026-10-17T14:06:18Z)
 Working dir:    outputs/osler_v2/W0/
 
-- [ ] ruff + pytest (padding test deselected)
-- [ ] teacher reachability (OpenCode Go list_models; DeepSeek balance), no keys printed
-- [ ] MIMIC official files present?
-- [ ] commit, GPU, disk recorded
-- [ ] speed check: w0_speed.py Qwen and --pplx (300 steps, dyn 8192)
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
 ```
 
 ---
@@ -134,3 +125,10 @@ deviation — that is a `BLOCKED`.
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
 | | | | |
+
+### W0 — DONE — 2026-10-17T14:06:18Z
+- What ran: `scripts/osler_v2/w0_speed.py --steps 300 --dyn 8192` (Qwen and `--pplx`); `scripts/osler_v2/w0_env_probe.py`; ruff; full pytest gate with the padding strict-xfail deselected on the command line only.
+- Output: `outputs/osler_v2/W0/` (speed logs, `env_probe.json`, `pytest_gate.log`, `ruff.log`, `SELF_AUDIT.md`).
+- Headline: speed Qwen 6,802 real tok/s (peak 58.4 GB), pplx-flash 6,469 (peak 57.1 GB); both pass the 5,500 / 85 GB rule (CLAIMS W007–W008). Pytest gate: 730 passed, 1 skipped, 1 deselected, exit 0 (W002).
+- Surprises: (1) first Qwen speed attempt hit CUDA OOM because my own pytest run (started with the wrong deselect) held about 89 GB; rerun after it exited. (2) that pytest run failed the padding test, which is deselected by osler_v1 practice and was not edited. (3) non-fatal allocator warnings in both speed logs. (4) MIMIC files absent (expected).
+- Next: W1 (CPU audits) and W2 (replay and EHR-Rel) are unblocked.
