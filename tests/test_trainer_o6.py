@@ -153,7 +153,7 @@ def test_checkpoint_above_tokens_changes_speed_not_numbers(tiny_dir) -> None:
                                shuffle_options=False)
         calls: list[bool] = []
         original = model.checkpoint_this_batch
-        model.checkpoint_this_batch = lambda flag, _o=original: (calls.append(flag), _o(flag))[1]
+        model.checkpoint_this_batch = lambda flag, _o=original, _c=calls: (_c.append(flag), _o(flag))[1]
         Trainer(model, config).train(items, steps=3)
         finals.append(model.optcode.weight.detach().clone())
         # the switch is applied on every training step when a threshold is set, and never otherwise
