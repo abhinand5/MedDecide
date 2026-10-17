@@ -27,7 +27,7 @@ from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 RAW = "https://raw.githubusercontent.com/babylonhealth/EHR-Rel/master/{name}"
-SOURCES = {"RelA": "EHR-RelA.tsv", "RelB": "EHR-RelB.tsv"}
+SOURCES = {"RelB": "EHR-RelB.tsv", "RelA": "EHR-RelA.tsv"}  # RelB first: a pair in both keeps RelB (3 raters, the larger set)
 GEN_DIR = REPO / "data" / "gen" / "osler_v2" / "ehr_rel"
 TRAIN_OUT = REPO / "data" / "train" / "osler_v2" / "ehr_rel_train.jsonl"
 OUT_MANIFEST = REPO / "outputs" / "osler_v2" / "W2" / "ehr_rel_manifest.json"
@@ -45,6 +45,7 @@ def fetch(name: str) -> bytes:
 def main() -> None:
     rows_by_split: dict[str, list[dict[str, Any]]] = {"train": [], "dev": [], "test": []}
     report: dict[str, Any] = {"sources": {}}
+    seen_pairs: set[str] = set()  # the pair key is order-free: a pair listed twice keeps its first row
     for subset, name in SOURCES.items():
         raw = fetch(name)
         reader = csv.DictReader(io.StringIO(raw.decode("utf-8")), delimiter="\t")
@@ -52,6 +53,12 @@ def main() -> None:
         kept = 0
         for rec in reader:
             row, reason = ehr_rel_row(rec, subset)
+            if row is not None:
+                pair = row["source_record_id"].split("|", 1)[1]
+                if pair in seen_pairs:
+                    row, reason = None, "duplicate_pair"
+                else:
+                    seen_pairs.add(pair)
             reasons[reason] += 1
             if row is None:
                 continue
