@@ -45,7 +45,7 @@ def request_for(row: dict) -> tuple[dict, list[str]]:
     if len(set(labels)) != len(labels):
         raise ValueError(f"{row['item_id']}: option labels must be distinct for the reference criteria")
     request = {"state": row["state"], "questions": {"q": {"type": "choice", "instructions": row["question"],
-                                                          "criteria": {label: None for label in labels}}}}
+                                                          "criteria": dict.fromkeys(labels)}}}
     return request, original
 
 
