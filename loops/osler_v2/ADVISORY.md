@@ -1,4 +1,4 @@
-# ADVISORY — osler_v2: real text with the attention-only adapter, replay 20 %, Osler-4B and -9B
+# ADVISORY — osler_v2: real text, pplx-flash as a candidate base, replay 20 %, Osler-4B
 
 Planned 2026-10-17 by the advisor (Claude Opus) with the operator, after the osler_v1 review. Read in full at the start of
 every iteration. Decisions referenced here are in `docs/plans/PROGRAM.md` §3 (D33–D37 are new).
@@ -40,24 +40,37 @@ Defects of the osler_v1 design, fixed here:
    Fixed in code at planning time (`teacher_prose.chunk_facts` rounds as a record prints, and the prompt asks for varied
    wording).
 
+**Planning-time changes after the first draft (operator, 2026-10-17):**
+- **pplx-decider-flash-v1.2 is a candidate base (D39).** It is Qwen3.5-4B (our revision) distilled from pplx's 27B decision
+  models, Apache-2.0. Code: `src/meddecide/model/pplx.py` (`PplxDecisionModel`; config `backbone: pplx`). Parity with its
+  authors' reference code: identical token sequences and the same argmax on 40 of 40 real items; logit differences
+  ≤ 0.057 (bf16). `tests/test_pplx_parity.py` re-checks this on the GPU with torchvision added for the run only. A GPU
+  smoke run (train, select, calibrate, reload, score) passed. The base is chosen on dev at C0 (W6).
+- **Osler-9B is deferred** (D39). This loop trains and gates Osler-4B only.
+- **Training is faster (D40).** Attention-only LoRA, with gradient checkpointing only for batches above 8,192 padded tokens
+  (`checkpoint_above_tokens`). The advisor measured 6,838 real tokens/s (Qwen) and 6,406 (pplx) on 300 real batches,
+  against osler_v1's 3,744; peak 58 GB. One 13,992-step block now takes about 3 hours, not 5.5.
+
 **MIMIC:** the operator's PhysioNet approval is still pending. Official files only (D28, D37). V5c's code is reused as W4.
 It never blocks the loop.
 
 ## 2. The question this loop answers
 
 With the attention-only adapter, does real clinical text (CodiEsp, MTSamples, EHR-Rel) close the real-text ICD gap without
-costing knowledge or general skill? And does Osler-4B or Osler-9B then pass Gate O3 against MedDecider of its size?
+costing knowledge or general skill? Is pplx-decider-flash a better starting point than Qwen3.5-4B? And does Osler-4B then
+pass Gate O3 against MedDecider-4B and its own base?
 
 Outcomes (write the one that applies into FINDINGS):
 
-1. **Gate O3 passes for a size.** That recipe is the base for the payer loop and the release track.
+1. **Gate O3 passes for Osler-4B.** That recipe is the base for the payer loop, the 9B and the release track.
 2. **The real-text block is kept but the gate fails on the panel.** The audit skill transfers; broad clinical data is the
    next lever.
 3. **The real-text block is not kept on the attention-only adapter either.** Real text costs knowledge or general skill
    whatever the adapter. Look at which template causes it.
 4. **The MR suite v1 fails on Brier only.** Calibration is the lever, not data: per-template temperatures or a
    confidence penalty.
-5. **The 9B passes and the 4B does not.** Report the size effect.
+5. **The base choice decided the result.** If C0p and C0q differ widely on dev, report how much of the final result the
+   base explains (the C0 runs of both bases on the MR suite v1, as additional rows).
 
 ## 3. Ground rules specific to this loop
 
@@ -73,8 +86,11 @@ Outcomes (write the one that applies into FINDINGS):
 3. **No unofficial copies of credentialed data, ever (D37).** Never download or read `lucky9-cyou/MIMIC-IV`,
    `ricardosantoss/ehrcomplete_icdfiltered`, or any other Hub re-upload of MIMIC or other PhysioNet data, even if the
    operator's approval arrives during the loop. Official files under `data/physionet/` only.
-4. **Adapter (D33):** LoRA on the attention projections only (osler_v1 B0b's `target_modules`), r=32, alpha=32. Every
-   other recipe constant is as in osler_v1 (V0's batching: batch 8, 8,192 tokens, gradient checkpointing).
+4. **Adapter and speed (D33, D40):** LoRA on the attention projections only (osler_v1 B0b's `target_modules`), r=32,
+   alpha=32. Batching: batch 8, 8,192 tokens, prompt cap 16,384, `gradient_checkpointing: true` with
+   `checkpoint_above_tokens: 8192`. Every other recipe constant is as in osler_v1. Saved checkpoints of either backbone
+   load with `meddecide.model.pplx.load_any` (use it in every scorer; osler_v1's `v10_score.py` calls
+   `MedDecideModel.load` and must be adapted).
 5. **Held-out lists are unchanged:**
    - indicator `aki_creatinine_rise`;
    - ICD family `heart_failure`;
@@ -98,6 +114,9 @@ Outcomes (write the one that applies into FINDINGS):
    allowance and balance, never a key.
 3. **MIMIC files:** official files present? (expected: absent).
 4. Record the commit, GPU and disk.
+5. **Speed check:** `scripts/osler_v2/w0_speed.py --steps 300 --dyn 8192` for Qwen and again with `--pplx` (the advisor's
+   profile, as a script). Record real tokens/s and peak memory. Below 5,500 real
+   tokens/s, or a peak above 85 GB, is a defect to investigate before W6.
 
 ### W1 — Audits carried from osler_v1 NEXT (CPU, ~3 h)
 
@@ -243,11 +262,16 @@ Re-check at W6 and again before W7. It never blocks the loop.
      any training block (remove them from every block if present), 4,000 items in all.
 
    The MR, general and knowledge partitions are recorded in its manifest.
-2. **Zero-shot Qwen3.5-4B on the knowledge dev v2** (the C0 knowledge check needs it).
+2. **Zero-shot Qwen3.5-4B and zero-shot pplx-decider-flash-v1.2 on the knowledge dev v2** (the C0 knowledge checks
+   need both). pplx is scored through its authors' code (`pplx_decider` from the model repository, reference path, one
+   question per request, criteria = the item's option labels in order). Run it with Pillow and torchvision added for
+   the run only: `uv run --frozen --with pillow --with "torchvision==0.29.*"`; never add them to the project.
 3. **Test sets of the new templates:** EHR-Rel test; prose v2 test if built; MIMIC late-anchor test if built.
    - Score them with the five baselines using the O2 runners and protocol.
    - d1-3B is an additional row.
-   - JEV-9B and MedDecider-9B are needed for the 9B gate.
+   - **zero-shot pplx-decider-flash-v1.2** on the whole MR suite v1, its held-out files, the external panel and the
+     knowledge test items (its authors' code, as in step 2). It is the substitute baseline if D39 chooses pplx.
+   - JEV-9B and MedDecider-9B are not needed (9B deferred).
 4. Write `loops/osler_v2/baselines_v2.md`.
 
 ### W6 — Blocks v2 and the keep rule (GPU, ~5.5 h per block)
@@ -256,11 +280,16 @@ All runs are attention-only (D33), on the same 13,992 steps as osler_v1's blocks
 
 | block | contents | compared with |
 |---|---|---|
-| C0 | osler_v1 B1 (generators + Synthea) + the W2 replay (≥ 20 %) | knowledge check against zero-shot on knowledge dev v2 |
-| C1 | C0 + real text: MTSamples, CodiEsp train (minus the dev carve-out), EHR-Rel train. `pmc_similar_patient_v1` joins only if W1's screen put it below 0.90 | C0 |
+| C0q / C0p | osler_v1 B1 (generators + Synthea) + the W2 replay (≥ 20 %), trained on Qwen3.5-4B (C0q) and on pplx-flash (C0p) | each: knowledge check against its own zero-shot base on knowledge dev v2; then the **base choice (D39)**: C0p − C0q |
+| C1 | C0 + real text: MTSamples, CodiEsp train (minus the dev carve-out), EHR-Rel train. `pmc_similar_patient_v1` joins only if W1's screen put it below 0.90 | C0 of the chosen base |
 | C2 | last kept + teacher prose (osler_v1 indicator and narrative prose; ICD prose v2 if built) | last kept |
 | C3 | last kept + W3b charts (all three chart templates), if built | last kept |
 | C4 | last kept + MIMIC (W4), only if the official files exist before C3's keep decision | last kept |
+
+**Base choice (D39, fixed now).** Choose pplx iff, on fast dev v2 (paired bootstrap within templates, 1,000 resamples,
+seed 0), C0p − C0q has lower bounds > −0.01 on the MR partition, > −0.01 on general and > −0.02 on knowledge, **and** a
+positive point difference on MR or general. Otherwise choose Qwen3.5-4B. Write the decision and its numbers to
+`blocks.md` before C1 starts. C1 onwards run on the chosen base only.
 
 Rules:
 - **Keep rule unchanged (D34):** paired bootstrap within templates, 1,000 resamples, seed 0. Lower bounds: MR > 0,
@@ -274,27 +303,29 @@ Rules:
 - **Caps:** no template above 8 % of a block; the tabular page-category templates at 2 % together.
 - Write `loops/osler_v2/blocks.md`.
 
-### W7 — Final Osler-4B and Osler-9B (GPU)
+### W7 — Final Osler-4B (GPU; Osler-9B deferred, D39)
 
 - The kept mix, attention-only, one pass capped at 250,000 realised items.
 - 8 evals on fast dev v2; temperatures fitted on dev and saved with the checkpoint.
-- **4B first, then 9B.** If the 9B needs a smaller batch for memory, record it.
+- On the base chosen at W6 (D39). At the D40 speed, about 9–10 hours.
 - If MIMIC arrives after C3's decision, it does **not** enter the finals of this loop.
 
 ### W8 — Evaluation and Gate O3 (GPU, ~8 h)
 
-1. **Score both models, calibrated:**
+1. **Score Osler-4B, calibrated** (load with `load_any`):
    - MR suite v1, including the reported-only templates;
    - the held-out files;
    - the external panel;
    - the knowledge items.
-2. **Apply Gate O3 (D35)** exactly, for both sizes.
+2. **Apply Gate O3 (D35)** exactly, for Osler-4B, with D39's baseline substitution if pplx was chosen. The 9B verdict is
+   `NOT MEASURED — deferred by the operator (D39)`.
 3. **Additional rows**, labelled:
    - generated vs real-text parts;
    - the reported-only templates;
    - held-out items;
    - d1-3B;
    - osler_v1's Osler-4B;
+   - the base not chosen (zero-shot), and the C0 run of the base not chosen;
    - panel superiority.
 4. Write `gate_o3.md` and `results.md`.
 
@@ -321,7 +352,7 @@ NEXT.md: proposals only. Set `Loop status: STOPPED`, commit, push, stop.
 | W4 | MIMIC (only when the official files exist) | no | W0 |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) |
 | W6 | Blocks v2 + keep rule | yes | W5 |
-| W7 | Final Osler-4B and Osler-9B | yes | W6 |
+| W7 | Final Osler-4B (9B deferred) | yes | W6 |
 | W8 | Evaluation + Gate O3 | yes | W7 |
 | W9 | Memorisation audit (only with MIMIC) | small | W7 |
 | W10 | Findings and closure — HARD STOP | no | all |

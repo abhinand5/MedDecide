@@ -17,11 +17,11 @@
 
 ## Current loop
 
-- **Loop:** `osler_v2` (loop 1e — real text with the attention-only adapter, replay 20 %, Osler-4B and -9B)
+- **Loop:** `osler_v2` (loop 1e — real text, pplx-flash as a candidate base, replay 20 %, Osler-4B)
 - **Mission:** fix the osler_v1 evaluation defects (MR suite v1, D35), raise replay to 20 % (D36), add real clinical text
   (CodiEsp, MTSamples, EHR-Rel) and the teacher prose as blocks on the attention-only adapter (D33) with the block design v2
-  (D34), add official MIMIC as a block if the files arrive, train Osler-4B and Osler-9B on the kept mix, apply Gate O3
-  (D35) — then hard-stop for review.
+  (D34), choose Qwen3.5-4B or pplx-decider-flash-v1.2 as the base on dev (D39), add official MIMIC as a block if the
+  files arrive, train Osler-4B (9B deferred) with the faster recipe (D40), apply Gate O3 (D35) — then hard-stop for review.
 - **Branch:** `loop/osler_v2` (never commit to `main`, `dev` or any other loop branch)
 - **Artifacts:** `loops/osler_v2/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
 - **Run state:** `loops/osler_v2/STATE.md`
@@ -63,8 +63,8 @@ from it as measured facts.
 These were decided by the operator. If evidence contradicts one, record it in STATE.md
 "Questions for the operator" — do not act on it.
 
-- **Model ladder (D22):** Osler-4B on `Qwen/Qwen3.5-4B` and Osler-9B on `Qwen/Qwen3.5-9B`
-  are the targets; Osler-0.8B on `Qwen/Qwen3.5-0.8B` is a reference trained with the same
+- **Model ladder (D22, D39):** Osler-4B on `Qwen/Qwen3.5-4B` (or on `perplexity-ai/pplx-decider-flash-v1.2`, itself
+  Qwen3.5-4B, if D39's dev rule chooses it) and Osler-9B on `Qwen/Qwen3.5-9B` are the targets; Osler-0.8B on `Qwen/Qwen3.5-0.8B` is a reference trained with the same
   recipe. The MedGemma bake-off and LFM2.5-350M are dropped from training.
 - **Architecture (D23, D26):** frozen base + decision-path LoRA + a separate option-code readout
   (rows initialised from `lm_head`, softmax over the offered codes, exportable to a plain

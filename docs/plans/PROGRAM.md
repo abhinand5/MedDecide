@@ -100,6 +100,8 @@ re-measured on MedDecide-Bench.
 | D36 | **Replay at 20 % or more**, with share-alike sources (CC BY-SA: ARC, BoolQ, SNLI) allowed for training: the training data is never distributed (release policy), so the share-alike clause does not reach the weights. Licences are recorded per source | 2026-10-17 | osler_v1 replay stayed at 12.6–15.3 % and knowledge fell as the replay share fell (B2 −0.022, B3 −0.040 against B1) |
 | D37 | **No unofficial copies of credentialed data, ever** — including Hub datasets that reproduce MIMIC tables or notes (e.g. `lucky9-cyou/MIMIC-IV`, `ricardosantoss/ehrcomplete_icdfiltered`), before or after the operator's PhysioNet approval. MIMIC enters only from the official PhysioNet files (D28) | 2026-10-17 | the operator's PhysioNet approval is pending; these copies would breach the data-use agreement and taint the release |
 | D38 | **Local teacher and whole synthetic charts.** Gemma 4 31B (`google/gemma-4-31B-it-qat-w4a16-ct`, Apache-2.0) served locally by vLLM, with the operator's serving setup and the `gemma-4-31B-it-assistant` draft model, is a teacher for prose from code-built facts (local, so no budget cap and MIMIC-eligible once official). Its first use is whole multi-page charts for chart-level decisions (`meddecide.mr.charts`): code pages carry every measured fact, narrative pages carry none (checked by re-extraction), and labels are computed by code. A chart block is kept only by the keep rule; its effect on real-text dev templates is reported beside it | 2026-10-17 | operator decision; osler_v1: synthetic single pages did not transfer to real text, so charts are judged on real-text dev |
+| D39 | **pplx-decider-flash-v1.2 is a candidate base for Osler-4B**, chosen on dev. `perplexity-ai/pplx-decider-flash-v1.2` (Apache-2.0) is Qwen3.5-4B (our revision) distilled from pplx's 27B decision models, with noncausal full attention and a 255-row readout; ported as `PplxDecisionModel` (token-identical prompts and 40/40 argmax parity with its reference code). Rule, fixed before any osler_v2 result: the first block C0 is trained twice, on Qwen3.5-4B (C0q) and on pplx-flash (C0p), with the same data, adapter (D33) and steps; **pplx is chosen iff** on fast dev v2 the paired lower bounds of C0p − C0q are > −0.01 on the MR partition, > −0.01 on general and > −0.02 on knowledge, **and** the MR or general point difference is > 0; otherwise Qwen3.5-4B. If pplx is chosen, every Gate O3 (D35) comparison that names zero-shot Qwen3.5-4B — the MR suite, the external panel and the knowledge guard — uses zero-shot pplx-decider-flash-v1.2 instead, scored through its authors' code; MedDecider-4B stays. **Osler-9B is deferred** (operator, 2026-10-17); Gate O3's 9B verdict is NOT MEASURED in osler_v2 | 2026-10-17 | operator decision; pplx-decider-flash-v1.2 (Decision Index 0.3: 60.05) is the strongest open ≤ 10B decision model, and pplx's 27B led our external panel (0.641) |
+| D40 | **Training speed recipe:** attention-only LoRA (D33) with gradient checkpointing only for batches above 8,192 padded tokens (`checkpoint_above_tokens: 8192`). Measured by the advisor on 300 real B1 batches: 6,838 real tokens/s (Qwen) and 6,406 (pplx) against 3,744 for osler_v1's all-layer LoRA with checkpointing on every batch; peak 58 GB; same numbers either way (tested). The all-layer adapter's MLP LoRA was the main cost (+55 % step time) | 2026-10-17 | osler_v1 trained at ~3,700 tokens/s on a 96 GB GPU; profiled: the kernels run at 7,600–11,500 tokens/s |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -206,7 +208,7 @@ Inserted after the osler_v0 review (D26–D32). Data first: no architecture work
   Osler-9B on the kept mix; **Gate O2 (D31)**.
 - Spec: `loops/osler_v1/ADVISORY.md`.
 
-### Loop 1e — `osler_v2`: real text with the attention-only adapter, replay 20 %, Osler-4B and -9B  *(current)*
+### Loop 1e — `osler_v2`: real text, pplx-flash as a candidate base, replay 20 %, Osler-4B  *(current)*
 
 Inserted after the osler_v1 review (D33–D37). osler_v1's Osler-4B passed the knowledge guard (+4.4 points) but lost real-text
 ICD coding and the external panel to MedDecider-4B by small margins; its kept mix had no real clinical text.
@@ -214,7 +216,8 @@ ICD coding and the external panel to MedDecider-4B by small margins; its kept mi
 - **Blocks v2 (D34):** replay ≥ 20 % (D36) → real text (CodiEsp, MTSamples, EHR-Rel) → teacher prose → whole synthetic
   charts from a local Gemma 4 31B (D38) → MIMIC when the official files exist; each added to the last kept block; a dev set with every source's templates and a powered
   knowledge check.
-- **MR suite v1 and Gate O3 (D35)**; Osler-4B and Osler-9B.
+- **Base:** Qwen3.5-4B or pplx-decider-flash-v1.2, chosen on dev at the first block (D39); training ~1.8× faster (D40).
+- **MR suite v1 and Gate O3 (D35)** for Osler-4B; Osler-9B deferred (D39).
 - Spec: `loops/osler_v2/ADVISORY.md`.
 
 ### Loop 2 — `teacher_data`: the data moat

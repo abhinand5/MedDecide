@@ -1,4 +1,4 @@
-# GOAL — osler_v2 (real text with the attention-only adapter, replay 20 %, Osler-4B and -9B)
+# GOAL — osler_v2 (real text, pplx-flash as a candidate base, replay 20 %, Osler-4B)
 
 Osler is an open, calibrated medical decision model. osler_v1's Osler-4B kept its base model's knowledge (+4.4 points,
 thanks to the attention-only adapter) but failed Gate O2. It lost real-text ICD coding and the external panel to
@@ -11,7 +11,8 @@ This loop:
   (D33), with the block design v2 (D34);
 - generates whole synthetic charts with a local Gemma 4 31B (W3b) and tests them as a block;
 - adds official MIMIC as a block only if its files arrive;
-- trains Osler-4B and Osler-9B on the kept mix and applies Gate O3 (D35).
+- chooses the base (Qwen3.5-4B or pplx-decider-flash-v1.2) on dev at the first block (D39), trains Osler-4B on the
+  kept mix with the faster recipe (D40) and applies Gate O3 (D35); Osler-9B is deferred.
 
 It ends with a hard stop for operator review.
 
@@ -50,7 +51,8 @@ move on. When a judgement call is needed, take the conservative option, record i
 Every number carries its artifact and a recompute command (CLAIMS.md). `NOT MEASURED — <reason>` and
 `BLOCKED — <reason>` are valid results; a fabricated number is a critical failure.
 
-Gate O3's baselines are exactly:
+Gate O3's baselines are exactly (with D39's substitution of zero-shot pplx-flash for zero-shot Qwen3.5-4B if pplx is
+chosen; the 9B is deferred):
 - MedDecider-4B and zero-shot Qwen3.5-4B, for Osler-4B;
 - MedDecider-9B and JEV-9B, for Osler-9B.
 

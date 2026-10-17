@@ -31,8 +31,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | PENDING | | |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
 | W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
-| W7 | Final Osler-4B and Osler-9B | yes | W6 | PENDING | | |
-| W8 | Evaluation + Gate O3 | yes | W7 | PENDING | | |
+| W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | PENDING | | |
+| W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | PENDING | | |
 | W9 | Memorisation audit (only with MIMIC) | small | W7 | PENDING | | |
 | W10 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -51,9 +51,11 @@ once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PRO
 | ICD prose v2 pilot pass rate; pairs built; spend | | | W3 |
 | charts: pilot keep rate, charts/h, items per template, NB screens | | `loops/osler_v2/charts.md` | W3b |
 | fast dev v2 partitions; knowledge dev v2 size; zero-shot knowledge dev | | | W5 |
+| speed check: real tokens/s and peak per backbone | | | W0 |
+| base choice (C0p − C0q, three partitions) and the chosen base | | `loops/osler_v2/blocks.md` | W6 |
 | kept blocks and dev deltas | | `loops/osler_v2/blocks.md` | W6 |
-| Osler-4B / -9B: steps, selected step, dev template macro | | | W7 |
-| Gate O3 verdicts (4B, 9B) | | `loops/osler_v2/gate_o3.md` | W8 |
+| Osler-4B: base, steps, selected step, dev template macro | | | W7 |
+| Gate O3 verdict (4B; 9B NOT MEASURED) | | `loops/osler_v2/gate_o3.md` | W8 |
 
 ---
 
