@@ -70,19 +70,20 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W6 (started 2026-10-17T16:04:39Z); C0q full run running
+Task in flight: W6 (C0 done; C1 queued) (updated 2026-10-17T23:15:50Z)
 Working dir:    outputs/osler_v2/W6/
-Running job:    PID 2955722 (`w6_block_run.py --block C0 --backbone qwen`), log outputs/osler_v2/W6/logs/C0_qwen.log;
-                queue: outputs/osler_v2/W6/logs/chain.log (C0p, base choice, knowledge checks), then scripts/osler_v2/w5_pplx_test.sh
+Running job:    the pplx test-side scoring (scripts/osler_v2/w5_pplx_test.sh; log outputs/osler_v2/W5/logs/pplx_test.log), then
+                C1 on pplx (scripts/osler_v2/w6_c1_chain.sh; log outputs/osler_v2/W6/logs/chain.log)
 
-- [x] C0 replays (qwen, pplx) at 13,992 steps (CPU)
-- [x] smoke C0 qwen (stopped by the tripwire at 4 steps; expected for an untrained option-code readout; D-W6-2) and smoke C0 pplx (8/8 steps)
-- [ ] C0q full run (13,992 steps; evals at 25/50/75/100 %)
-- [ ] C0p full run
-- [ ] base choice (D39) written to outputs/osler_v2/W6/keep/base_choice.json and loops/osler_v2/blocks.md BEFORE C1
-- [ ] knowledge checks C0q and C0p (D12-gated zero-shot)
-- [ ] C1 on the chosen base; keep rule vs C0; C2 on the last kept block; keep rule
-- [ ] W7 final Osler-4B; W8 evaluation and Gate O3 (after the queued pplx test-side scoring)
+- [x] C0 replays (qwen, pplx) at 13,992 steps
+- [x] smoke C0 qwen (tripwire at 4; D-W6-2) and smoke C0 pplx (8/8)
+- [x] C0q full run: 13,992 steps; fast dev v2 accuracy 0.7849 (CLAIMS W043)
+- [x] C0p full run: 13,992 steps; fast dev v2 accuracy 0.8355 (selected step 10,494)
+- [x] base choice (D39): pplx chosen (MR +0.038, general +0.005, knowledge +0.092; all lower bounds pass) → loops/osler_v2/blocks.md §1
+- [x] knowledge checks C0q (+0.020, passes) and C0p (−0.001, passes) on knowledge dev v2
+- [ ] C1 on pplx (after the pplx test scoring); keep rule vs C0p
+- [ ] C2 on the last kept block (C1 if kept, else C0 + prose: not built); keep rule
+- [ ] W7 final Osler-4B; W8 evaluation and Gate O3 (needs the pplx test-side scoring)
 
 ```
 

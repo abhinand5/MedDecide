@@ -94,7 +94,8 @@ def keep_report(candidate: str, current: str) -> dict[str, Any]:
 def knowledge_report(block: str, zs: str) -> dict[str, Any]:
     excluded = duplicate_label_items()
     ids = trainer_ids()
-    block_rows = [r for r in dev_rows(block) if r["source"] in KNOWLEDGE_SOURCES]
+    v2_ids = set(ids.values())  # the knowledge check is on knowledge dev v2 (ADVISORY W6), not the osler_v1 fast-dev knowledge
+    block_rows = [r for r in dev_rows(block) if r["source"] in KNOWLEDGE_SOURCES and r["item_id"] in v2_ids]
     zs_rows = []
     for r in iter_jsonl(ZS[zs]):
         if r["item_id"] in excluded:
@@ -107,7 +108,10 @@ def knowledge_report(block: str, zs: str) -> dict[str, Any]:
     by_template: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in zs_rows:
         by_template[r["template_id"]].append(r)
-    health = {t: cell_health(ZS_LABEL[zs], t, rows, zero_shot=True)["status"] for t, rows in by_template.items()}
+    if zs == "qwen":  # the D12 gate reads the letter readout's label mass
+        health = {t: cell_health(ZS_LABEL[zs], t, rows, zero_shot=True)["status"] for t, rows in by_template.items()}
+    else:  # pplx's reference readout has no letter mass: the gate does not apply (not a READOUT_FAIL)
+        health = dict.fromkeys(by_template, "NOT APPLICABLE: reference readout (no letter mass)")
     return {"kind": "osler_v2_W6_knowledge_check", "written_utc": utcnow(), "git_commit": git_commit(REPO),
             "excluded_duplicate_label_items": len(excluded), "block_knowledge_items": len(block_rows),
             "zero_shot_items": len(zs_rows),
@@ -133,8 +137,8 @@ def main() -> None:
         raise SystemExit("give --base, --candidate with --current, or --knowledge-check")
     write_json(path, report)
     print(f"wrote {path.relative_to(REPO)}", flush=True)
-    print(json.dumps({k: report[k] for k in report if k in ("chosen_base", "verdict", "checks", "lower_bounds")},
-                     default=str)[:800], flush=True)
+    print(json.dumps({k: report[k] for k in report if k in ("chosen_base", "status", "statistic", "passes", "checks",
+                                                           "lower_bounds")}, default=str)[:800], flush=True)
 
 
 if __name__ == "__main__":
