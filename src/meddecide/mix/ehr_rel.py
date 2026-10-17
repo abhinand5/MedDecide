@@ -25,21 +25,22 @@ from meddecide.utils.hashing import stable_hash
 TEMPLATE = "ehr_rel_relatedness_v1"
 LICENCE = "apache-2.0 (EHR-Rel repository; bigbio/ehr_rel Hub card)"
 RECORD_URL = "https://github.com/babylonhealth/EHR-Rel"
+# score levels are keyed 1..N in ascending order (the bench schema); level k is the paper's rating k - 1 (0 = unrelated)
 LEVELS = (
-    ("0", "Unrelated"),
-    ("1", "Marginally related"),
-    ("2", "Related"),
-    ("3", "Extremely related"),
+    ("1", "Unrelated"),
+    ("2", "Marginally related"),
+    ("3", "Related"),
+    ("4", "Extremely related"),
 )
 QUESTION = "How related are these two clinical concepts, as they occur together in patient records?"
 SPLIT_BUCKETS = {"train": range(0, 8), "dev": range(8, 9), "test": range(9, 10)}  # 80 / 10 / 10 of 10 buckets
 
 
 def gold_level(mean_rating: float) -> str:
-    """Round the mean rating half-up (not banker's rounding) and keep it on the scale."""
+    """Round the mean rating half-up (not banker's rounding), keep it on the 0-3 scale, and key it 1..4."""
     if not 0.0 <= mean_rating <= 3.0:
         raise ValueError(f"mean rating {mean_rating} is outside the 0-3 scale")
-    return str(min(3, math.floor(mean_rating + 0.5)))
+    return str(min(3, math.floor(mean_rating + 0.5)) + 1)
 
 
 def pair_key(snomed_a: str, snomed_b: str) -> str:

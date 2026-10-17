@@ -7,7 +7,7 @@ import pytest
 from meddecide.mix.ehr_rel import TEMPLATE, ehr_rel_row, gold_level, pair_key, split_of
 
 
-@pytest.mark.parametrize("mean, level", [(0.0, "0"), (0.49, "0"), (0.5, "1"), (1.5, "2"), (2.5, "3"), (3.0, "3")])
+@pytest.mark.parametrize("mean, level", [(0.0, "1"), (0.49, "1"), (0.5, "2"), (1.5, "3"), (2.5, "4"), (3.0, "4")])
 def test_gold_is_the_mean_rounded_half_up(mean: float, level: str) -> None:
     assert gold_level(mean) == level
 
@@ -41,8 +41,8 @@ def test_a_pair_becomes_a_score_row_with_four_ordered_levels() -> None:
     assert row is not None
     assert row["template_id"] == TEMPLATE
     assert row["qtype"] == "score"
-    assert [o["key"] for o in row["options"]] == ["0", "1", "2", "3"]
-    assert row["gold"] == "2"
+    assert [o["key"] for o in row["options"]] == ["1", "2", "3", "4"]
+    assert row["gold"] == "3"
     assert "Chronic cor pulmonale" in row["state"]
 
 

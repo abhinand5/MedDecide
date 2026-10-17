@@ -83,7 +83,8 @@ def medqa_row(rec: dict[str, Any]) -> dict[str, Any] | None:
     letters = list(LETTERS[:len(keys)])
     return {"options": [{"key": k, "label": lab} for k, lab in zip(letters, labels, strict=True)],
             "gold": letters[keys.index(answer_idx)], "source": "medqa", "template_id": "medqa_usmle4_v1",
-            "state": str(rec["question"]).strip(), "record": stable_hash({"q": str(rec["question"])}, length=20)}
+            "state": str(rec["question"]).strip(),
+            "record": stable_hash({"q": str(rec["question"]), "options": options, "answer": answer_idx}, length=20)}
 
 
 def medmcqa_row(rec: dict[str, Any]) -> dict[str, Any] | None:
