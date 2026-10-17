@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (W10), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-17T13:34:35Z`
+Last updated (UTC): `2026-10-17T13:34:35Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| W0 | Orientation | no | — | PENDING | | |
+| W0 | Orientation | no | — | IN_PROGRESS | 2026-10-17T13:34:35Z | |
 | W1 | Audits; MR suite v1 frozen | small | W0 | PENDING | | |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | PENDING | | |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
@@ -70,11 +70,14 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/osler_v2/<id>/
+Task in flight: W0 (started 2026-10-17T13:34:35Z)
+Working dir:    outputs/osler_v2/W0/
 
-- [ ] <step 1>
-- [ ] <step 2>
+- [ ] ruff + pytest (padding test deselected)
+- [ ] teacher reachability (OpenCode Go list_models; DeepSeek balance), no keys printed
+- [ ] MIMIC official files present?
+- [ ] commit, GPU, disk recorded
+- [ ] speed check: w0_speed.py Qwen and --pplx (300 steps, dyn 8192)
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
