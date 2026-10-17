@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | PENDING | | |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
 | W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | PENDING | | |
-| W4 | MIMIC (official files only; only when they exist) | no | W0 | PENDING | | |
+| W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
 | W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
 | W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | PENDING | | |
@@ -114,6 +114,7 @@ Working dir:    outputs/osler_v2/W1/
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| W4 | MIMIC block (C4) and MIMIC in W5 dev | official PhysioNet files are not under `data/physionet/` (env probe, 2026-10-17T14:14:08Z: 0 of 5 core files). D37 forbids unofficial copies. | The operator's PhysioNet approval and the official files under `data/physionet/`. Re-checked at W6 and before W7; never waited for. |
 
 ---
 
