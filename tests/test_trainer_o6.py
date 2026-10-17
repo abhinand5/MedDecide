@@ -151,8 +151,13 @@ def test_checkpoint_above_tokens_changes_speed_not_numbers(tiny_dir) -> None:
         config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=0, log_every=0, lr=1e-2,
                                lora_lr=1e-2, gradient_checkpointing=True, checkpoint_above_tokens=threshold,
                                shuffle_options=False)
+        calls: list[bool] = []
+        original = model.checkpoint_this_batch
+        model.checkpoint_this_batch = lambda flag, _o=original: (calls.append(flag), _o(flag))[1]
         Trainer(model, config).train(items, steps=3)
         finals.append(model.optcode.weight.detach().clone())
+        # the switch is applied on every training step when a threshold is set, and never otherwise
+        assert calls == ([] if threshold is None else [threshold == 1] * 3)
     assert torch.allclose(finals[0], finals[1], atol=1e-6) and torch.allclose(finals[0], finals[2], atol=1e-6)
 
 

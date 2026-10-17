@@ -240,8 +240,6 @@ class Trainer:
                 augment_options=False,
             ):
                 model_batch = self.model.collate(batch)
-                if config.checkpoint_above_tokens is not None:
-                    self.model.checkpoint_this_batch(model_batch.padded_tokens > config.checkpoint_above_tokens)
                 _logits, probs = self.model.batch_logits(model_batch)
                 breakdown = ce_plus_brier(
                     probs,
@@ -414,6 +412,8 @@ class Trainer:
                 self._apply_lr(total_steps + 1, schedule)
                 t0 = time.perf_counter()
                 model_batch = self.model.collate(batch)
+                if config.checkpoint_above_tokens is not None:
+                    self.model.checkpoint_this_batch(model_batch.padded_tokens > config.checkpoint_above_tokens)
                 _logits, probs = self.model.batch_logits(model_batch)
                 breakdown = ce_plus_brier(
                     probs,
