@@ -63,6 +63,7 @@ _TOP_LEVEL_KEYS = {
     "max_seconds",
     "gradient_checkpointing",
     "checkpoint_above_tokens",
+    "backbone",
 }
 
 
@@ -133,6 +134,9 @@ class StudentConfig:
     # with gradient_checkpointing on: recompute only for batches whose padded token count exceeds this (None = always).
     # Same numbers either way; osler_v2 profiling: about 1.4x faster on the batches that fit without recomputation
     checkpoint_above_tokens: int | None = None
+    # "qwen": MedDecideModel on base_model (Qwen3.5 causal LM, our prompt); "pplx": PplxDecisionModel on
+    # perplexity-ai/pplx-decider-flash-v1.2 (its backbone, prompt and readout; base_model is ignored) — osler_v2
+    backbone: str = "qwen"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -185,6 +189,10 @@ class StudentConfig:
             raise ValueError("tripwire_consecutive_evals must be >= 1")
         if cfg.checkpoint_above_tokens is not None and (cfg.checkpoint_above_tokens < 1 or not cfg.gradient_checkpointing):
             raise ValueError("checkpoint_above_tokens needs gradient_checkpointing and a positive token count")
+        if cfg.backbone not in ("qwen", "pplx"):
+            raise ValueError(f"backbone must be 'qwen' or 'pplx', got {cfg.backbone!r}")
+        if cfg.backbone == "pplx" and (cfg.readout != "option_code" or cfg.bidirectional_full_attention):
+            raise ValueError("the pplx backbone uses its own readout (readout: option_code) and its own attention mask")
         if cfg.selection_metric not in ("macro_accuracy", "template_macro_accuracy"):
             raise ValueError(f"selection_metric must be 'macro_accuracy' or 'template_macro_accuracy', "
                              f"got {cfg.selection_metric!r}")

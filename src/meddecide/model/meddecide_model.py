@@ -736,7 +736,9 @@ class MedDecideModel:
             marker_positions=torch.tensor(marker_positions, dtype=torch.long),
             option_end_positions=torch.tensor(option_end_positions, dtype=torch.long),
             marker_item=torch.tensor(marker_item, dtype=torch.long),
-            answer_positions=torch.full((len(encoded),), max_len - 1, dtype=torch.long),
+            # each item's recorded answer position (the last token for this class's prompts; the readout marker for
+            # backbones whose readout sits mid-sequence, such as pplx's)
+            answer_positions=torch.tensor([max_len - e.n_tokens + e.answer_position for e in encoded], dtype=torch.long),
             n_options=torch.tensor(n_options, dtype=torch.long),
             gold_flat=torch.tensor(gold_flat, dtype=torch.long),
             encoded=list(encoded),

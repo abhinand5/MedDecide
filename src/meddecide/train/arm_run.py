@@ -17,6 +17,7 @@ import torch
 
 from meddecide.bench.schema import Item
 from meddecide.model.meddecide_model import MedDecideModel
+from meddecide.model.pplx import load_any
 from meddecide.train.config import StudentConfig
 from meddecide.train.osler_arm import (
     DEV_SUBSET_SIZE,
@@ -55,18 +56,24 @@ def run_arm(
     # seed the initialisation (the LoRA A matrices and the head) so matched arms start from the same weights; the data
     # order is already seeded by the trainer. Before osler_v1 this was not done, so runs differed at initialisation (R7)
     torch.manual_seed(config.seed)
-    model = MedDecideModel(
-        base_model or config.base_model,
-        revision=revision if revision is not None else config.revision,
-        lora=config.lora,
-        head_settings=config.head,
-        dtype=dtype or config.dtype,
-        device=device or config.device,
-        variant=config.variant,
-        readout=config.readout,
-        bidirectional_full_attention=config.bidirectional_full_attention,
-        max_prompt_tokens=config.max_prompt_tokens,
-    )
+    if config.backbone == "pplx":
+        from meddecide.model.pplx import PplxDecisionModel
+
+        model = PplxDecisionModel(lora=config.lora, dtype=dtype or config.dtype, device=device or config.device,
+                                  max_prompt_tokens=config.max_prompt_tokens)
+    else:
+        model = MedDecideModel(
+            base_model or config.base_model,
+            revision=revision if revision is not None else config.revision,
+            lora=config.lora,
+            head_settings=config.head,
+            dtype=dtype or config.dtype,
+            device=device or config.device,
+            variant=config.variant,
+            readout=config.readout,
+            bidirectional_full_attention=config.bidirectional_full_attention,
+            max_prompt_tokens=config.max_prompt_tokens,
+        )
     if config.gradient_checkpointing:
         model.enable_gradient_checkpointing()
     trainer = Trainer(model, config, log_path=out / "logs" / "train.jsonl")
@@ -96,7 +103,7 @@ def run_arm(
     selected = "final model (no checkpoint was saved)"
     final_model = model
     if result.best_step is not None and best_dir.exists():
-        final_model = MedDecideModel.load(best_dir, device=device or config.device, dtype=dtype or config.dtype)
+        final_model = load_any(best_dir, device=device or config.device, dtype=dtype or config.dtype)
         selected = f"best checkpoint at step {result.best_step}"
     # the temperatures are fitted on the selected model and saved with its checkpoint (osler_v0 deviation 59: they were
     # fitted on the last-step model and never reached the checkpoint, so every reload scored uncalibrated)
