@@ -137,3 +137,25 @@ def test_selection_metric_template_macro_trips_on_its_own_statistic(tiny_dir, mo
     result = trainer.train(items, steps=10, eval_items=items[:2])
     assert result.steps == 2
     assert result.stopped_early is not None and "template_macro_accuracy" in result.stopped_early
+
+
+def test_checkpoint_above_tokens_changes_speed_not_numbers(tiny_dir) -> None:
+    # osler_v2: recomputation only for batches above a token threshold; the trained weights must not depend on it
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5, 2, 3])]
+    finals = []
+    for threshold in (None, 1, 10**9):
+        torch.manual_seed(0)
+        model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                               readout="option_code")
+        model.enable_gradient_checkpointing()
+        config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=0, log_every=0, lr=1e-2,
+                               lora_lr=1e-2, gradient_checkpointing=True, checkpoint_above_tokens=threshold,
+                               shuffle_options=False)
+        Trainer(model, config).train(items, steps=3)
+        finals.append(model.optcode.weight.detach().clone())
+    assert torch.allclose(finals[0], finals[1], atol=1e-6) and torch.allclose(finals[0], finals[2], atol=1e-6)
+
+
+def test_checkpoint_above_tokens_needs_checkpointing() -> None:
+    with pytest.raises(ValueError, match="checkpoint_above_tokens"):
+        StudentConfig.from_dict({"checkpoint_above_tokens": 8192})

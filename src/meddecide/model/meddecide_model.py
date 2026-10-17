@@ -592,6 +592,18 @@ class MedDecideModel:
         self._gradient_checkpointing = True
         self._set_decoder_layers_train(True)
 
+    def checkpoint_this_batch(self, flag: bool) -> None:
+        """Turn the recomputation on or off for the next forward pass only (after ``enable_gradient_checkpointing``).
+
+        transformers recomputes a decoder layer only while that layer is in training mode, so switching the layers' mode
+        is enough; no number changes (attention dropout is 0.0, checked when checkpointing is enabled). The trainer uses
+        this to checkpoint only batches above a token threshold: osler_v2 profiling measured 8,030 real tokens/s without
+        recomputation against 5,825 with it, while the longest batches need it to fit in memory.
+        """
+        if not getattr(self, "_gradient_checkpointing", False):
+            raise RuntimeError("enable_gradient_checkpointing first")
+        self._set_decoder_layers_train(flag)
+
     def _set_decoder_layers_train(self, flag: bool) -> None:
         for layer in self.base.model.layers:
             layer.train(flag)

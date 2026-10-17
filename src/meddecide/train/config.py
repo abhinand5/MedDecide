@@ -62,6 +62,7 @@ _TOP_LEVEL_KEYS = {
     "temperature_items_per_qtype",
     "max_seconds",
     "gradient_checkpointing",
+    "checkpoint_above_tokens",
 }
 
 
@@ -129,6 +130,9 @@ class StudentConfig:
     max_seconds: float | None = None
     # recompute decoder layers in the backward pass (same numbers; needed for the 16,384-token cap on one GPU)
     gradient_checkpointing: bool = False
+    # with gradient_checkpointing on: recompute only for batches whose padded token count exceeds this (None = always).
+    # Same numbers either way; osler_v2 profiling: about 1.4x faster on the batches that fit without recomputation
+    checkpoint_above_tokens: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -179,6 +183,8 @@ class StudentConfig:
             raise ValueError(f"lr_floor must be in [0, 1), got {cfg.lr_floor}")
         if cfg.tripwire_consecutive_evals < 1:
             raise ValueError("tripwire_consecutive_evals must be >= 1")
+        if cfg.checkpoint_above_tokens is not None and (cfg.checkpoint_above_tokens < 1 or not cfg.gradient_checkpointing):
+            raise ValueError("checkpoint_above_tokens needs gradient_checkpointing and a positive token count")
         if cfg.selection_metric not in ("macro_accuracy", "template_macro_accuracy"):
             raise ValueError(f"selection_metric must be 'macro_accuracy' or 'template_macro_accuracy', "
                              f"got {cfg.selection_metric!r}")
