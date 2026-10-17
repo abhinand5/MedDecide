@@ -26,6 +26,7 @@ from meddecide.mr.noise import dress_page
 from meddecide.mr.pages import (
     PAGE_CLASSES,
     Charge,
+    PageContext,
     _fmt,
     make_context,
     render_bill_page,
@@ -186,9 +187,10 @@ def page_facts(enc: SyntheaEncounter, page: str) -> ChunkFacts:
     raise ValueError(page)
 
 
-def render_page(enc: SyntheaEncounter, page: str, rng: random.Random) -> str:
+def render_page(enc: SyntheaEncounter, page: str, rng: random.Random, ctx: PageContext | None = None) -> str:
+    """One page; pass ``ctx`` to keep the same patient header across the pages of one chart."""
     facts = page_facts(enc, page)
-    ctx = make_context(rng)
+    ctx = ctx or make_context(rng)
     if page == "laboratory":
         body = render_lab_page(ctx, facts, rng)
     elif page == "flowsheet":

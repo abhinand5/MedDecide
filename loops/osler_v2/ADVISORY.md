@@ -20,6 +20,8 @@ What the loop learned:
   confident. The kept block B1 held **no real clinical text**.
 - **Real text helped on dev.** B3 raised the MR dev macro by +0.054, but was rejected for knowledge (−0.040) and general
   (−0.0035) margins. That was with the old all-layer adapter, which is the one that loses knowledge.
+- **Synthetic charts** (operator, 2026-10-17): whole multi-page charts written by a local Gemma 4 31B for chart-level
+  decisions (W3b). The claim that they beat real data is tested on real-text dev templates, not assumed.
 
 Defects of the osler_v1 design, fixed here:
 1. **Cumulative blocks.** B3 carried B2's rejected prose. Fix (D34): each block adds one source to the last kept block.
@@ -67,21 +69,22 @@ Outcomes (write the one that applies into FINDINGS):
    - selection on dev only;
    - no CPT, InterQual or MCG content;
    - one GPU job at a time.
-2. **No unofficial copies of credentialed data, ever (D37).** Never download or read `lucky9-cyou/MIMIC-IV`,
+2. **The local teacher (W3b)** is Gemma 4 31B QAT (Apache-2.0) served by vLLM on this GPU. It counts as a GPU job.
+3. **No unofficial copies of credentialed data, ever (D37).** Never download or read `lucky9-cyou/MIMIC-IV`,
    `ricardosantoss/ehrcomplete_icdfiltered`, or any other Hub re-upload of MIMIC or other PhysioNet data, even if the
    operator's approval arrives during the loop. Official files under `data/physionet/` only.
-3. **Adapter (D33):** LoRA on the attention projections only (osler_v1 B0b's `target_modules`), r=32, alpha=32. Every
+4. **Adapter (D33):** LoRA on the attention projections only (osler_v1 B0b's `target_modules`), r=32, alpha=32. Every
    other recipe constant is as in osler_v1 (V0's batching: batch 8, 8,192 tokens, gradient checkpointing).
-4. **Held-out lists are unchanged:**
+5. **Held-out lists are unchanged:**
    - indicator `aki_creatinine_rise`;
    - ICD family `heart_failure`;
    - osler_v0's held-out templates and generators.
-5. **Teacher:**
+6. **Teacher:**
    - **OpenCode Go:** the same settings and guards as osler_v1 V4 (thinking off; $14 per 5 hours; $36 per rolling week).
    - **DeepSeek API** (`deepseek-flash`, key from `DEEPSEEK_API_KEY` in `~/.bashrc`, never printed): allowed in this loop
      for code-generated synthetic facts only, with its own ledger capped at $9.00.
    - **Loop total:** at most $50 across both endpoints.
-6. **Knowledge dev items never come from the test sets.** MedMCQA's official dev split *is* the v0.2 MedMCQA test set, and
+7. **Knowledge dev items never come from the test sets.** MedMCQA's official dev split *is* the v0.2 MedMCQA test set, and
    MedQA's test split is the v0.2 MedQA test set. Knowledge dev items are drawn from the **official train splits, from
    rows that no block trains on** (§W5).
 
@@ -146,6 +149,81 @@ Design v2:
 Pilot: 100 ids, threshold 60 %, one permitted prompt fix. Then build up to 12,000 verified pairs within the budget
 (§3.5). If the pilot fails, record `BLOCKED` and continue.
 
+### W3b — Whole synthetic charts, local Gemma 4 teacher (GPU, ~1 h set-up + pilot, build ≤ 12 h)
+
+Operator decision (2026-10-17): synthetic charts written locally by Gemma 4 31B (Apache-2.0), crafted for chart-level audit
+decisions. Code written at planning time: `src/meddecide/mr/charts.py`, `scripts/osler_v2/w3b_charts.py`,
+`tests/test_charts_v2.py`.
+
+**What a chart is.** One Synthea encounter rendered as 7–14 pages, all with one patient header:
+- code-rendered pages (laboratory, flowsheet, MAR, bill);
+- one **planted evidence page** for an indicator (the twin chart changes only this page);
+- narrative pages written by Gemma: an admission note, 1–3 progress notes, an optional consult or nutrition note, and a
+  discharge summary carrying a final diagnosis.
+
+Narrative pages must state **no** vital signs or lab values (checked by re-extraction), so labels come from the code pages
+and the diagnosis facts only.
+
+Three templates:
+- `chart_indicator_evidence_v1` (noul; twins);
+- `chart_evidence_page_v1` (choice: which page documents it);
+- `chart_icd_support_v1` (choice over the family codes + none, inpatient rules).
+
+**Steps:**
+1. **Environment** (`envs/vllm/`, never the main project environment):
+   - `uv venv --python 3.12 envs/vllm/.venv`, then install `vllm` (0.31.0, the newest on PyPI on 2026-10-17) with a torch
+     build that runs on this Blackwell GPU.
+   - Download the chat template `examples/tool_chat_template_gemma4.jinja` from the vLLM GitHub tag matching the
+     installed version into `envs/vllm/examples/`.
+   - Caches stay on /workspace (`scripts/pod_env.sh`).
+2. **Serve** with the operator's exact setup (detached, from `envs/vllm/`, log under `outputs/osler_v2/W3b/logs/`):
+   ```
+   export VLLM_USE_RUST_FRONTEND=1
+   vllm serve google/gemma-4-31B-it-qat-w4a16-ct \
+     --tensor-parallel-size 1 \
+     --enable-auto-tool-choice \
+     --tool-call-parser gemma4 \
+     --chat-template examples/tool_chat_template_gemma4.jinja \
+     --reasoning-parser gemma4 \
+     --speculative-config '{"model":"google/gemma-4-31B-it-assistant","num_speculative_tokens":4}' \
+     --language-model-only
+   ```
+   Add a flag only if the server will not start without it (for example `--max-model-len` for memory). Record any such
+   flag as a deviation. The QAT weights are about 23 GB and the draft model about 1 GB.
+3. **Client variables** (local; cost is counted as $0):
+   ```
+   TEACHER_BASE_URL=http://127.0.0.1:8000/v1  TEACHER_MODEL=google/gemma-4-31B-it-qat-w4a16-ct  TEACHER_LOCAL=1
+   TEACHER_THINKING=none  TEACHER_EXTRA_BODY='{"chat_template_kwargs": {"enable_thinking": false}}'
+   ```
+   These are set for the W3b process only. Never set `TEACHER_LOCAL=1` with a hosted URL.
+4. **Pilot:**
+   ```
+   scripts/osler_v2/w3b_charts.py --count 200 --out data/gen/osler_v2_charts_pilot
+   ```
+   Record:
+   - charts kept and items by template;
+   - drop reasons by count (`summary_*.json`);
+   - charts per hour;
+   - tokens.
+
+   Read 10 charts in a fresh process; never paste them anywhere committed. Check for:
+   - stated numbers in narrative pages;
+   - repeated phrases that track a gold label;
+   - name and identifier consistency;
+   - whether the discharge-summary diagnosis wording matches its certainty.
+
+   **Acceptance:** at least 50 % of the attempted encounters yield a full chart, and no label-tracking phrase is found.
+   You may make one prompt fix if needed (the `NO_NUMBERS` or `extra` wording in `charts.py` only; never the verifier).
+   If the pilot still fails, mark W3b `BLOCKED` and continue.
+5. **Build:** `--count 20000` (resumable). Stop at 20,000 encounters or 12 hours of GPU time, whichever comes first. Then
+   stop the server.
+6. **Screens:**
+   - Run the O3 Naive Bayes screen on each chart template's dev split.
+   - Run the leakage check against every test set.
+   - Write `loops/osler_v2/charts.md` (aggregates only).
+
+W3b uses the GPU. Run it before W5 (no other GPU job may run at the same time), so that its dev items enter fast dev v2.
+
 ### W4 — MIMIC (CPU; only when the official files exist)
 
 osler_v1 V5c, unchanged: page category (MIMIC-III notes, MIMIC-IV-Note), ICD support (MIMIC-IV discharge summaries with
@@ -158,7 +236,8 @@ Re-check at W6 and again before W7. It never blocks the loop.
 1. **Fast dev v2** (D34), fixed before any block runs. It contains:
    - the osler_v1 fast dev (5,723 items);
    - up to 400 dev items per template of every candidate source not already in it: teacher prose
-     (`mr_indicator_prose_v1`, `synthea_narrative_page_v1`, and `mr_icd_support_prose_v2` if W3 built it), MTSamples,
+     (`mr_indicator_prose_v1`, `synthea_narrative_page_v1`, and `mr_icd_support_prose_v2` if W3 built it), the W3b chart
+     templates if W3b built them, MTSamples,
      **CodiEsp dev** (carve 15 % of CodiEsp *train* cases by case id; they leave training), EHR-Rel, and MIMIC if W4 ran;
    - the **knowledge dev v2**: 1,000 MedQA rows and 3,000 MedMCQA rows from the official train splits that are not in
      any training block (remove them from every block if present), 4,000 items in all.
@@ -180,12 +259,16 @@ All runs are attention-only (D33), on the same 13,992 steps as osler_v1's blocks
 | C0 | osler_v1 B1 (generators + Synthea) + the W2 replay (≥ 20 %) | knowledge check against zero-shot on knowledge dev v2 |
 | C1 | C0 + real text: MTSamples, CodiEsp train (minus the dev carve-out), EHR-Rel train. `pmc_similar_patient_v1` joins only if W1's screen put it below 0.90 | C0 |
 | C2 | last kept + teacher prose (osler_v1 indicator and narrative prose; ICD prose v2 if built) | last kept |
-| C3 | last kept + MIMIC (W4), only if the official files exist before C2's keep decision | last kept |
+| C3 | last kept + W3b charts (all three chart templates), if built | last kept |
+| C4 | last kept + MIMIC (W4), only if the official files exist before C3's keep decision | last kept |
 
 Rules:
 - **Keep rule unchanged (D34):** paired bootstrap within templates, 1,000 resamples, seed 0. Lower bounds: MR > 0,
   general > −0.01, knowledge > −0.02. The MR partition includes every MR template of fast dev v2, so a source's own
   templates count.
+- **The real-text question for the charts (labelled; never part of the rule).** Beside the keep rule, report C3's delta
+  against its comparator on the **real-text** dev templates only (MTSamples, CodiEsp dev, EHR-Rel, MIMIC if present).
+  This is the evidence for or against "synthetic charts make real text better".
 - **If C0 fails its knowledge check against zero-shot,** record it and continue: the guard on the test set decides
   later. There is no adapter fallback in this loop.
 - **Caps:** no template above 8 % of a block; the tabular page-category templates at 2 % together.
@@ -196,7 +279,7 @@ Rules:
 - The kept mix, attention-only, one pass capped at 250,000 realised items.
 - 8 evals on fast dev v2; temperatures fitted on dev and saved with the checkpoint.
 - **4B first, then 9B.** If the 9B needs a smaller batch for memory, record it.
-- If MIMIC arrives after C2's decision, it does **not** enter the finals of this loop.
+- If MIMIC arrives after C3's decision, it does **not** enter the finals of this loop.
 
 ### W8 — Evaluation and Gate O3 (GPU, ~8 h)
 
@@ -234,8 +317,9 @@ NEXT.md: proposals only. Set `Loop status: STOPPED`, commit, push, stop.
 | W1 | Audits; MR suite v1 frozen | small | W0 |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 |
 | W3 | ICD prose v2 (optional) | no | W0 |
+| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 |
 | W4 | MIMIC (only when the official files exist) | no | W0 |
-| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3, W4 if built) |
+| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) |
 | W6 | Blocks v2 + keep rule | yes | W5 |
 | W7 | Final Osler-4B and Osler-9B | yes | W6 |
 | W8 | Evaluation + Gate O3 | yes | W7 |
@@ -243,7 +327,7 @@ NEXT.md: proposals only. Set `Loop status: STOPPED`, commit, push, stop.
 | W10 | Findings and closure — HARD STOP | no | all |
 
 Order exceptions:
-- W1–W4 may run in any order; W3 and W4 may run while a GPU task runs.
+- W1–W4 may run in any order; W3 and W4 may run while a GPU task runs. W3b is a GPU task: it runs alone, before W5.
 - W4 never blocks a task.
 - If W3 finishes after W5 assembled the dev set, its templates are **not** added (the dev set is fixed); W3's prose is
   then dropped from C2 and recorded.

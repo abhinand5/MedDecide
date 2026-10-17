@@ -150,7 +150,8 @@ def write_messages(req: ProseRequest) -> list[dict[str, str]]:
     style = {**STYLE_DEFAULTS, **req.style}
     rules = f"{DIAGNOSES_RULES}\n\n" if req.kind == "diagnoses" else ""
     user = (f"PAGE TYPE: {req.page_class.replace('_', ' ')}\nSETTING: {req.setting}\nVOICE: {style['voice']}\n"
-            f"LENGTH: {style['length']}\n\n{rules}FACTS:\n{json.dumps(req.facts, indent=1)}")
+            f"LENGTH: {style['length']}\n" + (f"ALSO: {style['extra']}\n" if style.get("extra") else "")
+            + f"\n{rules}FACTS:\n{json.dumps(req.facts, indent=1)}")
     return [{"role": "system", "content": WRITE_SYSTEM}, {"role": "user", "content": user}]
 
 

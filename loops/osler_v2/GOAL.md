@@ -9,6 +9,7 @@ This loop:
 - raises replay to 20 % (D36);
 - adds real clinical text (CodiEsp, MTSamples, EHR-Rel) and the teacher prose as blocks on the attention-only adapter
   (D33), with the block design v2 (D34);
+- generates whole synthetic charts with a local Gemma 4 31B (W3b) and tests them as a block;
 - adds official MIMIC as a block only if its files arrive;
 - trains Osler-4B and Osler-9B on the kept mix and applies Gate O3 (D35).
 

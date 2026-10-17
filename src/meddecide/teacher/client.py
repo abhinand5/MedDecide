@@ -37,6 +37,7 @@ def is_peak(when: datetime | None = None) -> bool:
 class UsageMeter:
     """Running token counts and an estimated cost at list price (peak or off-peak by the time of each call)."""
 
+    priced: bool = True            # False for a local teacher: tokens are counted, cost stays 0
     calls: int = 0
     prompt_tokens: int = 0
     cached_tokens: int = 0
@@ -54,7 +55,8 @@ class UsageMeter:
         self.cached_tokens += cached
         self.completion_tokens += out
         self.reasoning_tokens += int((usage.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
-        self.cost_usd += ((prompt - cached) * rate_in + cached * rate_cached + out * rate_out) / 1e6
+        if self.priced:
+            self.cost_usd += ((prompt - cached) * rate_in + cached * rate_cached + out * rate_out) / 1e6
 
     def as_dict(self) -> dict[str, Any]:
         return {"calls": self.calls, "prompt_tokens": self.prompt_tokens, "cached_tokens": self.cached_tokens,
@@ -75,9 +77,15 @@ class TeacherClient:
     extra_headers: dict[str, str] = field(default_factory=dict)
     # thinking is off by default: measured on 2026-10-13, DeepSeek V4.1 Flash on OpenCode Go spent 3,000-6,000 reasoning
     # tokens on a 150-word note (default and "max" effort used the whole budget and returned no text), and reasoning is
-    # billed as output. "disabled" sends thinking={"type": "disabled"}; any other value is sent as reasoning_effort.
+    # billed as output. "disabled" sends thinking={"type": "disabled"}; "none" sends no thinking field (for servers such as
+    # vLLM, where the switch is a chat-template argument passed through extra_body); any other value is reasoning_effort.
     thinking: str = "disabled"
+    # merged into every request body, e.g. {"chat_template_kwargs": {"enable_thinking": false}} for Gemma 4 on vLLM
+    extra_body: dict[str, Any] = field(default_factory=dict)
     usage: UsageMeter = field(default_factory=lambda: UsageMeter())
+
+    def __post_init__(self) -> None:
+        self.usage.priced = not self.local
     _client: httpx.Client | None = field(default=None, repr=False)
 
     @classmethod
@@ -98,6 +106,7 @@ class TeacherClient:
             extra_headers={"User-Agent": "osler-datagen/1.0", "x-opencode-session": env("TEACHER_SESSION") or "osler-v1",
                            **(dict(json.loads(extra)) if extra else {})},
             thinking=env("TEACHER_THINKING") or "disabled",
+            extra_body=dict(json.loads(env("TEACHER_EXTRA_BODY") or "{}")),
         )
 
     # ---- plumbing ------------------------------------------------------------
@@ -148,8 +157,9 @@ class TeacherClient:
                                    "max_tokens": max_tokens}
         if self.thinking == "disabled":
             payload["thinking"] = {"type": "disabled"}
-        elif self.thinking:
+        elif self.thinking and self.thinking != "none":
             payload["reasoning_effort"] = self.thinking
+        payload.update(self.extra_body)
         response = self.post("chat/completions", payload)
         response.raise_for_status()
         body = response.json()

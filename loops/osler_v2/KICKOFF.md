@@ -27,7 +27,8 @@ Each session:
    push.
 
 The loop freezes MR suite v1, raises replay to 20 %, adds real clinical text and teacher
-prose as blocks on the attention-only adapter (block design v2), trains Osler-4B and -9B,
+prose and local-Gemma synthetic charts as blocks on the attention-only adapter (block design
+v2), trains Osler-4B and -9B,
 and applies Gate O3 (D35). Official MIMIC (W4) runs only if its files appear; never wait.
 
 Rules (full lists in AGENTS.md and GOAL.md "Do not"):

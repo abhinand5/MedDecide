@@ -27,8 +27,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W1 | Audits; MR suite v1 frozen | small | W0 | PENDING | | |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | PENDING | | |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
+| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | PENDING | | |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | PENDING | | |
-| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3, W4 if built) | PENDING | | |
+| W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
 | W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
 | W7 | Final Osler-4B and Osler-9B | yes | W6 | PENDING | | |
 | W8 | Evaluation + Gate O3 | yes | W7 | PENDING | | |
@@ -48,6 +49,7 @@ once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PRO
 | too-good ICD probe result; NB screen per template; ceiling statistic; MR suite v1 verdict templates | | `loops/osler_v2/mr_suite_v1.md` | W1 |
 | replay share of the largest block; sources and licences; EHR-Rel items | | | W2 |
 | ICD prose v2 pilot pass rate; pairs built; spend | | | W3 |
+| charts: pilot keep rate, charts/h, items per template, NB screens | | `loops/osler_v2/charts.md` | W3b |
 | fast dev v2 partitions; knowledge dev v2 size; zero-shot knowledge dev | | | W5 |
 | kept blocks and dev deltas | | `loops/osler_v2/blocks.md` | W6 |
 | Osler-4B / -9B: steps, selected step, dev template macro | | | W7 |

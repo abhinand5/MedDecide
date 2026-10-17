@@ -99,6 +99,7 @@ re-measured on MedDecide-Bench.
 | D35 | **MR suite v1 and Gate O3** (osler_v2), fixed before any osler_v2 result. The MR suite v1 is the osler_v1 MR test suite plus the new sources' test templates, **minus** (a) any template on which zero-shot Qwen3.5-4B scores ≥ 0.97 on its dev items (ceiling), and (b) any template whose O3 Naive Bayes screen on dev is ≥ 0.90 (vocabulary shortcut); both are reported, never in the verdict. Gate O3 = D31's three checks on the MR suite v1, the external panel (non-inferiority, lower bound > −0.02) and the knowledge guard, for Osler-4B vs {MedDecider-4B, zero-shot Qwen3.5-4B} and Osler-9B vs {MedDecider-9B, JEV-9B} | 2026-10-17 | osler_v1: three templates at 1.000 and a vocabulary-solvable template (42 % of the MR test items; word overlap AUC 0.97) dominated the MR suite |
 | D36 | **Replay at 20 % or more**, with share-alike sources (CC BY-SA: ARC, BoolQ, SNLI) allowed for training: the training data is never distributed (release policy), so the share-alike clause does not reach the weights. Licences are recorded per source | 2026-10-17 | osler_v1 replay stayed at 12.6–15.3 % and knowledge fell as the replay share fell (B2 −0.022, B3 −0.040 against B1) |
 | D37 | **No unofficial copies of credentialed data, ever** — including Hub datasets that reproduce MIMIC tables or notes (e.g. `lucky9-cyou/MIMIC-IV`, `ricardosantoss/ehrcomplete_icdfiltered`), before or after the operator's PhysioNet approval. MIMIC enters only from the official PhysioNet files (D28) | 2026-10-17 | the operator's PhysioNet approval is pending; these copies would breach the data-use agreement and taint the release |
+| D38 | **Local teacher and whole synthetic charts.** Gemma 4 31B (`google/gemma-4-31B-it-qat-w4a16-ct`, Apache-2.0) served locally by vLLM, with the operator's serving setup and the `gemma-4-31B-it-assistant` draft model, is a teacher for prose from code-built facts (local, so no budget cap and MIMIC-eligible once official). Its first use is whole multi-page charts for chart-level decisions (`meddecide.mr.charts`): code pages carry every measured fact, narrative pages carry none (checked by re-extraction), and labels are computed by code. A chart block is kept only by the keep rule; its effect on real-text dev templates is reported beside it | 2026-10-17 | operator decision; osler_v1: synthetic single pages did not transfer to real text, so charts are judged on real-text dev |
 
 **Recorded risk (overruled objection):** the teacher was fixed without a comparison
 against Gemma-4-31B / Qwen3.8-27B. If the teacher gate shows ECE > 0.05 after
@@ -210,8 +211,8 @@ Inserted after the osler_v0 review (D26–D32). Data first: no architecture work
 Inserted after the osler_v1 review (D33–D37). osler_v1's Osler-4B passed the knowledge guard (+4.4 points) but lost real-text
 ICD coding and the external panel to MedDecider-4B by small margins; its kept mix had no real clinical text.
 - **Adapter:** attention-only LoRA (D33).
-- **Blocks v2 (D34):** replay ≥ 20 % (D36) → real text (CodiEsp, MTSamples, EHR-Rel) → teacher prose → MIMIC when the
-  official files exist; each added to the last kept block; a dev set with every source's templates and a powered
+- **Blocks v2 (D34):** replay ≥ 20 % (D36) → real text (CodiEsp, MTSamples, EHR-Rel) → teacher prose → whole synthetic
+  charts from a local Gemma 4 31B (D38) → MIMIC when the official files exist; each added to the last kept block; a dev set with every source's templates and a powered
   knowledge check.
 - **MR suite v1 and Gate O3 (D35)**; Osler-4B and Osler-9B.
 - Spec: `loops/osler_v2/ADVISORY.md`.
