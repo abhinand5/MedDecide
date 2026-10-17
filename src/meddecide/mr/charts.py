@@ -115,8 +115,10 @@ def _narrative(client: ChatClient, enc: SyntheaEncounter, page_class: str, dx: i
     extra = NO_NUMBERS
     if dx is not None:
         facts["final_diagnosis"] = diagnosis_facts(dx)
-        extra += (" State the final diagnosis exactly as final_diagnosis gives it (its certainty, attributes and that it "
-                  "is the patient's current problem).")
+        extra += (" State the final diagnosis as final_diagnosis gives it (its certainty, attributes and that it is the "
+                  "patient's current problem), in natural clinical wording that varies from note to note. Do not use the "
+                  "labels 'ruled out', 'confirmed', 'probable' or 'suspected' as headings or as the words that introduce "
+                  "the diagnosis; express the certainty in the sentence instead.")
     else:
         extra += " Do not name a final diagnosis."
     req = ProseRequest("page", page_class, facts, setting="inpatient",

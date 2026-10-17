@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W1 | Audits; MR suite v1 frozen | small | W0 | DONE | 2026-10-17T14:07:22Z | 2026-10-17T14:13:48Z |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | DONE (C3 replay caveat, Q4) | 2026-10-17T14:14:14Z | 2026-10-17T14:19:31Z |
 | W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
-| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | IN_PROGRESS | 2026-10-17T14:19:50Z | |
+| W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | BLOCKED — pilot label-tracking phrase remains after the one allowed prompt fix (chart_icd_support_v1); C3 not built | 2026-10-17T14:19:50Z | 2026-10-17T14:56:32Z |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2, W3b (W3, W4 if built) | PENDING | | |
 | W6 | Blocks v2 + keep rule | yes | W5 | PENDING | | |
@@ -49,7 +49,7 @@ once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PRO
 | too-good ICD probe result; NB screen per template; ceiling statistic; MR suite v1 verdict templates | Probe 0.612 (339/554); overlap with B1 0 exact / 0 near-dup; NB dev macro 1.000 (page tabular), 0.796 (indicator), 0.804 (ICD), 1.000 (synthea page), 0.576 (synthea indicator), 0.590 (MTSamples), 0.520 (PMC); ceiling 1.000 / 0.695 / 0.710 / 0.995 / 0.788 / 0.629 / 0.780; verdict 13,103 test items, reported only 6,191; codiesp and mkurman screens NOT MEASURED (no dev) | `loops/osler_v2/mr_suite_v1.md`; `outputs/osler_v2/W1/screens.json`; `icd_audit.json`; CLAIMS W009–W016 | W1 |
 | replay share of the largest block; sources and licences; EHR-Rel items | Fixed replay 74,477 rows (ARC 3,370; BoolQ 9,427; SNLI 61,680; CC BY-SA, training only). Shares: B1 14.38 %, C0 22.65 %, C1 21.10 % and C2 20.33 % (upper bounds); C3 keeps 20 % only if its chart rows are ≤ 14,092. EHR-Rel 3,741 rows, 0–3 scale (paper Table 1), split 2,961 / 404 / 376 | `loops/osler_v2/CLAIMS.md` W017–W022; `outputs/osler_v2/W2/replay_manifest.json`, `ehr_rel_manifest.json` | W2 |
 | ICD prose v2 pilot pass rate; pairs built; spend | | | W3 |
-| charts: pilot keep rate, charts/h, items per template, NB screens | | `loops/osler_v2/charts.md` | W3b |
+| charts: pilot keep rate, charts/h, items per template, NB screens | Pilot 1: 179/200 kept, 1,334 charts/h; pilot 2 (after one wording fix): 171/200 kept, 1,358 charts/h; label-tracking phrase remains in chart_icd_support_v1 ("ruled out" 0.667 vs 0.000) → BLOCKED; NB screens NOT MEASURED | `loops/osler_v2/charts.md`; CLAIMS W023–W029 | W3b |
 | fast dev v2 partitions; knowledge dev v2 size; zero-shot knowledge dev | | | W5 |
 | speed check: real tokens/s and peak per backbone | Qwen 6,802 tok/s, peak 58.4 GB; pplx-flash 6,469 tok/s, peak 57.1 GB (both pass: ≥ 5,500, ≤ 85 GB) | `loops/osler_v2/CLAIMS.md` W007–W008; `outputs/osler_v2/W0/speed_summary` logs | W0 |
 | base choice (C0p − C0q, three partitions) and the chosen base | | `loops/osler_v2/blocks.md` | W6 |
@@ -70,20 +70,8 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W3b (started 2026-10-17T14:19:50Z)
+Task in flight: none (W3b BLOCKED at 2026-10-17T14:56:32Z)
 Working dir:    outputs/osler_v2/W3b/
-
-- [ ] vLLM 0.31.0 in envs/vllm (own venv, not the project env); torch works on this Blackwell GPU
-- [ ] chat template examples/tool_chat_template_gemma4.jinja from the vLLM tag fetched into envs/vllm/examples/
-- [ ] vllm serve google/gemma-4-31B-it-qat-w4a16-ct (detached; log in outputs/osler_v2/W3b/logs/)
-- [ ] pilot: w3b_charts.py --count 200 (charts kept, items by template, drop reasons, charts/h, tokens)
-- [ ] read 10 charts in a fresh process (not committed); acceptance: ≥ 50 % full charts and no label-tracking phrase
-- [ ] build up to --count 20000 (resumable) or 12 GPU hours; stop server
-- [ ] O3 NB screen per chart template on dev; leakage check vs test sets; loops/osler_v2/charts.md
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
 
 ```
 
@@ -131,10 +119,20 @@ Working dir:    outputs/osler_v2/W3b/
 
 ---
 
+### W3b — BLOCKED — 2026-10-17T14:56:32Z
+- What ran: vLLM 0.31.0 install in `envs/vllm/`; `google/gemma-4-31B-it-qat-w4a16-ct` served with the draft (ADVISORY flags); `scripts/osler_v2/w3b_charts.py --count 200` twice (pilot 1; pilot 2 after one prompt fix); `scripts/osler_v2/w3b_pilot_checks.py` (phrase, number and discharge checks; 10-chart read-through). Server stopped afterwards.
+- Output: `loops/osler_v2/charts.md`; `outputs/osler_v2/W3b/` (serve and pilot logs, checks JSON, read-through text, not committed); `data/gen/osler_v2_charts_pilot*` (gitignored).
+- Headline: keep rate 89.5 % (pilot 1) and 85.5 % (pilot 2) of 200 encounters; 1,334–1,358 charts per hour. Acceptance FAILS on label-tracking: "ruled out" is in 0.971 (pilot 1) and 0.667 (pilot 2) of gold-none ICD charts and in 0.000 of gold-code charts (CLAIMS W026–W027). BLOCKED.
+- Surprises: (1) the label cue is the certainty word of the target diagnosis; (2) a patient-sex cohort difference between gold classes; (3) the first vLLM launch failed on a missing `ninja` on PATH.
+- Next: C3 is not built; W5 proceeds without the chart templates (ADVISORY W5: "if W3b built them"); Q5 for the operator.
+
+---
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| W3b | Chart templates (C3, W5 chart dev items, chart NB screens) | the pilot's `chart_icd_support_v1` carries a label-tracking phrase ('ruled out', 0.667 vs 0.000) after one allowed prompt fix (CLAIMS W026–W027) | the operator's Q5 decision: a redesign of certainty wording (new loop) or a two-template C3 (deviation). |
 | W4 | MIMIC block (C4) and MIMIC in W5 dev | official PhysioNet files are not under `data/physionet/` (env probe, 2026-10-17T14:14:08Z: 0 of 5 core files). D37 forbids unofficial copies. | The operator's PhysioNet approval and the official files under `data/physionet/`. Re-checked at W6 and before W7; never waited for. |
 
 ---
@@ -154,7 +152,9 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 **Q4 (W2, 2026-10-17T14:19:31Z) — the replay target for the largest block (ADVISORY W2: replay ≥ 20 % of the largest block).** With the 8 % per-template cap and the listed sources, the fixed replay set (74,477 rows) gives 22.65 % at C0, 21.10 % at C1 and 20.33 % at C2 (upper bounds). C3 keeps 20 % only if its chart rows are at most 14,092. Options: (a) keep the listed sources and let the W6 guard decide C3 (current; the ADVISORY's rule is the guard, so C3 may fail it); (b) add another permissive source (for example CosmosQA, SocialIQA or PIQA, all CC BY 4.0 or AFL-3.0; not in the ADVISORY list), which is a new source and needs its own leakage check; (c) cap the charts. I would take (a) and record it. Please say if you want (b).
 
+  *Update (2026-10-17T14:56:32Z): W3b is BLOCKED, so no chart rows exist. The largest block is C2 (C1 plus prose), and its replay share is 20.33 % (upper bound; recompute at W6 with the EHR-Rel rows). Q4 is closed for this loop.*
 
+**Q5 (W3b, 2026-10-17T14:56:32Z) — the chart templates are BLOCKED on a label-tracking cue.** The pilot kept 85–90 % of charts, but chart_icd_support_v1's discharge diagnosis carries the answer in its certainty word ("ruled out" in 67–97 % of gold-none charts, never in gold-code charts). One allowed prompt fix did not remove it. Options: (a) keep W3b BLOCKED and run this loop without charts (current; C3 not run); (b) build only chart_indicator_evidence_v1 and chart_evidence_page_v1, which passed the phrase check, as a C3 with two templates (a change to the ADVISORY's "all three templates"); (c) redesign the certainty wording in a new loop. I would take (a) now and (c) later. Please say if you want (b) before W6.
 
 ## 7. Deviations from the plan
 
@@ -173,6 +173,8 @@ deviation — that is a `BLOCKED`.
 - **D-W2-3 (W2, 2026-10-17T14:19:31Z):** OpenBookQA not used (no licence on its Hub card; ADVISORY keeps only verifiable licences).
 - **D-W2-4 (W2, 2026-10-17T14:19:31Z):** the SNLI sample is capped at 61,680 rows by the 8 % per-template cap at C0 (the fixed set is one set for all blocks). Q4 covers C3.
 
+- **D-W3b-1 (W3b, 2026-10-17T14:56:32Z):** `ninja` was not on PATH for the first vLLM launch (server crash, log kept as `serve_attempt1_ninja_missing.log`); the relaunch added the venv's bin directory to PATH. No model setting changed.
+- **D-W3b-2 (W3b, 2026-10-17T14:56:32Z):** one prompt fix in `src/meddecide/mr/charts.py` (the discharge diagnosis instruction in `_narrative`: vary the wording, do not use the labels as headings). It was made after pilot 1 and before pilot 2, as the ADVISORY allows. It did not remove the cue; pilot 2 is the reported pilot. The verifier was not changed.
 
 ## 8. Closure summary feed
 
