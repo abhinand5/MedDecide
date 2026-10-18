@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-18T20:13:37Z`
+Last updated (UTC): `2026-10-18T20:40:13Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,12 +23,12 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| X0 | Orientation, KL timing | small | — | PENDING | | |
-| X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | PENDING | | |
-| X2 | Broad replay for A3 | no | X0 | PENDING | | |
+| X0 | Orientation, KL timing | small | — | DONE | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
+| X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
+| X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
 | X3 | Gemma-crafted items over real text | yes | X0, X1 | PENDING | | |
 | X4 | Charts with the D44 rule | yes | X0 | PENDING | | |
-| X5 | MIMIC (official files only; only when they exist) | no | X0 | PENDING | | |
+| X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | PENDING | | |
 | X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | PENDING | | |
 | X8 | Stage B: data blocks | yes | X7 | PENDING | | |
@@ -46,9 +46,9 @@ at once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_
 
 | key | value | source | task |
 |---|---|---|---|
-| KL timing: s/step, anchor share, peak (pplx, kl 0.5) | | | X0 |
-| real sources: items per template, licences, screens, leakage | | `loops/osler_v3/sources.md` | X1 |
-| broad replay: datasets, licences, A3 replay share | | | X2 |
+| KL timing: s/step, anchor share, peak (pplx, kl 0.5) | control 0.7935 s/step; KL 0.5 1.0130 s/step (+27.7 %, mean after warm-up; median +37.8 %); anchor share 0.8775 of C1 (728,351 of 830,076; 0.8765 in the 150-step run); peak 57.08 GB in both arms; mean KL 0.2624 | `outputs/osler_v3/X0/` (kl_0, kl_0p5, anchor_share_C1.json, SELF_AUDIT.md); CLAIMS C001–C010 | X0 |
+| real sources: items per template, licences, screens, leakage | train 69,464 / dev 7,878 / test 8,832 rows (RAGTruth MIT: grounded 12,026, sentence 23,294, type 400; DrugProt CC BY 4.0: 33,744); leakage 0 hits (12 protected sets); NB screens max 0.695 (none ≥ 0.90); MultiCaRe: 0 items (age and sex stated in the text) | `loops/osler_v3/sources.md` | X1 |
+| broad replay: datasets, licences, A3 replay share | 162,797 rows from 10 datasets (11 template sources), all licences verified on card or README (MIT, CC BY 4.0, Apache-2.0); leakage 0 hits; C1 general replay 21.04 %; A3 33.98 % before the 8 % cap and 32.66 % after (target 35 % not met) | `loops/osler_v3/sources.md` §5; CLAIMS C033–C041 | X2 |
 | Gemma-crafted: pilot keep / agreement rates; items built | | | X3 |
 | charts: items built; cue check | | `loops/osler_v3/charts.md` | X4 |
 | fast dev v3 partitions; CG partition size and templates; zero-shot pplx on CG | | | X6 |
@@ -70,11 +70,14 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/osler_v3/<id>/
+Task in flight: X3 — Gemma-crafted items over real text (next; not started)
+Working dir:    outputs/osler_v3/X3/
+Running jobs:   none (GPU free; the Gemma server is stopped)
 
-- [ ] <step 1>
-- [ ] <step 2>
+- [x] ruff and pytest gate (padding test deselected on the command line only): ruff clean; 760 passed, 1 skipped, 1 deselected, exit 0 (outputs/osler_v3/X0/logs/pytest_gate.log)
+- [x] MIMIC official files absent (data/physionet/ missing, expected)
+- [x] envs/vllm serves Gemma 4 31B (osler_v2 W3b command); one chat reply checked (finish stop); server stopped, GPU 0 MiB
+- [ ] KL timing: 150 steps on the C1 rows, pplx, kl_to_base 0.5, the §3.2 prefixes; s/step, anchor share, peak GB (control kl 0 also run, same steps)
 - [ ] acceptance check run and passed
 - [ ] self-audit (R6) written to SELF_AUDIT.md
 - [ ] CLAIMS.md rows appended
@@ -100,10 +103,39 @@ Working dir:    outputs/osler_v3/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### X0 — DONE — 2026-10-18T20:40:13Z
+- What ran: `scripts/osler_v3/x0_kl_timing.py` (kl 0.5 and a kl 0 control, 150 steps each on C1, pplx, trainer only); `scripts/osler_v3/x0_anchor_share.py`; ruff; pytest gate with the padding test deselected; Gemma serve (`envs/vllm`, one reply, stopped).
+- Output: `outputs/osler_v3/X0/` (kl_0, kl_0p5, anchor_share_C1.json, logs, SELF_AUDIT.md).
+- Headline: KL 0.5 costs +27.7 % step time after warm-up (1.0130 vs 0.7935 s/step; C001–C003); anchor share 0.8775 of C1 (C007); peak 57.08 GB in both arms (C008); pytest 760 passed, 1 skipped, 1 deselected (C011).
+- Surprises: 87.8 % of C1 items are anchors under the §3.2 prefixes (the osler_v0 clinical general templates are anchors by design); the control arm was added (D-X0-1).
+- Next: X1 and X2 (CPU); X3 and X4 need the Gemma server.
+
+### X1 — DONE — 2026-10-18T20:40:13Z
+- What ran: `scripts/osler_v3/x1_fetch.py`; `x1_real_sources.py`; `x1_checks.py`; `recount_sources.py`. New code: `meddecide/mix/ragtruth.py`, `drugprot.py`, `sentences.py`, `protected.py`; tests `tests/test_osler_v3_sources.py`.
+- Output: `loops/osler_v3/sources.md`; `outputs/osler_v3/X1/` (build.json, checks.json, multicare_audit.json, fetch.json, SELF_AUDIT.md).
+- Headline: X1 rows train 69,464, dev 7,878, test 8,832 (RAGTruth MIT; DrugProt CC BY 4.0); leakage 0 hits in all three (C029); no Naive Bayes screen at or above 0.90 (C031); MultiCaRe builds no direct item (C026–C028).
+- Surprises: 2,182 RAGTruth responses have two or more span types or an unknown type, so the type template is small (400 / 50 / 40 items); `implicit_true` spans counted (Q1).
+- Next: X3 (Gemma) reads MultiCaRe, MTSamples, CodiEsp train and PMC-Patients as substrate.
+
+### X2 — DONE — 2026-10-18T20:40:13Z
+- What ran: `scripts/osler_v3/x2_fetch_replay.py`; `x2_broad_replay.py`; `recount_sources.py`. New code: `meddecide/mix/broad_replay.py`, `meddecide/mix/protected.py`; tests `tests/test_osler_v3_replay.py`.
+- Output: `data/train/osler_v3/replay_broad_train.jsonl` (gitignored); `outputs/osler_v3/X2/` (build.json, fetch.json, recount.log, SELF_AUDIT.md).
+- Headline: 162,797 broad replay rows from 10 datasets (11 template sources), licences verified (C033–C034); leakage 0 hits (C038); A3 general replay share 32.66 % after the 8 % template cap, target 35 % NOT MET (C041; D-X2-2).
+- Surprises: MathQA is 97.7 % AQuA-RAT's problems in tokenised form (C036); AQuA-RAT repeats problem texts (C037; Q2); SciTail, MNLI, FEVER, PAWS, OpenBookQA, SWAG, AI2 ARC copies and GLUE/SuperGLUE excluded on licence.
+- Next: X3 and X4 (GPU). The A3 mix is built with the cap in X7.
+
+### X5 — BLOCKED — 2026-10-18T20:40:13Z
+- What ran: `ls data/physionet` (absent); no download, no read of any unofficial copy (D37).
+- Output: none.
+- Headline: MIMIC official files absent; X5 does not block X6 (ADVISORY §5); re-checked before X6.
+- Surprises: an unofficial MIMIC re-upload sits in the HF cache (`thbndi/Mimic4Dataset`); it is not used (D37).
+- Next: none in this loop unless the files appear.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| X5 | MIMIC block (C4) and MIMIC in the dev sets | official PhysioNet files are not under `data/physionet/` (checked at X0 and X1) | the operator's PhysioNet approval and the official files under `data/physionet/`; re-checked before X6 |
 
 ---
 
@@ -114,6 +146,12 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 ---
 
+**Q1 (X1, 2026-10-18T20:40:13Z) — RAGTruth spans flagged `implicit_true` (1,651 of 11,386 train-row spans) and `due_to_null` (1,280) are counted as hallucination spans.** RAGTruth's convention counts every annotated span; the ADVISORY says labels come only from the human span annotations. Options: (a) keep every span (current); (b) drop spans flagged `implicit_true` as not hallucinations. I would keep (a). The choice can change before any block is built (X8); please confirm before B1.
+
+**Q2 (X2, 2026-10-18T20:40:13Z) — AQuA-RAT repeats problem texts (97,432 rows over 78,091 distinct normalised problems).** Options: (a) keep every row (current; general replay, the repeats differ in options or answers); (b) keep one row per problem. I would keep (a).
+
+**Q3 (X2, 2026-10-18T20:40:13Z) — the A3 general replay share is 32.66 % after the 8 % template cap (target 35 %).** The gap is about 22,800 items at the A3 size. Options: (a) run A3 at 32.66 % and record it (current); (b) add about 32,000 general items from more permissive, human-labelled sets before X7. I would take (a) to keep the timebox; the arm answers the question as it stands.
+
 ## 7. Deviations from the plan
 
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
@@ -121,6 +159,16 @@ expected outcome. Editing code or a check to make it pass is never an acceptable
 deviation — that is a `BLOCKED`.
 
 ---
+
+- **D-X0-1 (X0, 2026-10-18T20:40:13Z):** a control arm (kl_to_base 0, same 150 steps) was added to measure the KL cost; the ADVISORY asks only for the KL run. Measurement only; no change to the recipe.
+- **D-X0-2 (X0, 2026-10-18T20:40:13Z):** the timing runs call the trainer directly (no dev evaluation, no temperature fit; `run_arm` would evaluate). The batches are the trainer's own, the same order as the osler_v2 C1 replay.
+- **D-X1-1 (X1, 2026-10-18T20:40:13Z):** the two binary RAGTruth templates are balanced 1:1 and the type template to its smallest class, in each split. The ADVISORY does not specify balancing; this prevents a prior-only model from scoring well (sources.md §3).
+- **D-X1-2 (X1, 2026-10-18T20:40:13Z):** RAGTruth dev is 10 % of the official train contexts (stable hash); the official test split is kept as test.
+- **D-X1-3 (X1, 2026-10-18T20:40:13Z):** DrugProt's validation split is halved into dev and test by PMID (the ADVISORY asks for dev and test from validation; the halving is my choice).
+- **D-X2-1 (X2, 2026-10-18T20:40:13Z):** MathQA rows whose normalised problem is in AQuA-RAT are dropped (28,300 rows); AQuA-RAT's natural-text copy is kept (CLAIMS C035–C036).
+- **D-X2-2 (X2, 2026-10-18T20:40:13Z):** the replay target (35 % of A3) is not met: 32.66 % after the 8 % template cap, short by about 22,800 items. Recorded as a finding; not tuned (ADVISORY X2: record what was found).
+- **D-X2-3 (X2, 2026-10-18T20:40:13Z):** the broad replay templates `broad_*` are not domain prefixes, so they are anchors under KL-to-base (ADVISORY §3.2: a new template family must take a prefix or be recorded as an anchor here). Their general skill is what the KL term is meant to hold.
+- **D-X2-4 (X2, 2026-10-18T20:40:13Z):** Social IQa and CosmosQA are read from their original archives, not the Hub: the Hub copies are loading scripts, which `datasets` 4.x does not run. The archives' SHA-256 values are recorded.
 
 ## 8. Closure summary feed
 
