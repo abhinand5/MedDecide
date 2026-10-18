@@ -32,6 +32,7 @@ from meddecide.eval.gate_o2 import (
     KNOWLEDGE_GUARD_FLOOR,
     PANEL_NON_INFERIORITY_FLOOR,
     o2_verdict,
+    panel_non_inferior,
     panel_superior,
 )
 from meddecide.utils.io import iter_jsonl, write_json
@@ -97,6 +98,27 @@ def compared(scope: str, name: str, rows: list[dict[str, Any]], osler: dict, bas
              "accuracy_lower_above_zero": panel_superior(comp.accuracy)}, comp)
 
 
+def guard_vs_qwen(knowledge: list[dict[str, Any]], osler: dict) -> dict[str, Any]:
+    try:
+        diff, n = accuracy_difference(knowledge, osler, by_item(O2 / "qwen35-4b" / "predictions.jsonl"),
+                                      n_resamples=N_RESAMPLES, seed=SEED)
+        return {"n_paired": n, "accuracy": diff.__dict__, "passes": knowledge_guard(diff)}
+    except ValueError as exc:
+        return {"not_measured": str(exc)}
+
+
+def guard_pplx_paired(knowledge: list[dict[str, Any]], osler: dict) -> dict[str, Any]:
+    """The D39 guard on the items zero-shot pplx can score (the 21 repeated-label items are skipped by its reference)."""
+    base = by_item(BASELINES["zero-shot pplx-decider-flash-v1.2"]["knowledge"] / "predictions.jsonl")
+    scorable = [m for m in knowledge if base.get(m["item_id"], {}).get("status") == "scored"]
+    try:
+        diff, n = accuracy_difference(scorable, osler, base, n_resamples=N_RESAMPLES, seed=SEED)
+        return {"n_paired": n, "n_skipped_by_pplx": len(knowledge) - len(scorable), "accuracy": diff.__dict__,
+                "passes": knowledge_guard(diff)}
+    except ValueError as exc:
+        return {"not_measured": str(exc)}
+
+
 def main() -> None:
     rows = list(iter_jsonl(ITEMS))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -132,6 +154,18 @@ def main() -> None:
         guard_rec |= {"not_measured": str(exc)}
 
     verdict, reason = o2_verdict(mr_comp, panel_comp, guard)
+    # o2_verdict says NOT MEASURED whenever any check is missing, even if a measured check fails. The measured status is
+    # recorded beside it: a measured failure is never hidden behind an unmeasured check, and a PASS needs every check.
+    measured_failures = [f"MR suite v1 vs {n}" for n, c in mr_comp.items() if c is not None and not c.passes]
+    measured_failures += [f"external panel vs {n} (lower bound {c.accuracy.lo:+.4f} must exceed "
+                          f"{PANEL_NON_INFERIORITY_FLOOR:+.2f})" for n, c in panel_comp.items()
+                          if c is not None and not panel_non_inferior(c.accuracy)]
+    if guard is not None and not knowledge_guard(guard):
+        measured_failures.append("knowledge guard")
+    unmeasured = [f"MR suite v1 vs {n}" for n, c in mr_comp.items() if c is None]
+    unmeasured += [f"external panel vs {n}" for n, c in panel_comp.items() if c is None]
+    if guard is None:
+        unmeasured.append("knowledge guard (zero-shot pplx)")
 
     additional: dict[str, Any] = {}
     additional["reported_only_mr_templates"] = {
@@ -149,6 +183,18 @@ def main() -> None:
     additional["vs_zero_shot_Qwen_not_in_verdict"] = {
         name: compared("mr_verdict", name, mr, osler, by_item(p["mr"] / "predictions.jsonl"))[0]
         for name, p in ADDITIONAL.items()}
+    generated_t = {"mr_indicator_evidence_v1", "mr_icd_support_template_v2", "synthea_indicator_evidence_v1"}
+    real_text_t = {"codiesp_icd_support_v1", "mkurman_icd_support_v1", "mtsamples_page_category_v1", PMC}
+    additional["mr_verdict_generated_part"] = {
+        name: compared("mr_verdict_generated", name, [m for m in mr if m["template_id"] in generated_t], osler,
+                       by_item(p["mr"] / "predictions.jsonl"))[0] for name, p in BASELINES.items()}
+    additional["mr_verdict_real_text_part"] = {
+        name: compared("mr_verdict_real_text", name, [m for m in mr if m["template_id"] in real_text_t], osler,
+                       by_item(p["mr"] / "predictions.jsonl"))[0] for name, p in BASELINES.items()}
+    additional["external_panel_vs_zero_shot_Qwen_not_in_verdict"] = compared(
+        "external_panel", "zero-shot Qwen3.5-4B", panel, osler, by_item(O2 / "qwen35-4b" / "predictions.jsonl"))[0]
+    additional["knowledge_guard_vs_zero_shot_Qwen_full_set"] = guard_vs_qwen(knowledge, osler)
+    additional["knowledge_guard_vs_zero_shot_pplx_paired_items_only"] = guard_pplx_paired(knowledge, osler)
     if OSLER_V1.exists():
         v1 = by_item(OSLER_V1)
         additional["osler_v1_osler_4b_mr_verdict"] = {
@@ -158,6 +204,8 @@ def main() -> None:
     record = {
         "kind": "osler_v2_W8_gate_o3", "written_utc": utcnow(), "git_commit": git_commit(REPO),
         "verdict": verdict, "reason": reason, "scope_sizes": sizes,
+        "measured_failures": measured_failures, "unmeasured": unmeasured,
+        "gate_passes": (not measured_failures) and (not unmeasured),
         "primary": {"mr_suite_v1": {"vs": dict(mr_rec)},
                     "external_panel": {"vs": dict(panel_rec)},
                     "knowledge_guard": guard_rec},
