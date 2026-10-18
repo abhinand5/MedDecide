@@ -73,7 +73,10 @@ def build_cg(fastdev: list[dict[str, Any]], knowledge: list[dict[str, Any]]) -> 
             counts["dropped_text_duplicate_within_cg"] += 1
             continue
         seen_text.add(text)
-        cg.append(dict(row, cg_partition="fastdev_v2_clinical_family"))
+        # fast dev v2 rows carry no O2 keys (benchmark, set_name); they are mix_v2 items (their templates are mix_v2 templates), and
+        # the zero-shot runner's O2 row format needs both (D-X6-3): set_name is the item's source, as in x6_new_test_o2.py.
+        # Membership is unchanged.
+        cg.append(dict(row, cg_partition="fastdev_v2_clinical_family", benchmark="mix_v2", set_name=row["source"]))
         counts["kept_fastdev_clinical_family"] += 1
     counts["cg_total"] = len(cg)
     return cg, {"counts": dict(counts), "templates": list(CG_TEMPLATES)}

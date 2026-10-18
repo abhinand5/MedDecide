@@ -135,7 +135,11 @@ def main() -> int:
     ap.add_argument("--first-charts", type=int, default=0,
                     help="check only the first N charts in file order (train, then dev, then test); 0 checks every chart")
     ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--original-exemptions", action="store_true",
+                    help="D-X4-2: chart_icd_support_v1 exempts only the original words (ruled out, rule out, out current)")
     args = ap.parse_args()
+    if args.original_exemptions:
+        LABELLED_FACT["chart_icd_support_v1"] = ("ruled out", "rule out", "out current")
     directory = REPO / args.dir
     w3b = _osler_v2_checks()
     rows = load_split_rows(directory)
@@ -150,6 +154,7 @@ def main() -> int:
     templates = sorted({r["generator"] for r in all_rows})
     report: dict[str, Any] = {"checked_utc": utcnow(), "git_commit": git_commit(REPO), "dir": args.dir,
                               "first_charts": args.first_charts or None,
+                              "labelled_fact": {k: list(v) for k, v in LABELLED_FACT.items()},
                               "items_by_split": {s: len(rows[s]) for s in SPLITS},
                               "items_by_template": dict(Counter(r["generator"] for r in all_rows)),
                               "templates": {}}

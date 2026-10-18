@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T23:14:37Z`
+Last updated (UTC): `2026-10-18T23:44:22Z`
 Iterations so far: `1`
 
 ---
@@ -27,9 +27,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
 | X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
 | X3 | Gemma-crafted items over real text | yes | X0, X1 | BLOCKED — both templates blocked by the D44(b) label-tracking check (claims D-X3-1; restyle D-X3-7, Q4); no X3 rows; closed with CLAIMS C044–C056 | 2026-10-18T20:37:00Z | 2026-10-18T22:23:56Z |
-| X4 | Charts with the D44 rule | yes | X0 | IN_PROGRESS — 2,000-encounter chart build running (pids 3269872, 3269876; 200 of 1,800 at 22:23Z; the 200-encounter pilot is included) | 2026-10-18T21:14:29Z | |
+| X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
-| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | IN_PROGRESS — CG partition built (4,865 items, D-X6-1); fast dev v3 and baselines pending | 2026-10-18T21:14:29Z | |
+| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | IN_PROGRESS — CG partition 4,865 items (D-X6-1); fast dev v3 12,903 items; new test pool 9,016 items; queue running since 2026-10-18T23:36:15Z (`x6_chain.sh`: zero-shot pplx on CG, the five baselines and zero-shot pplx on the new test pool, then Stage A) | 2026-10-18T21:14:29Z | |
 | X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A3 block built (973,305 rows, cap 8 %); A3 replay pid 3261407; chain script written, not launched (waits for fast dev v3) | 2026-10-18T21:14:29Z | |
 | X8 | Stage B: data blocks | yes | X7 | PENDING | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
@@ -70,9 +70,9 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: X4 — synthetic charts (2,000-encounter build running since 2026-10-18T22:13Z; X3 closed BLOCKED, see §4)
-Working dir:    data/gen/osler_v3/charts/ (build output); outputs/osler_v3/X4/
-Running jobs:   chart build pids 3269872 / 3269876 (scripts/osler_v2/w3b_charts.py --count 2000 --workers 32), log outputs/osler_v3/X4/logs/charts_build.log (1,400 of 1,800 at 23:14Z, about 1,400 charts per hour; expected to finish near 23:31Z); a background watcher (task b73ujeyqn) waits for pid 3269876 to exit and reports the final log lines; vLLM Gemma server (127.0.0.1:8000) pid 3254457 (stop it by PID before any training run).
+Task in flight: X6 — fast dev v3, CG proxy and the new baselines; the GPU queue `scripts/osler_v3/x6_chain.sh` started 2026-10-18T23:36:15Z
+Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
+Running jobs:   the queue (`x6_chain.sh`) was stopped at 23:42Z to fix D-X6-3; the pool pplx run (pid 3363972, log outputs/osler_v3/X6/logs/pool_pplx.log) is finishing; a background watcher (task b35fxmzp7) restarts the queue detached when that pid exits. The queue runs: cg_pplx (resumes from 4,000 saved rows), then the new test pool: pool_pplx, pool_zs4b, pool_zs9b, pool_md4b, pool_md9b, pool_jev9b; then `x7_stage_a.sh` (A0 to A3, one GPU job at a time). The Gemma server is stopped (0 MiB).
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
@@ -82,12 +82,13 @@ X3 closure (done 22:23Z):
 - [x] gate run: ruff clean; pytest 838 passed, 1 xfailed, 1 skipped, with one GPU-only test deselected (D-X3-15)
 - [ ] commit "loop(osler_v3): X3 BLOCKED" and push loop/osler_v3
 
-X4 (the chart steps; the build must finish first):
-- [ ] build finished: 2,000 encounters (the 200-encounter pilot plus 1,800); the build log says so
-- [ ] x4_charts_check.py on the full build and on the first 500 built charts
-- [ ] per-template NB screen, leakage and the D44(b) label-tracking check; Q5 and D-X4-2 recorded
-- [ ] loops/osler_v3/charts.md (aggregates only; no n-gram phrases)
-- [ ] SELF_AUDIT, CLAIMS rows, DONE or BLOCKED, STATE, commit, push
+X4 closure (done 2026-10-18T23:40:42Z):
+- [x] build finished: 2,000 charts (200 pilot + 1,800 build); 1,715 kept; 6,862 items (C057)
+- [x] full check, original-exemption check, first-500 selection (equal to the full check; D-X4-3); checks.json and the logs
+- [x] per-template screen and label tracking (C060–C063); leakage 0 (C066); screen diagnostic (C064, C065)
+- [x] `loops/osler_v3/charts.md`; CLAIMS C057–C071; SELF_AUDIT in outputs/osler_v3/X4/
+- [x] conversion to mix rows, blocked templates excluded and counted (C067); Gemma server stopped by PID
+- [ ] commit and push the X4 closure
 
 X8 code (written, NOT launched; committed 65e3c45): `scripts/osler_v3/x8_build_block.py` (streamed block build: base + new source + minimal broad replay top-up to 20 %; the 8 % cap fails the build), `scripts/osler_v3/x8_keep.py` (keep rule via `keep_comparison`, the new sources removed from both sides per D-X8-1, reported beside it; CG reported beside it), `scripts/osler_v3/x8_chain.sh` (chosen Stage A arm as B0; B1 = X1 sources; B3 = X4 charts on the last kept block; `x7_block_run.py` for training at the chosen KL). Smoke test of the keep code on osler_v2 W6 reproduces C1's keep decision (output removed; not a result). X9 needs a per-evaluation CG hook (the shared `run_arm` keeps only the best checkpoint; not changed): to be written with X9.
 
@@ -160,12 +161,21 @@ X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final
 - Surprises: the screen had skipped the blocked template, so Q4's NB value had no artifact (now recounted); STATE said the verifier agrees on "90 % of contradicted", the count is 90 of 92 (C047); the restyle test pass wrote 145 candidates, not 91 (D-X3-10); the kept-claims read-through is empty by construction (SELF_AUDIT §5); 3 CodiEsp documents have no usable passage with no counted reason (SELF_AUDIT §5, open).
 - Next: X4 (the 2,000-encounter chart build is running on the GPU server; the charts check runs when it finishes). X6 proceeds without X3 items (the X3 test pool is empty and recorded). X7 does not use X3 rows.
 
+### X4 — DONE — 2026-10-18T23:40:42Z
+- What ran: `w3b_charts.py --count 2000` (osler_v2 generator; pilot of 200 earlier; build of 1,800 from 22:13Z to 23:30Z); `x4_charts_check.py` (full: checks.json; `--original-exemptions`: checks_original_exemptions.json; `--first-charts 500`: checks_first500.json, equal to the full check, D-X4-3); `x4_screen_diagnostic.py`; `x4_to_mix.py`; the Gemma server stopped by PID (GPU 0 MiB).
+- Output: `loops/osler_v3/charts.md`; `outputs/osler_v3/X4/` (checks, screen_diagnostic.json, to_mix.json, SELF_AUDIT.md, logs); mix rows in `data/train|bench/osler_v3/x4_*.jsonl` (gitignored).
+- Headline: 2,000 charts built, 1,715 kept, 6,862 items (C057). The indicator template is usable: 2,916 / 330 / 184 items (C059), no label-tracking phrase flagged (C060), NB 0.6758 on dev (C063). chart_icd_support_v1 and chart_evidence_page_v1 are BLOCKED by label-tracking phrases beyond the labelled fact (C061, C062). No leakage hits (C066).
+- Surprises: the choice templates' NB values fall below a uniform guess because the screen scores option texts and ignores the offered options; the ICD predictions are one class for 83.6 % of dev items (C064). The verdict does not rest on them (D-X4-5). The first-500 re-check cannot be selected from the rows (D-X4-3).
+- Next: X6 (fast dev v3 and the new test pool are built; the queue runs zero-shot pplx on CG, then the five baselines and zero-shot pplx on the new test pool, then Stage A).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
 | X3-claims | clinclaim_grounding_v1 (all claim rows; the claims template) | label-tracking phrase 'family' / 'family members' in 39 % of not-mentioned items vs 0 % of the others, after the one allowed prompt fix (D44(b); D-X3-1) | a second prompt change is not allowed by the ADVISORY; a new loop could redesign the not-mentioned instruction and re-pilot |
 | X3-restyle | restyle_page_category_v1 (all restyled-page rows) | label-tracking phrases beyond the page class's own name on the built data (103 flagged after exempting the class name; D44(b)); the title is exempt as the labelled fact (Q4) | the operator's decision on the page-section vocabulary (Q4); a new loop could re-run the check with a written exemption |
+| X4-icd | chart_icd_support_v1 (all chart rows of this template) | label-tracking phrases beyond the labelled fact, under the extended and the original exemption list (C061; D-X4-2) | a new loop could redesign the none-group wording and re-pilot; the presence words are not the labelled fact under the original list |
+| X4-pages | chart_evidence_page_v1 (all chart rows of this template) | label-tracking phrases tracking page class I; no exemption applies (C062) | the operator's decision on the page-section vocabulary (as X3 Q4); a new loop could redesign the page pilot |
 | X5 | MIMIC block (C4) and MIMIC in the dev sets | official PhysioNet files are not under `data/physionet/` (checked at X0 and X1) | the operator's PhysioNet approval and the official files under `data/physionet/`; re-checked before X6 |
 
 ---
@@ -186,6 +196,10 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 **Q4 (X3, 2026-10-18T21:07:53Z) — the page type is stated in the restyled page's own title ('RADIOLOGY REPORT', 'PROGRESS NOTE', and so on), and the phrase check's radiology words ('impression', 'demonstrates', 'there is') come from that page genre.** I treat the title and the genre words as the labelled fact (D44(b)), so the restyle template passes without a block. The consequence: restyled-page items are partly solvable by reading the title, so their accuracy is high by construction, and the defect screen may call them too good. Options: (a) keep them as they are, and report the title-reading share with the template (current); (b) remove the title by a prompt change, which the ADVISORY allows only once and which I tried (pilot v2: kept 49 %, progress and emergency pages nearly gone). I would take (a). Please confirm.
 
 **Q4 (X3, updated 2026-10-18T22:02Z) — the restyled-page template is blocked; the operator decides whether the page-section vocabulary counts as the labelled fact.** On the built data (4,746 train, 406 dev), the label-tracking check flags 103 phrases after exempting the class's own name words: 'impression' (radiology 91 % of items against 5 % of the others), 'patient demographics' (nutrition 50 % against 9 %), 'inpatient' (admission 38 % against 1 %), 'findings are', 'demonstrates'. The page title is exempt (it states the class). I blocked the template: these words are the writer's section style, not the labelled fact (D44(b)). If you consider a page type's own section vocabulary to be the labelled fact, say so; I would then write that exemption into D44 as a new entry and re-run the check, not edit it in place. Gold-in-state (the class name in the text) is 85 % of items; the NB macro on dev is 0.714 (below the 0.90 screen of ADVISORY §7.4).
+
+**Q5 (X4, 2026-10-18T23:40:42Z) — the ICD presence words as the labelled fact (D-X4-2).** The extended exemption list (confirmed, diagnosed, diagnosis of, does have, does not have, determined) was added after the pilot. The template keeps flagged phrases under both the extended list and the original list ("ruled out", "rule out", "out current"), so it is BLOCKED either way (C061). The verdict does not depend on this question. I keep the original-list reading, which is the conservative one, and no operator decision is needed for X4.
+
+**Q6 (X4, 2026-10-18T23:40:42Z) — unit values in the chart narratives.** The prompt forbids unit values in the narrative. The check counts them: 1,029 of 15,227 indicator pages (6.8 %) state one (C068). Options: (a) keep the indicator template as it is and report the count (current); (b) add a number rule to the label-tracking check, which would test whether a stated value decides the label. I would take (a) for X4 and measure (b) in a new loop if the indicator result matters. Please confirm.
 
 ## 7. Deviations from the plan
 
@@ -228,6 +242,14 @@ deviation — that is a `BLOCKED`.
 - **D-X3-15 (gate, X3 commit):** the pytest gate at this commit deselects `tests/test_model_pointer.py::test_overfit_64_items` on the command line only. The test is GPU-only (on CPU it is skipped) and failed with CUDA out of memory while the Gemma server (pid 3254457, about 90 GiB) held the GPU; no code under test changed. The full gate is not claimed as passing for this commit. It re-runs before the first GPU training launch (X7 chain). Counts: 838 passed, 1 xfailed, 1 skipped (`outputs/osler_v3/X3/logs/pytest_gate_deselect.log`).
 
 - **D-X6-2 (X6, 2026-10-18T22:44Z):** the zero-shot pplx runner writes `<out-root>/pplx-decider-flash-v1.2/predictions.jsonl`, not `<out-root>/predictions.jsonl`. `x7_choice.py` and `x8_keep.py` had the second path. The fault was found in review before any run read it (commit a95f9ba); no result depended on it. `x7_choice.py` now stops when the CG predictions are absent.
+
+- **D-X4-3 (X4, 2026-10-18T23:40:42Z):** the "first 500 built charts" re-check is not separable from the rows: they carry no build order, and the first files hold fewer than 500 distinct chart keys, so the selection equals the full check (C070). The full check covers the first 500 charts.
+- **D-X4-4 (X4, 2026-10-18T23:40:42Z):** chart_icd_support_v1 and chart_evidence_page_v1 are BLOCKED under D44(b) (C061, C062). Only chart_indicator_evidence_v1 enters fast dev v3 (330 items), the new test pool (184 items) and block B3 (2,916 train rows, about 0.3 % of a block). B3 is therefore a small block; its result is reported as measured.
+- **D-X4-5 (X4, 2026-10-18T23:40:42Z):** the O3 NB screen on the choice templates is reported but not used. It scores option texts and ignores the offered options: 83.6 % of ICD dev predictions are one class, and the values fall below a uniform guess (C063 to C065). This is a formulation limit of the screen. The 0.90 rule and the screen code are unchanged; a choice-aware screen needs its rule written before use.
+- **D-X4-6 (X4, 2026-10-18T23:40:42Z):** the label-tracking lists are recorded at most 30 candidates per template (the check's existing cap). The verdicts use whether any candidate is flagged, so the cap does not change a verdict.
+
+- **D-X6-3 (X6, 2026-10-18T23:44:22Z):** the 865 fast-dev-v2 rows of the CG partition carry no O2 keys (`benchmark`, `set_name`); they are mix_v2 items, since their templates are mix_v2 templates. The zero-shot runner needs both keys, so the builder now sets `benchmark = mix_v2` and `set_name = source` on them. Membership, the CG size (4,865) and every item are unchanged (CLAIMS C074). The partition was regenerated and checked: every row carries both keys.
+- **D-X6-4 (X6, 2026-10-18T23:44:22Z):** the zero-shot pplx CG step failed twice, at the first fast-dev-v2 row (KeyError `benchmark`, then `set_name`), each time after its 4,000 saved knowledge rows. The queue continued to the new-test-pool steps between the failure and the fix; those steps are additional rows and do not feed the CG reference. The CG step is resumed from its saved rows after the fix, and `x7_choice.py` refuses to run without its predictions.
 
 ## 8. Closure summary feed
 
