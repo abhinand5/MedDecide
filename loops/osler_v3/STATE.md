@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T22:23:56Z`
+Last updated (UTC): `2026-10-18T22:34:00Z`
 Iterations so far: `1`
 
 ---
@@ -88,6 +88,11 @@ X4 (the chart steps; the build must finish first):
 - [ ] per-template NB screen, leakage and the D44(b) label-tracking check; Q5 and D-X4-2 recorded
 - [ ] loops/osler_v3/charts.md (aggregates only; no n-gram phrases)
 - [ ] SELF_AUDIT, CLAIMS rows, DONE or BLOCKED, STATE, commit, push
+
+X6 queue (written, NOT launched; `scripts/osler_v3/x6_chain.sh`): zero-shot pplx on the CG partition (scope mix_v2), then the
+new test pool with osler_v2 W5's five baselines and zero-shot pplx, then `x7_stage_a.sh`. It refuses to start while the vLLM
+server holds the GPU. Before launch: X4 closed; `x6_partitions.py --with-new-templates` (fast dev v3); `x6_new_test_o2.py`
+rebuilt with the X4 test charts of the kept templates only; the Gemma server stopped by PID 3254457.
 ```
 
 ---
