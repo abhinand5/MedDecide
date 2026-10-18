@@ -103,3 +103,21 @@ def capped_sizes(fixed_total: int, sizes: Mapping[str, int], cap: float = TEMPLA
     if any(v > cap * total + 1e-9 for v in kept.values()):
         raise ValueError("the cap does not hold at the fixed point")
     return total, kept
+
+
+STAGE_A_TIE = 0.002  # ADVISORY X7: a difference under 0.002 from the control is a tie, and the control wins it
+
+
+def choose_recipe(scores: Mapping[str, float | None], qualifying: Sequence[str], control: str = "A0") -> tuple[str, bool]:
+    """The Stage A choice (ADVISORY X7, pre-registered): the qualifying run with the highest CG score (its CG accuracy minus zero-shot
+    pplx's), except that a run within STAGE_A_TIE of the control's score does not replace the control. Returns (choice, tie rule
+    applied). The control always qualifies and must have a score."""
+    if scores.get(control) is None:
+        raise ValueError(f"the control {control} has no CG score")
+    candidates = {a: float(scores[a]) for a in qualifying if a == control or scores.get(a) is not None}
+    if control not in candidates:
+        raise ValueError("the control must be among the qualifying runs")
+    best = max(candidates, key=lambda a: candidates[a])
+    if best != control and candidates[best] - candidates[control] < STAGE_A_TIE:
+        return control, True
+    return best, False

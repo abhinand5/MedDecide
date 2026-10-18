@@ -15,6 +15,7 @@ from meddecide.train.osler_v3 import (
     TEMPLATE_CAP,
     anchor_share,
     capped_sizes,
+    choose_recipe,
     is_anchor,
     timing_summary,
 )
@@ -124,3 +125,17 @@ def test_capped_sizes_hold_the_cap_at_the_fixed_point() -> None:
 def test_capped_sizes_keep_small_templates_whole() -> None:
     total, kept = capped_sizes(fixed_total=1000, sizes={"a": 10, "b": 20})
     assert kept == {"a": 10, "b": 20} and total == 1030
+
+
+def test_stage_a_choice_takes_the_best_qualifying_run_and_the_control_wins_ties() -> None:
+    assert choose_recipe({"A0": 0.10, "A1": 0.15, "A2": 0.12}, ["A0", "A1", "A2"]) == ("A1", False)
+    # A1 scores highest but qualifies not: the control is the only candidate
+    assert choose_recipe({"A0": 0.10, "A1": 0.30}, ["A0"]) == ("A0", False)
+    # within 0.002 of the control: the control wins the tie
+    assert choose_recipe({"A0": 0.100, "A1": 0.1015}, ["A0", "A1"]) == ("A0", True)
+    # at or above 0.002 the variant replaces the control
+    assert choose_recipe({"A0": 0.100, "A2": 0.1025}, ["A0", "A2"]) == ("A2", False)
+    # a run without a CG score cannot be chosen
+    assert choose_recipe({"A0": 0.10, "A3": None}, ["A0", "A3"]) == ("A0", False)
+    with pytest.raises(ValueError):
+        choose_recipe({"A0": None}, ["A0"])
