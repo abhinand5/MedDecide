@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T22:41:11Z`
+Last updated (UTC): `2026-10-18T22:43:43Z`
 Iterations so far: `1`
 
 ---
@@ -95,6 +95,8 @@ X6 queue (written, NOT launched; `scripts/osler_v3/x6_chain.sh`): zero-shot pplx
 new test pool with osler_v2 W5's five baselines and zero-shot pplx, then `x7_stage_a.sh`. It refuses to start while the vLLM
 server holds the GPU. Before launch: X4 closed; `x6_partitions.py --with-new-templates` (fast dev v3); `x6_new_test_o2.py`
 rebuilt with the X4 test charts of the kept templates only; the Gemma server stopped by PID 3254457.
+
+X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final.py`. It reads the last kept block (`outputs/osler_v3/X8/last_kept.txt`) and the chosen Stage A arm's KL. `--replay-only` writes `outputs/osler_v3/X9/replay_250k.json` (the steps: the smallest multiple of eight that reaches 250,000 realised items). The run takes eight evaluations on fast dev v3 with the trainer's selection, and scores the CG partition at every evaluation inside the trainer's hook (labelled; before the selection; `cg_trajectory.json`). Temperatures are fitted and saved with the selected checkpoint. It refuses to run twice (`arm_result.json` present).
 ```
 
 ---
@@ -224,6 +226,8 @@ deviation — that is a `BLOCKED`.
 - **D-X4-2 (X4, 2026-10-18T22:40Z):** the label-tracking exemption for `chart_icd_support_v1` (`LABELLED_FACT` in `scripts/osler_v3/x4_charts_check.py`) was extended after the pilot (added: confirmed, diagnosed, diagnosis of, does have, does not have, determined). The extension was made before the full build but after the pilot. The ICD verdict is reported under the original list ("ruled out", "rule out", "out current") as well; the conservative verdict is the original list's.
 - **D-X8-1 (pre-registered before any Stage B result, 2026-10-18T22:40Z):** the new sources' items (`ragtruth`, `drugprot`, `synthea_chart`) are not counted in the keep-rule partitions. `meddecide.train.blocks.partition_pairs` would put them in `general`, where a gain on the new items moves the general lower bound that protects the existing general templates. The MR partition (MR_SOURCES) and the knowledge partition (medqa, medmcqa) are unchanged. The new items are reported beside the rule (labelled), following D38. The keep rule's margins are unchanged.
 - **D-X3-15 (gate, X3 commit):** the pytest gate at this commit deselects `tests/test_model_pointer.py::test_overfit_64_items` on the command line only. The test is GPU-only (on CPU it is skipped) and failed with CUDA out of memory while the Gemma server (pid 3254457, about 90 GiB) held the GPU; no code under test changed. The full gate is not claimed as passing for this commit. It re-runs before the first GPU training launch (X7 chain). Counts: 838 passed, 1 xfailed, 1 skipped (`outputs/osler_v3/X3/logs/pytest_gate_deselect.log`).
+
+- **D-X6-2 (X6, 2026-10-18T22:44Z):** the zero-shot pplx runner writes `<out-root>/pplx-decider-flash-v1.2/predictions.jsonl`, not `<out-root>/predictions.jsonl`. `x7_choice.py` and `x8_keep.py` had the second path. The fault was found in review before any run read it (commit a95f9ba); no result depended on it. `x7_choice.py` now stops when the CG predictions are absent.
 
 ## 8. Closure summary feed
 
