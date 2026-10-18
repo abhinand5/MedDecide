@@ -17,18 +17,18 @@
 
 ## Current loop
 
-- **Loop:** `osler_v2` (loop 1e — real text, pplx-flash as a candidate base, replay 20 %, Osler-4B)
-- **Mission:** fix the osler_v1 evaluation defects (MR suite v1, D35), raise replay to 20 % (D36), add real clinical text
-  (CodiEsp, MTSamples, EHR-Rel) and the teacher prose as blocks on the attention-only adapter (D33) with the block design v2
-  (D34), choose Qwen3.5-4B or pplx-decider-flash-v1.2 as the base on dev (D39), add official MIMIC as a block if the
-  files arrive, train Osler-4B (9B deferred) with the faster recipe (D40), apply Gate O3 (D35) — then hard-stop for review.
-- **Branch:** `loop/osler_v2` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v2/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v2/STATE.md`
-- **Outputs:** `outputs/osler_v2/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v2/CLAIMS.md`
+- **Loop:** `osler_v3` (loop 1f — keep the base's general skill with KL-to-base; real sources + Gemma-crafted real-text items)
+- **Mission:** Stage A recipe ablations on osler_v2's kept mix (control, KL-to-base 0.1 and 0.5, broad replay; D41) with a
+  pre-registered choice on a clinical-general dev proxy; Stage B data blocks (RAGTruth, DrugProt, MultiCaRe; Gemma-crafted
+  items over real text, D43; synthetic charts under the D44 cue rule; official MIMIC if it arrives); final Osler-4B on
+  pplx-decider-flash; Gate O3 (D35, D39, D44) — then hard-stop for review.
+- **Branch:** `loop/osler_v3` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v3/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/osler_v3/STATE.md`
+- **Outputs:** `outputs/osler_v3/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v3/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-17T13:34:22Z`
+- **Started:** `<fill in at X0>`
 
 ---
 
@@ -215,6 +215,7 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
+| `osler_v2` | pplx-decider-flash-v1.2 chosen as the base on dev (MR +3.8, knowledge +9.2 over Qwen3.5-4B at C0); training 1.8× faster (attention-only LoRA, checkpointing only above 8,192 tokens). Real text (CodiEsp, MTSamples, EHR-Rel) kept (+7.5 MR dev); teacher prose rejected again; Gemma charts blocked by a certainty-word cue check. **Gate O3 FAIL** on one check: MR suite +26.3 vs MedDecider-4B and +15.8 vs its base; external panel −0.4 vs MedDecider-4B but −2.0 [−3.4, −0.6] vs zero-shot pplx-flash (limit −2.0); knowledge +0.2 on paired items. | `loops/osler_v2/FINDINGS.md` |
 | `osler_v1` | Synthetic-first medical-record audit data (generators, Synthea, MTSamples, CodiEsp, PMC-Patients, 31,000 verified teacher pages), replay 15 %, four data blocks (B1 kept: generators + Synthea; teacher prose and real text not kept), attention-only final Osler-4B (9B deferred). **Gate O2 FAIL**: MR suite +8.1 accuracy vs MedDecider-4B but Brier worse (real-text ICD, overconfident); external panel −2.2 (limit −2.0). Knowledge guard passes at +4.4 — the attention-only adapter fixed osler_v0's loss. Generated MR items +23.5 vs MedDecider-4B; real text −7.4. The MR suite was dominated by a vocabulary-solvable template and three ceiling templates. | `loops/osler_v1/FINDINGS.md` |
 | `osler_v0` | Scoreboard of 11 models on a 59,538-item common set (v0.2, a 4,353-item external clinical panel, a 20,109-item robustness pack); nine clinical generators (two held out); three matched 4B arms within half a point (dev rule kept the option-code head); Osler-9B and -0.8B. **Gate O1 FAIL** for both sizes: they beat every baseline on fresh seen templates (+9 to +13 pts) and robustness, but lose the external panel to MedDecider (4B −5.3, 9B −1.7) and the 4B fails the knowledge guard (−1.6). Calibration temperatures were not saved with checkpoints (fixed in osler_v1). | `loops/osler_v0/FINDINGS.md` |
 | `bench_v0` | Built MedDecide-Bench v0 (21,202 tier-1 + 41,502 fresh items), a harness whose `choice` readout matches lm-evaluation-harness within 0.5 pts, and 264,478 ladder predictions. **Advisor review found defects** — MedMCQA key off by one, `noul`/`score` readout broken, imbalanced templates, narrow window — that invalidate its MedMCQA and relevance findings; repaired in `bench_v0_fix0`. T10 (teacher) and T11 (audit) blocked on the operator. | `loops/bench_v0/FINDINGS.md` (read with `loops/bench_v0_fix0/CORRECTIONS.md`) |
