@@ -30,8 +30,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | BLOCKED — pilot label-tracking phrase remains after the one allowed prompt fix (chart_icd_support_v1); C3 not built | 2026-10-17T14:19:50Z | 2026-10-17T14:56:32Z |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3b BLOCKED: no chart templates; W3, W4 if built) | DONE (pplx test-side scoring queued after the C0 stage, D-W5-2) | 2026-10-17T14:59:04Z | 2026-10-17T16:04:39Z |
-| W6 | Blocks v2 + keep rule | yes | W5 | IN_PROGRESS — C0q running (PID 2955722) | 2026-10-17T16:04:39Z | |
-| W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | PENDING | | |
+| W6 | Blocks v2 + keep rule | yes | W5 | DONE (base pplx; C0 and C1 kept, C2 not kept: final mix C1) | 2026-10-17T16:01:57Z | 2026-10-18T06:54:15Z |
+| W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | IN_PROGRESS (pplx; kept mix C1; 42,200 steps; eight evaluations) | 2026-10-18T06:54:15Z | |
 | W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | PENDING | | |
 | W9 | Memorisation audit (only with MIMIC) | small | W7 | PENDING | | |
 | W10 | Findings and closure — HARD STOP | no | all | PENDING | | |
@@ -70,20 +70,18 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W6 (C0 done; C1 queued) (updated 2026-10-17T23:15:50Z)
-Working dir:    outputs/osler_v2/W6/
-Running job:    the pplx test-side scoring (scripts/osler_v2/w5_pplx_test.sh; log outputs/osler_v2/W5/logs/pplx_test.log), then
-                C1 on pplx (scripts/osler_v2/w6_c1_chain.sh; log outputs/osler_v2/W6/logs/chain.log)
+Task in flight: W7 (started 2026-10-18T06:54:15Z): final Osler-4B on C1 (pplx), 42,200 steps, eight evaluations
+Working dir:    outputs/osler_v2/W7/
+Running job:    PID 3055700 (`w7_final.py --block C1 --backbone pplx`), log outputs/osler_v2/W7/logs/osler_4b.log
 
-- [x] C0 replays (qwen, pplx) at 13,992 steps
-- [x] smoke C0 qwen (tripwire at 4; D-W6-2) and smoke C0 pplx (8/8)
-- [x] C0q full run: 13,992 steps; fast dev v2 accuracy 0.7849 (CLAIMS W043)
-- [x] C0p full run: 13,992 steps; fast dev v2 accuracy 0.8355 (selected step 10,494)
-- [x] base choice (D39): pplx chosen (MR +0.038, general +0.005, knowledge +0.092; all lower bounds pass) → loops/osler_v2/blocks.md §1
-- [x] knowledge checks C0q (+0.020, passes) and C0p (−0.001, passes) on knowledge dev v2
-- [ ] C1 on pplx (after the pplx test scoring); keep rule vs C0p
-- [ ] C2 on the last kept block (C1 if kept, else C0 + prose: not built); keep rule
-- [ ] W7 final Osler-4B; W8 evaluation and Gate O3 (needs the pplx test-side scoring)
+- [x] C0 (qwen, pplx) full runs; base choice pplx; knowledge checks pass
+- [x] C1 (pplx) full run; keep vs C0p: KEPT
+- [x] C2 (pplx) full run; keep vs C1: NOT KEPT (the final mix is C1)
+- [x] C3 not built (W3b BLOCKED)
+- [ ] W7 final Osler-4B on C1 (replay 42,200 steps / 250,044 items, precomputed)
+- [ ] W8: score Osler-4B on data/bench/osler_v1/v10_items.jsonl (30,621 items) with w8_score.py (load_any; calibration = the run's arm_result.json)
+- [ ] W8: Gate O3 (D31 checks on MR suite v1 verdict templates; panel; knowledge guard vs zero-shot pplx (D39)); additional rows
+- [ ] W9 skipped (no MIMIC); W10 FINDINGS, NEXT, five-claim spot-check, Loop status STOPPED
 
 ```
 
@@ -149,6 +147,18 @@ Running job:    the pplx test-side scoring (scripts/osler_v2/w5_pplx_test.sh; lo
 
 ### W6 — IN PROGRESS — 2026-10-17T16:04:39Z
 - Smokes: pplx 8/8 steps validated; Qwen stopped at step 4 by the tripwire (D-W6-2). Replays for C0, C1, C2 on both backbones (CLAIMS W041). C0q full run started at 2026-10-17T16:01:57Z.
+
+---
+
+### W6 — DONE — 2026-10-18T06:54:15Z
+- What ran: `w6_replay.py` (C0, C1, C2 × qwen, pplx); `w6_block_run.py` (C0q, C0p, C1 pplx, C2 pplx; smokes); `w6_keep.py` (base choice; keep rules; knowledge checks).
+- Output: `outputs/osler_v2/W6/` (block_result.json per run; keep/*.json); `loops/osler_v2/blocks.md`.
+- Headline: base pplx-decider-flash (D39: MR +0.038, general +0.005, knowledge +0.092; all lower bounds pass). C0p fast dev v2 accuracy 0.8355; C1 (real text) 0.8602, KEPT (MR +0.075, lower +0.065); C2 (prose) 0.8560, NOT KEPT (MR −0.004, lower −0.012; general lower −0.020). Knowledge checks C0q +0.020 and C0p −0.001 pass (CLAIMS W037–W051).
+- Surprises: (1) the Qwen smoke tripwire (D-W6-2); (2) the pplx replay path bug (D-W6-1); (3) the teacher prose hurt MR and general, as osler_v1's B2 did.
+- Next: W7 on C1.
+
+### W7 — IN PROGRESS — 2026-10-18T06:54:15Z
+- Replays for the final run: C1 42,200 steps, 250,044 items; C2 41,832 / 250,042 (not used).
 
 ---
 
