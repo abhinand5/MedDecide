@@ -493,6 +493,30 @@ class MedDecideModel:
         self.optcode.init_from_lm_head(causal.lm_head.weight, ids)
         self.optcode_names = names
         self.optcode_token_ids = ids
+        self.snapshot_reference_readout()
+
+    def snapshot_reference_readout(self) -> None:
+        """Freeze a copy of the readout as it is now (the base model's readout) for ``reference_option_probs``."""
+        if self.optcode is None:
+            raise RuntimeError("the reference readout needs the option-code head")
+        self.reference_readout = self.optcode.weight.detach().clone().to(torch.float32)
+
+    @torch.no_grad()
+    def reference_option_probs(self, batch: ModelBatch) -> Tensor:
+        """Flat probabilities of the **base** model (adapter off, the readout as it was before training) over the batch's
+        offered options: the anchor of the osler_v3 KL-to-base penalty (D41)."""
+        ref = getattr(self, "reference_readout", None)
+        if self.optcode is None or ref is None:
+            raise RuntimeError("KL-to-base needs the option-code readout and its reference snapshot")
+        batch = batch.to(self.device)
+        with self.adapter_disabled():
+            hidden = self.hidden_states(batch)
+        rows = torch.arange(batch.batch_size, device=hidden.device)
+        h = hidden[rows, batch.answer_positions.to(hidden.device)].float()
+        n_options = [int(n) for n in batch.n_options.tolist()]
+        code_index = torch.tensor(letter_positions(n_options), device=h.device, dtype=torch.long)
+        flat = (h[batch.marker_item.to(h.device)] * ref.to(h.device)[code_index]).sum(dim=-1)
+        return segment_softmax(flat, n_options)
 
     def get_decoder(self) -> nn.Module:
         """The text model that produces hidden states (inside the PEFT wrapper if any)."""

@@ -5,6 +5,7 @@ The student path keeps its defaults (floor 0, no tripwires, no hook); these test
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 from pathlib import Path
@@ -164,3 +165,66 @@ def test_checkpoint_above_tokens_changes_speed_not_numbers(tiny_dir) -> None:
 def test_checkpoint_above_tokens_needs_checkpointing() -> None:
     with pytest.raises(ValueError, match="checkpoint_above_tokens"):
         StudentConfig.from_dict({"checkpoint_above_tokens": 8192})
+
+
+# ---- osler_v3 KL-to-base (D41) ------------------------------------------------------------------------------------------
+
+def test_kl_to_reference_math() -> None:
+    from meddecide.train.losses import kl_to_reference
+
+    p = torch.tensor([0.5, 0.5, 0.2, 0.8])
+    idx = torch.tensor([0, 0, 1, 1])
+    same = kl_to_reference(p, p.clone(), idx, 2, torch.tensor([True, True]))
+    assert float(same) == pytest.approx(0.0, abs=1e-7)
+    ref = torch.tensor([0.9, 0.1, 0.2, 0.8])
+    first_only = kl_to_reference(p, ref, idx, 2, torch.tensor([True, False]))
+    expected = 0.9 * math.log(0.9 / 0.5) + 0.1 * math.log(0.1 / 0.5)
+    assert float(first_only) == pytest.approx(expected, rel=1e-5)
+    assert float(kl_to_reference(p, ref, idx, 2, torch.tensor([False, False]))) == 0.0
+
+
+def _kl_trainer(tiny_dir, **overrides):
+    torch.manual_seed(0)
+    model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                           readout="option_code")
+    config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=0, log_every=0, lr=5e-2,
+                           lora_lr=5e-2, shuffle_options=False, **overrides)
+    return Trainer(model, config), model
+
+
+def test_reference_probs_equal_the_untrained_model(tiny_dir) -> None:
+    _, model = _kl_trainer(tiny_dir)
+    model.eval_mode()
+    enc = [model.encode_item(synthetic_choice_item(n, s)) for s, n in enumerate([3, 4])]
+    batch = model.collate(enc)
+    with torch.no_grad():
+        _, probs = model.batch_logits(batch)
+    ref = model.reference_option_probs(batch)
+    assert torch.allclose(probs, ref, atol=1e-5)  # LoRA starts at zero and the readout is unchanged
+
+
+def test_kl_to_base_holds_anchor_items_near_the_base(tiny_dir) -> None:
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([3, 4, 3, 5, 4, 3])]
+
+    def drift(lam: float) -> float:
+        trainer, model = _kl_trainer(tiny_dir, kl_to_base=lam)
+        trainer.train(items, steps=6)
+        model.eval_mode()
+        batch = model.collate([model.encode_item(it) for it in items[:4]])
+        with torch.no_grad():
+            _, probs = model.batch_logits(batch)
+        ref = model.reference_option_probs(batch)
+        return float((probs - ref).abs().sum())
+
+    assert drift(50.0) < drift(0.0)
+
+
+def test_kl_exclusion_prefixes_select_the_anchors(tiny_dir) -> None:
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([3, 4])]
+    prefix = str(items[0].template_id)[:3]
+    trainer, _ = _kl_trainer(tiny_dir, kl_to_base=1.0, kl_exclude_template_prefixes=(prefix,))
+    trainer.train(items, steps=1)
+    assert trainer.history[-1].n_anchor == 0 and trainer.history[-1].kl == 0.0
+    trainer2, _ = _kl_trainer(tiny_dir, kl_to_base=1.0)
+    trainer2.train(items, steps=1)
+    assert trainer2.history[-1].n_anchor == 2

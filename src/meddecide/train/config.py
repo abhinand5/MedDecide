@@ -64,6 +64,8 @@ _TOP_LEVEL_KEYS = {
     "gradient_checkpointing",
     "checkpoint_above_tokens",
     "backbone",
+    "kl_to_base",
+    "kl_exclude_template_prefixes",
 }
 
 
@@ -137,6 +139,11 @@ class StudentConfig:
     # "qwen": MedDecideModel on base_model (Qwen3.5 causal LM, our prompt); "pplx": PplxDecisionModel on
     # perplexity-ai/pplx-decider-flash-v1.2 (its backbone, prompt and readout; base_model is ignored) — osler_v2
     backbone: str = "qwen"
+    # osler_v3 (D41): + kl_to_base * mean KL(base || model) over the batch's anchor items, the base being the model with
+    # its adapter off and its pre-training readout; anchors are items whose template_id starts with none of
+    # kl_exclude_template_prefixes (the domain templates the model is meant to move on). 0.0 = off
+    kl_to_base: float = 0.0
+    kl_exclude_template_prefixes: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -169,6 +176,8 @@ class StudentConfig:
         if unknown_head:
             raise ValueError(f"unknown head keys: {unknown_head}")
         kwargs = {k: v for k, v in data.items() if k not in {"lora", "head"}}
+        if "kl_exclude_template_prefixes" in kwargs:
+            kwargs["kl_exclude_template_prefixes"] = tuple(kwargs["kl_exclude_template_prefixes"] or ())
         cfg = cls(lora=lora, head=head, **kwargs)
         # arithmetic and range checks that would otherwise surface as a confusing crash later
         if cfg.batch_size < 1 or cfg.max_batch_tokens < 1 or cfg.max_prompt_tokens < 1:
@@ -189,6 +198,10 @@ class StudentConfig:
             raise ValueError("tripwire_consecutive_evals must be >= 1")
         if cfg.checkpoint_above_tokens is not None and (cfg.checkpoint_above_tokens < 1 or not cfg.gradient_checkpointing):
             raise ValueError("checkpoint_above_tokens needs gradient_checkpointing and a positive token count")
+        if cfg.kl_to_base < 0:
+            raise ValueError("kl_to_base must be >= 0")
+        if cfg.kl_to_base > 0 and cfg.readout != "option_code":
+            raise ValueError("kl_to_base needs the option-code readout")
         if cfg.backbone not in ("qwen", "pplx"):
             raise ValueError(f"backbone must be 'qwen' or 'pplx', got {cfg.backbone!r}")
         if cfg.backbone == "pplx" and (cfg.readout != "option_code" or cfg.bidirectional_full_attention):

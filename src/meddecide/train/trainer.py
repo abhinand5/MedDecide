@@ -36,7 +36,7 @@ import torch
 from meddecide.bench.schema import Item
 from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
-from meddecide.train.losses import ce_plus_brier
+from meddecide.train.losses import ce_plus_brier, kl_to_reference
 from meddecide.train.temperature import TemperatureFit, fit_per_qtype, fit_temperature
 
 if TYPE_CHECKING:
@@ -110,6 +110,9 @@ class StepRecord:
     max_item_tokens: int = 0
     mean_item_tokens: float = 0.0
     template_ids: list[str] = field(default_factory=list)
+    # osler_v3 KL-to-base (D41): the penalty's value on this step and the number of anchor items it covered
+    kl: float = 0.0
+    n_anchor: int = 0
 
     @property
     def items_per_s(self) -> float:
@@ -414,6 +417,14 @@ class Trainer:
                 model_batch = self.model.collate(batch)
                 if config.checkpoint_above_tokens is not None:
                     self.model.checkpoint_this_batch(model_batch.padded_tokens > config.checkpoint_above_tokens)
+                anchor = None
+                ref_probs = None
+                if config.kl_to_base > 0:
+                    prefixes = tuple(config.kl_exclude_template_prefixes)
+                    anchor = torch.tensor([not str(e.template_id).startswith(prefixes) if prefixes else True
+                                           for e in model_batch.encoded], dtype=torch.bool)
+                    if bool(anchor.any()):
+                        ref_probs = self.model.reference_option_probs(model_batch)
                 _logits, probs = self.model.batch_logits(model_batch)
                 breakdown = ce_plus_brier(
                     probs,
@@ -422,8 +433,15 @@ class Trainer:
                     model_batch.batch_size,
                     lam=config.lambda_brier,
                 )
+                total_loss = breakdown.total
+                kl_value = 0.0
+                if ref_probs is not None and anchor is not None:
+                    kl = kl_to_reference(probs, ref_probs.to(probs.device), model_batch.marker_item.to(probs.device),
+                                         model_batch.batch_size, anchor)
+                    total_loss = total_loss + config.kl_to_base * kl
+                    kl_value = float(kl.detach())
                 self.optimizer.zero_grad(set_to_none=True)
-                breakdown.total.backward()
+                total_loss.backward()
                 grad_norm = float(
                     torch.nn.utils.clip_grad_norm_(
                         [p for group in self.optimizer.param_groups for p in group["params"]],
@@ -448,7 +466,7 @@ class Trainer:
                 record = StepRecord(
                     step=total_steps,
                     epoch=epoch,
-                    loss=float(breakdown.total.detach()),
+                    loss=float(total_loss.detach()),
                     ce=float(breakdown.ce.detach()),
                     brier=float(breakdown.brier.detach()),
                     accuracy=breakdown.accuracy,
@@ -466,6 +484,8 @@ class Trainer:
                     gpu_peak_gb=peak,
                     lr_head=float(self.optimizer.param_groups[0]["lr"]),
                     lr_lora=float(self.optimizer.param_groups[-1]["lr"]),
+                    kl=kl_value,
+                    n_anchor=int(anchor.sum()) if anchor is not None else 0,
                 )
                 self.history.append(record)
                 if on_step is not None:

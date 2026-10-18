@@ -74,3 +74,28 @@ def ce_plus_brier(
         n_items=n_items,
         n_options=int(probs.numel()),
     )
+
+
+def kl_to_reference(
+    probs: Tensor,
+    ref_probs: Tensor,
+    item_index: Tensor,
+    n_items: int,
+    anchor: Tensor,
+    *,
+    eps: float = 1e-12,
+) -> Tensor:
+    """Mean over anchor items of ``KL(ref || probs)`` across each item's offered options (osler_v3 KL-to-base).
+
+    ``ref_probs`` are the frozen base model's probabilities for the same flat options (no gradient); ``anchor`` is a
+    ``(n_items,)`` boolean mask of the items the penalty applies to. Returns a zero tensor when no item is an anchor.
+    """
+    if probs.shape != ref_probs.shape or item_index.shape != probs.shape or anchor.shape != (n_items,):
+        raise ValueError("kl_to_reference expects matching flat probs, index and an (n_items,) anchor mask")
+    ref = ref_probs.detach().to(probs.dtype)
+    terms = ref * (torch.log(ref.clamp_min(eps)) - torch.log(probs.clamp_min(eps)))
+    per_item = torch.zeros(n_items, device=probs.device, dtype=probs.dtype).index_add(0, item_index, terms)
+    mask = anchor.to(probs.device)
+    if not bool(mask.any()):
+        return probs.sum() * 0.0
+    return per_item[mask].mean()

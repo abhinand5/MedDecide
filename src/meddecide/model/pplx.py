@@ -155,6 +155,7 @@ class PplxDecisionModel(MedDecideModel):
             self.optcode.weight.copy_(weight.to(torch.float32))
             if self.optcode_token_ids:
                 self.optcode.token_ids.copy_(torch.tensor(self.optcode_token_ids, dtype=torch.long))
+        self.snapshot_reference_readout()  # pplx's own readout: the KL-to-base anchor (D41)
 
     # ---- structure ----------------------------------------------------------
     def get_decoder(self) -> torch.nn.Module:
