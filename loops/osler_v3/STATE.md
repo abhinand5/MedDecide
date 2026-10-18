@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T20:40:13Z`
+Last updated (UTC): `2026-10-18T22:23:56Z`
 Iterations so far: `1`
 
 ---
@@ -26,8 +26,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X0 | Orientation, KL timing | small | — | DONE | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
 | X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
-| X3 | Gemma-crafted items over real text | yes | X0, X1 | IN_PROGRESS — claims template BLOCKED (D-X3-1, D44(b)); restyle build running (D-X3-2) | 2026-10-18T20:37:00Z (first X3 file written) | |
-| X4 | Charts with the D44 rule | yes | X0 | IN_PROGRESS — chart pilot queued after the restyle chain (waiter pid 3261640) | 2026-10-18T21:14:29Z | |
+| X3 | Gemma-crafted items over real text | yes | X0, X1 | BLOCKED — both templates blocked by the D44(b) label-tracking check (claims D-X3-1; restyle D-X3-7, Q4); no X3 rows; closed with CLAIMS C044–C056 | 2026-10-18T20:37:00Z | 2026-10-18T22:23:56Z |
+| X4 | Charts with the D44 rule | yes | X0 | IN_PROGRESS — 2,000-encounter chart build running (pids 3269872, 3269876; 200 of 1,800 at 22:23Z; the 200-encounter pilot is included) | 2026-10-18T21:14:29Z | |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | IN_PROGRESS — CG partition built (4,865 items, D-X6-1); fast dev v3 and baselines pending | 2026-10-18T21:14:29Z | |
 | X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A3 block built (973,305 rows, cap 8 %); A3 replay pid 3261407; chain script written, not launched (waits for fast dev v3) | 2026-10-18T21:14:29Z | |
@@ -49,7 +49,7 @@ at once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_
 | KL timing: s/step, anchor share, peak (pplx, kl 0.5) | control 0.7935 s/step; KL 0.5 1.0130 s/step (+27.7 %, mean after warm-up; median +37.8 %); anchor share 0.8775 of C1 (728,351 of 830,076; 0.8765 in the 150-step run); peak 57.08 GB in both arms; mean KL 0.2624 | `outputs/osler_v3/X0/` (kl_0, kl_0p5, anchor_share_C1.json, SELF_AUDIT.md); CLAIMS C001–C010 | X0 |
 | real sources: items per template, licences, screens, leakage | train 69,464 / dev 7,878 / test 8,832 rows (RAGTruth MIT: grounded 12,026, sentence 23,294, type 400; DrugProt CC BY 4.0: 33,744); leakage 0 hits (12 protected sets); NB screens max 0.695 (none ≥ 0.90); MultiCaRe: 0 items (age and sex stated in the text) | `loops/osler_v3/sources.md` | X1 |
 | broad replay: datasets, licences, A3 replay share | 162,797 rows from 10 datasets (11 template sources), all licences verified on card or README (MIT, CC BY 4.0, Apache-2.0); leakage 0 hits; C1 general replay 21.04 %; A3 33.98 % before the 8 % cap and 32.66 % after (target 35 % not met) | `loops/osler_v3/sources.md` §5; CLAIMS C033–C041 | X2 |
-| Gemma-crafted: pilot keep / agreement rates; items built | claims (after the one prompt fix): kept 272 of 300 (90.7 %), verifier agrees on 90 % of contradicted, 105 of 106 not-mentioned; claims BLOCKED on the phrase check (D-X3-1). Restyle (original prompt): kept 286 of 300 (95.3 %); build pending (chain) | `outputs/osler_v3/X3/` (build.json, readthrough_*.json) | X3 |
+| Gemma-crafted: pilot keep / agreement rates; items built | claims (train pilot, after the one allowed prompt fix): kept 272 of 300 (90.7 %; C044); 'family' in 41.9 % of kept not-mentioned claims vs 0.0 % of supported or contradicted (C045; D-X3-1's 39 % does not reproduce); verifier agrees on 90 of 92 contradicted and 105 of 106 not-mentioned (C047); BLOCKED. Restyle (build): 6,426 of 6,645 kept (C048); 6,428 verifier agreements (C049); balanced 4,746 / 406 / 91 (C050); 103 phrase flags (C051); NB macro 0.7143 on balanced dev (C052); BLOCKED; no X3 rows (C055) | `outputs/osler_v3/X3/` (build.json, readthrough_*.json) | X3 |
 | charts: items built; cue check | | `loops/osler_v3/charts.md` | X4 |
 | fast dev v3 partitions; CG partition size and templates; zero-shot pplx on CG | | | X6 |
 | Stage A: MR, CG, knowledge, general per run; mean KL; the chosen recipe | | `loops/osler_v3/stage_a.md` | X7 |
@@ -70,18 +70,24 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: X3 — Gemma-crafted items over real text (restyle build; claims BLOCKED); X4 queued; X6/X7 CPU preparation done
-Working dir:    outputs/osler_v3/X3/
-Running jobs:   restyle build chain pid 3259323 (train 6000 docs, then dev 500, then test 1000), log outputs/osler_v3/X3/logs/restyle_chain.log (started 2026-10-18T21:07:16Z); vLLM Gemma server pid 3254457 on 127.0.0.1:8000 (started 2026-10-18T20:49:17Z). Restarting after a crash: the generator is resumable (same command, the done keys are skipped).
+Task in flight: X4 — synthetic charts (2,000-encounter build running since 2026-10-18T22:13Z; X3 closed BLOCKED, see §4)
+Working dir:    data/gen/osler_v3/charts/ (build output); outputs/osler_v3/X4/
+Running jobs:   chart build pids 3269872 / 3269876 (scripts/osler_v2/w3b_charts.py --count 2000 --workers 32), log outputs/osler_v3/X4/logs/charts_build.log (200 of 1,800 at 22:23Z, about 1,300 charts per hour); vLLM Gemma server (127.0.0.1:8000) pid 3254457 (stop it by PID before any training run).
 
-- [x] ruff and pytest gate (padding test deselected on the command line only): ruff clean; 760 passed, 1 skipped, 1 deselected, exit 0 (outputs/osler_v3/X0/logs/pytest_gate.log)
-- [x] MIMIC official files absent (data/physionet/ missing, expected)
-- [x] envs/vllm serves Gemma 4 31B (osler_v2 W3b command); one chat reply checked (finish stop); server stopped, GPU 0 MiB
-- [ ] KL timing: 150 steps on the C1 rows, pplx, kl_to_base 0.5, the §3.2 prefixes; s/step, anchor share, peak GB (control kl 0 also run, same steps)
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+X3 closure (done 22:23Z):
+- [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
+- [x] x3_recount.py: 31 of 31 checks agree (outputs/osler_v3/X3/recount.log)
+- [x] SELF_AUDIT.md written (outputs/osler_v3/X3/SELF_AUDIT.md)
+- [x] CLAIMS rows C044–C056 appended; each recompute command run
+- [x] gate run: ruff clean; pytest 838 passed, 1 xfailed, 1 skipped, with one GPU-only test deselected (D-X3-15)
+- [ ] commit "loop(osler_v3): X3 BLOCKED" and push loop/osler_v3
+
+X4 (the chart steps; the build must finish first):
+- [ ] build finished: 2,000 encounters (the 200-encounter pilot plus 1,800); the build log says so
+- [ ] x4_charts_check.py on the full build and on the first 500 built charts
+- [ ] per-template NB screen, leakage and the D44(b) label-tracking check; Q5 and D-X4-2 recorded
+- [ ] loops/osler_v3/charts.md (aggregates only; no n-gram phrases)
+- [ ] SELF_AUDIT, CLAIMS rows, DONE or BLOCKED, STATE, commit, push
 ```
 
 ---
@@ -138,11 +144,19 @@ Running jobs:   restyle build chain pid 3259323 (train 6000 docs, then dev 500, 
 - Surprises: the verifier agrees with the drawn label on about 90 % of claims, but the spot read found 'contradicted' items that are only unmentioned facts (for example "tricuspid regurgitation was absent" when the passage never mentions it): label noise in the contradicted class (NEXT). The number rule reads digits only, so number words ('eight') fail it. Without a page-type title, restyle keeps 49 % and two classes nearly vanish (D-X3-2).
 - Next: the restyle chain; then X4 (charts, same server) with the D44(b) check; then X3 closure (BLOCKED claims, restyle DONE with its screens).
 
+### X3 — BLOCKED — 2026-10-18T22:23:56Z
+- What ran: `scripts/osler_v3/x3_assemble.py` (closure re-run; the NB screen now also runs on the blocked template as a diagnostic); `scripts/osler_v3/x3_recount.py` (fresh-process recount of the candidates against build.json: 31 of 31 agree; `outputs/osler_v3/X3/recount.log`); `x3_generate.py` pilots and build before this closure (Gemma 4 31B, vLLM; verifier at temperature 0).
+- Output: `outputs/osler_v3/X3/` (build.json, recount.log, SELF_AUDIT.md, read-through files, logs). X3 rows: 0 in train, dev and test (C055).
+- Headline: claims BLOCKED: 272 of 300 candidates kept (C044); "family" in 41.9 % of kept not-mentioned claims vs 0.0 % of the others (C045; D-X3-1's 39 % does not reproduce, C046). Restyle BLOCKED: 6,426 of 6,645 candidates kept (C048); 103 label-tracking phrases beyond the class name on balanced train (C051); NB macro 0.7143 on balanced dev, below the 0.90 defect screen (C052), so the block is the phrase check, not the screen.
+- Surprises: the screen had skipped the blocked template, so Q4's NB value had no artifact (now recounted); STATE said the verifier agrees on "90 % of contradicted", the count is 90 of 92 (C047); the restyle test pass wrote 145 candidates, not 91 (D-X3-10); the kept-claims read-through is empty by construction (SELF_AUDIT §5); 3 CodiEsp documents have no usable passage with no counted reason (SELF_AUDIT §5, open).
+- Next: X4 (the 2,000-encounter chart build is running on the GPU server; the charts check runs when it finishes). X6 proceeds without X3 items (the X3 test pool is empty and recorded). X7 does not use X3 rows.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
 | X3-claims | clinclaim_grounding_v1 (all claim rows; the claims template) | label-tracking phrase 'family' / 'family members' in 39 % of not-mentioned items vs 0 % of the others, after the one allowed prompt fix (D44(b); D-X3-1) | a second prompt change is not allowed by the ADVISORY; a new loop could redesign the not-mentioned instruction and re-pilot |
+| X3-restyle | restyle_page_category_v1 (all restyled-page rows) | label-tracking phrases beyond the page class's own name on the built data (103 flagged after exempting the class name; D44(b)); the title is exempt as the labelled fact (Q4) | the operator's decision on the page-section vocabulary (Q4); a new loop could re-run the check with a written exemption |
 | X5 | MIMIC block (C4) and MIMIC in the dev sets | official PhysioNet files are not under `data/physionet/` (checked at X0 and X1) | the operator's PhysioNet approval and the official files under `data/physionet/`; re-checked before X6 |
 
 ---
@@ -161,6 +175,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 **Q3 (X2, 2026-10-18T20:40:13Z) — the A3 general replay share is 32.66 % after the 8 % template cap (target 35 %).** The gap is about 22,800 items at the A3 size. Options: (a) run A3 at 32.66 % and record it (current); (b) add about 32,000 general items from more permissive, human-labelled sets before X7. I would take (a) to keep the timebox; the arm answers the question as it stands.
 
 **Q4 (X3, 2026-10-18T21:07:53Z) — the page type is stated in the restyled page's own title ('RADIOLOGY REPORT', 'PROGRESS NOTE', and so on), and the phrase check's radiology words ('impression', 'demonstrates', 'there is') come from that page genre.** I treat the title and the genre words as the labelled fact (D44(b)), so the restyle template passes without a block. The consequence: restyled-page items are partly solvable by reading the title, so their accuracy is high by construction, and the defect screen may call them too good. Options: (a) keep them as they are, and report the title-reading share with the template (current); (b) remove the title by a prompt change, which the ADVISORY allows only once and which I tried (pilot v2: kept 49 %, progress and emergency pages nearly gone). I would take (a). Please confirm.
+
+**Q4 (X3, updated 2026-10-18T22:02Z) — the restyled-page template is blocked; the operator decides whether the page-section vocabulary counts as the labelled fact.** On the built data (4,746 train, 406 dev), the label-tracking check flags 103 phrases after exempting the class's own name words: 'impression' (radiology 91 % of items against 5 % of the others), 'patient demographics' (nutrition 50 % against 9 %), 'inpatient' (admission 38 % against 1 %), 'findings are', 'demonstrates'. The page title is exempt (it states the class). I blocked the template: these words are the writer's section style, not the labelled fact (D44(b)). If you consider a page type's own section vocabulary to be the labelled fact, say so; I would then write that exemption into D44 as a new entry and re-run the check, not edit it in place. Gold-in-state (the class name in the text) is 85 % of items; the NB macro on dev is 0.714 (below the 0.90 screen of ADVISORY §7.4).
 
 ## 7. Deviations from the plan
 
@@ -186,6 +202,18 @@ deviation — that is a `BLOCKED`.
 - **D-X3-4 (X3, 2026-10-18T21:07:53Z):** the claims balance is by label only (ADVISORY X3: 'balance the three labels'); the edit kinds are reported, not balanced. The first version also balanced kinds, which left a scarce kind (drug) with four items.
 - **D-X3-5 (X3, 2026-10-18T21:07:53Z):** the claims edit-kind draw is restricted to the kinds a passage can carry (a number edit needs a number, and so on): the code still draws the kind, from a smaller set. Without this, drug and laterality edits were almost never applicable.
 - **D-X3-6 (X3, 2026-10-18T21:07:53Z):** the CodiEsp substrate is the 419 training cases of osler_v2's block C1 (osler_v2's carve-out has no training rows, so it is excluded by construction). The recomputed carve-out of this loop differed from osler_v2's (75 against 74 cases), so it was not used as the rule.
+
+- **D-X3-7 (X3, 2026-10-18T22:02Z):** the restyled-page template is BLOCKED on the built data under D44(b) (see Q4): 103 label-tracking phrases beyond the class name, against the pilot's 0 beyond the radiology genre words. The pilot passed because fewer phrases reached the ten-item threshold at 300 documents; the full check is the one that counts. No restyled rows are used.
+- **D-X3-8 (X3, 2026-10-18T22:02Z):** the restyle test pass was stopped at 91 of 1,000 documents, because the template is blocked; the GPU went to the chart pilot.
+- **D-X3-9 (X3, 2026-10-18T22:02Z):** the claims and restyle data (candidates, build reports, read-through samples) stay in gitignored folders; nothing from X3 enters training, dev or test.
+
+- **D-X3-10 (X3 closure, 2026-10-18T22:23:56Z):** correction of D-X3-8. The restyle test pass wrote 145 candidates (140 kept), not 91; 91 is the balanced test count (CLAIMS C048, C050).
+- **D-X3-11 (X3 closure, 2026-10-18T22:23:56Z):** correction of D-X3-1. The "39 %" does not reproduce: "family" is 44 of 105 kept not-mentioned claims (41.9 %), "family members" is 39 of 105 (37.1 %), and both are 0 % among supported and contradicted claims (C045, C046). The block stands.
+- **D-X3-12 (X3 closure, 2026-10-18T22:23:56Z):** the Naive Bayes screen now runs on every template, and a blocked template is marked `blocked`. This is a diagnostic only: no threshold, gold label or block changed. The restyle NB macro is 0.7143 (C052), below the 0.90 screen.
+- **D-X3-13 (X3 closure, 2026-10-18T22:23:56Z):** `readthrough_kept_claims.json` is empty by construction (the claims path leaves the loop before the kept sample is drawn), so no kept-claim read-through exists at closure; the rejected sample is written (SELF_AUDIT §5).
+- **D-X3-14 (X3 closure, 2026-10-18T22:23:56Z):** CodiEsp has 419 training documents and 416 usable passages; the 3 without a usable passage have no counted reason. No row uses them. Open (SELF_AUDIT §5).
+
+- **D-X3-15 (gate, X3 commit):** the pytest gate at this commit deselects `tests/test_model_pointer.py::test_overfit_64_items` on the command line only. The test is GPU-only (on CPU it is skipped) and failed with CUDA out of memory while the Gemma server (pid 3254457, about 90 GiB) held the GPU; no code under test changed. The full gate is not claimed as passing for this commit. It re-runs before the first GPU training launch (X7 chain). Counts: 838 passed, 1 xfailed, 1 skipped (`outputs/osler_v3/X3/logs/pytest_gate_deselect.log`).
 
 ## 8. Closure summary feed
 

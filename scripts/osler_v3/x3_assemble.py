@@ -3,7 +3,7 @@
 Input: the candidate files written by x3_generate.py (data/gen/osler_v3/x3_claims_<split>.jsonl and x3_restyle_<split>.jsonl).
 Every candidate carries its verdict and its keep flag; only kept candidates enter the rows. Balancing is by a stable-hash order:
 - claims: contradicted items are balanced to the smallest edit kind; then the three labels to the smallest label;
-- restyled pages: the twelve-class rows are balanced to the smallest narrative class (no class above 25 %, ADVISORY).
+- restyled pages: the seven-class rows are balanced to the smallest narrative class (no class above 25 %, ADVISORY).
 
 Checks, all reported (none filters silently):
 - leakage against every protected set (meddecide.mix.protected) and paragraph-level against the protected states (must be 0);
@@ -60,8 +60,13 @@ READ_N = 30
 SPLITS = ("train", "dev", "test")
 # the claim template is blocked after its one allowed prompt fix (D-X3-1): its not-mentioned claims carry a label-tracking
 # phrase ("family", "family members") in 39 % of items against 0 % of the other labels (D44(b)); no claim rows are written
-BLOCKED = {"clinclaim_grounding_v1": "label-tracking phrase 'family' / 'family members' in 39 % of not-mentioned items and 0 % of "
-                                    "the others, after the one allowed prompt fix (D-X3-1; D44(b))"}
+BLOCKED = {
+    "clinclaim_grounding_v1": "label-tracking phrase 'family' / 'family members' in 39 % of not-mentioned items and 0 % of the others, "
+                              "after the one allowed prompt fix (D-X3-1; D44(b))",
+    "restyle_page_category_v1": "label-tracking phrases beyond the page class's own name on the built data (103 flagged; e.g. 'impression' "
+                                "91 % of radiology items vs 5 %, 'patient demographics' 50 % of nutrition vs 9 %, 'inpatient' 38 % of "
+                                "admission vs 1 %); not the labelled fact under D44(b) (D-X3-7; Q4)",
+}
 
 
 def read_candidates(path: Path) -> list[dict[str, Any]]:
@@ -153,7 +158,8 @@ def screen(rows: list[dict[str, Any]], dev_rows: list[dict[str, Any]], template:
     nb = NaiveBayes().fit(train)
     macro = macro_accuracy([(gold_label(r), nb.predict(r)) for r in dev])
     majority = Counter(gold_label(r) for r in train).most_common(1)[0][0]
-    return {"template": template, "train_rows": len(train), "dev_rows": len(dev),
+    return {"template": template, "blocked": template in BLOCKED,
+            "train_rows": len(train), "dev_rows": len(dev),
             "naive_bayes_macro": None if macro is None else round(macro, 4),
             "majority_dev_accuracy": round(sum(gold_label(r) == majority for r in dev) / len(dev), 4),
             "flag_at_or_above_0_90": bool(macro is not None and macro >= SCREEN_THRESHOLD)}
@@ -204,8 +210,9 @@ def main() -> int:
     report["checks"]["leakage"] = {s: leakage_counts(rows_by_split[s], text, bare, qualified) for s in SPLITS}
     report["checks"]["paragraph_hits_in_protected_states"] = sum(
         1 for r in all_rows for p in paragraphs(r["state"]) if len(p) >= 60 and paragraph_key(p) in protected_paragraphs)
-    report["checks"]["screens"] = [screen(rows_by_split["train"], rows_by_split["dev"], t) for t in (cc.TEMPLATE, rs.TEMPLATE)
-                                   if t not in BLOCKED]
+    # a blocked template is screened too, as a diagnostic: its rows are not written (below), and the number is reported
+    report["checks"]["screens"] = [screen(rows_by_split["train"], rows_by_split["dev"], t)
+                                   for t in (cc.TEMPLATE, rs.TEMPLATE)]
     report["checks"]["gold_in_state"] = {
         s: sum(1 for r in rows_by_split[s] if r["template_id"] == rs.TEMPLATE and gold_in_state(r)) for s in SPLITS}
     if cc.TEMPLATE not in BLOCKED:
@@ -220,6 +227,7 @@ def main() -> int:
     report["checks"]["leakage_all_rows"] = leak
     for split in SPLITS:
         rows_by_split[split] = [r for r in rows_by_split[split] if r["template_id"] not in BLOCKED]
+        report["rows"][f"written/{split}"] = len(rows_by_split[split])
     write_jsonl(TRAIN, rows_by_split["train"])
     write_jsonl(DEV, rows_by_split["dev"])
     write_jsonl(TEST, rows_by_split["test"])
