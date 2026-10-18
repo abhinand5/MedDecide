@@ -34,7 +34,7 @@ KNOWLEDGE_DEV_V2 = REPO / "data" / "bench" / "osler_v2" / "knowledge_dev_v2.json
 POOLS = {  # new-template dev pools, if built
     "x1": REPO / "data" / "bench" / "osler_v3" / "x1_dev.jsonl",
     "x3": REPO / "data" / "bench" / "osler_v3" / "x3_dev.jsonl",
-    "x4": REPO / "data" / "gen" / "osler_v3" / "charts" / "dev.jsonl",
+    "x4": REPO / "data" / "bench" / "osler_v3" / "x4_dev.jsonl",  # mix rows of x4_to_mix.py (blocked templates excluded)
 }
 CG_TEMPLATES = (
     "medqa_usmle4_v1", "medmcqa_4opt_v1", "pubmedqa_ynm_v1", "mmlu_mc_v1", "medquad_routing_v1",

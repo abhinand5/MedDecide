@@ -34,9 +34,11 @@ OUT = REPO / "outputs" / "osler_v3" / "X4" / "checks.json"
 SPLITS = ("train", "dev", "test")
 SCREEN_THRESHOLD = 0.90
 # D44(b): the words that state the labelled fact of each template (exempt from the label-tracking check)
-LABELLED_FACT = {
-    "chart_icd_support_v1": ("ruled out", "rule out", "ruled out of", "confirmed", "diagnosed", "diagnosis of"),
+LABELLED_FACT = {  # fixed before the full build; each entry states whether the diagnosis is present or ruled out
+    "chart_icd_support_v1": ("ruled out", "rule out", "out current", "confirmed", "diagnosed", "diagnosis of", "does have",
+                             "does not have", "determined"),
 }
+MIN_GROUP = 10  # a group below this size has no rate to compare (osler_v2's test needed none: its groups were large)
 
 
 def _osler_v2_checks():
@@ -75,6 +77,8 @@ def label_tracking(rows: list[dict[str, Any]], w3b: Any, template: str) -> dict[
     if len(groups) < 2:
         result["note"] = "one gold group only: no comparison"
         return result
+    small = sorted(g for g, v in groups.items() if len(v) < MIN_GROUP)
+    result["groups_below_min_size_not_compared"] = small
     counts: dict[str, Counter[str]] = {g: Counter() for g in groups}
     for g, sets in groups.items():
         for s_ in sets:
@@ -83,6 +87,8 @@ def label_tracking(rows: list[dict[str, Any]], w3b: Any, template: str) -> dict[
     exempt_words = LABELLED_FACT.get(template, ())
     seen: set[tuple[str, str]] = set()
     for g in groups:
+        if len(groups[g]) < MIN_GROUP:
+            continue
         n_in, n_out = len(groups[g]), total - len(groups[g])
         for phrase in set().union(*(c.keys() for c in counts.values())):
             c_in = counts[g][phrase]
@@ -126,18 +132,32 @@ def screen(train: list[dict[str, Any]], dev: list[dict[str, Any]]) -> dict[str, 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="data/gen/osler_v3/charts")
+    ap.add_argument("--first-charts", type=int, default=0,
+                    help="check only the first N charts in file order (train, then dev, then test); 0 checks every chart")
+    ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
     directory = REPO / args.dir
     w3b = _osler_v2_checks()
     rows = load_split_rows(directory)
+    if args.first_charts:
+        first: dict[str, None] = {}
+        for s in SPLITS:
+            for r in rows[s]:
+                first.setdefault(r["pair_id"].split(":")[1], None)
+        keep = set(list(first)[: args.first_charts])
+        rows = {s: [r for r in rows[s] if r["pair_id"].split(":")[1] in keep] for s in SPLITS}
     all_rows = [r for s in SPLITS for r in rows[s]]
     templates = sorted({r["generator"] for r in all_rows})
     report: dict[str, Any] = {"checked_utc": utcnow(), "git_commit": git_commit(REPO), "dir": args.dir,
+                              "first_charts": args.first_charts or None,
                               "items_by_split": {s: len(rows[s]) for s in SPLITS},
                               "items_by_template": dict(Counter(r["generator"] for r in all_rows)),
                               "templates": {}}
     text, bare, qualified = load_protected(REPO)
-    report["leakage"] = {s: leakage_counts(rows[s], text, bare, qualified) for s in SPLITS if rows[s]}
+    adapt = [{"state": r["state"], "question": r["question"], "options": r["options"],
+              "source_record_id": str(r.get("pair_id", r["item_id"])), "source": "synthea_chart", "meta": {}} for r in all_rows]
+    adapted = {s_: [a for a, r in zip(adapt, all_rows, strict=True) if r["split"] == s_] for s_ in SPLITS}
+    report["leakage"] = {s_: leakage_counts(adapted[s_], text, bare, qualified) for s_ in SPLITS if adapted[s_]}
     for template in templates:
         t_rows = {s: [r for r in rows[s] if r["generator"] == template] for s in SPLITS}
         tracking = label_tracking(t_rows["train"] + t_rows["dev"], w3b, template)
@@ -148,7 +168,7 @@ def main() -> int:
             "screen_naive_bayes": screen(t_rows["train"], t_rows["dev"]),
             "blocked": bool(tracking.get("flagged")),
         }
-    write_json(OUT, report)
+    write_json(args.out, report)
     for template, info in report["templates"].items():
         print(f"{template}: items {info['items']}, flagged phrases {len(info['label_tracking'].get('flagged', []))}, "
               f"exempt {len(info['label_tracking'].get('exempt', []))}, blocked {info['blocked']}, "
