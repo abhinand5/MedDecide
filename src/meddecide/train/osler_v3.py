@@ -13,6 +13,8 @@ from typing import Any
 
 import numpy as np
 
+TEMPLATE_CAP = 0.08  # ADVISORY osler_v3 X2 / osler_v1 V7: no template above 8 % of a block
+
 # ADVISORY osler_v3 §3.2, fixed before any osler_v3 run; a new template family must take one of these or be an anchor
 DOMAIN_PREFIXES: tuple[str, ...] = (
     "mr_",
@@ -78,3 +80,26 @@ def timing_summary(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         "kl_steps_with_anchors": len(kl_steps),
         "nonfinite_losses": sum(1 for x in losses if not math.isfinite(x)),
     }
+
+
+def capped_sizes(fixed_total: int, sizes: Mapping[str, int], cap: float = TEMPLATE_CAP) -> tuple[int, dict[str, int]]:
+    """The final block size N and the rows kept per template, when no template may exceed ``cap`` of the block (ADVISORY §3).
+
+    ``fixed_total`` is the number of rows of every template that is not capped (the C1 rows and the uncapped replay rows); ``sizes``
+    are the candidate rows of each capped template. A template keeps min(its size, cap * N), and N is the fixed point of
+    N = fixed_total + sum of the kept rows (solved by iteration). The kept count is rounded down, so the cap always holds.
+    """
+    if not 0 < cap < 1:
+        raise ValueError("cap must be in (0, 1)")
+    total = fixed_total + sum(sizes.values())
+    for _ in range(1000):
+        kept = {t: min(n, math.floor(cap * total)) for t, n in sizes.items()}
+        new_total = fixed_total + sum(kept.values())
+        if new_total == total:
+            break
+        total = new_total
+    kept = {t: min(n, math.floor(cap * total)) for t, n in sizes.items()}
+    total = fixed_total + sum(kept.values())
+    if any(v > cap * total + 1e-9 for v in kept.values()):
+        raise ValueError("the cap does not hold at the fixed point")
+    return total, kept

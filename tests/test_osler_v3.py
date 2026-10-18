@@ -10,7 +10,14 @@ import pytest
 import yaml
 
 from meddecide.train.config import load_config
-from meddecide.train.osler_v3 import DOMAIN_PREFIXES, anchor_share, is_anchor, timing_summary
+from meddecide.train.osler_v3 import (
+    DOMAIN_PREFIXES,
+    TEMPLATE_CAP,
+    anchor_share,
+    capped_sizes,
+    is_anchor,
+    timing_summary,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -104,3 +111,16 @@ def test_osler_v3_recipe_loads_as_a_student_config() -> None:
     assert config.kl_to_base == 0.0
     assert config.kl_exclude_template_prefixes == DOMAIN_PREFIXES
     assert config.lora.target_modules == ("q_proj", "k_proj", "v_proj", "o_proj")
+
+
+def test_capped_sizes_hold_the_cap_at_the_fixed_point() -> None:
+    # C1 (830,076 rows) plus the other broad rows (65,365) are fixed; AQuA-RAT (97,432) is the one template above 8 % of the block
+    total, kept = capped_sizes(fixed_total=830076 + 65365, sizes={"broad_aqua_rat_v1": 97432})
+    assert kept["broad_aqua_rat_v1"] <= TEMPLATE_CAP * total
+    assert total == 830076 + 65365 + kept["broad_aqua_rat_v1"]
+    assert abs(kept["broad_aqua_rat_v1"] - 77864) <= 1  # the X2 value: AQuA-RAT at 8 % of 973,305
+
+
+def test_capped_sizes_keep_small_templates_whole() -> None:
+    total, kept = capped_sizes(fixed_total=1000, sizes={"a": 10, "b": 20})
+    assert kept == {"a": 10, "b": 20} and total == 1030

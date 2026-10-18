@@ -27,10 +27,10 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
 | X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
 | X3 | Gemma-crafted items over real text | yes | X0, X1 | IN_PROGRESS — claims template BLOCKED (D-X3-1, D44(b)); restyle build running (D-X3-2) | 2026-10-18T20:37:00Z (first X3 file written) | |
-| X4 | Charts with the D44 rule | yes | X0 | PENDING | | |
+| X4 | Charts with the D44 rule | yes | X0 | IN_PROGRESS — chart pilot queued after the restyle chain (waiter pid 3261640) | 2026-10-18T21:14:29Z | |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
-| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | PENDING | | |
-| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | PENDING | | |
+| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | IN_PROGRESS — CG partition built (4,865 items, D-X6-1); fast dev v3 and baselines pending | 2026-10-18T21:14:29Z | |
+| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A3 block built (973,305 rows, cap 8 %); A3 replay pid 3261407; chain script written, not launched (waits for fast dev v3) | 2026-10-18T21:14:29Z | |
 | X8 | Stage B: data blocks | yes | X7 | PENDING | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
@@ -70,7 +70,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: X3 — Gemma-crafted items over real text (restyle build; claims BLOCKED)
+Task in flight: X3 — Gemma-crafted items over real text (restyle build; claims BLOCKED); X4 queued; X6/X7 CPU preparation done
 Working dir:    outputs/osler_v3/X3/
 Running jobs:   restyle build chain pid 3259323 (train 6000 docs, then dev 500, then test 1000), log outputs/osler_v3/X3/logs/restyle_chain.log (started 2026-10-18T21:07:16Z); vLLM Gemma server pid 3254457 on 127.0.0.1:8000 (started 2026-10-18T20:49:17Z). Restarting after a crash: the generator is resumable (same command, the done keys are skipped).
 
