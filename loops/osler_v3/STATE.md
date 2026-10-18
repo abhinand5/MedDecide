@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T22:34:00Z`
+Last updated (UTC): `2026-10-18T22:41:11Z`
 Iterations so far: `1`
 
 ---
@@ -88,6 +88,8 @@ X4 (the chart steps; the build must finish first):
 - [ ] per-template NB screen, leakage and the D44(b) label-tracking check; Q5 and D-X4-2 recorded
 - [ ] loops/osler_v3/charts.md (aggregates only; no n-gram phrases)
 - [ ] SELF_AUDIT, CLAIMS rows, DONE or BLOCKED, STATE, commit, push
+
+X8 code (written, NOT launched; committed 65e3c45): `scripts/osler_v3/x8_build_block.py` (streamed block build: base + new source + minimal broad replay top-up to 20 %; the 8 % cap fails the build), `scripts/osler_v3/x8_keep.py` (keep rule via `keep_comparison`, the new sources removed from both sides per D-X8-1, reported beside it; CG reported beside it), `scripts/osler_v3/x8_chain.sh` (chosen Stage A arm as B0; B1 = X1 sources; B3 = X4 charts on the last kept block; `x7_block_run.py` for training at the chosen KL). Smoke test of the keep code on osler_v2 W6 reproduces C1's keep decision (output removed; not a result). X9 needs a per-evaluation CG hook (the shared `run_arm` keeps only the best checkpoint; not changed): to be written with X9.
 
 X6 queue (written, NOT launched; `scripts/osler_v3/x6_chain.sh`): zero-shot pplx on the CG partition (scope mix_v2), then the
 new test pool with osler_v2 W5's five baselines and zero-shot pplx, then `x7_stage_a.sh`. It refuses to start while the vLLM
