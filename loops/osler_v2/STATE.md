@@ -31,8 +31,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3b BLOCKED: no chart templates; W3, W4 if built) | DONE (pplx test-side scoring queued after the C0 stage, D-W5-2) | 2026-10-17T14:59:04Z | 2026-10-17T16:04:39Z |
 | W6 | Blocks v2 + keep rule | yes | W5 | DONE (base pplx; C0 and C1 kept, C2 not kept: final mix C1) | 2026-10-17T16:01:57Z | 2026-10-18T06:54:15Z |
-| W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | IN_PROGRESS (pplx; kept mix C1; 42,200 steps; eight evaluations) | 2026-10-18T06:54:15Z | |
-| W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | PENDING | | |
+| W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | DONE (kept mix C1; pplx; 42,200 steps; 250,044 items; fast dev v2 accuracy 0.8648) | 2026-10-18T06:53:53Z | 2026-10-18T17:15:36Z |
+| W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | IN_PROGRESS (scoring the V10 items) | 2026-10-18T17:15:36Z | |
 | W9 | Memorisation audit (only with MIMIC) | small | W7 | PENDING | | |
 | W10 | Findings and closure — HARD STOP | no | all | PENDING | | |
 
@@ -70,18 +70,15 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W7 (started 2026-10-18T06:54:15Z): final Osler-4B on C1 (pplx), 42,200 steps, eight evaluations
-Working dir:    outputs/osler_v2/W7/
-Running job:    PID 3055700 (`w7_final.py --block C1 --backbone pplx`), log outputs/osler_v2/W7/logs/osler_4b.log
+Task in flight: W8 (started 2026-10-18T17:15:36Z): score Osler-4B on the V10 items, then the gate
+Working dir:    outputs/osler_v2/W8/
+Running job:    `w8_score.py --name osler_4b` (log outputs/osler_v2/W8/logs/osler_4b.log)
 
-- [x] C0 (qwen, pplx) full runs; base choice pplx; knowledge checks pass
-- [x] C1 (pplx) full run; keep vs C0p: KEPT
-- [x] C2 (pplx) full run; keep vs C1: NOT KEPT (the final mix is C1)
-- [x] C3 not built (W3b BLOCKED)
-- [ ] W7 final Osler-4B on C1 (replay 42,200 steps / 250,044 items, precomputed)
-- [ ] W8: score Osler-4B on data/bench/osler_v1/v10_items.jsonl (30,621 items) with w8_score.py (load_any; calibration = the run's arm_result.json)
-- [ ] W8: Gate O3 (D31 checks on MR suite v1 verdict templates; panel; knowledge guard vs zero-shot pplx (D39)); additional rows
-- [ ] W9 skipped (no MIMIC); W10 FINDINGS, NEXT, five-claim spot-check, Loop status STOPPED
+- [x] W7 final run on C1 (pplx): 42,200 steps; eight evaluations; validated; fast dev v2 accuracy 0.8648 (CLAIMS W052)
+- [ ] W8 score Osler-4B on data/bench/osler_v1/v10_items.jsonl (30,621 items)
+- [ ] W8 gate (scripts/osler_v2/w8_gate.py): D31 on the MR suite v1 verdict set (13,103 items), panel, knowledge guard vs zero-shot pplx; additional rows
+- [ ] W8 write loops/osler_v2/gate_o3.md and results.md
+- [ ] W9 skipped (no MIMIC in the final mix); W10 FINDINGS.md, NEXT.md, five-claim spot-check, Loop status STOPPED
 
 ```
 
