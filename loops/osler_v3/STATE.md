@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T23:44:22Z`
+Last updated (UTC): `2026-10-18T23:48:51Z`
 Iterations so far: `1`
 
 ---
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X6 — fast dev v3, CG proxy and the new baselines; the GPU queue `scripts/osler_v3/x6_chain.sh` started 2026-10-18T23:36:15Z
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   the queue (`x6_chain.sh`) was stopped at 23:42Z to fix D-X6-3; the pool pplx run (pid 3363972, log outputs/osler_v3/X6/logs/pool_pplx.log) is finishing; a background watcher (task b35fxmzp7) restarts the queue detached when that pid exits. The queue runs: cg_pplx (resumes from 4,000 saved rows), then the new test pool: pool_pplx, pool_zs4b, pool_zs9b, pool_md4b, pool_md9b, pool_jev9b; then `x7_stage_a.sh` (A0 to A3, one GPU job at a time). The Gemma server is stopped (0 MiB).
+Running jobs:   the queue `x6_chain.sh` restarted at 2026-10-18T23:48:37Z (checked 2026-10-18T23:48:51Z); the pool pplx run finished (9,016 rows, 23:48:27Z); the CG step (cg_pplx, resumes from its 4,000 saved rows) is running; then pool_pplx (resume), pool_zs4b, pool_zs9b, pool_md4b, pool_md9b, pool_jev9b; then `x7_stage_a.sh` (A0 to A3, one GPU job at a time). Logs: outputs/osler_v3/X6/logs/chain.log and the per-step logs in the same folder. The Gemma server is stopped (0 MiB).
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
