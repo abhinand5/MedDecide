@@ -138,7 +138,7 @@ def main() -> None:
     }
     write_json(OUT, report)
     print(json.dumps(report["codiesp_overlap_with_C1"]))
-    print(json.dumps({k: v for k, v in report["per_template_mr_verdict"].items()})[:1200])
+    print(json.dumps(dict(report["per_template_mr_verdict"]))[:1200])
     print(json.dumps(report["dev_accuracy_final"]))
 
 

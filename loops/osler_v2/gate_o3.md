@@ -1,7 +1,7 @@
 # Gate O3 (osler_v2): Osler-4B - verdict
 
 Generated from `outputs/osler_v2/W8/gate_o3.json` by `scripts/osler_v2/w8_report.py` (2026-10-18T17:36:09Z).
-Aggregates only; every number has a row in `loops/osler_v2/CLAIMS.md` (W053–W062).
+Aggregates only; every number has a row in `loops/osler_v2/CLAIMS.md` (W053-W062).
 
 **Verdict (as the gate code states it): NOT MEASURED** - not measured: knowledge guard
 
