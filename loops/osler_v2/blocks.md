@@ -68,6 +68,22 @@ Keep rule, C1 against C0p (the last kept block):
 
 **C1 is kept.** Source: `outputs/osler_v2/W6/keep/C1_pplx_vs_C0_pplx.json`. C2 (C1 + teacher prose) started after this decision.
 
+## 4b. C2 (C1 + teacher prose; decided after the run)
+
+C2 = C1 + teacher prose (indicator 23,974 and narrative 13,248 train rows); 13,992 steps; validation as planned. Fast dev v2 full:
+accuracy 0.8560, template macro 0.8783, Brier 0.2122 (C1: 0.8602, 0.8880, 0.2025).
+
+Keep rule, C2 against C1 (the last kept block):
+
+| partition | point | 95 % interval | lower bound vs margin | check |
+|---|---|---|---|---|
+| MR (3,597) | −0.0042 | [−0.0121, +0.0037] | > 0 | fail |
+| general (7,726) | −0.0112 | [−0.0197, −0.0027] | > −0.01 | fail |
+| knowledge (4,500) | −0.0051 | [−0.0131, +0.0029] | > −0.02 | pass |
+
+**C2 is not kept.** The teacher prose lowers MR and general on fast dev v2 against C1 (the osler_v1 B2 finding repeats). The kept
+mix is therefore **C1** (the final mix, W7). Source: `outputs/osler_v2/W6/keep/C2_pplx_vs_C1_pplx.json`.
+
 ## 5. Replay share per block (the W6 guard for the fixed replay set)
 
 | block | rows | replay share (v1 + v2 share-alike rows) | note |
@@ -76,4 +92,4 @@ Keep rule, C1 against C0p (the last kept block):
 | C1 | 830,076 | 21.04 % | + MTSamples 668, CodiEsp 2,908 (carve-out removed), PMC 52,549, EHR-Rel 2,942 |
 | C2 | 867,298 | 20.13 % | + teacher prose 37,222 |
 
-No chart rows exist (W3b BLOCKED), so C3 is not built; the largest block is C2 and it keeps the 20 % target.
+No chart rows exist (W3b BLOCKED), so C3 is not built. The largest block, C2, keeps the 20 % target (not kept, so not the final mix).
