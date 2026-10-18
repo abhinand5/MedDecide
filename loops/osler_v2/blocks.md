@@ -53,6 +53,21 @@ The candidate is kept iff the lower bounds of (candidate − last kept block) ar
 knowledge (paired bootstrap, 1,000, seed 0). The last kept block after C0 is C0p (the base). C1 = C0p-base + real text; C2 =
 last kept + teacher prose (indicator and narrative; 37,222 train rows). See the sections below as the runs finish.
 
+## 4a. C1 (pplx backbone; decided after the run)
+
+C1 = C0 + real text (MTSamples 668, CodiEsp 2,908 after the carve-out, PMC 52,549, EHR-Rel train 2,942); 13,992 steps; validation
+as planned (0 log mismatches). Fast dev v2 full: accuracy 0.8602, template macro 0.8880, Brier 0.2025 (C0p: 0.8355, 0.8702, 0.2556).
+
+Keep rule, C1 against C0p (the last kept block):
+
+| partition | point | 95 % interval | lower bound vs margin | check |
+|---|---|---|---|---|
+| MR (3,597) | +0.0750 | [+0.0645, +0.0855] | > 0 | pass |
+| general (7,726) | +0.0032 | [−0.0043, +0.0105] | > −0.01 | pass |
+| knowledge (4,500) | +0.0027 | [−0.0056, +0.0111] | > −0.02 | pass |
+
+**C1 is kept.** Source: `outputs/osler_v2/W6/keep/C1_pplx_vs_C0_pplx.json`. C2 (C1 + teacher prose) started after this decision.
+
 ## 5. Replay share per block (the W6 guard for the fixed replay set)
 
 | block | rows | replay share (v1 + v2 share-alike rows) | note |
