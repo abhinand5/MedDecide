@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T22:43:43Z`
+Last updated (UTC): `2026-10-18T23:14:37Z`
 Iterations so far: `1`
 
 ---
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X4 — synthetic charts (2,000-encounter build running since 2026-10-18T22:13Z; X3 closed BLOCKED, see §4)
 Working dir:    data/gen/osler_v3/charts/ (build output); outputs/osler_v3/X4/
-Running jobs:   chart build pids 3269872 / 3269876 (scripts/osler_v2/w3b_charts.py --count 2000 --workers 32), log outputs/osler_v3/X4/logs/charts_build.log (200 of 1,800 at 22:23Z, about 1,300 charts per hour); vLLM Gemma server (127.0.0.1:8000) pid 3254457 (stop it by PID before any training run).
+Running jobs:   chart build pids 3269872 / 3269876 (scripts/osler_v2/w3b_charts.py --count 2000 --workers 32), log outputs/osler_v3/X4/logs/charts_build.log (1,400 of 1,800 at 23:14Z, about 1,400 charts per hour; expected to finish near 23:31Z); a background watcher (task b73ujeyqn) waits for pid 3269876 to exit and reports the final log lines; vLLM Gemma server (127.0.0.1:8000) pid 3254457 (stop it by PID before any training run).
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
