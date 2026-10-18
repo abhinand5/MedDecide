@@ -10,10 +10,10 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (W10), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- the hard stop (W10) was reached; see FINDINGS.md and NEXT.md -->
 Run started (UTC): `2026-10-17T13:34:35Z`
 Last updated (UTC): `2026-10-17T14:06:18Z`
-Iterations so far: `1`
+Iterations so far: `1` (one continuous autonomous session, 2026-10-17 to 2026-10-18)
 
 ---
 
@@ -26,15 +26,15 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | W0 | Orientation | no | — | DONE | 2026-10-17T13:34:35Z | 2026-10-17T14:06:18Z |
 | W1 | Audits; MR suite v1 frozen | small | W0 | DONE | 2026-10-17T14:07:22Z | 2026-10-17T14:13:48Z |
 | W2 | Replay ≥ 20 %; EHR-Rel | no | W0 | DONE (C3 replay caveat, Q4) | 2026-10-17T14:14:14Z | 2026-10-17T14:19:31Z |
-| W3 | ICD prose v2 (optional) | no | W0 | PENDING | | |
+| W3 | ICD prose v2 (optional) | no | W0 | BLOCKED — not run (optional; no prose v2 template is in any block; the GPU was used by W3b and W5–W8) | | 2026-10-18T17:41:06Z |
 | W3b | Whole synthetic charts, local Gemma 4 teacher | yes | W0 | BLOCKED — pilot label-tracking phrase remains after the one allowed prompt fix (chart_icd_support_v1); C3 not built | 2026-10-17T14:19:50Z | 2026-10-17T14:56:32Z |
 | W4 | MIMIC (official files only; only when they exist) | no | W0 | BLOCKED — official MIMIC files absent (W0 probe; re-check at W6 and before W7) | 2026-10-17T14:14:08Z | 2026-10-17T14:14:08Z |
 | W5 | Fast dev v2, knowledge dev v2, new test templates and baselines | yes | W1, W2 (W3b BLOCKED: no chart templates; W3, W4 if built) | DONE (pplx test-side scoring queued after the C0 stage, D-W5-2) | 2026-10-17T14:59:04Z | 2026-10-17T16:04:39Z |
 | W6 | Blocks v2 + keep rule | yes | W5 | DONE (base pplx; C0 and C1 kept, C2 not kept: final mix C1) | 2026-10-17T16:01:57Z | 2026-10-18T06:54:15Z |
 | W7 | Final Osler-4B (9B deferred, D39) | yes | W6 | DONE (kept mix C1; pplx; 42,200 steps; 250,044 items; fast dev v2 accuracy 0.8648) | 2026-10-18T06:53:53Z | 2026-10-18T17:15:36Z |
-| W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | IN_PROGRESS (scoring the V10 items) | 2026-10-18T17:15:36Z | |
-| W9 | Memorisation audit (only with MIMIC) | small | W7 | PENDING | | |
-| W10 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| W8 | Evaluation + Gate O3 (Osler-4B; 9B NOT MEASURED) | yes | W7 | DONE (gate NOT PASS: measured failure, panel vs zero-shot pplx; knowledge guard NOT MEASURED on 21 items) | 2026-10-18T17:15:36Z | 2026-10-18T17:41:06Z |
+| W9 | Memorisation audit (only with MIMIC) | small | W7 | BLOCKED — not applicable: no MIMIC in the final mix (W4 BLOCKED) | | 2026-10-18T17:41:06Z |
+| W10 | Findings and closure — HARD STOP | no | all | DONE (FINDINGS.md, results.md, NEXT.md, gate_o3.md, five-claim spot-check all match; Loop status STOPPED) | | 2026-10-18T17:41:06Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (exceptions in ADVISORY §5). Never run two GPU jobs at
 once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PROGRESS` at closure.
@@ -70,15 +70,14 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: W8 (started 2026-10-18T17:15:36Z): score Osler-4B on the V10 items, then the gate
-Working dir:    outputs/osler_v2/W8/
-Running job:    `w8_score.py --name osler_4b` (log outputs/osler_v2/W8/logs/osler_4b.log)
+Task in flight: none (W10 closure at 2026-10-18T17:41:06Z; loop STOPPED)
+Working dir:    —
+Running jobs:   none (vLLM stopped; the GPU is free)
 
-- [x] W7 final run on C1 (pplx): 42,200 steps; eight evaluations; validated; fast dev v2 accuracy 0.8648 (CLAIMS W052)
-- [ ] W8 score Osler-4B on data/bench/osler_v1/v10_items.jsonl (30,621 items)
-- [ ] W8 gate (scripts/osler_v2/w8_gate.py): D31 on the MR suite v1 verdict set (13,103 items), panel, knowledge guard vs zero-shot pplx; additional rows
-- [ ] W8 write loops/osler_v2/gate_o3.md and results.md
-- [ ] W9 skipped (no MIMIC in the final mix); W10 FINDINGS.md, NEXT.md, five-claim spot-check, Loop status STOPPED
+- [x] all tasks DONE or BLOCKED (W3, W3b, W4, W9 BLOCKED with reasons; the rest DONE)
+- [x] five-claim spot-check: all match (outputs/osler_v2/W10/spot_check.json; CLAIMS W064)
+- [x] FINDINGS.md (Summary first; §2 outcome 2), results.md, NEXT.md, gate_o3.md
+- [x] Loop status: STOPPED
 
 ```
 
@@ -159,6 +158,28 @@ Running job:    `w8_score.py --name osler_4b` (log outputs/osler_v2/W8/logs/osle
 
 ---
 
+### W7 — DONE — 2026-10-18T17:04:37Z
+- What ran: `scripts/osler_v2/w7_final.py --block C1 --backbone pplx` (42,200 steps; 250,044 realised items; eight evaluations).
+- Output: `outputs/osler_v2/W7/osler_4b/` (block_result.json, checkpoints/best, dev_predictions.jsonl).
+- Headline: fast dev v2 accuracy 0.8648; template macro 0.8985; Brier 0.2002; validation 0 log mismatches (CLAIMS W052).
+- Surprises: none beyond the earlier ones; the eight evaluations rise monotonically (0.8159 → 0.8647).
+- Next: W8.
+
+### W8 — DONE — 2026-10-18T17:41:22Z
+- What ran: `scripts/osler_v2/w8_score.py` (30,621 V10 items; load_any; calibration from the run's arm_result.json; the checkpoint's calibration matched); `w8_gate.py` (D31 on the MR verdict set; panel; knowledge guard vs zero-shot pplx; additional rows); `w8_report.py` (gate_o3.md); `w8_diagnostics.py` (per template; CodiEsp overlap; carve-out dev); `w8_codiesp_screen_posthoc.py` (POST HOC, labelled).
+- Output: `outputs/osler_v2/W8/` (both_orders.jsonl, gate_o3.json, diagnostics.json, codiesp_screen_posthoc.json, SELF_AUDIT.md); `loops/osler_v2/gate_o3.md`.
+- Headline: Gate O3 NOT PASS. Measured failure: panel vs zero-shot pplx, lower bound −0.0344 (floor −0.02). The knowledge guard vs pplx is NOT MEASURED on 21 unscorable items (passes on the 5,435 paired: +0.0018). MR verdict passes vs both (+0.2634 vs MedDecider-4B; +0.1577 vs pplx; CLAIMS W053–W054).
+- Surprises: (1) the gate code reports NOT MEASURED whenever any check is missing, even with a measured failure (recorded both ways; D-W8-1); (2) the panel passes vs MedDecider-4B by 0.0001; (3) the too-good ICD flag persists (W063); (4) a D35 CodiEsp screen promised at W5 was not run before W6 (W065, post hoc: NB 0.636, not excluded).
+- Next: outcome 2 applies; NEXT.md proposals.
+
+### W10 — DONE — 2026-10-18T17:41:22Z
+- What ran: `scripts/osler_v2/w10_spot_check.py` (five claims re-derived in a fresh process: all five match, CLAIMS W064); FINDINGS.md; results.md; NEXT.md; this STATE closure.
+- Output: `outputs/osler_v2/W10/spot_check.json`; `loops/osler_v2/FINDINGS.md`, `results.md`, `NEXT.md`.
+- Headline: Osler-4B does NOT pass Gate O3 (panel non-inferiority vs zero-shot pplx fails). §2 outcome 2 applies. The MR verdict and the knowledge retention pass where measured.
+- Next: the operator's review (Q1, Q3, Q5). Loop stopped.
+
+---
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -217,6 +238,14 @@ deviation — that is a `BLOCKED`.
 - **D-W6-1 (W6, 2026-10-17T16:04:39Z):** the pplx replay encoder is `PplxDecisionModel.encode_item` on an object created without weights (`__new__`) that holds the tokenizer, marker, option codes and prompt length. The first attempt loaded the tokenizer from the project root (a path bug, fixed).
 - **D-W6-2 (W6, 2026-10-17T16:04:39Z):** the Qwen smoke stopped at step 4 on the trainer's dev-macro tripwire (two consecutive evaluations below 0.5: template macro 0.361 at step 2). An untrained option-code readout is expected to be near chance at 2–4 steps; the pplx smoke (its readout is pre-trained) ran all 8 steps. The full C0q run is the first validation of its tripwire behaviour; the tripwire is not edited.
 
+- **D-W8-1 (W8, 2026-10-18T17:41:22Z):** `o2_verdict` (osler_v1 code, unchanged) returns NOT MEASURED whenever any check is missing, even when a measured check fails. The gate record states both: the code verdict (NOT MEASURED) and the measured status (a failure stands; gate_passes false). The result is NOT PASS either way.
+- **D-W8-2 (W8, 2026-10-18T17:41:22Z):** the knowledge guard against pplx is NOT MEASURED on the full test set (21 items skipped by pplx's reference). An additional row reports it on the 5,435 paired items (labelled; not the verdict).
+- **D-W8-3 (W8, 2026-10-18T17:41:22Z):** the MR verdict set includes codiesp and mkurman (their D35 screens are NOT MEASURED; D35 can exclude a template only when its dev items exist). The verdict set is the one written at W1; it was not changed after any result.
+- **D-W5-2 (W5, 2026-10-18T17:41:22Z) — done:** the zero-shot pplx test-side scoring (MR, panel, knowledge) ran after the C0 stage and finished before W8.
+- **D-W3-1 (W3, 2026-10-18T17:41:22Z):** ICD prose v2 (optional) was not run in this loop. No block uses prose v2; C2's prose is the osler_v1 teacher prose.
+- **D-W9-1 (W9, 2026-10-18T17:41:22Z):** no memorisation audit: MIMIC is not in the final mix (W4 BLOCKED).
+- **Q2 follow-up (W8, 2026-10-18T17:41:22Z):** the CodiEsp D35 screen promised at W5 (Q2) was not run before W6. It is now run post hoc and labelled (W065). The ceiling was not measured post hoc.
+
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
@@ -226,4 +255,16 @@ deviation — that is a `BLOCKED`.
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
 | | | | |
-
+| # | outcome (one sentence, plain language) | claims | artifact |
+|---|---|---|---|
+| 1 | Gate O3 for Osler-4B does NOT pass: the external panel is not non-inferior to zero-shot pplx-decider-flash-v1.2 (lower bound −0.0344, floor −0.02); the knowledge guard against pplx is NOT MEASURED on 21 items | W056, W057, W059 | loops/osler_v2/gate_o3.md; outputs/osler_v2/W8/gate_o3.json |
+| 2 | The MR verdict set (13,103 items) passes against both baselines: +0.2634 vs MedDecider-4B (Brier −0.308), +0.1577 vs pplx (Brier −0.243) | W053, W054 | outputs/osler_v2/W8/gate_o3.json |
+| 3 | The panel passes against MedDecider-4B only by 0.0001 (lower bound −0.0199) | W055 | outputs/osler_v2/W8/gate_o3.json |
+| 4 | The real-text block (C1) was kept on dev (MR +0.075; lower +0.065) and the real-text part of the verdict now beats MedDecider-4B (+0.287; osler_v1 −0.074) | W048, W049, W060 | outputs/osler_v2/W6/keep/C1_pplx_vs_C0_pplx.json |
+| 5 | Teacher prose (C2) was not kept: it lowers MR and general against C1 | W050, W051 | outputs/osler_v2/W6/keep/C2_pplx_vs_C1_pplx.json |
+| 6 | The base chosen on dev (D39) is pplx-decider-flash-v1.2 (MR +0.038; general +0.005; knowledge +0.092) | W045 | outputs/osler_v2/W6/keep/base_choice.json |
+| 7 | Knowledge is kept: the final model is +0.0687 over zero-shot Qwen3.5-4B on 5,456 items and +0.0018 over zero-shot pplx on 5,435 (additional) | W057, W058 | outputs/osler_v2/W8/gate_o3.json |
+| 8 | The too-good ICD template (1.0000 on test and dev) is not explained and stays open | W015, W016, W063 | outputs/osler_v2/W8/diagnostics.json |
+| 9 | The CodiEsp gain has no text overlap with training and generalises to held-out cases (dev 0.78–0.82) | W061, W062 | outputs/osler_v2/W8/diagnostics.json |
+| 10 | Charts (W3b) are BLOCKED on a label-tracking cue; MIMIC (W4) is absent; ICD prose v2 (W3) and the memorisation audit (W9) are not run | W026–W029, W005 | loops/osler_v2/charts.md; STATE §5 |
+| 11 | The five-claim spot-check matches (fresh-process re-derivation) | W064 | outputs/osler_v2/W10/spot_check.json |
