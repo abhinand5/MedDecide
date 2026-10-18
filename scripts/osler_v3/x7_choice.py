@@ -35,7 +35,7 @@ from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 STAGE_A = REPO / "outputs" / "osler_v3" / "stage_a"
-ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "predictions.jsonl"
+ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "pplx-decider-flash-v1.2" / "predictions.jsonl"
 OUT = REPO / "outputs" / "osler_v3" / "X7" / "choice.json"
 DOC = REPO / "loops" / "osler_v3" / "stage_a.md"
 ARMS = ("A0", "A1", "A2", "A3")
@@ -84,6 +84,8 @@ def main() -> int:
     a0_rows = arms["A0"]["rows"]
     a0_parts = partition(a0_rows)
     zs = zero_shot_cg_correct()
+    if not zs:
+        raise SystemExit(f"no zero-shot pplx CG predictions at {ZERO_SHOT_CG}: the choice cannot be made (X6 must run first)")
     report: dict[str, Any] = {"built_utc": utcnow(), "git_commit": git_commit(REPO), "rule": {
         "mr_margin": MR_MARGIN, "tie": STAGE_A_TIE, "resamples": 1000, "seed": 0, "cg_metric": "item accuracy on paired CG items"},
         "arms": {}}

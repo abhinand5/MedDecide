@@ -28,7 +28,7 @@ from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v3" / "X8"
-ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "predictions.jsonl"
+ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "pplx-decider-flash-v1.2" / "predictions.jsonl"
 NEW_SOURCES = frozenset({"ragtruth", "drugprot", "synthea_chart"})  # D-X8-1 (pre-registered; see STATE)
 
 
