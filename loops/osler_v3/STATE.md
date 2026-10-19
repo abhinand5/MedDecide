@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T09:19:22Z`
+Last updated (UTC): `2026-10-19T14:05:17Z`
 Iterations so far: `1`
 
 ---
@@ -30,7 +30,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE — fast dev v3 12,903 items (C072); CG 4,865 items, zero-shot pplx 0.7781 on 4,853 scored (C074–C076); new test pool 9,016 items; six baselines additional (C077–C079); 'too good' split of the indicator items (C080); `loops/osler_v3/x6_baselines.md` | 2026-10-18T21:14:29Z | 2026-10-19T00:39:50Z |
-| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A0 DONE (C086–C089: dev 0.83; CG 0.7805; KL 0.1709); A1 DONE (C090–C093: 13,992 steps as planned; dev 0.8288; CG 0.778; KL 0.141); A2 (kl 0.5) started 2026-10-19T09:14:51Z; A3 follows; the choice runs by watcher bc1dcnrfp after STAGE A DONE; Stage B is not launched automatically (D-X8-2) | 2026-10-18T21:14:29Z | |
+| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A0 DONE (C086–C089); A1 DONE (C090–C093); A2 DONE (C094–C097: 13,992 steps as planned; dev 0.8306; CG 0.7788; KL 0.1102); A3 (kl 0, broad replay) started 2026-10-19T13:56:47Z, about 4 h; the choice runs by watcher bc1dcnrfp after STAGE A DONE; Stage B is not launched automatically (D-X8-2) | 2026-10-18T21:14:29Z | |
 | X8 | Stage B: data blocks | yes | X7 | PENDING — order per the operator ruling (D-X8-2): claims pilot and build (if it passes), restyle, fast dev v3 extended, B0 rescored; then B1 (X1), B2 (restyle + claims, or restyle only), B3 (charts) | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X7 — Stage A recipe ablations (A0 to A3); X6 is DONE (see §4)
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (pid 3371984; log outputs/osler_v3/X7/logs/stage_a_chain.log). Arm A2 (kl_to_base 0.5) running since 09:14:51Z, runner pid 3432278, log outputs/osler_v3/X7/logs/A2.log. A3 follows. Watcher bc1dcnrfp (background) waits for STAGE A DONE and then runs `x7_choice.py` only (log outputs/osler_v3/X7/logs/choice.log). The Gemma server is stopped (0 MiB). Checked 2026-10-19T09:19:22Z.
+Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (pid 3371984; log outputs/osler_v3/X7/logs/stage_a_chain.log). Arm A3 (kl_to_base 0, broad replay) running since 13:56:47Z, runner pid 3463728, log outputs/osler_v3/X7/logs/A3.log. Watcher bc1dcnrfp (background) waits for STAGE A DONE and then runs `x7_choice.py` only (log outputs/osler_v3/X7/logs/choice.log). The Gemma server is stopped (0 MiB). Checked 2026-10-19T14:05:17Z.
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
