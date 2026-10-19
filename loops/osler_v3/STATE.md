@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T14:05:17Z`
+Last updated (UTC): `2026-10-19T17:47:30Z`
 Iterations so far: `1`
 
 ---
@@ -30,8 +30,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE — fast dev v3 12,903 items (C072); CG 4,865 items, zero-shot pplx 0.7781 on 4,853 scored (C074–C076); new test pool 9,016 items; six baselines additional (C077–C079); 'too good' split of the indicator items (C080); `loops/osler_v3/x6_baselines.md` | 2026-10-18T21:14:29Z | 2026-10-19T00:39:50Z |
-| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A0 DONE (C086–C089); A1 DONE (C090–C093); A2 DONE (C094–C097: 13,992 steps as planned; dev 0.8306; CG 0.7788; KL 0.1102); A3 (kl 0, broad replay) started 2026-10-19T13:56:47Z, about 4 h; the choice runs by watcher bc1dcnrfp after STAGE A DONE; Stage B is not launched automatically (D-X8-2) | 2026-10-18T21:14:29Z | |
-| X8 | Stage B: data blocks | yes | X7 | PENDING — order per the operator ruling (D-X8-2): claims pilot and build (if it passes), restyle, fast dev v3 extended, B0 rescored; then B1 (X1), B2 (restyle + claims, or restyle only), B3 (charts) | | |
+| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | DONE — choice A0 (the control, kl_to_base 0; osler_v2's C1 mix) by the pre-registered rule (C098–C101; `loops/osler_v3/stage_a.md`); the choice first failed on a join of item ids (D-X7-1), fixed and re-run; no run's numbers changed | 2026-10-18T21:14:29Z | 2026-10-19T17:46:49Z |
+| X8 | Stage B: data blocks | yes | X7 | IN_PROGRESS — B0 = A0 (C1, kl 0). Order per the operator ruling (D-X8-2): the claims pilot (GPU; Gemma) and build if it passes, the restyle and claims dev pools into fast dev v3, B0 rescored on the extended dev set, then B1 (X1 sources), B2 (restyle + claims, or restyle only), B3 (charts). The X8 chain is NOT launched yet: its B2 step is not in it | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
 | X11 | Memorisation audit (only with MIMIC) | small | X9 | PENDING | | |
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X7 — Stage A recipe ablations (A0 to A3); X6 is DONE (see §4)
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (pid 3371984; log outputs/osler_v3/X7/logs/stage_a_chain.log). Arm A3 (kl_to_base 0, broad replay) running since 13:56:47Z, runner pid 3463728, log outputs/osler_v3/X7/logs/A3.log. Watcher bc1dcnrfp (background) waits for STAGE A DONE and then runs `x7_choice.py` only (log outputs/osler_v3/X7/logs/choice.log). The Gemma server is stopped (0 MiB). Checked 2026-10-19T14:05:17Z.
+Running jobs:   none (GPU 0 MiB; Stage A finished 17:35Z; choice A0 written 17:46Z). Next: the claims pilot (start the Gemma server by the osler_v2 W3b command, one GPU job at a time, `x3_generate.py --task claims --split train --limit 300 --out data/gen/osler_v3/claims_v2_pilot_train.jsonl`, then `x3_claims_pilot_check.py`). Checked 2026-10-19T17:47:30Z.
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
@@ -179,6 +179,13 @@ X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final
 - Surprises: the CG zero-shot step failed twice on fast-dev-v2 rows that lacked the O2 keys (D-X6-3, D-X6-4); my own shell was killed once by a `pgrep` pattern that matched its command text (no output lost; the queue was restarted from its resumable steps). The indicator template reads well for zero-shot pplx (0.8152); the stated-value split does not explain it (C080).
 - Next: Stage A (A0 to A3), then the choice, then Stage B (X8), per the watchers.
 
+### X7 — DONE — 2026-10-19T17:47:30Z
+- What ran: Stage A arms A0 to A3 (`x7_stage_a.sh`, 13,992 steps each; A0 04:08Z; A1 09:19Z; A2 14:05Z; A3 17:35Z); `x7_choice.py` (after a plumbing fix, D-X7-1).
+- Output: `outputs/osler_v3/X7/choice.json`; `loops/osler_v3/stage_a.md`; per-arm `outputs/osler_v3/stage_a/A0..A3/`.
+- Headline: every arm trained 13,992 steps as planned with 0 logged mismatches (C086, C090, C094, and A3's C102 to be recorded). The rule qualifies all four arms (MR macro lower bounds above -0.01) and chooses A0, the control, with CG differences from zero-shot pplx of +0.0027 (A0), +0.0010 (A2), +0.0002 (A1) and -0.0006 (A3) on 4,853 paired items (C098, C099). The differences are small against the CG noise; the choice is mechanical and the margin is weak.
+- Surprises: the choice crashed at the control on an id join (D-X7-1); the arms' KL to base falls with the KL weight (0.1709, 0.1410, 0.1102; C089, C093, C097); A3 (broad replay) reaches the largest general accuracy (0.7867; C101).
+- Next: X8 (B0 = A0); the claims pilot first, on the GPU.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -275,6 +282,8 @@ deviation — that is a `BLOCKED`.
 - **Operational (2026-10-19T04:16:00Z):** the Stage A handoff watcher (bfh5b4243, which would have launched Stage B after the choice) was stopped before it reached the choice; its exit 144 is that stop, not a failure. A new watcher (bc1dcnrfp) runs only the choice. The Stage A chain itself was not touched.
 
 - **D-X3-18 (operator ruling, 2026-10-19T04:20:49Z):** the restyle rows are written from all 6,426 kept verified pages (train 5,797; dev 489; test 140), without class balancing (C081). The largest class share is 0.1857, under the 25 % cap (C082). The NB macro on dev is 0.722, under the 0.90 screen (C083). The genre vocabulary is the declared list in `scripts/osler_v3/x3_restyle_unblocked.py`; 94 label-tracking phrases remain flagged under it (C085; Q7). The restyle rows enter fast dev v3 (dev) and the new test pool (test) only after the claims work and before any Stage B run (D-X8-2).
+- **D-X7-1 (X7, 2026-10-19T17:47:30Z):** the choice (`x7_choice.py`) failed with `the control A0 has no CG score`. The arms' CG predictions carry the item ids that `mix_row_to_item` derives, while the zero-shot CG reference carries the raw ids of `cg_v3.jsonl`; the two sets did not overlap. Fixed in `x7_choice.py` and `x8_keep.py`: each arm's CG item id is mapped to its raw id before the paired join (the rule, the dev pairings and every arm's predictions are unchanged). The choice was then re-run and wrote `choice.json` and `stage_a.md` (C098–C101).
+
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major

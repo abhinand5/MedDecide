@@ -29,6 +29,7 @@ from meddecide.train.blocks import (
     micro_difference,
     pair_by_item,
 )
+from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.osler_v3 import STAGE_A_TIE, choose_recipe
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
@@ -36,6 +37,7 @@ from meddecide.utils.provenance import git_commit, utcnow
 REPO = Path(__file__).resolve().parents[2]
 STAGE_A = REPO / "outputs" / "osler_v3" / "stage_a"
 ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "pplx-decider-flash-v1.2" / "predictions.jsonl"
+CG_ITEMS = REPO / "data" / "bench" / "osler_v3" / "cg_v3.jsonl"
 OUT = REPO / "outputs" / "osler_v3" / "X7" / "choice.json"
 DOC = REPO / "loops" / "osler_v3" / "stage_a.md"
 ARMS = ("A0", "A1", "A2", "A3")
@@ -56,6 +58,15 @@ def partition(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         out["general"].append(r)
         if r["source"] in KNOWLEDGE_SOURCES:
             out["knowledge"].append(r)
+    return out
+
+
+def raw_cg_ids() -> dict[str, str]:
+    """The arms' CG predictions carry the mix loader's item ids; the zero-shot reference carries the raw ids. This maps the first to the
+    second, so the paired join compares the same items (plumbing; the rule is unchanged, D-X7-1)."""
+    out: dict[str, str] = {}
+    for row in read_jsonl(CG_ITEMS):
+        out[str(mix_row_to_item(row).item_id)] = str(row["item_id"])
     return out
 
 
@@ -105,7 +116,8 @@ def main() -> int:
         entry["mr_accuracy"] = sum(bool(r["correct"]) for r in parts["mr"]) / max(1, len(parts["mr"]))
         entry["knowledge_accuracy"] = sum(bool(r["correct"]) for r in parts["knowledge"]) / max(1, len(parts["knowledge"]))
         entry["general_accuracy"] = sum(bool(r["correct"]) for r in parts["general"]) / max(1, len(parts["general"]))
-        cg_rows = read_jsonl(STAGE_A / arm / "cg_predictions.jsonl")
+        raw = raw_cg_ids()
+        cg_rows = [dict(r, item_id=raw[str(r["item_id"])]) for r in read_jsonl(STAGE_A / arm / "cg_predictions.jsonl")]
         paired = [r for r in cg_rows if r["item_id"] in zs]
         arm_correct = {r["item_id"]: bool(r["correct"]) for r in cg_rows}
         entry["cg_items_paired_with_zero_shot_pplx"] = len(paired)

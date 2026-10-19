@@ -23,12 +23,14 @@ from typing import Any
 
 from meddecide.eval.o2_metrics import score_row
 from meddecide.train.blocks import keep_comparison, macro_difference, pair_by_item
+from meddecide.train.mix_items import mix_row_to_item
 from meddecide.utils.io import write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v3" / "X8"
 ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "pplx-decider-flash-v1.2" / "predictions.jsonl"
+CG_ITEMS = REPO / "data" / "bench" / "osler_v3" / "cg_v3.jsonl"
 NEW_SOURCES = frozenset({"ragtruth", "drugprot", "synthea_chart"})  # D-X8-1 (pre-registered; see STATE)
 
 
@@ -45,6 +47,11 @@ def only(rows: list[dict[str, Any]], sources: frozenset[str]) -> list[dict[str, 
     return [r for r in rows if r["source"] in sources]
 
 
+def raw_cg_ids() -> dict[str, str]:
+    """Mix-loader item ids of the CG items mapped to the raw ids the zero-shot reference uses (D-X7-1)."""
+    return {str(mix_row_to_item(row).item_id): str(row["item_id"]) for row in read_jsonl(CG_ITEMS)}
+
+
 def cg_report(candidate_dir: Path, current_dir: Path) -> dict[str, Any]:
     """CG accuracy of each side on the items the zero-shot pplx reference scored (both sides, the same items)."""
     if not ZERO_SHOT_CG.exists():
@@ -52,7 +59,9 @@ def cg_report(candidate_dir: Path, current_dir: Path) -> dict[str, Any]:
     zero = {str(r["item_id"]): bool(score_row(r).correct) for r in read_jsonl(ZERO_SHOT_CG) if r.get("status") == "scored"}
     out: dict[str, Any] = {"zero_shot_pplx_items": len(zero)}
     for name, folder in (("candidate", candidate_dir), ("current", current_dir)):
-        rows = [r for r in read_jsonl(folder / "cg_predictions.jsonl") if str(r["item_id"]) in zero]
+        raw = raw_cg_ids()
+        rows = [dict(r, item_id=raw[str(r["item_id"])]) for r in read_jsonl(folder / "cg_predictions.jsonl")]
+        rows = [r for r in rows if str(r["item_id"]) in zero]
         if not rows:
             out[name] = {"status": "NOT MEASURED — no CG predictions on the paired items"}
             continue
