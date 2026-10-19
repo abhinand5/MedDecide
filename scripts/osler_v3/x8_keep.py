@@ -31,7 +31,7 @@ REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v3" / "X8"
 ZERO_SHOT_CG = REPO / "outputs" / "osler_v3" / "X6" / "zeroshot_pplx_cg" / "pplx-decider-flash-v1.2" / "predictions.jsonl"
 CG_ITEMS = REPO / "data" / "bench" / "osler_v3" / "cg_v3.jsonl"
-NEW_SOURCES = frozenset({"ragtruth", "drugprot", "synthea_chart"})  # D-X8-1 (pre-registered; see STATE)
+NEW_TEMPLATE_FAMILIES = ("ragtruth_", "drugprot_", "chart_", "restyle_", "clinclaim_")  # D-X8-3 (amends D-X8-1; see STATE)
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -39,12 +39,16 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in fh if line.strip()]
 
 
-def without(rows: list[dict[str, Any]], sources: frozenset[str]) -> list[dict[str, Any]]:
-    return [r for r in rows if r["source"] not in sources]
+def is_new(row: dict[str, Any]) -> bool:
+    return str(row["template_id"]).startswith(NEW_TEMPLATE_FAMILIES)
 
 
-def only(rows: list[dict[str, Any]], sources: frozenset[str]) -> list[dict[str, Any]]:
-    return [r for r in rows if r["source"] in sources]
+def without(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [r for r in rows if not is_new(r)]
+
+
+def only(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [r for r in rows if is_new(r)]
 
 
 def raw_cg_ids() -> dict[str, str]:
@@ -83,12 +87,12 @@ def main() -> int:
     cur_dir = args.current_dir if args.current_dir.is_absolute() else REPO / args.current_dir
     cand = read_jsonl(cand_dir / "dev_predictions.jsonl")
     cur = read_jsonl(cur_dir / "dev_predictions.jsonl")
-    rule = keep_comparison(without(cand, NEW_SOURCES), without(cur, NEW_SOURCES), candidate=args.candidate, current=args.current)
-    beside = pair_by_item(only(cand, NEW_SOURCES), only(cur, NEW_SOURCES))
+    rule = keep_comparison(without(cand), without(cur), candidate=args.candidate, current=args.current)
+    beside = pair_by_item(only(cand), only(cur))
     report: dict[str, Any] = {
         "built_utc": utcnow(), "git_commit": git_commit(REPO), "command": " ".join(sys.argv),
         "candidate": args.candidate, "current": args.current, "candidate_dir": str(cand_dir.relative_to(REPO)),
-        "current_dir": str(cur_dir.relative_to(REPO)), "new_sources_excluded_from_rule": sorted(NEW_SOURCES),
+        "current_dir": str(cur_dir.relative_to(REPO)), "new_template_families_excluded_from_rule": list(NEW_TEMPLATE_FAMILIES),
         "rule": rule, "decision": rule["verdict"]["kept"],
         "beside_rule_new_sources": {"items": len(beside), "templates": len({str(x["template_id"]) for x, _ in beside}),
                                     "macro_difference": macro_difference(beside).as_dict() if beside else None},

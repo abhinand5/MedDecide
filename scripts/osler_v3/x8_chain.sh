@@ -24,7 +24,7 @@ case "$CHOSEN" in
   *) echo "ABORT: no Stage A choice ($CHOSEN) $(date -u +%FT%TZ)" >> "$LOG"; exit 1 ;;
 esac
 echo "X8 START chosen=$CHOSEN kl=$KL $(date -u +%FT%TZ)" >> "$LOG"
-echo "B2 NOT MEASURED: X3 blocked, no rows $(date -u +%FT%TZ)" >> "$LOG"
+echo "B2 = restyle only (operator ruling D-X8-2; the claims pilot failed D44(b), C107) $(date -u +%FT%TZ)" >> "$LOG"
 echo "B4 BLOCKED: official MIMIC files absent $(date -u +%FT%TZ)" >> "$LOG"
 
 kept() {  # kept <name>: prints true or false from the keep rule's report
@@ -53,9 +53,11 @@ candidate() {  # candidate <name> <base mix> <last kept name> <last kept dir> <n
 }
 
 if [ "$CHOSEN" = "A3" ]; then BASE=data/train/osler_v3/block_A3.jsonl; else BASE=data/train/osler_v2/block_C1.jsonl; fi
-LAST_FILE=$BASE; LAST=B0; LAST_DIR=outputs/osler_v3/stage_a/$CHOSEN
+LAST_FILE=$BASE; LAST=B0; LAST_DIR=outputs/osler_v3/X8/b0_dev  # B0 scored on the extended fast dev v3 (x8_score_b0.py)
 candidate B1 "$LAST_FILE" "$LAST" "$LAST_DIR" data/train/osler_v3/x1_sources_train.jsonl
 if [ "$(kept B1)" = "true" ]; then LAST_FILE=data/train/osler_v3/block_B1.jsonl; LAST=B1; LAST_DIR=outputs/osler_v3/stage_b/B1; fi
+candidate B2 "$LAST_FILE" "$LAST" "$LAST_DIR" data/train/osler_v3/x3_restyle_train.jsonl
+if [ "$(kept B2)" = "true" ]; then LAST_FILE=data/train/osler_v3/block_B2.jsonl; LAST=B2; LAST_DIR=outputs/osler_v3/stage_b/B2; fi
 if [ -f data/train/osler_v3/x4_train.jsonl ]; then
   candidate B3 "$LAST_FILE" "$LAST" "$LAST_DIR" data/train/osler_v3/x4_train.jsonl
   if [ "$(kept B3)" = "true" ]; then LAST=B3; fi
