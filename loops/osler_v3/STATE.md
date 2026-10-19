@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T18:14:41Z`
+Last updated (UTC): `2026-10-19T18:20:32Z`
 Iterations so far: `1`
 
 ---
@@ -31,7 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE (the extension below is recorded under X8) — CG 4,865 items; zero-shot pplx 0.7781 on 4,853 scored (C075, C076); new test pool 9,016 items (C073); six baselines additional (C077–C079); the indicator split (C080). PENDING under the operator's ruling: the restyle test pages (140) are not yet in the new test pool, and the six baselines have not been run on them (additional rows) | 2026-10-18T21:14:29Z | 2026-10-19T00:38:00Z |
 | X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | DONE — choice A0 (the control, kl_to_base 0; osler_v2's C1 mix) by the pre-registered rule (C098–C101; `loops/osler_v3/stage_a.md`); the choice first failed on a join of item ids (D-X7-1), fixed and re-run; no run's numbers changed | 2026-10-18T21:14:29Z | 2026-10-19T17:46:49Z |
-| X8 | Stage B: data blocks | yes | X7 | IN_PROGRESS — B0 = A0 (osler_v2's C1, kl 0), scored on the extended fast dev v3 (13,303 items; C109, C110). The chain `x8_chain.sh` runs B1 (X1 sources; build C108-compatible 906,164 rows; replay 0.2), B2 (restyle only; 5,797 rows), B3 (charts, 2,916 rows); started 2026-10-19T18:12:47Z (log outputs/osler_v3/X8/logs/chain.log) | | |
+| X8 | Stage B: data blocks | yes | X7 | IN_PROGRESS — B0 = A0 (osler_v2's C1, kl 0), scored on the extended fast dev v3 (13,303 items; C109, C110). The chain `x8_chain.sh` runs B1 (X1 sources; build 906,164 rows; replay share 0.2), B2 (restyle only; 5,797 rows), B3 (charts, 2,916 rows); started 2026-10-19T18:12:47Z (log outputs/osler_v3/X8/logs/chain.log) | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
 | X11 | Memorisation audit (only with MIMIC) | small | X9 | PENDING | | |
