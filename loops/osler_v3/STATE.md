@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-18T23:50:12Z`
+Last updated (UTC): `2026-10-19T00:39:50Z`
 Iterations so far: `1`
 
 ---
@@ -29,8 +29,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X3 | Gemma-crafted items over real text | yes | X0, X1 | BLOCKED — both templates blocked by the D44(b) label-tracking check (claims D-X3-1; restyle D-X3-7, Q4); no X3 rows; closed with CLAIMS C044–C056 | 2026-10-18T20:37:00Z | 2026-10-18T22:23:56Z |
 | X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
-| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | IN_PROGRESS — CG partition 4,865 items (D-X6-1); fast dev v3 12,903 items; new test pool 9,016 items; queue running since 2026-10-18T23:36:15Z (`x6_chain.sh`: zero-shot pplx on CG, the five baselines and zero-shot pplx on the new test pool, then Stage A) | 2026-10-18T21:14:29Z | |
-| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A3 block built (973,305 rows, cap 8 %); A3 replay pid 3261407; chain script written, not launched (waits for fast dev v3) | 2026-10-18T21:14:29Z | |
+| X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE — fast dev v3 12,903 items (C072); CG 4,865 items, zero-shot pplx 0.7781 on 4,853 scored (C074–C076); new test pool 9,016 items; six baselines additional (C077–C079); 'too good' split of the indicator items (C080); `loops/osler_v3/x6_baselines.md` | 2026-10-18T21:14:29Z | 2026-10-19T00:39:50Z |
+| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — chain `x7_stage_a.sh` started 2026-10-19T00:37:05Z (A0 first; A1, A2, A3 follow, each about 4 h); the choice (`x7_choice.py`) runs by watcher bfh5b4243 when the chain reports STAGE A DONE, and the Stage B chain (`x8_chain.sh`) launches only if the choice completes | 2026-10-18T21:14:29Z | |
 | X8 | Stage B: data blocks | yes | X7 | PENDING | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
@@ -70,9 +70,9 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: X6 — fast dev v3, CG proxy and the new baselines; the GPU queue `scripts/osler_v3/x6_chain.sh` started 2026-10-18T23:36:15Z
+Task in flight: X7 — Stage A recipe ablations (A0 to A3); X6 is DONE (see §4)
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   the queue `x6_chain.sh` (restarted 23:48:37Z; checked 2026-10-18T23:50:12Z); done: cg_pplx (rc 0, 4,865 rows: 4,853 scored, 12 skipped; C075, C076 = 0.7781 on the scored items), pool_pplx (rc 0, 9,016 rows); running: pool_zs4b (Qwen3.5-4B zero-shot on the new test pool, started 23:50:02Z); then pool_zs9b, pool_md4b, pool_md9b, pool_jev9b; then `x7_stage_a.sh` (A0 to A3, one GPU job at a time). Logs: outputs/osler_v3/X6/logs/chain.log. The Gemma server is stopped (0 MiB).
+Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (started 00:37:05Z; log outputs/osler_v3/X7/logs/stage_a_chain.log; per-arm logs outputs/osler_v3/X7/logs/A0.log to A3.log); arm A0 loading weights at 00:38Z. Watcher bfh5b4243 (background) waits for STAGE A DONE, then runs `x7_choice.py` (log outputs/osler_v3/X7/logs/choice.log) and launches `x8_chain.sh` only if the choice completes. The Gemma server is stopped (0 MiB). Checked 2026-10-19T00:39:50Z.
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
@@ -168,6 +168,13 @@ X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final
 - Surprises: the choice templates' NB values fall below a uniform guess because the screen scores option texts and ignores the offered options; the ICD predictions are one class for 83.6 % of dev items (C064). The verdict does not rest on them (D-X4-5). The first-500 re-check cannot be selected from the rows (D-X4-3).
 - Next: X6 (fast dev v3 and the new test pool are built; the queue runs zero-shot pplx on CG, then the five baselines and zero-shot pplx on the new test pool, then Stage A).
 
+### X6 — DONE — 2026-10-19T00:39:50Z
+- What ran: `x6_partitions.py --with-new-templates` (CG 4,865; fast dev v3 12,903); `x6_new_test_o2.py` (new test pool 9,016); `x6_chain.sh` (zero-shot pplx on CG; the new test pool with zero-shot pplx, Qwen 4B and 9B, MedDecider 4B and 9B, JEV-9B; then Stage A); `x6_baselines_summary.py`; `x6_indicator_units.py`.
+- Output: `outputs/osler_v3/X6/` (manifest.json, new_test_manifest.json, zeroshot_pplx_cg, new_test per model, baselines_summary.json, indicator_units.json, logs); `loops/osler_v3/x6_baselines.md`.
+- Headline: CG proxy 4,865 items; zero-shot pplx 0.7781 on its 4,853 scored items (C076). Additional rows on the 9,016-item new test pool: zero-shot pplx 0.6818, Qwen 4B 0.6226, Qwen 9B 0.6654, JEV-9B 0.6064, MedDecider 4B 0.6322 and 9B 0.7364 on their 5,372 scored items only (C078). MedDecider's DrugProt items (3,644; more than 10 options) are NOT MEASURED (C077).
+- Surprises: the CG zero-shot step failed twice on fast-dev-v2 rows that lacked the O2 keys (D-X6-3, D-X6-4); my own shell was killed once by a `pgrep` pattern that matched its command text (no output lost; the queue was restarted from its resumable steps). The indicator template reads well for zero-shot pplx (0.8152); the stated-value split does not explain it (C080).
+- Next: Stage A (A0 to A3), then the choice, then Stage B (X8), per the watchers.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -250,6 +257,8 @@ deviation — that is a `BLOCKED`.
 
 - **D-X6-3 (X6, 2026-10-18T23:44:22Z):** the 865 fast-dev-v2 rows of the CG partition carry no O2 keys (`benchmark`, `set_name`); they are mix_v2 items, since their templates are mix_v2 templates. The zero-shot runner needs both keys, so the builder now sets `benchmark = mix_v2` and `set_name = source` on them. Membership, the CG size (4,865) and every item are unchanged (CLAIMS C074). The partition was regenerated and checked: every row carries both keys.
 - **D-X6-4 (X6, 2026-10-18T23:44:22Z):** the zero-shot pplx CG step failed twice, at the first fast-dev-v2 row (KeyError `benchmark`, then `set_name`), each time after its 4,000 saved knowledge rows. The queue continued to the new-test-pool steps between the failure and the fix; those steps are additional rows and do not feed the CG reference. The CG step is resumed from its saved rows after the fix, and `x7_choice.py` refuses to run without its predictions.
+
+- **D-X6-1 (X6, 2026-10-19T00:39:50Z):** referenced on the board since the CG build (commit 1668b36) but its entry was never written. The CG build and its exclusion counts are in `loops/osler_v3/partitions.md`; no content is asserted under this label.
 
 ## 8. Closure summary feed
 
