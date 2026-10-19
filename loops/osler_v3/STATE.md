@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T00:39:50Z`
+Last updated (UTC): `2026-10-19T01:19:22Z`
 Iterations so far: `1`
 
 ---
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X7 — Stage A recipe ablations (A0 to A3); X6 is DONE (see §4)
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (started 00:37:05Z; log outputs/osler_v3/X7/logs/stage_a_chain.log; per-arm logs outputs/osler_v3/X7/logs/A0.log to A3.log); arm A0 loading weights at 00:38Z. Watcher bfh5b4243 (background) waits for STAGE A DONE, then runs `x7_choice.py` (log outputs/osler_v3/X7/logs/choice.log) and launches `x8_chain.sh` only if the choice completes. The Gemma server is stopped (0 MiB). Checked 2026-10-19T00:39:50Z.
+Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (started 00:37:05Z; log outputs/osler_v3/X7/logs/stage_a_chain.log; per-arm logs outputs/osler_v3/X7/logs/A0.log to A3.log). Arm A0 at step 2,950 of 13,992 at 01:19Z (loss 0.42 on the logged batch; no errors; first dev evaluation at step 3,498). Watcher bfh5b4243 (background) waits for STAGE A DONE, then runs `x7_choice.py` (log outputs/osler_v3/X7/logs/choice.log) and launches `x8_chain.sh` only if the choice completes. The Gemma server is stopped (0 MiB). Checked 2026-10-19T01:19:22Z.
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
