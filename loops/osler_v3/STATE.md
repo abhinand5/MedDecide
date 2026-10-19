@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T04:20:49Z`
+Last updated (UTC): `2026-10-19T04:22:44Z`
 Iterations so far: `1`
 
 ---
@@ -89,6 +89,8 @@ X4 closure (done 2026-10-18T23:40:42Z):
 - [x] `loops/osler_v3/charts.md`; CLAIMS C057–C071; SELF_AUDIT in outputs/osler_v3/X4/
 - [x] conversion to mix rows, blocked templates excluded and counted (C067); Gemma server stopped by PID
 - [ ] commit and push the X4 closure
+
+X3 claims rework (written 2026-10-19T04:22:44Z, NOT run; operator ruling D-X3-17): `src/meddecide/mix/clinclaim.py` has the second prompt fix (not-mentioned claims about the same kinds of facts: finding, test, treatment, timing; never about relatives) and the filter (`family_filter`: a kept not-mentioned claim that mentions family is dropped; the count is in the pilot report). Pilot: `x3_generate.py --task claims --split train --limit 300 --out data/gen/osler_v3/claims_v2_pilot_train.jsonl` on the GPU after the Stage A choice (one GPU job at a time), then `scripts/osler_v3/x3_claims_pilot_check.py` (the D44(b) label-tracking check; PASS iff no flagged phrase). If it passes: build up to 20,000 claims (about 2 GPU hours) in the same way; if not, B2 is restyle only (D-X8-2).
 
 X8 code (written, NOT launched; committed 65e3c45): `scripts/osler_v3/x8_build_block.py` (streamed block build: base + new source + minimal broad replay top-up to 20 %; the 8 % cap fails the build), `scripts/osler_v3/x8_keep.py` (keep rule via `keep_comparison`, the new sources removed from both sides per D-X8-1, reported beside it; CG reported beside it), `scripts/osler_v3/x8_chain.sh` (chosen Stage A arm as B0; B1 = X1 sources; B3 = X4 charts on the last kept block; `x7_block_run.py` for training at the chosen KL). Smoke test of the keep code on osler_v2 W6 reproduces C1's keep decision (output removed; not a result). X9 needs a per-evaluation CG hook (the shared `run_arm` keeps only the best checkpoint; not changed): to be written with X9.
 

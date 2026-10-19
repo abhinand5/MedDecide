@@ -99,6 +99,7 @@ def draw(doc_key: str, index: int, seed: int, passage: str) -> tuple[str, str | 
 
 # one style rule for every label, so that no wording tracks the label (the one prompt fix allowed for this template, D-X3-1)
 STYLE_RULE = ("Do not begin with 'The patient', and do not use the word 'history'. Vary the subject of the sentence.")
+FAMILY_WORD = re.compile(r"\bfamily\b", re.IGNORECASE)  # the operator's filter (D-X3-17): no not-mentioned claim about family
 
 
 def writer_messages(passage: str, label: str, kind: str | None) -> list[dict[str, str]]:
@@ -107,9 +108,9 @@ def writer_messages(passage: str, label: str, kind: str | None) -> list[dict[str
                        "copy a whole sentence. " + STYLE_RULE)
     elif label == "not_mentioned":
         instruction = ("Write a plausible clinical claim about this case that the passage does NOT state and does NOT imply. "
-                       "Choose a fact related to the passage's topic that the passage leaves unaddressed (for example a test not "
-                       "reported, a medication not named, a date or a family or social detail not given). Do not name a disease "
-                       "the passage does not mention. " + STYLE_RULE)
+                       "The claim must be about the same kinds of facts the passage discusses (a finding, a test, a treatment, or "
+                       "the timing of an event) and must leave unaddressed a fact of that kind. Never make the claim about relatives. "
+                       "Do not name a disease the passage does not mention. " + STYLE_RULE)
     else:
         if kind not in EDIT_KINDS:
             raise ValueError(f"unknown edit kind {kind!r}")
@@ -232,6 +233,8 @@ def keep(label: str, kind: str | None, claim: str, passage: str, verdict: str | 
         if kind is None or not edit_ok(kind, claim, passage):
             return False, "edit_rule_failed"
         return True, "kept"
+    if label == "not_mentioned" and FAMILY_WORD.search(claim):
+        return False, "family_filter"
     if copy_share(claim, passage) > COPY_LIMIT:
         return False, "copies_passage_sentence"
     return True, "kept"

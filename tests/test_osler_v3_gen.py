@@ -174,3 +174,19 @@ def test_claim_balance_gives_equal_labels_and_keeps_the_kinds_as_drawn() -> None
     assert labels["supported"] == labels["not_mentioned"] == labels["contradicted"] == report["per_label_target"] == 40
     assert set(Counter(r["kind"] for r in kept if r["label"] == "contradicted")) == set(cc.EDIT_KINDS)
     assert cc.balance_claims(rows, salt="t")[0] == kept  # deterministic
+
+
+def test_family_filter_drops_not_mentioned_claims_that_mention_family() -> None:
+    passage = "The patient was admitted with pneumonia. Chest X-ray showed bilateral infiltrates."
+    assert cc.keep("not_mentioned", None, "A relative had a stroke at sixty.", passage, "not_mentioned") == (True, "kept")
+    assert cc.keep("not_mentioned", None, "The family history includes a stroke.", passage, "not_mentioned") == (
+        False, "family_filter")
+    assert cc.keep("not_mentioned", None, "Family members were not contacted.", passage, "not_mentioned") == (
+        False, "family_filter")
+
+
+def test_not_mentioned_prompt_asks_for_the_same_kinds_of_facts() -> None:
+    passage = "The patient was admitted with pneumonia. Chest X-ray showed bilateral infiltrates."
+    text = cc.writer_messages(passage, "not_mentioned", None)[1]["content"]
+    assert "same kinds of facts" in text and "relatives" in text
+    assert "family or social detail" not in text
