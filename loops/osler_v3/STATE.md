@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T04:16:00Z`
+Last updated (UTC): `2026-10-19T04:20:49Z`
 Iterations so far: `1`
 
 ---
@@ -26,7 +26,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X0 | Orientation, KL timing | small | — | DONE | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
 | X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
-| X3 | Gemma-crafted items over real text | yes | X0, X1 | IN_PROGRESS — restyle UNBLOCKED by the operator ruling of 2026-10-19 (D-X3-16; the 6,426 verified pages); claims re-piloted after Stage A under the operator's second prompt fix and filter (D-X3-17) | 2026-10-18T20:37:00Z | |
+| X3 | Gemma-crafted items over real text | yes | X0, X1 | IN_PROGRESS — restyle rows written from the 6,426 verified pages (C081–C085; D-X3-18; 94 flagged phrases under the declared genre list, Q7); claims re-piloted after Stage A under the operator's second prompt fix and filter (D-X3-17) | 2026-10-18T20:37:00Z | |
 | X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE — fast dev v3 12,903 items (C072); CG 4,865 items, zero-shot pplx 0.7781 on 4,853 scored (C074–C076); new test pool 9,016 items; six baselines additional (C077–C079); 'too good' split of the indicator items (C080); `loops/osler_v3/x6_baselines.md` | 2026-10-18T21:14:29Z | 2026-10-19T00:39:50Z |
@@ -210,6 +210,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 **Operator rulings (2026-10-19T04:16:00Z; pasted by the operator; they answer Q4).** (1) Restyle (restyle_page_category_v1) is unblocked: under D44(b) the genre vocabulary of the requested page type is the labelled fact; the NB screen (0.71) passes; use the 6,426 verified pages; record as a deviation (D-X3-16). (2) Claims (clinclaim_grounding_v1) get one more prompt fix ('not mentioned' claims are about the same kinds of facts the passage discusses: findings, tests, treatments, timing; never family history) and a filter (drop any kept not-mentioned claim that mentions family; record the dropped count). A new 300-item pilot must pass the D44(b) cue check; if it passes, build up to 20,000 claims (Gemma, about 2 GPU hours) (D-X3-17). (3) Scheduling: between Stage A's choice and B2, the claims pilot and build, the restyle integration and the fast dev v3 extension come before any Stage B run; B2 = restyle + claims (claims only if they pass), otherwise restyle only (D-X8-2).
 
+**Q7 (2026-10-19T04:20:49Z) — the genre list for restyle (D-X3-16).** Before the run I declared the genre vocabulary as: the page-type label words, the heading words that recur in at least 10 % of a class's pages, and the two radiology words you named. Under that list 94 label-tracking phrases remain flagged (the first 50 listed: radiology 25, nutrition 16, admission 8, discharge summary 1; C085). The 6,426 pages are used as you ruled (C081 to C084). Please confirm: (a) the 94 phrases are genre vocabulary, and I extend the declared list to cover them (I would re-run the script and record the new list as a deviation); or (b) the list stays as declared and the flagged phrases are a recorded caution for the restyled template. I would take (b) unless you say otherwise.
+
 ## 7. Deviations from the plan
 
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
@@ -268,6 +270,7 @@ deviation — that is a `BLOCKED`.
 - **D-X8-3 (amends D-X8-1, before any Stage B result):** the new-source exclusion is by template family (ragtruth_, drugprot_, chart_, restyle_, clinclaim_), not by source name, because restyle and claims rows keep their real-text source name (for example pmc_patients). The rule is otherwise unchanged.
 - **Operational (2026-10-19T04:16:00Z):** the Stage A handoff watcher (bfh5b4243, which would have launched Stage B after the choice) was stopped before it reached the choice; its exit 144 is that stop, not a failure. A new watcher (bc1dcnrfp) runs only the choice. The Stage A chain itself was not touched.
 
+- **D-X3-18 (operator ruling, 2026-10-19T04:20:49Z):** the restyle rows are written from all 6,426 kept verified pages (train 5,797; dev 489; test 140), without class balancing (C081). The largest class share is 0.1857, under the 25 % cap (C082). The NB macro on dev is 0.722, under the 0.90 screen (C083). The genre vocabulary is the declared list in `scripts/osler_v3/x3_restyle_unblocked.py`; 94 label-tracking phrases remain flagged under it (C085; Q7). The restyle rows enter fast dev v3 (dev) and the new test pool (test) only after the claims work and before any Stage B run (D-X8-2).
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
