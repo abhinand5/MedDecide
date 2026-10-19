@@ -182,7 +182,7 @@ X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final
 ### X7 — DONE — 2026-10-19T17:47:30Z
 - What ran: Stage A arms A0 to A3 (`x7_stage_a.sh`, 13,992 steps each; A0 04:08Z; A1 09:19Z; A2 14:05Z; A3 17:35Z); `x7_choice.py` (after a plumbing fix, D-X7-1).
 - Output: `outputs/osler_v3/X7/choice.json`; `loops/osler_v3/stage_a.md`; per-arm `outputs/osler_v3/stage_a/A0..A3/`.
-- Headline: every arm trained 13,992 steps as planned with 0 logged mismatches (C086, C090, C094, and A3's C102 to be recorded). The rule qualifies all four arms (MR macro lower bounds above -0.01) and chooses A0, the control, with CG differences from zero-shot pplx of +0.0027 (A0), +0.0010 (A2), +0.0002 (A1) and -0.0006 (A3) on 4,853 paired items (C098, C099). The differences are small against the CG noise; the choice is mechanical and the margin is weak.
+- Headline: every arm trained 13,992 steps as planned with 0 logged mismatches (C086, C090, C094, C102). The rule qualifies all four arms (MR macro lower bounds above -0.01) and chooses A0, the control, with CG differences from zero-shot pplx of +0.0027 (A0), +0.0010 (A2), +0.0002 (A1) and -0.0006 (A3) on 4,853 paired items (C098, C099). The differences are small against the CG noise; the choice is mechanical and the margin is weak.
 - Surprises: the choice crashed at the control on an id join (D-X7-1); the arms' KL to base falls with the KL weight (0.1709, 0.1410, 0.1102; C089, C093, C097); A3 (broad replay) reaches the largest general accuracy (0.7867; C101).
 - Next: X8 (B0 = A0); the claims pilot first, on the GPU.
 
