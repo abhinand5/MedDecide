@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T04:22:44Z`
+Last updated (UTC): `2026-10-19T04:23:08Z`
 Iterations so far: `1`
 
 ---
@@ -89,6 +89,8 @@ X4 closure (done 2026-10-18T23:40:42Z):
 - [x] `loops/osler_v3/charts.md`; CLAIMS C057–C071; SELF_AUDIT in outputs/osler_v3/X4/
 - [x] conversion to mix rows, blocked templates excluded and counted (C067); Gemma server stopped by PID
 - [ ] commit and push the X4 closure
+
+ORDER OF WORK after the operator ruling (2026-10-19T04:23:08Z): (1) Stage A arms A1, A2, A3 run on the UNCHANGED fast dev v3 (they read `data/bench/osler_v3/fastdev_v3.jsonl` at their start, so it must not be rebuilt while Stage A runs); (2) the choice (watcher bc1dcnrfp); (3) the claims pilot on the GPU, then the D44(b) check; (4) if it passes, the claims build (up to 20,000); (5) the fast dev v3 rebuild with the restyle dev pool (`data/bench/osler_v3/x3_dev.jsonl`, 489 pages; 400 cap) and the claims dev pool; (6) the new test pool with the restyle test pages (140; additional rows; the six baselines are re-scored on them); (7) rescore the chosen Stage A checkpoint (B0) on the new fast dev v3; (8) the X8 chain: B1 (X1 sources), B2 (restyle + claims, or restyle only), B3 (charts). The X8 chain is NOT launched as written: its B2 step is not in it yet.
 
 X3 claims rework (written 2026-10-19T04:22:44Z, NOT run; operator ruling D-X3-17): `src/meddecide/mix/clinclaim.py` has the second prompt fix (not-mentioned claims about the same kinds of facts: finding, test, treatment, timing; never about relatives) and the filter (`family_filter`: a kept not-mentioned claim that mentions family is dropped; the count is in the pilot report). Pilot: `x3_generate.py --task claims --split train --limit 300 --out data/gen/osler_v3/claims_v2_pilot_train.jsonl` on the GPU after the Stage A choice (one GPU job at a time), then `scripts/osler_v3/x3_claims_pilot_check.py` (the D44(b) label-tracking check; PASS iff no flagged phrase). If it passes: build up to 20,000 claims (about 2 GPU hours) in the same way; if not, B2 is restyle only (D-X8-2).
 
