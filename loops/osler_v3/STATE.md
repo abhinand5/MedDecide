@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T01:19:22Z`
+Last updated (UTC): `2026-10-19T04:16:00Z`
 Iterations so far: `1`
 
 ---
@@ -26,12 +26,12 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X0 | Orientation, KL timing | small | — | DONE | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X1 | Real sources: RAGTruth, DrugProt, MultiCaRe | no | X0 | DONE | 2026-10-18T20:26:00Z | 2026-10-18T20:40:13Z |
 | X2 | Broad replay for A3 | no | X0 | DONE — 35 % replay target NOT MET (32.66 % after the 8 % cap; recorded, D-X2-2) | 2026-10-18T20:31:00Z | 2026-10-18T20:40:13Z |
-| X3 | Gemma-crafted items over real text | yes | X0, X1 | BLOCKED — both templates blocked by the D44(b) label-tracking check (claims D-X3-1; restyle D-X3-7, Q4); no X3 rows; closed with CLAIMS C044–C056 | 2026-10-18T20:37:00Z | 2026-10-18T22:23:56Z |
+| X3 | Gemma-crafted items over real text | yes | X0, X1 | IN_PROGRESS — restyle UNBLOCKED by the operator ruling of 2026-10-19 (D-X3-16; the 6,426 verified pages); claims re-piloted after Stage A under the operator's second prompt fix and filter (D-X3-17) | 2026-10-18T20:37:00Z | |
 | X4 | Charts with the D44 rule | yes | X0 | DONE — 2,000 charts built (1,715 kept; C057); chart_indicator_evidence_v1 usable (2,916 / 330 / 184 items; C059); chart_icd_support_v1 and chart_evidence_page_v1 BLOCKED under D44(b) (C061, C062); `loops/osler_v3/charts.md` | 2026-10-18T21:14:29Z | 2026-10-18T23:40:42Z |
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE — fast dev v3 12,903 items (C072); CG 4,865 items, zero-shot pplx 0.7781 on 4,853 scored (C074–C076); new test pool 9,016 items; six baselines additional (C077–C079); 'too good' split of the indicator items (C080); `loops/osler_v3/x6_baselines.md` | 2026-10-18T21:14:29Z | 2026-10-19T00:39:50Z |
-| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — chain `x7_stage_a.sh` started 2026-10-19T00:37:05Z (A0 first; A1, A2, A3 follow, each about 4 h); the choice (`x7_choice.py`) runs by watcher bfh5b4243 when the chain reports STAGE A DONE, and the Stage B chain (`x8_chain.sh`) launches only if the choice completes | 2026-10-18T21:14:29Z | |
-| X8 | Stage B: data blocks | yes | X7 | PENDING | | |
+| X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | IN_PROGRESS — A0 reached its final step (13,992) at 04:08Z and is finishing its evaluation and CG scoring; A1, A2, A3 follow (about 4 h each); the choice runs by watcher bc1dcnrfp; Stage B is NOT launched automatically (D-X8-2) | 2026-10-18T21:14:29Z | |
+| X8 | Stage B: data blocks | yes | X7 | PENDING — order per the operator ruling (D-X8-2): claims pilot and build (if it passes), restyle, fast dev v3 extended, B0 rescored; then B1 (X1), B2 (restyle + claims, or restyle only), B3 (charts) | | |
 | X9 | Final Osler-4B | yes | X8 | PENDING | | |
 | X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
 | X11 | Memorisation audit (only with MIMIC) | small | X9 | PENDING | | |
@@ -72,7 +72,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: X7 — Stage A recipe ablations (A0 to A3); X6 is DONE (see §4)
 Working dir:    outputs/osler_v3/X6/ (queue log outputs/osler_v3/X6/logs/chain.log; per-step logs in the same folder)
-Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (started 00:37:05Z; log outputs/osler_v3/X7/logs/stage_a_chain.log; per-arm logs outputs/osler_v3/X7/logs/A0.log to A3.log). Arm A0 at step 2,950 of 13,992 at 01:19Z (loss 0.42 on the logged batch; no errors; first dev evaluation at step 3,498). Watcher bfh5b4243 (background) waits for STAGE A DONE, then runs `x7_choice.py` (log outputs/osler_v3/X7/logs/choice.log) and launches `x8_chain.sh` only if the choice completes. The Gemma server is stopped (0 MiB). Checked 2026-10-19T01:19:22Z.
+Running jobs:   Stage A chain `scripts/osler_v3/x7_stage_a.sh` (pid 3371984; log outputs/osler_v3/X7/logs/stage_a_chain.log; arm logs A0.log to A3.log). A0 at its final step 13,992 (04:08Z); evaluation, selection and CG scoring follow; A1 next. Watcher bc1dcnrfp (background) waits for STAGE A DONE and then runs `x7_choice.py` only (log outputs/osler_v3/X7/logs/choice.log); it does not launch Stage B. The Gemma server is stopped (0 MiB). Checked 2026-10-19T04:16:00Z.
 
 X3 closure (done 22:23Z):
 - [x] x3_assemble re-run; the NB screen runs on the blocked template as a diagnostic (D-X3-12)
@@ -208,6 +208,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 **Q6 (X4, 2026-10-18T23:40:42Z) — unit values in the chart narratives.** The prompt forbids unit values in the narrative. The check counts them: 1,029 of 15,227 indicator pages (6.8 %) state one (C068). Options: (a) keep the indicator template as it is and report the count (current); (b) add a number rule to the label-tracking check, which would test whether a stated value decides the label. I would take (a) for X4 and measure (b) in a new loop if the indicator result matters. Please confirm.
 
+**Operator rulings (2026-10-19T04:16:00Z; pasted by the operator; they answer Q4).** (1) Restyle (restyle_page_category_v1) is unblocked: under D44(b) the genre vocabulary of the requested page type is the labelled fact; the NB screen (0.71) passes; use the 6,426 verified pages; record as a deviation (D-X3-16). (2) Claims (clinclaim_grounding_v1) get one more prompt fix ('not mentioned' claims are about the same kinds of facts the passage discusses: findings, tests, treatments, timing; never family history) and a filter (drop any kept not-mentioned claim that mentions family; record the dropped count). A new 300-item pilot must pass the D44(b) cue check; if it passes, build up to 20,000 claims (Gemma, about 2 GPU hours) (D-X3-17). (3) Scheduling: between Stage A's choice and B2, the claims pilot and build, the restyle integration and the fast dev v3 extension come before any Stage B run; B2 = restyle + claims (claims only if they pass), otherwise restyle only (D-X8-2).
+
 ## 7. Deviations from the plan
 
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
@@ -259,6 +261,12 @@ deviation — that is a `BLOCKED`.
 - **D-X6-4 (X6, 2026-10-18T23:44:22Z):** the zero-shot pplx CG step failed twice, at the first fast-dev-v2 row (KeyError `benchmark`, then `set_name`), each time after its 4,000 saved knowledge rows. The queue continued to the new-test-pool steps between the failure and the fix; those steps are additional rows and do not feed the CG reference. The CG step is resumed from its saved rows after the fix, and `x7_choice.py` refuses to run without its predictions.
 
 - **D-X6-1 (X6, 2026-10-19T00:39:50Z):** referenced on the board since the CG build (commit 1668b36) but its entry was never written. The CG build and its exclusion counts are in `loops/osler_v3/partitions.md`; no content is asserted under this label.
+
+- **D-X3-16 (operator ruling, 2026-10-19T04:16:00Z):** restyle_page_category_v1 is unblocked. Under D44(b) the genre vocabulary of the requested page type (for example 'Impression' or 'demonstrates' for radiology) is the labelled fact, as accepted for the code-rendered page templates. All 6,426 verified kept pages are used (train 5,797; dev 489; test 140), not class-balanced. The largest class share and the NB screen are measured on the used set and recorded; the screen must stay below 0.90 (the operator cited 0.71 on the balanced set).
+- **D-X3-17 (operator ruling, 2026-10-19T04:16:00Z):** clinclaim_grounding_v1 gets one more prompt fix (not-mentioned claims are about the same kinds of facts the passage discusses: findings, tests, treatments, timing; never family history) and a filter (kept not-mentioned claims that mention family are dropped; the dropped count is recorded). A new 300-item pilot must pass the D44(b) cue check before any build; if it passes, up to 20,000 claims are built (about 2 GPU hours). This is the second prompt fix; the ADVISORY allowed one, so this is a deviation under the operator's authority.
+- **D-X8-2 (operator ruling, 2026-10-19T04:16:00Z):** the Stage B order changes. After the Stage A choice, the claims pilot and build (if it passes) and the restyle integration run first; fast dev v3 is extended with the restyle and claims dev items before any Stage B run; the chosen Stage A checkpoint (B0) is rescored on the extended dev set; then B1 (X1 sources), B2 (restyle + claims, or restyle only if the claims fail) and B3 (charts). The 'hold after B1' option is not used, since no Stage B run precedes the extension. The Stage A choice uses the Stage A predictions as they stand; the MR and CG partitions contain none of the new templates.
+- **D-X8-3 (amends D-X8-1, before any Stage B result):** the new-source exclusion is by template family (ragtruth_, drugprot_, chart_, restyle_, clinclaim_), not by source name, because restyle and claims rows keep their real-text source name (for example pmc_patients). The rule is otherwise unchanged.
+- **Operational (2026-10-19T04:16:00Z):** the Stage A handoff watcher (bfh5b4243, which would have launched Stage B after the choice) was stopped before it reached the choice; its exit 144 is that stop, not a failure. A new watcher (bc1dcnrfp) runs only the choice. The Stage A chain itself was not touched.
 
 ## 8. Closure summary feed
 
