@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (X12), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-18T20:13:37Z`
-Last updated (UTC): `2026-10-19T18:20:32Z`
+Last updated (UTC): `2026-10-20T23:12:00Z`
 Iterations so far: `1`
 
 ---
@@ -31,11 +31,11 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | X5 | MIMIC (official files only; only when they exist) | no | X0 | BLOCKED — official MIMIC files absent (data/physionet/ missing; D37 forbids unofficial copies); not waited for | 2026-10-18T20:13:37Z | 2026-10-18T20:40:13Z |
 | X6 | Fast dev v3, CG proxy, new baselines | yes | X1, X2, X3, X4 (X5 if built) | DONE (the extension below is recorded under X8) — CG 4,865 items; zero-shot pplx 0.7781 on 4,853 scored (C075, C076); new test pool 9,016 items (C073); six baselines additional (C077–C079); the indicator split (C080). PENDING under the operator's ruling: the restyle test pages (140) are not yet in the new test pool, and the six baselines have not been run on them (additional rows) | 2026-10-18T21:14:29Z | 2026-10-19T00:38:00Z |
 | X7 | Stage A: recipe ablations A0–A3 + choice | yes | X6 | DONE — choice A0 (the control, kl_to_base 0; osler_v2's C1 mix) by the pre-registered rule (C098–C101; `loops/osler_v3/stage_a.md`); the choice first failed on a join of item ids (D-X7-1), fixed and re-run; no run's numbers changed | 2026-10-18T21:14:29Z | 2026-10-19T17:46:49Z |
-| X8 | Stage B: data blocks | yes | X7 | IN_PROGRESS — B1, B2, B3 trained (13,992 steps each; B1 05:41–09:31Z, B2 09:38–13:30Z, B3 13:36–17:26Z on 2026-10-20). All three keep steps crashed in the chain (missing `b0_dev/cg_predictions.jsonl` in the labelled CG side report; the rule itself was unaffected), so the chain treated each as not kept and built B2 and B3 on B0. Fixed by the advisor (`x8_keep.py` reads B0's CG predictions from its Stage A run, the same checkpoint) and re-run: B1 NOT KEPT (MR −0.0044 [−0.0143, +0.0058]; its own new templates +0.151), B2 NOT KEPT (MR −0.0096 [−0.0209, +0.0019]), B3 NOT KEPT (MR −0.0054 [−0.0139, +0.0032]). Since B1 is not kept, B2 and B3 were built on the right base. Last kept: B0 (= osler_v2's C1). Operator decision pending on X9 (Question: the final mix equals osler_v2's) | 2026-10-19T17:46:49Z | |
-| X9 | Final Osler-4B | yes | X8 | PENDING | | |
-| X10 | Evaluation + Gate O3 (Osler-4B; 9B deferred) | yes | X9 | PENDING | | |
-| X11 | Memorisation audit (only with MIMIC) | small | X9 | PENDING | | |
-| X12 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| X8 | Stage B: data blocks | yes | X7 | DONE (operator, 2026-10-20: keep decisions re-run after the CG side-report crash, commit 7f47e1e; B1, B2, B3 not kept; last kept block B0 = osler_v2's C1) — B1, B2, B3 trained (13,992 steps each; B1 05:41–09:31Z, B2 09:38–13:30Z, B3 13:36–17:26Z on 2026-10-20). All three keep steps crashed in the chain (missing `b0_dev/cg_predictions.jsonl` in the labelled CG side report; the rule itself was unaffected), so the chain treated each as not kept and built B2 and B3 on B0. Fixed by the advisor (`x8_keep.py` reads B0's CG predictions from its Stage A run, the same checkpoint) and re-run: B1 NOT KEPT (MR −0.0044 [−0.0143, +0.0058]; its own new templates +0.151), B2 NOT KEPT (MR −0.0096 [−0.0209, +0.0019]), B3 NOT KEPT (MR −0.0054 [−0.0139, +0.0032]). Since B1 is not kept, B2 and B3 were built on the right base. Last kept: B0 (= osler_v2's C1). Operator decision pending on X9 (Question: the final mix equals osler_v2's) | 2026-10-19T17:46:49Z | |
+| X9 | Final Osler-4B | yes | X8 | BLOCKED — skipped by the operator (2026-10-20): the kept mix equals osler_v2's C1 with osler_v2's recipe, so a final run would retrain osler_v2's model (duplicate of osler_v2's final) | | |
+| X10 | Evaluation, reduced (no Gate O3 verdict; Stage A runs, B1 and the trade-off as additional rows) | yes | X8 (X9 skipped) | DONE — no verdict (operator ruling); A0–A3 and B1 scored on all 30,621 v10 rows, calibrated, against zero-shot pplx and osler_v2's Osler-4B (C119–C131; `loops/osler_v3/results.md`, `loops/osler_v3/gate_o3.md`) | 2026-10-20T21:12:00Z | 2026-10-20T23:10:00Z |
+| X11 | Memorisation audit (only with MIMIC) | small | X9 | BLOCKED — not applicable: no MIMIC in a final mix (operator ruling 2026-10-20; X9 skipped) | | |
+| X12 | Findings and closure — HARD STOP | no | all | DONE — `loops/osler_v3/FINDINGS.md` (Summary, §2 outcomes, the Stage A trade-off, five-claim spot-check), `loops/osler_v3/NEXT.md`; loop STOPPED | 2026-10-20T23:10:00Z | 2026-10-20T23:12:00Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions in ADVISORY §5). Never run two GPU jobs
 at once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PROGRESS` at closure.
@@ -186,6 +186,11 @@ X9 driver (written, NOT launched; committed 1d394b0): `scripts/osler_v3/x9_final
 - Surprises: the choice crashed at the control on an id join (D-X7-1); the arms' KL to base falls with the KL weight (0.1709, 0.1410, 0.1102; C089, C093, C097); A3 (broad replay) reaches the largest general accuracy (0.7867; C101).
 - Next: X8 (B0 = A0); the claims pilot first, on the GPU.
 
+### X8 — DONE — 2026-10-20 (operator closure; last entry before the keep re-run)
+- Headline: no Stage B block kept. B1 (X1 sources) MR −0.0044 [−0.0143, +0.0058]; B2 (restyle) −0.0096 [−0.0209, +0.0019]; B3 (charts) −0.0054 [−0.0139, +0.0032]; last kept block B0 = osler_v2's C1 (C111–C118).
+- Surprises: the chain crashed in the keep step of all three blocks (missing CG side report); the advisor re-ran the keep decisions (commit 7f47e1e). B1 attempt 1 was stopped at step 10,450 and relaunched (commit 2a75ae1).
+- Next: X9 skipped by the operator; X10 reduced.
+
 ### X8 — IN_PROGRESS — 2026-10-19T18:14:41Z
 - What ran: the Stage A choice (A0; C098–C101) and its join fix (D-X7-1); the restyle rows (C081–C085); the claims rework and its pilot (C106, C107: FAIL); fast dev v3 extended with the restyle dev pages (C108); B0 rescored (C109, C110; `x8_score_b0.py`); the chain `x8_chain.sh` started (B1 build 906,164 rows).
 - Output: `outputs/osler_v3/X8/` (b0_dev, logs, block files' manifests); the block training files in `data/train/osler_v3/`.
@@ -295,6 +300,23 @@ deviation — that is a `BLOCKED`.
 - **D-X3-19 (operator ruling, 2026-10-19T18:14:41Z):** the claims pilot v2 (300 candidates; kept 261) fails the D44(b) check (2 flags on not-mentioned claims; C106, C107). Under the ruling, no claims are built, and B2 = restyle only. The pilot file stays gitignored.
 - **D-X8-4 (amends D-X8-2 and D-X8-3, 2026-10-19T18:14:41Z):** the keep rule's new-source exclusion is by template family (`ragtruth_`, `drugprot_`, `chart_`, `restyle_`, `clinclaim_`), implemented in `x8_keep.py`; the B2 block is restyle only (the claims are excluded).
 - **D-X8-5 (X8, 2026-10-19T18:14:41Z):** B0 is the chosen A0 checkpoint rescored on the extended fast dev v3 by `x8_score_b0.py`. On the 12,903 items that the arm scored before the extension, the rescored correctness agrees with A0's own predictions on every item (C109); this is the check that the rescoring is A0's model. B0's accuracy on the 13,303 items is 0.835 (C110).
+- **D-X10-1 (operator ruling, 2026-10-20):** X9 is skipped (the kept mix equals osler_v2's C1 with its recipe). X10 is reduced to additional rows: no Gate O3 verdict; A0–A3 and B1 are scored on the v10 items, calibrated, against zero-shot pplx and osler_v2's Osler-4B; the panel is broken down by dataset. X11 is not applicable. Recorded as a deviation from ADVISORY X9–X11.
+### X9 — BLOCKED — 2026-10-20T21:10:00Z
+- Headline: skipped by the operator: the kept mix equals osler_v2's C1 with osler_v2's recipe, so a final run would retrain osler_v2's model. No final model was trained.
+- Next: X10 reduced to additional rows; no verdict.
+
+### X10 — DONE — 2026-10-20T23:10:00Z
+- What ran: `scripts/osler_v3/x10_chain.sh` (A0, A1, A2, A3, B1 through `x10_score.py`, osler_v2's W8 scoring path, output root `outputs/osler_v3/X10`); `scripts/osler_v3/x10_report.py`; the spot-check (`outputs/osler_v3/X10/spotcheck.log`).
+- Output: `outputs/osler_v3/X10/` (results.json, per-run both_orders.jsonl, SELF_AUDIT.md); `loops/osler_v3/results.md`; `loops/osler_v3/gate_o3.md`.
+- Headline: against zero-shot pplx, the panel difference is −0.0245 (A0), −0.0111 (A1), −0.0161 (A2), −0.0109 (A3), −0.0226 (B1); MR verdict about +0.13 to +0.14 in every run; no verdict (C122–C127).
+- Surprises: the Stage A and B1 runs are 13,992 steps and osler_v2's final is 42,200 (C131), so the MR gap of 0.018–0.025 against osler_v2 is not a clean test of the recipe; a report-path bug and a recompute-key bug were fixed before results were recorded (SELF_AUDIT §4).
+- Next: FINDINGS and NEXT (X12).
+
+### X12 — DONE — 2026-10-20T23:12:00Z (HARD STOP)
+- What ran: findings and closure: `loops/osler_v3/FINDINGS.md`, `loops/osler_v3/NEXT.md`, five-claim spot-check (C120, C121, C124, C128, C130; all re-run in a fresh process and matched).
+- Headline: no Gate O3 verdict; the Stage A control was chosen; no Stage B block was kept; the panel gap narrows by about half with KL 0.1 or broad replay, with intervals that reach zero.
+- Next: the operator's decisions in NEXT.md (run-length check; keep-rule proposal). Loop stopped.
+
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
@@ -303,4 +325,8 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | No Gate O3 verdict: the final model was skipped by the operator (duplicate of osler_v2's final). | C129, C130 | loops/osler_v3/gate_o3.md |
+| 2 | Stage A chose the control (KL 0) by the pre-registered rule; margins weak. | C098–C101 | loops/osler_v3/stage_a.md |
+| 3 | No Stage B block was kept; each failed the MR check of the keep rule. | C111–C118 | loops/osler_v3/blocks.md |
+| 4 | Against zero-shot pplx, the panel gap is −0.011 to −0.025 across runs; KL 0.1 or broad replay narrows it by about half, intervals reach zero. | C122–C127 | loops/osler_v3/results.md |
+| 5 | Stage A runs are 13,992 steps and osler_v2's final is 42,200; the MR gap to osler_v2 is not a clean recipe test. | C131 | loops/osler_v3/FINDINGS.md |
