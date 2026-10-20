@@ -56,6 +56,16 @@ def raw_cg_ids() -> dict[str, str]:
     return {str(mix_row_to_item(row).item_id): str(row["item_id"]) for row in read_jsonl(CG_ITEMS)}
 
 
+def cg_file(folder: Path) -> Path:
+    """A run's CG predictions. B0 is the chosen Stage A run re-scored on the extended fast dev only (x8_score_b0.py), so its
+    CG predictions are the Stage A run's own (the same checkpoint; the CG partition did not change)."""
+    own = folder / "cg_predictions.jsonl"
+    if own.exists() or folder.name != "b0_dev":
+        return own
+    chosen = json.loads((REPO / "outputs/osler_v3/X7/choice.json").read_text(encoding="utf-8"))["chosen"]
+    return REPO / "outputs/osler_v3/stage_a" / chosen / "cg_predictions.jsonl"
+
+
 def cg_report(candidate_dir: Path, current_dir: Path) -> dict[str, Any]:
     """CG accuracy of each side on the items the zero-shot pplx reference scored (both sides, the same items)."""
     if not ZERO_SHOT_CG.exists():
@@ -64,7 +74,7 @@ def cg_report(candidate_dir: Path, current_dir: Path) -> dict[str, Any]:
     out: dict[str, Any] = {"zero_shot_pplx_items": len(zero)}
     for name, folder in (("candidate", candidate_dir), ("current", current_dir)):
         raw = raw_cg_ids()
-        rows = [dict(r, item_id=raw[str(r["item_id"])]) for r in read_jsonl(folder / "cg_predictions.jsonl")]
+        rows = [dict(r, item_id=raw[str(r["item_id"])]) for r in read_jsonl(cg_file(folder))]
         rows = [r for r in rows if str(r["item_id"]) in zero]
         if not rows:
             out[name] = {"status": "NOT MEASURED — no CG predictions on the paired items"}
