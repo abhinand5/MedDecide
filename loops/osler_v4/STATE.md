@@ -178,7 +178,7 @@ Y4 CPU preparation items done since the last update (same file, §4 entry): `scr
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
-| Y2 mimic_page_category_v1 | MIMIC-III page-category template (B3 part) | NOT MEASURED — MIMIC-III 1.4 is still downloading (dm status 0/28 files at 20:40Z) | Re-check at Y4 and before the B2 keep decision; build it then if the files are present, else B3 goes ahead without it (operator steer 2026-10-21) |
+| Y2 mimic_page_category_v1 | MIMIC-III page-category template (B3 part) | NOT MEASURED — MIMIC-III 1.4 is still queued (dm status 0/28 files at 20:40Z and again at 22:09Z) | Re-check at Y4 and before the B2 keep decision; build it then if the files are present, else B3 goes ahead without it (operator steer 2026-10-21) |
 
 ---
 
@@ -232,6 +232,12 @@ deviation — that is a `BLOCKED`.
      ADVISORY Y2b text says "B3's decision"). If present then, `mimic_page_category_v1` (MDACE admissions excluded) joins B3;
      otherwise B3 goes ahead without it. The loop never waits for it.
   4. `icu/` files (for example chartevents) are appearing on disk but stay out of scope (ADVISORY §6).
+  5. **Re-check, 2026-10-21T22:09Z** (`./dm status`, read only). MIMIC-IV 3.1: 16 of 33 files (7.6 of 9.9 GB). The steer's
+     "hosp is complete" does not match this: `hosp/pharmacy`, `hosp/omr` and `hosp/microbiologyevents` are still downloading
+     (6 %, 86 % and 90 %). None of them is read by the Y1 or Y2 builders (checked: the tables read are admissions,
+     diagnoses_icd, drgcodes, labevents, emar, the d_ dictionaries and the note files), and microbiology is out of scope
+     (ADVISORY §6), so the built data is unaffected. MIMIC-III 1.4: 0 of 28 files, queued; the page-category template stays
+     NOT MEASURED. The loop did not wait for either.
 - **Y1 (2026-10-21):** the split key for every MIMIC table is `subject_split(subject_id, "mimic4")` (ADVISORY §3.3). The osler_v1
   notes reader used `"mimiciv"`; it was changed to `"mimic4"` because no MIMIC output had ever been made with the old key.
 - **Y1 first run defects, fixed in the reported run** (log kept as `outputs/osler_v4/Y1/logs/y1_mimic_base_run1.log`): the
