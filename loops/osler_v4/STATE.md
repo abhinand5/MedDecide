@@ -279,6 +279,19 @@ deviation — that is a `BLOCKED`.
      repeats of an earlier text), keeps item-id repeats whose text differs, keys the scored records by pool position, and
      the dev union fails if one id maps to two texts. The superseded manifest is kept as
      `outputs/osler_v4/Y5/anchor_pool_manifest_superseded_itemid_dedupe.json` (CLAIMS C057, C058).
+- **Y6 preparation** (CPU, 2026-10-21; the runs wait for the GPU):
+  1. **Which arm is which.** ADVISORY Y6's table lists "A1, A3 | KL 0.1; broad replay". The provenance of the osler_v3 runs says
+     A1 = KL 0.1 on the C1 replay (`outputs/osler_v3/stage_a/A1/provenance.json`), and A3 = KL 0 on `block_A3` with the broad
+     replay. The choice rule uses the arms as their provenance records them.
+  2. **`distill_weight` (D48, ADVISORY Y6).** `bench.schema.SoftItem` is a training-only subclass of `Item` (`Item` itself is
+     unchanged) with `teacher_probs` and `teacher`. `reorder_options` permutes the distribution with the options, the encoders
+     copy it to `EncodedItem.teacher_probs` in display order, and `train.losses.teacher_reference` builds the flat reference that
+     `kl_to_reference` reads (the existing loss, no new loss). `StudentConfig.distill_weight` defaults to 0.0; the trainer adds
+     `distill_weight * KL(teacher || model)` over the items that have a teacher and records `distill` and `n_teacher` per step.
+     Tests: `tests/test_distill_train_v4.py` (10 with the conversion check), `tests/test_soft_labels_v4.py` (26).
+  3. **The A5 mix** is `block_A3` with the Y5 distributions attached to its anchor rows by normalised text, option keys equal and in
+     order (`soft_labels.attach_teacher`; `scripts/osler_v4/y6_a5_mix.py`). A5's replay is regenerated for that file, since the
+     driver refuses a replay whose file hash differs (the stale replay is not edited).
 
 ---
 

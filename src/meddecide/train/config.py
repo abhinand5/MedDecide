@@ -66,6 +66,7 @@ _TOP_LEVEL_KEYS = {
     "backbone",
     "kl_to_base",
     "kl_exclude_template_prefixes",
+    "distill_weight",
 }
 
 
@@ -144,6 +145,9 @@ class StudentConfig:
     # kl_exclude_template_prefixes (the domain templates the model is meant to move on). 0.0 = off
     kl_to_base: float = 0.0
     kl_exclude_template_prefixes: tuple[str, ...] = ()
+    # osler_v4 Y6 (D48): + distill_weight * KL(teacher || model) over the batch's items that carry a teacher distribution
+    # (SoftItem.teacher_probs, the pplx 27B soft labels); needs no base model. 0.0 = off
+    distill_weight: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -202,6 +206,8 @@ class StudentConfig:
             raise ValueError("kl_to_base must be >= 0")
         if cfg.kl_to_base > 0 and cfg.readout != "option_code":
             raise ValueError("kl_to_base needs the option-code readout")
+        if cfg.distill_weight < 0:
+            raise ValueError("distill_weight must be >= 0")
         if cfg.backbone not in ("qwen", "pplx"):
             raise ValueError(f"backbone must be 'qwen' or 'pplx', got {cfg.backbone!r}")
         if cfg.backbone == "pplx" and (cfg.readout != "option_code" or cfg.bidirectional_full_attention):

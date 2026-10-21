@@ -36,7 +36,7 @@ import torch
 from meddecide.bench.schema import Item
 from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
-from meddecide.train.losses import ce_plus_brier, kl_to_reference
+from meddecide.train.losses import ce_plus_brier, kl_to_reference, teacher_reference
 from meddecide.train.temperature import TemperatureFit, fit_per_qtype, fit_temperature
 
 if TYPE_CHECKING:
@@ -113,6 +113,9 @@ class StepRecord:
     # osler_v3 KL-to-base (D41): the penalty's value on this step and the number of anchor items it covered
     kl: float = 0.0
     n_anchor: int = 0
+    # osler_v4 Y6 (D48): the distillation penalty's value on this step and the number of items with a teacher distribution
+    distill: float = 0.0
+    n_teacher: int = 0
 
     @property
     def items_per_s(self) -> float:
@@ -440,6 +443,20 @@ class Trainer:
                                          model_batch.batch_size, anchor)
                     total_loss = total_loss + config.kl_to_base * kl
                     kl_value = float(kl.detach())
+                distill_value = 0.0
+                n_teacher = 0
+                if config.distill_weight > 0:
+                    teacher_flat, teacher_mask = teacher_reference(
+                        [enc.teacher_probs for enc in model_batch.encoded],
+                        [int(n) for n in model_batch.n_options.tolist()],
+                    )
+                    n_teacher = int(teacher_mask.sum())
+                    if n_teacher:
+                        distill = kl_to_reference(probs, teacher_flat.to(probs.device, probs.dtype),
+                                                  model_batch.marker_item.to(probs.device), model_batch.batch_size,
+                                                  teacher_mask)
+                        total_loss = total_loss + config.distill_weight * distill
+                        distill_value = float(distill.detach())
                 self.optimizer.zero_grad(set_to_none=True)
                 total_loss.backward()
                 grad_norm = float(
@@ -486,6 +503,8 @@ class Trainer:
                     lr_lora=float(self.optimizer.param_groups[-1]["lr"]),
                     kl=kl_value,
                     n_anchor=int(anchor.sum()) if anchor is not None else 0,
+                    distill=distill_value,
+                    n_teacher=n_teacher,
                 )
                 self.history.append(record)
                 if on_step is not None:

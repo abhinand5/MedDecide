@@ -142,3 +142,33 @@ def test_soft_label_row_keeps_the_row_and_adds_the_teacher_distribution():
     assert out["teacher_probs"] == [0.5, 0.3, 0.2]
     assert out["teacher"] == sl.TEACHER
     assert {k: v for k, v in out.items() if k not in {"teacher_probs", "teacher"}} == row
+
+
+def test_attach_teacher_attaches_an_anchor_row_with_the_same_text_and_option_keys_and_leaves_the_input_alone():
+    row = _choice_row(template_id="broad_x_v1")
+    soft = {sl.overlap_keys(row)[0]: (["A", "B", "C"], [0.2, 0.7, 0.1])}
+    out, status = sl.attach_teacher(row, soft)
+    assert status == "anchor: attached"
+    assert out["teacher_probs"] == [0.2, 0.7, 0.1] and out["teacher"] == sl.TEACHER
+    assert "teacher_probs" not in row
+
+
+def test_attach_teacher_never_distils_a_domain_template():
+    row = _choice_row(template_id="mimic_icd_support_v1")  # the 'mimic_' prefix is a domain prefix
+    soft = {sl.overlap_keys(row)[0]: (["A", "B", "C"], [0.2, 0.7, 0.1])}
+    out, status = sl.attach_teacher(row, soft)
+    assert status == "domain: text has a soft label (not distilled)"
+    assert "teacher_probs" not in out
+
+
+def test_attach_teacher_needs_the_same_option_keys_in_the_same_order():
+    row = _choice_row(template_id="broad_x_v1")
+    soft = {sl.overlap_keys(row)[0]: (["B", "A", "C"], [0.2, 0.7, 0.1])}
+    out, status = sl.attach_teacher(row, soft)
+    assert status == "anchor: soft label has other option keys (not attached)"
+    assert "teacher_probs" not in out
+
+
+def test_attach_teacher_reports_an_anchor_without_a_soft_label():
+    row = _choice_row(template_id="broad_x_v1")
+    assert sl.attach_teacher(row, {})[1] == "anchor: no soft label"

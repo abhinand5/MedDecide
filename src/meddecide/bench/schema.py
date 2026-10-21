@@ -6,6 +6,7 @@ comes from a structured source field — never from a language model.
 
 from __future__ import annotations
 
+import math
 import re
 from datetime import date
 from enum import StrEnum
@@ -172,6 +173,29 @@ class Item(BaseModel):
                 "gold_label": self.options[self.gold_index].label,
             }
         )
+
+
+class SoftItem(Item):
+    """A training item that may carry a teacher distribution over its options (osler_v4 Y5/Y6, D48).
+
+    ``teacher_probs`` is aligned to ``options`` in the item's own order, and ``teacher`` names the teacher. Both are None for
+    every item without a teacher: every benchmark item, and every training item but the distilled ones. The trainer's
+    option-order augmentation permutes the distribution with the options (meddecide.model.meddecide_model.reorder_options).
+    """
+
+    teacher_probs: list[float] | None = None
+    teacher: str | None = None
+
+    @model_validator(mode="after")
+    def _teacher_is_a_distribution(self) -> SoftItem:
+        if self.teacher_probs is None:
+            return self
+        probs = self.teacher_probs
+        if len(probs) != len(self.options):
+            raise ValueError(f"{self.item_id}: teacher_probs has {len(probs)} values for {len(self.options)} options")
+        if any(not math.isfinite(p) or p < 0 for p in probs) or abs(sum(probs) - 1.0) > 1e-5:
+            raise ValueError(f"{self.item_id}: teacher_probs is not a distribution over the options")
+        return self
 
 
 def compute_item_id(

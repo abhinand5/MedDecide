@@ -18,6 +18,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from meddecide.panel.overlap import row_text_key
+from meddecide.train.osler_v3 import is_anchor
 from meddecide.utils.hashing import stable_hash
 
 REPO = "perplexity-ai/pplx-decider-v1.2-27b"
@@ -156,3 +157,23 @@ def pool_order_key(key: str, seed: int = 0) -> str:
 def soft_label_row(row: Mapping[str, Any], probs: Sequence[float]) -> dict[str, Any]:
     """The training row with the teacher's distribution over its options (in the row's option order)."""
     return {**row, "teacher_probs": [float(p) for p in probs], "teacher": TEACHER}
+
+
+def attach_teacher(
+    row: Mapping[str, Any], soft: Mapping[str, tuple[list[str], list[float]]]
+) -> tuple[dict[str, Any], str]:
+    """The row with its teacher distribution when it qualifies, and the status either way (the caller counts statuses).
+
+    Only anchor templates are distilled (the osler_v3 domain prefixes are not), the match is by normalised text, and the
+    option keys must be the same and in the same order. ``soft`` maps a text key to (option keys, teacher probabilities).
+    """
+    anchor = is_anchor(str(row["template_id"]))
+    match = soft.get(overlap_keys(row)[0])
+    if not anchor:
+        return dict(row), "domain: text has a soft label (not distilled)" if match else "domain: no soft label"
+    if match is None:
+        return dict(row), "anchor: no soft label"
+    keys, probs = match
+    if keys != [str(option["key"]) for option in row["options"]]:
+        return dict(row), "anchor: soft label has other option keys (not attached)"
+    return soft_label_row(row, probs), "anchor: attached"

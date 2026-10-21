@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from meddecide.bench.schema import Item
+from meddecide.bench.schema import Item, SoftItem
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids importing torch at module load
     from meddecide.model.meddecide_model import EncodedItem, MedDecideModel
@@ -60,7 +60,8 @@ def read_items(
         for lineno, line in enumerate(fh):
             if (lineno - offset) % stride != 0:
                 continue
-            items.append(Item.model_validate_json(line))
+            # SoftItem is an Item with optional teacher fields (None unless the row has them: osler_v4 Y6)
+            items.append(SoftItem.model_validate_json(line))
             if limit is not None and len(items) >= limit:
                 break
     return items

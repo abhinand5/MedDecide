@@ -6,6 +6,7 @@ per-option layout the head produces (items may have different option counts in o
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import torch
@@ -99,3 +100,23 @@ def kl_to_reference(
     if not bool(mask.any()):
         return probs.sum() * 0.0
     return per_item[mask].mean()
+
+
+def teacher_reference(
+    teacher_rows: Sequence[Sequence[float] | None], n_options: Sequence[int]
+) -> tuple[Tensor, Tensor]:
+    """Flat teacher distributions over a batch's offered options, in display order, and the (n_items,) mask of the items
+    that have one (osler_v4 Y6, D48). An item without a teacher gets a uniform placeholder, which the mask removes from
+    ``kl_to_reference``. ``teacher_rows`` and ``n_options`` are the batch's items in batch order."""
+    flat: list[float] = []
+    mask: list[bool] = []
+    for probs, n in zip(teacher_rows, n_options, strict=True):
+        if probs is None:
+            flat.extend([1.0 / n] * n)
+            mask.append(False)
+            continue
+        if len(probs) != n:
+            raise ValueError(f"teacher distribution has {len(probs)} values for {n} options")
+        flat.extend(float(p) for p in probs)
+        mask.append(True)
+    return torch.tensor(flat, dtype=torch.float32), torch.tensor(mask, dtype=torch.bool)

@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
-from meddecide.bench.schema import Item, Option, Tier, make_item
+from meddecide.bench.schema import Item, Option, SoftItem, Tier, make_item
 from meddecide.utils.hashing import stable_hash
 
 PLACEHOLDER_URL = "https://example.org/meddecide-training-only"
@@ -36,7 +36,7 @@ def mix_row_to_item(row: Mapping[str, Any]) -> Item:
     """One mix v2 row as a validated training item. Raises ``ValueError`` (pydantic) for any row the schema rejects."""
     tier = Tier.FRESH if row.get("tier") == "fresh" else TRAINING_TIER
     seed = int(stable_hash({"order": row["item_id"]}, length=8), 16)
-    return make_item(
+    item = make_item(
         tier=tier,
         source=str(row["source"]),
         source_record_id=str(row.get("source_record_id") or "unrecorded"),
@@ -53,3 +53,11 @@ def mix_row_to_item(row: Mapping[str, Any]) -> Item:
         gold=str(row["gold"]),
         option_order_seed=seed,
     )
+    if row.get("teacher_probs") is None:
+        return item
+    # osler_v4 Y6 (D48): a distilled row carries its teacher distribution over its options, in the row's option order, which
+    # the conversion keeps; the item is then a SoftItem (the check below refuses any row whose option order changed)
+    if [o.key for o in item.options] != [str(o["key"]) for o in row["options"]]:
+        raise ValueError(f"{row['item_id']}: the option order changed in conversion: a teacher distribution would be misaligned")
+    return SoftItem(**{**item.model_dump(), "teacher_probs": [float(p) for p in row["teacher_probs"]],
+                       "teacher": row.get("teacher")})

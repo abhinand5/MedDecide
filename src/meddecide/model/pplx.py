@@ -221,7 +221,7 @@ class PplxDecisionModel(MedDecideModel):
             item_id=item.item_id, qtype=str(item.qtype), template_id=item.template_id, source=item.source,
             option_keys=list(self.optcode_names[:n]), original_option_keys=keys, gold_index=keys.index(item.gold),
             input_ids=ids, marker_positions=[marker] * n, option_end_positions=[marker] * n, answer_position=marker,
-            prompt_tokens=len(ids), truncated=truncated, marker_notes=[])
+            prompt_tokens=len(ids), truncated=truncated, marker_notes=[], teacher_probs=getattr(item, "teacher_probs", None))
 
     # ---- forward ------------------------------------------------------------
     def hidden_states(self, batch: ModelBatch) -> Tensor:

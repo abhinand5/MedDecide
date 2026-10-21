@@ -146,7 +146,10 @@ def reorder_options(item: Item, permutation: Sequence[int]) -> Item:
         raise ValueError(f"permutation {order} is not a permutation of {item.n_options} options")
     options = [item.options[i] for i in order]
     new_gold_index = order.index(item.gold_index)
-    return item.model_copy(update={"options": options, "gold": options[new_gold_index].key})
+    update: dict[str, Any] = {"options": options, "gold": options[new_gold_index].key}
+    if getattr(item, "teacher_probs", None) is not None:  # a teacher's distribution moves with its options (osler_v4 Y6)
+        update["teacher_probs"] = [item.teacher_probs[i] for i in order]
+    return item.model_copy(update=update)
 
 
 @dataclass(frozen=True)
@@ -167,6 +170,8 @@ class EncodedItem:
     prompt_tokens: int
     truncated: bool
     marker_notes: list[str] = field(default_factory=list)
+    # the teacher's distribution in display order (the order of option_keys); None for an item without a teacher (osler_v4 Y6)
+    teacher_probs: list[float] | None = None
 
     @property
     def n_options(self) -> int:
@@ -717,6 +722,7 @@ class MedDecideModel:
             prompt_tokens=len(markers.input_ids),
             truncated=truncated,
             marker_notes=notes,
+            teacher_probs=getattr(item, "teacher_probs", None),
         )
 
     def collate(self, encoded: Sequence[EncodedItem], *, round_to_chunk: bool = True) -> ModelBatch:
