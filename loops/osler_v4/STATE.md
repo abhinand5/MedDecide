@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T21:50:18Z`
+Last updated (UTC): `2026-10-21T22:13:30Z`
 Iterations so far: `1`
 
 ---
@@ -82,14 +82,16 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Y3 (started 2026-10-21T19:25:21Z). Y1 closed 19:41:36Z (its checklist is in the §4 entry).
 Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
-Server:         none running (Nemotron stopped 19:41Z so the full test suite could use the GPU). Restart before the build.
+Server:         RUNNING (vLLM PID 509604, launched 19:44:18Z, ready 19:51:04Z), under build_chain.sh PID 509602. The chain sends SIGINT to the server when the build exits, which is about 03:51Z (8 h deadline).
+Running job:    build PID 511361 (`y3_pairs.py build --mode off --hours 8`, started about 19:51Z); log outputs/osler_v4/Y3/logs/build_chain.log; waiter bg6uhczna (returns when PID 509602 exits; the GPU is free then).
+Progress 2026-10-21T22:13Z: dev 250 pairs and test 250 pairs complete; train 2,481 pairs (4,962 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); GPU 94.8 GB at 100 %.
 
 - [x] helper module (meddecide.mr.mimic_pairs) and 19 unit tests with a fake teacher
 - [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
 - [x] pilot off (200 train attempts, 152 s) and pilot on (200 attempts, 687 s); pilot-report: no mode reaches a 40 % keep rate
 - [x] mode decision: off (deviation, §7); loops/osler_v4/crafted.md pilot section written
 - [ ] full-suite acceptance for the Y1 and Y3 code (ruff and pytest with the GPU free): running from 19:41Z
-- [ ] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8` (dev 250, test 250, train up to 40,000 kept)
+- [~] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8` (dev 250, test 250, train up to 40,000 kept): running; dev and test complete, train in progress (see Progress above)
 - [ ] cue check on the build (AUC < 0.75 on dev, ADVISORY Y3 §6); crafted.md build and cue sections (report --mode off)
 - [ ] SELF_AUDIT.md (outputs/osler_v4/Y3); CLAIMS rows C024 onward
 - [ ] STATE updated, committed, pushed; Y3 DONE or BLOCKED
