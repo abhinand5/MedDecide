@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T21:26:55Z`
+Last updated (UTC): `2026-10-21T21:50:18Z`
 Iterations so far: `1`
 
 ---
@@ -28,7 +28,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | IN_PROGRESS (pilot done; build pending) | 2026-10-21T19:25:21Z | |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | IN_PROGRESS (CPU preparation: fast dev v4, CG v2 and the suite script are built; GPU steps wait for the Y3 build) | 2026-10-21T21:26:55Z | |
-| Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | PENDING | | |
+| Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | IN_PROGRESS (CPU preparation: code, tests and the anchor pool; the GPU steps follow the Y3 build, per the ADVISORY §5 order Y3 → Y5 → Y4) | 2026-10-21T21:33:00Z | |
 | Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | PENDING | | |
 | Y7 | Stage B: blocks B1–B4 under keep rule v2 | yes | Y6 | PENDING | | |
 | Y8 | Final Osler-4B (63,304 steps) | yes | Y7 | PENDING | | |
@@ -65,6 +65,7 @@ left `IN_PROGRESS` at closure.
 | Y4 fast dev v4: total, partitions, training-overlap removals | 17,532 items: fastdev_v2 9,590 (1,333 removed: 854 text and record, 479 text only), new_template_dev 1,980, mimic 5,562, mednli 400; 30 training files checked (every .jsonl under data/train except dev.jsonl) | `outputs/osler_v4/Y4/fastdev_v4_manifest.json`; CLAIMS C050–C051 | Y4 |
 | Y4 CG v2: total, sources, removals | 8,307 items (≥ 6,000): cg_v3 items kept except near-duplicates of the panel (458) and training text (460 MedMCQA); HeadQA dev (en) 1,342; MedNLI dev rest 995; PubMedQA labelled 1,000; DDXPlus validation sample 1,000 | `outputs/osler_v4/Y4/cg_v2_manifest.json`; CLAIMS C051 | Y4 |
 | Y4 verdict-set audit against training (text) | V10 rows 30,621: 0 text matches for MR test (19,294), MR held-out (1,518), the seven panel sets (4,353), MedQA (1,273) and MedMCQA (4,183). Record-level overlap for these sets is not checked (V10 rows carry no source id). | CLAIMS C052 | Y4 |
+| Y5 anchor pool: rows, exclusions, eligible, written | 992,873 rows (C1 830,076; replay 162,797); 101,725 domain-template rows; 891,148 anchors; excluded for benchmark overlap 7,287; cannot be sent exactly 7,564; same text as an earlier row 6,136; eligible 870,161; written 400,000 (the cap). Teacher scores: not yet (GPU). | `outputs/osler_v4/Y5/anchor_pool_manifest.json`; CLAIMS C061 | Y5 |
 
 ---
 
@@ -93,6 +94,20 @@ Server:         none running (Nemotron stopped 19:41Z so the full test suite cou
 - [ ] SELF_AUDIT.md (outputs/osler_v4/Y3); CLAIMS rows C024 onward
 - [ ] STATE updated, committed, pushed; Y3 DONE or BLOCKED
 ```
+
+```
+Task in flight: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part waits for the Y3 build and the server stop).
+Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
+Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
+
+- [x] helper module meddecide.distill.soft_labels (request and answer mapping, exclusion keys, pool order); tests/test_soft_labels_v4.py (22 passed)
+- [x] driver scripts/osler_v4/y5_soft_labels.py (pool, parity, dev, anchor, join, report); ruff clean
+- [x] pool (CPU): exclusions from every benchmark row, anchor templates only, request-mappable rows only, one row per normalised text (the first build deduplicated by item id; corrected, §7 item 5); manifest outputs/osler_v4/Y5/anchor_pool_manifest.json (eligible 870,161; written 400,000)
+- [ ] GPU, after the Y3 build and the server stop: parity (40 of 40 argmax with the single-request reference, D39's bar), dev diagnostics, anchor scoring (≤ 5 h), join (overlap must be 0), report
+- [ ] SELF_AUDIT, CLAIMS rows, STATE and commit; Y5 DONE or BLOCKED
+```
+
+Y4 CPU preparation items done since the last update (same file, §4 entry): `scripts/osler_v4/y4_mimic_dev_all.py` built `data/bench/osler_v4/mimic_dev_all.jsonl` (6,257 items, 13 templates, counts in `outputs/osler_v4/Y4/mimic_dev_all_manifest.json`); the interim CPU pytest run is in `outputs/osler_v4/Y4/logs/pytest_interim_cpu.log` (GPU-marked tests skip with the card hidden; the final run waits for the card).
 
 ---
 
@@ -182,6 +197,19 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 4. **Dev-proxy contamination in earlier loops** (found 2026-10-21 in Y4; counts in CLAIMS C053–C055). The fast dev v2 templates ct_* (clinical trials), pubmed_* (PubMed), fda_* (openFDA), criterion_eligibility and medmcqa_4opt occur as exact text and as source records in the Osler training mixes: osler_v0 train, osler_v1 blocks B0–B3, osler_v2 C0–C2, osler_v3 A3 and B1–B3, and in the student_v0 and student_v1 training files. 1,333 of the 10,923 fastdev_v2 items match training. cg_v3's knowledge items are in student training files (460 MedMCQA items match text). Consequences: the dev proxies used for osler_v2's base choice (D39, fast dev v2 MR partition) and osler_v3's Stage A (cg_v3 and fast dev v3) are not clean. The verdict sets are clean by text: V10 MR test, MR held-out, the external panel and the MedQA and MedMCQA items have no text match in any training file (record-level not checked). Options: (a) this loop removes matched items from its own proxies (done) and records the caveat; (b) earlier choices are re-run on clean proxies in a new loop. I pick (a). Option (b) is the operator's decision.
 3. **Reasoning-on selections with no valid list** (76 of 200 attempts in the on pilot). Cause not investigated; likely the
    4,096-token cap is reached before the list (not verified). Not needed for the chosen mode; logged only.
+5. **Item ids are not unique in some sources** (found 2026-10-21 in Y5; CLAIMS C059, C060). The `item_id` hash in
+   `src/meddecide/mix/rows.py` leaves `state` out. In block C1, 22,108 anchor rows repeat an id. All of them are Winogrande
+   twins of their first row (same source record), and 22,106 have different text. In the benchmark files no single file
+   repeats an id, but 297 rows carry an id that appears in an earlier benchmark file with different text. Checked: the
+   paired-comparison code (`train/blocks.py`, `pair_by_item`) raises on any duplicate id, so no paired comparison is silently
+   mis-paired; the trainer uses `item_id` for an ordering seed and a length statistic only (`train/mix_items.py`,
+   `train/data.py`). The training scan (CLAIMS C062) shows the same twins repeat in 12 Osler mixes: osler_v1 block_B0–B3 and
+   replay_v1_train, osler_v2 block_C0–C2, osler_v3 block_A3 and block_B1–B3, 22,108 repeats in each file (22,106 with different
+   text). The other 18 training files have none, and no RAGTruth item repeats an id. Both twins of every pair are in the files,
+   so no training row is lost by id in the code paths found; a dict keyed by id is used only for the pairing check (which
+   raises) and the statistics. Options: (a) leave `rows.py` as it is for this loop and record it; (b) change the hash in a
+   later loop, which changes every item id of those mixes and so every paired comparison built on ids. I pick (a).
+   Operator's decision: whether the id scheme is fixed, and when.
 
 ---
 
@@ -233,6 +261,24 @@ deviation — that is a `BLOCKED`.
   the AKI reading of ADVISORY §3.4 (AKI items to held-out only) is applied conservatively to pairs (no pair is built for them).
 - Operator confirmations were given in the same message: D48 = yes; D46, D47, D49, D50 = yes. They are entered in §2 as the
   operator's values. Before this message they were placeholders, and D48 was read as not confirmed.
+- **Y5 teacher and pool design** (2026-10-21, fixed before any 27B score; counts from `outputs/osler_v4/Y5/anchor_pool_manifest.json`):
+  1. **Pool cap.** The anchor pool has 870,161 eligible rows after exclusions (CLAIMS C061). The loop writes the first 400,000 in stable-hash
+     order and scores in that order; the teacher's speed decides how far the Y5 timebox reaches. Stage A draws at most
+     13,992 × 8 = 111,936 items (`configs/osler_v3/block_arm.yaml`, batch size 8), so the cap is not binding for A5 even if
+     scoring stops early. A5 trains on scored rows only.
+  2. **Exclusion breadth.** Every row of every file under `data/bench` (60 files, 428,211 rows, any split; the sixtieth, `data/bench/osler_v4/mimic_dev_all.jsonl`, was added at 21:40Z) is an exclusion key,
+     matched by normalised text or by (source, record id). This is stricter than ADVISORY §4 Y5's list, so no listed item can
+     be in the pool.
+  3. **Rendering.** A noul row goes to the teacher as its native noul question with criteria Yes / No (its answer is P(true),
+     which is P(yes)). A choice row uses its option labels as criteria; a score row uses its level labels in order. A row
+     that cannot be sent exactly is skipped with its reason (7,564 repeated labels) and never sent altered.
+  4. **Scoring path.** Chosen by parity against D39's bar (argmax agreement with the single-request reference on 40 of 40
+     items): batched reference, else the packed fast path, else single-request. The fallbacks change speed, not the function.
+  5. **Pool dedupe corrected before any teacher output.** The first build deduplicated by item id, which dropped 22,106
+     distinct Winogrande items (CLAIMS C059). The corrected pool deduplicates by normalised text (6,136 rows removed as
+     repeats of an earlier text), keeps item-id repeats whose text differs, keys the scored records by pool position, and
+     the dev union fails if one id maps to two texts. The superseded manifest is kept as
+     `outputs/osler_v4/Y5/anchor_pool_manifest_superseded_itemid_dedupe.json` (CLAIMS C057, C058).
 
 ---
 

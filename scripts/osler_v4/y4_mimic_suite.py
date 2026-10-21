@@ -67,11 +67,15 @@ def main() -> None:
     for template in MIMIC_TEMPLATES:
         screens = counts[template]["screens"]
         nb = screens.get("nb_macro_accuracy_dev")
-        ceil = ceiling.get(template, {}).get("macro_accuracy_dev")
-        if ceil is None:
+        entry = ceiling.get(template)
+        if entry is None:
             raise SystemExit(f"ceiling for {template} is missing: the suite is not frozen")
+        ceil = entry.get("macro_accuracy_dev")
         if nb is not None and nb >= NB_LIMIT:
             excluded[template] = f"Naive Bayes dev {nb} >= {NB_LIMIT} (D35 shortcut)"
+            continue
+        if ceil is None:
+            excluded[template] = f"ceiling not measured: readout gate failed ({entry.get('readout_status')})"
             continue
         if ceil >= CEILING_LIMIT:
             excluded[template] = f"zero-shot Qwen3.5-4B dev macro {ceil} >= {CEILING_LIMIT} (D35 ceiling)"
