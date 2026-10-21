@@ -38,6 +38,13 @@ What is new for this loop:
   - It serves from `envs/vllm/` (vLLM 0.31.0, torch 2.13 cu130), the version vLLM's recipe requires.
   - The recipe lists one RTX Pro 6000 at a 16,384-token context with MTP speculative decoding (5 tokens).
   - The weights (75 GB) were downloaded by the advisor into `HF_HOME`.
+  - **Tested by the advisor on this pod (2026-10-21)** with `scripts/osler_v4/serve_nemotron.sh`:
+    - startup about 4 minutes; weights 68.5 GiB on the GPU; KV cache 382,713 tokens (23 full 16K requests at once);
+    - reasoning off returns no reasoning tokens, reasoning on does;
+    - 64 concurrent requests of about 2,960 prompt tokens and 600 output tokens: 1,234 output tokens/s, about 8,100
+      requests/h.
+
+    These are advisor measurements, not loop claims. Y0 re-measures them.
 
 ## 2. The questions this loop answers
 
@@ -118,23 +125,28 @@ Outcomes (write the ones that apply into FINDINGS):
 1. Read this ADVISORY, PROGRAM D41–D50, and osler_v3's FINDINGS and NEXT. Run ruff and the suite, deselecting
    `test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant` and `test_overfit_64_items` as osler_v3 did.
    Record the counts.
-2. **Serve Nemotron** from `envs/vllm/`, as `scripts/osler_v4/serve_nemotron.sh`:
+2. **Serve Nemotron** with `scripts/osler_v4/serve_nemotron.sh` (committed, tested by the advisor; it puts the venv's `bin` on
+   PATH because torch.compile needs `ninja`; port 8001 belongs to the pod's nginx):
    ```
    vllm serve nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4 --served-model-name nemotron \
-     --host 127.0.0.1 --port 8001 --tensor-parallel-size 1 --max-model-len 16384 \
+     --host 127.0.0.1 --port 8011 --tensor-parallel-size 1 --max-model-len 16384 \
      --trust-remote-code --language-model-only --reasoning-parser nemotron_v3 \
      --speculative-config.method mtp --speculative-config.num_speculative_tokens 5 \
-     --gpu-memory-utilization 0.95
+     --gpu-memory-utilization 0.95 --max-num-seqs 64
    ```
    - The flags are from vLLM's recipe for this model; `--language-model-only` drops the vision encoder, which we do not
-     use.
+     use. `--max-num-seqs 64` is needed: the default 1,024 exceeds the 865 Mamba cache blocks.
    - If it fails to start, adjust in this order and record each attempt: lower `--gpu-memory-utilization`; add
      `--kv-cache-dtype fp8`; drop MTP; lower `--max-model-len` to 12,288.
+   - Reasoning is switched per request with `chat_template_kwargs: {"enable_thinking": false}`.
    - Run a test with three short prompts, then stop the server.
    - **Timebox: 3 hours.** If Nemotron cannot be served, mark Y3 `BLOCKED — Nemotron does not serve on this pod`, write the
      error into Questions, and continue. Do not fall back to Gemma without the operator.
-3. **Throughput:** 200 requests of a 3,000-token note with a 600-token output, concurrency 32, reasoning off. Record output
-   tokens/s, requests/h and peak memory.
+3. **Throughput:** two runs, reasoning off, concurrency 64, on synthetic text only:
+   - 200 requests of a 3,000-token prompt with a 600-token output;
+   - 200 requests of a 3,000-token prompt with a 60-token output (the Y3 selection shape).
+
+   Record output tokens/s, requests/h and peak memory for each.
 4. **MIMIC guard:** in `src/meddecide/teacher/client.py`, a request flagged `contains_mimic=True` raises unless the base
    URL host is loopback. Add a unit test. Record that `OPENAI_*` is not used anywhere in this loop's MIMIC code paths
    (grep).
@@ -215,7 +227,7 @@ Then:
   Its test split is a test row in the MIMIC suite (additional, not in the verdict).
 - **MIMIC-III:** `mimic_page_category_v1` (V5c step 1, `iter_mimic3_pages`). Exclude MDACE admissions (§3.3).
 
-### Y3 — Nemotron-crafted minimal pairs over MIMIC notes (GPU, ≤ 10 h build)
+### Y3 — Nemotron-crafted minimal pairs over MIMIC notes (GPU, ≤ 8 h build)
 
 **`mimic_doc_support_v1`** (noul: "Is ICD-10-CM <code> <title> supported by the documentation in this note?").
 
@@ -224,8 +236,14 @@ Then:
    - It comes from a fixed list of chapters where documentation drives the code: E, D, F, G, J, K, N, R and I (minus I50).
 2. **The original note** (sections as in §3.8) with this code is a **positive** item, provided verification (i) below
    confirms it is documented.
-3. **Nemotron edits** the note: remove every statement and every piece of evidence specific to that condition, including
-   treatments given only for it; change nothing else; leave no gap marker. Reasoning is off by default (pilot below).
+3. **Nemotron selects; code deletes.**
+   - Code splits the note into numbered sentences, keeping section headers as their own unnumbered lines.
+   - Nemotron returns only the JSON list of sentence numbers that state or evidence the condition, including treatments
+     given only for it. It never writes note text.
+   - Code deletes those sentences. A section left empty is removed with its header.
+   - This keeps the output to tens of tokens, so the build is prefill-bound, and the teacher cannot invent facts or leave a
+     rewriting style. Reasoning is off by default (pilot below).
+   - If more than 30 % of the sentences are selected, drop the pair: the condition is the note's main subject.
 4. **The edited note** with the same code is a **negative** item. The pair shares a split.
 5. **Verification** (all must pass):
    - (i) an independent call (different system prompt, temperature 0, reasoning off) answers "Does this note document
@@ -233,20 +251,21 @@ Then:
      the code was not documented in this text.
    - (ii) string rules: no keyword from the code's title, nor from its code-built synonym list (title words minus stop
      words, plus the curated ICD table's condition words for that family), remains in the edit;
-   - (iii) the edit keeps ≥ 70 % of the original's tokens, and ≤ 5 % of its tokens are new: no rewrite, no invented
-     facts;
+   - (iii) the edit is a pure deletion of whole sentences: code checks that every remaining sentence is byte-identical to
+     the original's;
    - (iv) the edit keeps every other coded diagnosis that the original documents: recheck 2 random other codes with call
      (i) and require yes.
 6. **Cue check:**
    - A Naive Bayes classifier on note text alone (no question), trained to tell edited notes from originals on train, must
      score AUC < 0.75 on dev.
-   - If it scores higher, find the tell (word lists or formatting) and fix the edit prompt once.
+   - If it scores higher, find the tell (for example length, or a dangling reference such as "as above" or "this was
+     treated") and fix it once, in the selection prompt or by deleting dependent sentences.
    - If it is still ≥ 0.75, the template is BLOCKED.
 7. **Pilot:** 200 pairs with reasoning off and 200 with reasoning on (medium effort). Record keep rate, agreement per
-   check, pairs per GPU-hour, and the cue AUC.
+   check, pairs per GPU-hour, the cue AUC, and the mean share of sentences deleted.
    - **Pre-registered:** use the mode with the higher kept pairs per GPU-hour among modes with keep rate ≥ 40 %.
    - Spot-read 20 kept and 20 rejected pairs. Never paste them into committed files.
-8. **Build** up to 30,000 pairs (60,000 items) within 10 GPU-hours, plus 250 dev pairs (dev patients).
+8. **Build** up to 40,000 pairs (80,000 items) within 8 GPU-hours, plus 250 dev pairs (dev patients).
    - Test pairs come from late-anchor test patients: 250 pairs, built the same way. They are an **additional** test
      template, not in the verdict, because the teacher touched them.
 9. Write `loops/osler_v4/crafted.md`.
@@ -410,7 +429,7 @@ Order:
   absent at Y4, that template is NOT MEASURED in the suite.
 
 GPU-hour estimate (planning guesses, not measurements):
-- Y0 2, Y3 10, Y5 6, Y4 5, Y6 10, Y7 20, Y8 20, Y9 6, Y10 2;
+- Y0 2, Y3 8, Y5 6, Y4 5, Y6 10, Y7 20, Y8 20, Y9 6, Y10 2;
 - **about 80 GPU-hours, 3.5–4 days.**
 
 ## 6. Out of scope
