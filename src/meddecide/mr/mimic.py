@@ -264,20 +264,20 @@ def _fit_prefix(text: str, room: int, count: Callable[[str], int]) -> str:
 
 
 def _fill(order: list[str], budget: int, secs: Mapping[str, str], count: Callable[[str], int]) -> str:
-    """Whole sections in ``order`` while they fit with the marker's tokens reserved; the section that does not fit is cut
-    to the remaining room and followed by the marker, so a cut note always ends with the marker and fits the budget."""
-    reserve = count(TRUNCATION_MARK)
+    """Whole sections in ``order`` while they fit ``budget``; the section that does not fit is cut to the room left. The
+    truncation marker is added by the caller."""
     parts: list[str] = []
     used = 0
     for key in order:
         block = _render(key, secs[key])
         size = count(block)
-        if used + size <= budget - reserve:
+        if used + size <= budget:
             parts.append(block)
             used += size
             continue
-        cut = _fit_prefix(block, budget - reserve - used, count).rstrip()
-        parts.append((cut + "\n" if cut else "") + TRUNCATION_MARK)
+        cut = _fit_prefix(block, budget - used, count).rstrip()
+        if cut:
+            parts.append(cut)
         break
     return "\n\n".join(parts)
 
@@ -285,22 +285,30 @@ def _fill(order: list[str], budget: int, secs: Mapping[str, str], count: Callabl
 def prioritised_text(secs: Mapping[str, str], max_tokens: int, count: Callable[[str], int]) -> tuple[str, bool]:
     """The note text for a prompt capped at ``max_tokens`` (``count`` gives a token length). A note that fits is returned
     whole with cut=False. Otherwise the priority sections come first, in ADVISORY order, then the other sections in
-    document order, until the budget is spent; the section that does not fit is cut at the budget with a marker, and
-    later sections are dropped. Returns (text, cut)."""
+    document order, until the budget is spent; the section that does not fit is cut to the room left, and the text ends
+    with the truncation marker (cut=True). Joins and the marker can add tokens, so the budget shrinks by the excess and the
+    text is rebuilt (a few tries), and as a last resort the built text is cut again to fit."""
     document_order = list(secs)
     full = "\n\n".join(_render(key, secs[key]) for key in document_order)
     if count(full) <= max_tokens:
         return full, False
     order = [key for key in PRIORITY_SECTIONS if key in secs] + [key for key in document_order
                                                                if key not in PRIORITY_SECTIONS]
-    budget = max_tokens
+    slack = count(TRUNCATION_MARK) + 2
+    budget = max_tokens - slack
+    body = ""
     for _ in range(8):
-        text = _fill(order, budget, secs, count)
+        body = _fill(order, budget, secs, count)
+        text = (body + "\n" + TRUNCATION_MARK) if body else TRUNCATION_MARK
         excess = count(text) - max_tokens
         if excess <= 0:
             return text, True
-        budget -= excess   # joining blocks can add a token at a boundary; shrink the budget and try again
-    raise RuntimeError("prioritised_text: the note did not fit the prompt cap after 8 tries")
+        budget -= excess
+    cut = _fit_prefix(body, max_tokens - slack, count).rstrip()
+    text = (cut + "\n" + TRUNCATION_MARK) if cut else TRUNCATION_MARK
+    if count(text) > max_tokens:
+        raise RuntimeError("prioritised_text: the cut note does not fit the prompt cap")
+    return text, True
 
 
 # ---- admission tables (osler_v4 Y1) -----------------------------------------------------------------

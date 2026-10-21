@@ -18,43 +18,72 @@ coding errors and omissions; it does not prove the documentation supports the co
 
 Patients in hosp: 364627; admissions: 546028; admissions without a patient row: 0.
 
-## 2. Discharge notes
+## 2. MIMIC structured-gold templates and MedNLI (osler_v4 Y2)
 
-Notes: 331793; without an admission id: 0; admission id not in hosp: 61; admission id of another patient: 0; subject not in patients: 32. Linked to an admission: 331732 (split mismatch among linked notes: 0); admissions with two or more notes: 0 (the first note by note_seq is used).
+Every label is a database field or a code-fixed rule (ADVISORY Y2; the coder's codes are not proof of documentation,
+ADVISORY §7.1). Test rows are late-anchor patients only. Held-out families (heart failure; AKI, ADVISORY §3.4) are in a
+held-out file and in no split. MedNLI's test split is an additional row. Screens (D35, dev): Naive Bayes macro accuracy
+trained on train, and the majority-label rate; a Naive Bayes score of 0.90 or more is a shortcut.
 
-Token length with the pplx tokenizer (all notes): p50 3046.0, p95 5631.0, p99 7389.0, max 18748. Notes over the 8192-token prompt cap: 1749.
+| template | train items | dev items | test items | held-out items | NB macro dev | majority dev | state-text overlap (train-dev / train-test / dev-test) | record-id overlap (train-dev / train-test / dev-test) |
+|---|---|---|---|---|---|---|---|---|
+| mimic_icd_support_v1 | 30460 | 400 | 400 | 80 | 0.2974 | 0.5 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_icd_specificity_v1 | 40000 | 500 | 488 | 12 | 0.7225 | 0.04 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_principal_dx_v1 | 40000 | 500 | 500 | 18 | 0.4036 | 0.026 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_msdrg_v1 | 40000 | 500 | 500 | 0 | 0.3922 | 0.028 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_drg_cc_level_v1 | 39999 | 498 | 498 | 0 | 0.6084 | 0.3333 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_apr_severity_v1 | 40000 | 500 | 500 | 0 | 0.5223 | 0.35 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_apr_mortality_v1 | 40000 | 500 | 500 | 0 | 0.5098 | 0.368 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_pcs_support_v1 | 40000 | 500 | 500 | 0 | 0.648 | 0.5 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_rad_exam_v1 | 40000 | 500 | 500 | 0 | 0.9 | 0.51 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_ed_acuity_v1 | 40000 | 498 | 494 | 0 | 0.4679 | 0.5361 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_ed_disposition_v1 | 40000 | 499 | 497 | 0 | 0.5915 | 0.5772 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_lab_validation_v1 | 36915 | 362 | 376 | 0 | 0.6617 | 0.5994 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mimic_med_given_v1 | 40000 | 500 | 500 | 0 | 0.624 | 0.5 | 0 / 0 / 0 | 0 / 0 / 0 |
+| mednli_v1 (additional test) | 11232 | 1395 | 1422 | 0 | 0.5341 | 0.3333 | 0 / 0 / 0 | 0 / 0 / 0 |
 
-| split | notes | p50 | p95 | p99 |
-|---|---|---|---|---|
-| train | 264843 | 3046.0 | 5629.0 | 7396.0 |
-| dev | 33726 | 3063.0 | 5639.0 | 7330.8 |
-| test | 33192 | 3026.0 | 5644.4 | 7423.3 |
+Drop reasons and shortages (counts; the screens are on dev):
 
-Radiology notes: 2321355; token p50 201.0, p95 862.0, max 5599; subject not in patients: 229; subject without any hospital admission: 208046.
-
-## 3. Coding and DRG
-
-| diagnosis coding class per admission | count |
-|---|---|
-| icd10 | 254367 |
-| icd9 | 291120 |
-| mixed | 10 |
-| none | 531 |
-
-ICD-10 share of admissions that code any diagnosis: 0.4663; of all admissions: 0.4658.
-
-ICD-10 diagnosis rows: 3455747; ICD-9 rows (recorded, not used): 2908741. ICD-10-PCS procedure rows: 390446.
-
-DRG rows by type: APR 366931, HCFA 394925.
-Admissions with an MS-DRG (HCFA): 394925; with APR-DRG levels: 366931. APR descriptions are never read into the tables (D46).
-
-## 4. Radiology detail fields (counts of rows by field)
-
-| field | rows |
-|---|---|
-| addendum_note_id | 25735 |
-| cpt_code | 168603 |
-| exam_code | 2913024 |
-| exam_name | 2913024 |
-| parent_note_id | 25735 |
+- mimic_icd_support_v1 train: drops: several codes of family type2_diabetes 438; several codes of family respiratory_failure 404; several codes of family severe_sepsis 16; several codes of family ckd 3; several codes of family sepsis_organism 3; held-out family heart_failure outside the test split 1; several codes of family malnutrition 1; several codes of family knee_oa 1; held-out family aki outside the test split 1. Shortage: icd_support knee_oa: negatives 295; icd_support severe_sepsis: negatives 709. Truncated states: 700.
+- mimic_icd_support_v1 dev: drops: several codes of family respiratory_failure 8; several codes of family type2_diabetes 8; several codes of family severe_sepsis 2; held-out family heart_failure outside the test split 1; held-out family aki outside the test split 1. Shortage: none. Truncated states: 23.
+- mimic_icd_support_v1 test: drops: several codes of family respiratory_failure 12; several codes of family type2_diabetes 4. Shortage: none. Truncated states: 16.
+- mimic_icd_specificity_v1 train: drops: fewer than two billable siblings 3229; held-out target outside the test split 1049; no category with exactly one coded code 14. Shortage: none. Truncated states: 345.
+- mimic_icd_specificity_v1 dev: drops: fewer than two billable siblings 44; held-out target outside the test split 19. Shortage: none. Truncated states: 8.
+- mimic_icd_specificity_v1 test: drops: fewer than two billable siblings 50. Shortage: none. Truncated states: 6.
+- mimic_principal_dx_v1 train: drops: held-out principal code outside the test split 1129. Shortage: none. Truncated states: 337.
+- mimic_principal_dx_v1 dev: drops: held-out principal code outside the test split 12. Shortage: none. Truncated states: 8.
+- mimic_principal_dx_v1 test: drops: none. Shortage: none. Truncated states: 7.
+- mimic_msdrg_v1 train: drops: fewer than four DRG options 5285. Shortage: none. Truncated states: 262.
+- mimic_msdrg_v1 dev: drops: fewer than four DRG options 62. Shortage: none. Truncated states: 7.
+- mimic_msdrg_v1 test: drops: fewer than four DRG options 43. Shortage: none. Truncated states: 7.
+- mimic_drg_cc_level_v1 train: drops: title without a three-way marker 31164. Shortage: none. Truncated states: 220.
+- mimic_drg_cc_level_v1 dev: drops: title without a three-way marker 444. Shortage: none. Truncated states: 5.
+- mimic_drg_cc_level_v1 test: drops: title without a three-way marker 329. Shortage: none. Truncated states: 5.
+- mimic_apr_severity_v1 train: drops: none. Shortage: none. Truncated states: 247.
+- mimic_apr_severity_v1 dev: drops: none. Shortage: none. Truncated states: 7.
+- mimic_apr_severity_v1 test: drops: none. Shortage: none. Truncated states: 7.
+- mimic_apr_mortality_v1 train: drops: none. Shortage: none. Truncated states: 247.
+- mimic_apr_mortality_v1 dev: drops: none. Shortage: none. Truncated states: 7.
+- mimic_apr_mortality_v1 test: drops: none. Shortage: none. Truncated states: 7.
+- mimic_pcs_support_v1 train: drops: no same-body-system negative in the same category 1099. Shortage: none. Truncated states: 262.
+- mimic_pcs_support_v1 dev: drops: no same-body-system negative in the same category 57. Shortage: none. Truncated states: 6.
+- mimic_pcs_support_v1 test: drops: no same-body-system negative in the same category 69. Shortage: none. Truncated states: 3.
+- mimic_rad_exam_v1 train: drops: exam name not in the report text 129920; exam modality not recognised 36516. Shortage: none. Truncated states: 0.
+- mimic_rad_exam_v1 dev: drops: exam name not in the report text 1741; exam modality not recognised 479. Shortage: none. Truncated states: 0.
+- mimic_rad_exam_v1 test: drops: exam name not in the report text 565; exam modality not recognised 204. Shortage: none. Truncated states: 0.
+- mimic_ed_acuity_v1 train: drops: acuity missing or outside 1-5 683. Shortage: none. Truncated states: 0.
+- mimic_ed_acuity_v1 dev: drops: acuity missing or outside 1-5 5. Shortage: none. Truncated states: 0.
+- mimic_ed_acuity_v1 test: drops: acuity missing or outside 1-5 10. Shortage: none. Truncated states: 0.
+- mimic_ed_disposition_v1 train: drops: none. Shortage: none. Truncated states: 0.
+- mimic_ed_disposition_v1 dev: drops: none. Shortage: none. Truncated states: 0.
+- mimic_ed_disposition_v1 test: drops: none. Shortage: none. Truncated states: 0.
+- mimic_lab_validation_v1 train: drops: none. Shortage: lab anemia met=False coded=True 715; lab hypoglycemia met=False coded=True 753; lab hypoglycemia met=True coded=True 483; lab hypokalemia met=False coded=True 96; lab hypomagnesemia met=False coded=True 229; lab thrombocytopenia met=False coded=True 805. Truncated states: 3736.
+- mimic_lab_validation_v1 dev: drops: none. Shortage: none. Truncated states: 58.
+- mimic_lab_validation_v1 test: drops: none. Shortage: none. Truncated states: 58.
+- mimic_med_given_v1 train: drops: no administered drug 22115; no negative drug 3. Shortage: none. Truncated states: 162.
+- mimic_med_given_v1 dev: drops: no administered drug 255. Shortage: none. Truncated states: 2.
+- mimic_med_given_v1 test: drops: no administered drug 22. Shortage: none. Truncated states: 3.
+- mednli_v1 train: drops: none. Shortage: none. Truncated states: 0.
+- mednli_v1 dev: drops: none. Shortage: none. Truncated states: 0.
+- mednli_v1 test: drops: none. Shortage: none. Truncated states: 0.
 

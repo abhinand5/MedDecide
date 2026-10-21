@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T19:44:00Z`
+Last updated (UTC): `2026-10-21T20:40:26Z`
 Iterations so far: `1`
 
 ---
@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | DONE | 2026-10-21T18:26:40Z | 2026-10-21T18:53:35Z |
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
-| Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | PENDING | | |
+| Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | IN_PROGRESS (pilot done; build pending) | 2026-10-21T19:25:21Z | |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | PENDING | | |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | PENDING | | |
@@ -53,7 +53,7 @@ left `IN_PROGRESS` at closure.
 | suite counts (passed / skipped / deselected) | baseline 840 / 1 / 2 (exit 0); after Y0 860 / 1 / 2 (exit 0); ruff clean | `outputs/osler_v4/Y0/logs/pytest_final.log`; CLAIMS C001–C004 | Y0 |
 | Nemotron serving: flags that worked, out tok/s, requests/h, peak memory | committed flags, no fallback; ready 6 min 43 s after launch; KV cache 382,713 tokens; A (600-token output, 64-way, 200 req): 1,509.4 out tok/s, 9,056.7 req/h; B (60-token): 20,751 req/h; GPU peak 96,971 MiB of 97,887 | `outputs/osler_v4/Y0/serve_check.json`; CLAIMS C006–C013 | Y0 |
 | MIMIC: patients / admissions / notes per split; ICD-10 share; token p50/p95 | | `loops/osler_v4/mimic.md` | Y1 |
-| MIMIC templates: train/dev/test items, NB screen, majority rate per template | | `loops/osler_v4/mimic.md` | Y2 |
+| MIMIC templates: train/dev/test items, NB screen, majority rate per template | 13 MIMIC templates and MedNLI built. MIMIC items train 507,374 / dev 6,257 / test 6,253; held-out 110 (test patients only). NB dev: all below 0.90 except mimic_rad_exam_v1 at 0.9000 (shortcut, excluded from the verdict). Cross-split leakage 0 after the state-text rule (lab 106 dev / 92 test, ED 2+6 and 1+3 removed). | `loops/osler_v4/mimic.md` §2; `outputs/osler_v4/Y2/counts*.json`; CLAIMS C031–C049 | Y2 |
 | minimal pairs: pilot keep rate per mode, chosen mode, cue AUC, pairs built | | `loops/osler_v4/crafted.md` | Y3 |
 | fast dev v4 partitions; CG v2 size and sources; MIMIC suite v1 templates and items | | | Y4 |
 | pplx 27B: revision, licence, parity, anchor items scored, overlap check (must be 0) | | | Y5 |
@@ -131,6 +131,14 @@ Server:         none running (Nemotron stopped 19:41Z so the full test suite cou
 
 ---
 
+### Y2 — DONE — 2026-10-21T20:40:16Z
+- What ran: `scripts/osler_v4/y2_templates.py` (stage 1: 12 templates including ED acuity, ED disposition and MedNLI; reruns 20:23–20:37Z) and `scripts/osler_v4/y2_lab_med.py` (stage 2: labevents, eMAR and prescriptions; 20:23–20:35Z); `scripts/osler_v4/y2_report.py` (mimic.md §2, leakage columns; 20:39Z); tests: 71 passed on CPU (CUDA hidden).
+- Output: `data/mimic_build/items/` (private JSONL, gitignored); `outputs/osler_v4/Y2/counts.json`, `counts_lab_med.json`, `SELF_AUDIT.md`; `loops/osler_v4/mimic.md` §2.
+- Headline: 13 MIMIC templates plus MedNLI. MIMIC items: train 507,374, dev 6,257, test 6,253; held-out 110. Dev Naive Bayes is below 0.90 for every template except mimic_rad_exam_v1 (0.9000, a shortcut: excluded from the verdict). Cross-split leakage is 0 after the state-text rule (CLAIMS C031–C049).
+- Surprises: the first stage-1 and stage-2 runs had cross-split duplicate lab pages (96 and 82) and ED records; the rule removes them (after the screens were re-run). The lab dev majority rate moved from 0.50 to 0.60 because the removed duplicates were mostly one class. A first lab run used all Sodium and Glucose rows regardless of fluid; it was restarted with blood only (two urine glucose and one other-fluid potassium were excluded).
+- Checklist (completed): schemas and drivers; stage-1 builders and tests; stage-2 builders and tests; labevents and eMAR runs; dedupe rule and reruns; report with leakage columns; SELF_AUDIT; CLAIMS C031–C049; STATE; commit.
+- Next: Y3 build (GPU) is running; Y4 needs Y2 and Y3 done (Y4 starts after the build and the cue check).
+
 ### Y1 — DONE — 2026-10-21T19:44:00Z
 - What ran: `scripts/osler_v4/y1_mimic_base.py` on the official files (CPU; run 2 from 19:10:55Z to 19:20:33Z; the first run's log is kept as y1_mimic_base_run1.log); `tests/test_mimic_sections_v4.py` (12); full-suite acceptance with the GPU free (C024).
 - Output: `data/mimic_build/` (private parquet, gitignored); `outputs/osler_v4/Y1/aggregates.json`; `loops/osler_v4/mimic.md` (generated; aggregates only).
@@ -145,6 +153,7 @@ Server:         none running (Nemotron stopped 19:41Z so the full test suite cou
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| Y2 mimic_page_category_v1 | MIMIC-III page-category template (B3 part) | NOT MEASURED — MIMIC-III 1.4 is still downloading (dm status 0/28 files at 20:40Z) | Re-check at Y4 and before the B2 keep decision; build it then if the files are present, else B3 goes ahead without it (operator steer 2026-10-21) |
 
 ---
 
@@ -198,6 +207,12 @@ deviation — that is a `BLOCKED`.
   rule that dropped each attempt, and no note text is printed into the session (§6, question 2).
 - **Y3 pilot cue AUC must be grouped by pair:** the first pilot cue check (random 5-fold) gave 0.056 and 0.014, which is a leak
   (each pair's twin is in the other fold). The reported value groups folds by `pair_id` (0.5719 off, 0.5658 on).
+- **Y2 deviations and interpretations** (SELF_AUDIT §7):
+  - Held-out routing: heart failure and AKI items come only from test-split (late-anchor) patients and go to the held-out file; the same families in train or dev are dropped and counted.
+  - Leakage rule (ADVISORY Y2): an item in dev or test whose state text occurs in an earlier split is removed (counted) before the screens. This is a data filter, not an edit to a check.
+  - MS-DRG distractors: "same MDC" approximated by title-token similarity (no MDC table in the data).
+  - Lab validation: blood fluid only; mEq/L accepted for sodium and potassium (same numbers as mmol/L for these ions); anemia criterion sex-specific; coded status by ICD-10-CM prefix (anemia D64 is broad).
+  - mimic_rad_exam_v1 NB 0.9000 is at the D35 shortcut threshold: excluded from the audit-suite verdict; reported only.
 - **Y3 AKI and heart-failure targets:** codes in N17 (AKI) and I50 (heart failure, held out) are not pair targets at all;
   the AKI reading of ADVISORY §3.4 (AKI items to held-out only) is applied conservatively to pairs (no pair is built for them).
 - Operator confirmations were given in the same message: D48 = yes; D46, D47, D49, D50 = yes. They are entered in §2 as the

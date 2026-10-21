@@ -76,10 +76,17 @@ def test_every_budget_gives_a_cut_note_within_the_cap_that_ends_with_the_marker(
         assert text.endswith(mimic.TRUNCATION_MARK)
 
 
-def test_when_the_first_section_alone_is_too_long_it_is_cut_to_the_budget() -> None:
+def test_the_first_section_is_kept_and_the_cut_is_marked_when_the_budget_is_tight() -> None:
+    text, cut = mimic.prioritised_text(mimic.sections(NOTE), 8, _words)
+    assert cut is True
+    assert text == "Chief Complaint:\nchest pain\n[... truncated]"
+    assert _words(text) <= 8
+
+
+def test_a_budget_too_small_for_any_section_gives_only_the_marker() -> None:
     text, cut = mimic.prioritised_text(mimic.sections(NOTE), 3, _words)
     assert cut is True
-    assert text == "Chief\n[... truncated]"
+    assert text == mimic.TRUNCATION_MARK
     assert _words(text) <= 3
 
 
