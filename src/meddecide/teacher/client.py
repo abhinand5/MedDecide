@@ -17,10 +17,26 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
 DEFAULT_TIMEOUT_S = 120.0
+
+# MIMIC text, values and identifiers go only to a teacher on this machine (AGENTS.md; D28, D37). A request flagged
+# contains_mimic=True is refused, before any network call, unless the base URL's host is a loopback address.
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def is_loopback(base_url: str) -> bool:
+    """True when the base URL's host is 127.0.0.1, localhost or ::1. An empty or unparseable URL is not loopback."""
+    return (urlsplit(base_url).hostname or "") in LOOPBACK_HOSTS
+
+
+def require_loopback_for_mimic(base_url: str) -> None:
+    """Raise PermissionError unless ``base_url`` is loopback; called before any request that carries MIMIC content."""
+    if not is_loopback(base_url):
+        raise PermissionError("request carries MIMIC content but the teacher is not on loopback (AGENTS.md; D28, D37)")
 
 # OpenCode Go list prices for DeepSeek V4.1 Flash, USD per 1M tokens (2026-10-13): (uncached input, output, cached read)
 OFF_PEAK = (0.15, 0.60, 0.003)
@@ -148,9 +164,13 @@ class TeacherClient:
     def post(self, path: str, payload: dict[str, Any], **kwargs: Any) -> httpx.Response:
         return self.client().post(self._url(path), json=payload, **kwargs)
 
-    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.7, max_tokens: int = 1024) -> str:
+    def chat(self, messages: list[dict[str, str]], *, temperature: float = 0.7, max_tokens: int = 1024,
+             contains_mimic: bool = False) -> str:
         """One ``/chat/completions`` call; returns the assistant text (raises on an HTTP error). Token usage, including
-        cached prompt tokens and reasoning tokens, is added to ``self.usage``."""
+        cached prompt tokens and reasoning tokens, is added to ``self.usage``. With ``contains_mimic=True`` the call is
+        refused (PermissionError, nothing sent) unless the base URL is loopback."""
+        if contains_mimic:
+            require_loopback_for_mimic(self.base_url)
         if not self.model:
             raise RuntimeError("TEACHER_MODEL is not set")
         payload: dict[str, Any] = {"model": self.model, "messages": messages, "temperature": temperature,

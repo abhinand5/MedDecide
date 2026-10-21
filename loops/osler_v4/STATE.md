@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-21T18:26:40Z`
+Last updated (UTC): `2026-10-21T18:53:35Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | PENDING | | |
+| Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | DONE | 2026-10-21T18:26:40Z | 2026-10-21T18:53:35Z |
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | PENDING | | |
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | PENDING | | |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | PENDING | | |
@@ -45,13 +45,13 @@ left `IN_PROGRESS` at closure.
 ## 2. Key values discovered during the run
 
 **Operator confirmations** (filled by the operator before kickoff; the loop never edits these two lines):
-- D48 (pplx 27B soft-label distillation on general items): `<yes | no>`
-- D46, D47, D49, D50 (MIMIC design, keep rule v2, Gate O4, final length): `<yes | no>`
+- D48 (pplx 27B soft-label distillation on general items): `yes` (operator, 2026-10-21, session message during Y0)
+- D46, D47, D49, D50 (MIMIC design, keep rule v2, Gate O4, final length): `yes` (operator, 2026-10-21, same message)
 
 | key | value | source | task |
 |---|---|---|---|
-| suite counts (passed / skipped / deselected) | | | Y0 |
-| Nemotron serving: flags that worked, out tok/s, requests/h, peak memory | | | Y0 |
+| suite counts (passed / skipped / deselected) | baseline 840 / 1 / 2 (exit 0); after Y0 860 / 1 / 2 (exit 0); ruff clean | `outputs/osler_v4/Y0/logs/pytest_final.log`; CLAIMS C001–C004 | Y0 |
+| Nemotron serving: flags that worked, out tok/s, requests/h, peak memory | committed flags, no fallback; ready 6 min 43 s after launch; KV cache 382,713 tokens; A (600-token output, 64-way, 200 req): 1,509.4 out tok/s, 9,056.7 req/h; B (60-token): 20,751 req/h; GPU peak 96,971 MiB of 97,887 | `outputs/osler_v4/Y0/serve_check.json`; CLAIMS C006–C013 | Y0 |
 | MIMIC: patients / admissions / notes per split; ICD-10 share; token p50/p95 | | `loops/osler_v4/mimic.md` | Y1 |
 | MIMIC templates: train/dev/test items, NB screen, majority rate per template | | `loops/osler_v4/mimic.md` | Y2 |
 | minimal pairs: pilot keep rate per mode, chosen mode, cue AUC, pairs built | | `loops/osler_v4/crafted.md` | Y3 |
@@ -76,15 +76,9 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/osler_v4/<id>/
-
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+Task in flight: none (Y0 closed 2026-10-21T18:53:35Z; its checklist is in the §4 entry)
+Working dir:    none
+Server:         none running (Nemotron stopped 2026-10-21 18:48Z; GPU 0 MiB)
 ```
 
 ---
@@ -106,6 +100,27 @@ Working dir:    outputs/osler_v4/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### Y0 — DONE — 2026-10-21T18:53:35Z
+- What ran: `uv run ruff check .` (pass); `uv run pytest` with the two ADVISORY deselects, before (baseline) and after the Y0
+  changes; `scripts/osler_v4/serve_nemotron.sh` launched detached 18:39:03Z (vLLM PID 420612, EngineCore 421021), then
+  `scripts/osler_v4/y0_serve_check.py`; server stopped by SIGINT (GPU 0 MiB at 18:48:23Z); `./dm status` read only.
+- Output: `outputs/osler_v4/Y0/` (serve_check.json, SELF_AUDIT.md, logs/; gitignored).
+- Headline: Nemotron 3.5 Super serves on this pod with the committed flags, no fallback (ready 6 min 43 s after launch; KV cache
+  382,713 tokens). 200 requests, 2,897 prompt tokens on average, forced 600-token output, concurrency 64, reasoning off:
+  1,509.4 output tokens/s and 9,056.7 requests/h, 0 failed (C006–C013). The MIMIC loopback guard is in the teacher client
+  (C004); pytest 860 passed, 1 skipped, 2 deselected after the changes (C002; baseline 840).
+- Surprises: (1) the advisor's 1,234 tok/s and about 8,100 requests/h were exceeded; not investigated, and no decision depends
+  on it. (2) GPU peak 96,971 MiB of 97,887: the server fills the card, so nothing else can run beside it. (3) Two pytest runs
+  printed no summary: `-q` with the pyproject `addopts = "-q"` gives `-qq`; the reruns used the configured level. (4) The
+  operator's data-update steer and the D48/D46/D47/D49/D50 confirmations came in mid-run (§7, §2).
+- Checklist (completed): ruff and pytest counts; server up; three short prompts (reasoning off) and one reasoning-on prompt;
+  throughput A and B; MIMIC guard, its tests and the OPENAI_ grep; `./dm status`; acceptance; SELF_AUDIT; CLAIMS C001–C014;
+  STATE; commit.
+- Next: Y1 (CPU, MIMIC foundation). Y2 (CPU, the templates, including the operator-steered ED and MedNLI templates) runs while
+  Y3's teacher works. Y3 needs the server restarted. D48 is yes, so Y5 (27B) is no longer blocked; it follows Y3 in the GPU order.
+
+---
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -125,6 +140,22 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
 expected outcome. Editing code or a check to make it pass is never an acceptable
 deviation — that is a `BLOCKED`.
+
+- **operator steer 2026-10-21: data update** (session message during Y0; the operator's own words, in substance). The
+  ADVISORY §1 and §5 statements on what is on disk are out of date. Checked with `ls data/physionet/` (and `./dm status`,
+  read only):
+  1. MIMIC-IV 3.1 `hosp` is complete, labevents included. `mimic_lab_validation_v1` is built in Y2 with the other
+     templates. The ADVISORY §5 rule "labevents may be absent at Y2" no longer applies.
+  2. MIMIC-IV-ED 2.2 (all 8 files) and MedNLI 1.0.0 (all 5 files) are complete. `mimic_ed_acuity_v1`,
+     `mimic_ed_disposition_v1` and `mednli_v1` are built inside Y2 now, not deferred to Y2b. Their dev items enter fast dev
+     v4 at Y4. The late-anchor test items of the two ED templates join MIMIC audit suite v1 under the same D35 screens.
+     MedNLI test stays an additional row. These three form block B3.
+  3. MIMIC-III 1.4 is still downloading. It is re-checked at Y4 and before the B2 keep decision (the operator's wording; the
+     ADVISORY Y2b text says "B3's decision"). If present then, `mimic_page_category_v1` (MDACE admissions excluded) joins B3;
+     otherwise B3 goes ahead without it. The loop never waits for it.
+  4. `icu/` files (for example chartevents) are appearing on disk but stay out of scope (ADVISORY §6).
+- Operator confirmations were given in the same message: D48 = yes; D46, D47, D49, D50 = yes. They are entered in §2 as the
+  operator's values. Before this message they were placeholders, and D48 was read as not confirmed.
 
 ---
 

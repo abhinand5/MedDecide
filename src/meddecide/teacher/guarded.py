@@ -13,7 +13,7 @@ from collections.abc import Callable
 import httpx
 
 from meddecide.teacher.budget import RateLimiter
-from meddecide.teacher.client import TeacherClient
+from meddecide.teacher.client import TeacherClient, require_loopback_for_mimic
 
 RETRIES = 5
 
@@ -43,14 +43,18 @@ class GuardedChat:
         self._sleep = sleep
         self.local = client.local
 
-    def chat(self, messages: list[dict[str, str]], *, temperature: float, max_tokens: int) -> str:
+    def chat(self, messages: list[dict[str, str]], *, temperature: float, max_tokens: int,
+             contains_mimic: bool = False) -> str:
+        if contains_mimic:
+            require_loopback_for_mimic(self._client.base_url)
         attempt = 0
         while True:
             if self._halt.is_set():
                 raise RuntimeError("halted")
             self._limiter.acquire()
             try:
-                return self._client.chat(messages, temperature=temperature, max_tokens=max_tokens)
+                return self._client.chat(messages, temperature=temperature, max_tokens=max_tokens,
+                                         contains_mimic=contains_mimic)
             except httpx.HTTPStatusError as exc:
                 status = exc.response.status_code
                 if status in (401, 403):
