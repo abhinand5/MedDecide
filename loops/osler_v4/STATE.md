@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T20:40:26Z`
+Last updated (UTC): `2026-10-21T21:26:55Z`
 Iterations so far: `1`
 
 ---
@@ -27,7 +27,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | IN_PROGRESS (pilot done; build pending) | 2026-10-21T19:25:21Z | |
-| Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | PENDING | | |
+| Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | IN_PROGRESS (CPU preparation: fast dev v4, CG v2 and the suite script are built; GPU steps wait for the Y3 build) | 2026-10-21T21:26:55Z | |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | PENDING | | |
 | Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | PENDING | | |
 | Y7 | Stage B: blocks B1–B4 under keep rule v2 | yes | Y6 | PENDING | | |
@@ -62,6 +62,9 @@ left `IN_PROGRESS` at closure.
 | final: steps, selected step, CG v2 and MIMIC trend | | | Y8 |
 | Gate O4 verdict (4B) | | `loops/osler_v4/gate_o4.md` | Y9 |
 | audit: membership AUC; verbatim matches (model vs base) | | `loops/osler_v4/audit.md` | Y10 |
+| Y4 fast dev v4: total, partitions, training-overlap removals | 17,532 items: fastdev_v2 9,590 (1,333 removed: 854 text and record, 479 text only), new_template_dev 1,980, mimic 5,562, mednli 400; 30 training files checked (every .jsonl under data/train except dev.jsonl) | `outputs/osler_v4/Y4/fastdev_v4_manifest.json`; CLAIMS C050–C051 | Y4 |
+| Y4 CG v2: total, sources, removals | 8,307 items (≥ 6,000): cg_v3 items kept except near-duplicates of the panel (458) and training text (460 MedMCQA); HeadQA dev (en) 1,342; MedNLI dev rest 995; PubMedQA labelled 1,000; DDXPlus validation sample 1,000 | `outputs/osler_v4/Y4/cg_v2_manifest.json`; CLAIMS C051 | Y4 |
+| Y4 verdict-set audit against training (text) | V10 rows 30,621: 0 text matches for MR test (19,294), MR held-out (1,518), the seven panel sets (4,353), MedQA (1,273) and MedMCQA (4,183). Record-level overlap for these sets is not checked (V10 rows carry no source id). | CLAIMS C052 | Y4 |
 
 ---
 
@@ -131,6 +134,13 @@ Server:         none running (Nemotron stopped 19:41Z so the full test suite cou
 
 ---
 
+### Y4 — preparation (CPU) — 2026-10-21T21:26:55Z
+- What ran: `scripts/osler_v4/y4_fastdev.py` (fast dev v4 with the training check); `scripts/osler_v4/y4_cg_v2.py` (CG v2 with the training check and the 13-gram panel check); `scripts/osler_v4/y4_mimic_suite.py` (written; not run: it needs the GPU ceiling file and refuses to freeze without it); `src/meddecide/panel/ngram.py`, `src/meddecide/panel/training_overlap.py` with 7 tests.
+- Output: `data/bench/osler_v4/fastdev_v4.jsonl` and `cg_v2.jsonl` (private, gitignored); `outputs/osler_v4/Y4/*_manifest.json` (counts only).
+- Headline: fast dev v4 17,532 items; CG v2 8,307 items (≥ 6,000); no V10 evaluation item (MR test, held-out, panel, MedQA, MedMCQA) occurs as text in any training file (CLAIMS C050–C052).
+- Surprises: earlier fast dev v2 items (ct, pubmed, fda, criterion, medmcqa) are in the Osler training mixes; the dev proxies are contaminated, the verdict sets are not by text (see §6 question 4). A first training check counted osler_v0's dev file as training; corrected.
+- Next: when Y3 is DONE, Y4's GPU steps: the zero-shot ceiling screen on the MIMIC dev items, the suite freeze, then the baselines.
+
 ### Y2 — DONE — 2026-10-21T20:40:16Z
 - What ran: `scripts/osler_v4/y2_templates.py` (stage 1: 12 templates including ED acuity, ED disposition and MedNLI; reruns 20:23–20:37Z) and `scripts/osler_v4/y2_lab_med.py` (stage 2: labevents, eMAR and prescriptions; 20:23–20:35Z); `scripts/osler_v4/y2_report.py` (mimic.md §2, leakage columns; 20:39Z); tests: 71 passed on CPU (CUDA hidden).
 - Output: `data/mimic_build/items/` (private JSONL, gitignored); `outputs/osler_v4/Y2/counts.json`, `counts_lab_med.json`, `SELF_AUDIT.md`; `loops/osler_v4/mimic.md` §2.
@@ -169,6 +179,7 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    that dropped each attempt) and prints no note text, because this agent session runs on a hosted model. Options: (a) keep
    the structural checks; (b) you read 20 kept and 20 rejected pairs on the pod yourself and record the verdict in §6 or §7.
    I picked (a) until you say otherwise.
+4. **Dev-proxy contamination in earlier loops** (found 2026-10-21 in Y4; counts in CLAIMS C053–C055). The fast dev v2 templates ct_* (clinical trials), pubmed_* (PubMed), fda_* (openFDA), criterion_eligibility and medmcqa_4opt occur as exact text and as source records in the Osler training mixes: osler_v0 train, osler_v1 blocks B0–B3, osler_v2 C0–C2, osler_v3 A3 and B1–B3, and in the student_v0 and student_v1 training files. 1,333 of the 10,923 fastdev_v2 items match training. cg_v3's knowledge items are in student training files (460 MedMCQA items match text). Consequences: the dev proxies used for osler_v2's base choice (D39, fast dev v2 MR partition) and osler_v3's Stage A (cg_v3 and fast dev v3) are not clean. The verdict sets are clean by text: V10 MR test, MR held-out, the external panel and the MedQA and MedMCQA items have no text match in any training file (record-level not checked). Options: (a) this loop removes matched items from its own proxies (done) and records the caveat; (b) earlier choices are re-run on clean proxies in a new loop. I pick (a). Option (b) is the operator's decision.
 3. **Reasoning-on selections with no valid list** (76 of 200 attempts in the on pilot). Cause not investigated; likely the
    4,096-token cap is reached before the list (not verified). Not needed for the chosen mode; logged only.
 
@@ -207,6 +218,11 @@ deviation — that is a `BLOCKED`.
   rule that dropped each attempt, and no note text is printed into the session (§6, question 2).
 - **Y3 pilot cue AUC must be grouped by pair:** the first pilot cue check (random 5-fold) gave 0.056 and 0.014, which is a leak
   (each pair's twin is in the other fold). The reported value groups folds by `pair_id` (0.5719 off, 0.5658 on).
+- **Y4 preparation before Y3 is DONE** (2026-10-21): fast dev v4 and CG v2 were built while the Y3 build still runs. Their Y3 input is the dev pairs (250 pairs, final: the build's dev stage is complete). The GPU steps of Y4 wait for the build.
+- **Training input definition** (Y4): every .jsonl under data/train/ except the dev.jsonl files. An early check reported 989 rows as training overlap for cg_v3 items; they are all in data/train/osler_v0/dev.jsonl (osler_v0's dev split, a dev input). The corrected definition is in src/meddecide/panel/training_overlap.py and is used by both Y4 builders and by the suite freeze.
+- **Fast dev v4 training removals:** the 400 CodiEsp items that fast dev v3 labels as train (they occur in osler_v1's training block B3, a block osler_v1 did not keep but did train on) and 1,333 further fastdev_v2 items that match training text or record. Partitions: fastdev_v2 9,590, new_template_dev 1,980, mimic 5,562, mednli 400.
+- **CG v2 composition** (Y4): cg_v3 (4,865) minus 458 panel near-duplicates, 1 duplicate and 460 MedMCQA items with training text; HeadQA dev (English; the English HEAD_EN.json restricted to dev_HEAD.json's qids; the Spanish PDFs of the archive are not used); the MedNLI dev pairs not used by fast dev v4's mednli partition (995, disjoint by design, so MedNLI is not in both); PubMedQA labelled (1,000; none matched training); a stable sample of 1,000 DDXPlus validation cases rendered from the dataset's evidence dictionary (CC BY 4.0).
+- **Environment change** (Y4, 2026-10-21): `uv pip install pillow==12.3.0` into the repo's environment, for the authors' pplx_decider package (the 27B decision model imports PIL). pyproject and the lock file are unchanged.
 - **Y2 deviations and interpretations** (SELF_AUDIT §7):
   - Held-out routing: heart failure and AKI items come only from test-split (late-anchor) patients and go to the held-out file; the same families in train or dev are dropped and counted.
   - Leakage rule (ADVISORY Y2): an item in dev or test whose state text occurs in an earlier split is removed (counted) before the screens. This is a data filter, not an edit to a check.
