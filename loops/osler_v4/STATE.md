@@ -292,6 +292,13 @@ deviation — that is a `BLOCKED`.
   3. **The A5 mix** is `block_A3` with the Y5 distributions attached to its anchor rows by normalised text, option keys equal and in
      order (`soft_labels.attach_teacher`; `scripts/osler_v4/y6_a5_mix.py`). A5's replay is regenerated for that file, since the
      driver refuses a replay whose file hash differs (the stale replay is not edited).
+  4. **The choice rule and the driver.** `meddecide.train.stage_a_choice` implements ADVISORY Y6's rule as written (MR and
+     knowledge lower bounds above −0.01 against A0; the highest CG v2 accuracy among the qualifying runs; a margin under 0.003 is
+     a tie and A0 wins it), with 7 tests. `scripts/osler_v4/y6_stage_a.py` has three subcommands: `train` (A4, A5; the osler_v3
+     recipe with `distill_weight`), `score` (A0, A1, A3 re-scored from osler_v3's checkpoints; A4, A5 new), and `choose` (the
+     paired bootstrap of `blocks.keep_statistics`, lower bounds `.lo`). The zero-shot pplx CG v2 baseline that ADVISORY Y6 names
+     for the point estimate is not in this driver; the choice does not depend on it (a common offset), and it is needed for the
+     report only.
 
 ---
 
