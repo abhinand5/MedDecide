@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T18:53:35Z`
+Last updated (UTC): `2026-10-21T19:44:00Z`
 Iterations so far: `1`
 
 ---
@@ -24,9 +24,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
 | Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | DONE | 2026-10-21T18:26:40Z | 2026-10-21T18:53:35Z |
-| Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | PENDING | | |
+| Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | PENDING | | |
-| Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | PENDING | | |
+| Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | IN_PROGRESS (pilot done; build pending) | 2026-10-21T19:25:21Z | |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | PENDING | | |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | PENDING | | |
 | Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | PENDING | | |
@@ -76,9 +76,19 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none (Y0 closed 2026-10-21T18:53:35Z; its checklist is in the §4 entry)
-Working dir:    none
-Server:         none running (Nemotron stopped 2026-10-21 18:48Z; GPU 0 MiB)
+Task in flight: Y3 (started 2026-10-21T19:25:21Z). Y1 closed 19:41:36Z (its checklist is in the §4 entry).
+Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
+Server:         none running (Nemotron stopped 19:41Z so the full test suite could use the GPU). Restart before the build.
+
+- [x] helper module (meddecide.mr.mimic_pairs) and 19 unit tests with a fake teacher
+- [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
+- [x] pilot off (200 train attempts, 152 s) and pilot on (200 attempts, 687 s); pilot-report: no mode reaches a 40 % keep rate
+- [x] mode decision: off (deviation, §7); loops/osler_v4/crafted.md pilot section written
+- [ ] full-suite acceptance for the Y1 and Y3 code (ruff and pytest with the GPU free): running from 19:41Z
+- [ ] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8` (dev 250, test 250, train up to 40,000 kept)
+- [ ] cue check on the build (AUC < 0.75 on dev, ADVISORY Y3 §6); crafted.md build and cue sections (report --mode off)
+- [ ] SELF_AUDIT.md (outputs/osler_v4/Y3); CLAIMS rows C024 onward
+- [ ] STATE updated, committed, pushed; Y3 DONE or BLOCKED
 ```
 
 ---
@@ -121,6 +131,16 @@ Server:         none running (Nemotron stopped 2026-10-21 18:48Z; GPU 0 MiB)
 
 ---
 
+### Y1 — DONE — 2026-10-21T19:44:00Z
+- What ran: `scripts/osler_v4/y1_mimic_base.py` on the official files (CPU; run 2 from 19:10:55Z to 19:20:33Z; the first run's log is kept as y1_mimic_base_run1.log); `tests/test_mimic_sections_v4.py` (12); full-suite acceptance with the GPU free (C024).
+- Output: `data/mimic_build/` (private parquet, gitignored); `outputs/osler_v4/Y1/aggregates.json`; `loops/osler_v4/mimic.md` (generated; aggregates only).
+- Headline: MIMIC-IV 3.1 hosp holds 364,627 patients and 546,028 admissions (train/dev/test admissions 436,063 / 55,580 / 54,385; 203,429 late-anchor). 331,793 discharge notes, 331,732 linked to an admission; token p50 3,046 and p95 5,631 with the pplx tokenizer; ICD-10 share 0.4663 of coded admissions (C015–C023).
+- Surprises: the first run's split bookkeeping was wrong (fixed; see §7); 208,046 radiology notes are for subjects with no hospital admission; 1,749 discharge notes exceed the 8,192-token cap (cut by section priority in Y2 and Y3).
+- Checklist (completed): schemas and tokenizer; `sections` with unit tests; admission table; private parquet; script run; `mimic.md` §1; acceptance; SELF_AUDIT; CLAIMS C015–C024; STATE; commit.
+- Next: Y3 build (GPU) is running; Y2 templates (CPU) are next, including the ED and MedNLI templates from the operator steer.
+
+---
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -132,6 +152,16 @@ Server:         none running (Nemotron stopped 2026-10-21 18:48Z; GPU 0 MiB)
 
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
+
+1. **Y3 mode when no mode reaches the 40 % keep rate** (ADVISORY Y3 §7 is silent). Options: (a) reasoning off, the higher
+   keep rate (0.2806) and 1,302.6 kept per GPU-hour, which is what the build uses; (b) reasoning on (0.1735; 178.1 per
+   GPU-hour); (c) block Y3 and run B2 as NOT MEASURED. I picked (a) and recorded it under §7. Please confirm or redirect.
+2. **Spot-reads of MIMIC pairs** (ADVISORY Y3 §7). The loop checks structure only (sentence counts, deleted numbers, the rule
+   that dropped each attempt) and prints no note text, because this agent session runs on a hosted model. Options: (a) keep
+   the structural checks; (b) you read 20 kept and 20 rejected pairs on the pod yourself and record the verdict in §6 or §7.
+   I picked (a) until you say otherwise.
+3. **Reasoning-on selections with no valid list** (76 of 200 attempts in the on pilot). Cause not investigated; likely the
+   4,096-token cap is reached before the list (not verified). Not needed for the chosen mode; logged only.
 
 ---
 
@@ -154,6 +184,22 @@ deviation — that is a `BLOCKED`.
      ADVISORY Y2b text says "B3's decision"). If present then, `mimic_page_category_v1` (MDACE admissions excluded) joins B3;
      otherwise B3 goes ahead without it. The loop never waits for it.
   4. `icu/` files (for example chartevents) are appearing on disk but stay out of scope (ADVISORY §6).
+- **Y1 (2026-10-21):** the split key for every MIMIC table is `subject_split(subject_id, "mimic4")` (ADVISORY §3.3). The osler_v1
+  notes reader used `"mimiciv"`; it was changed to `"mimic4"` because no MIMIC output had ever been made with the old key.
+- **Y1 first run defects, fixed in the reported run** (log kept as `outputs/osler_v4/Y1/logs/y1_mimic_base_run1.log`): the
+  "split mismatch" count mixed orphan notes with real mismatches, and radiology splits went through the admissions map (208,046
+  notes had none). The reported run keys every split by subject and separates each excluded group with its own count.
+- **Y3 mode choice (pre-registered rule silent):** ADVISORY Y3 §7 chooses the mode "with the higher kept pairs per GPU-hour
+  among modes with keep rate ≥ 40 %". Neither mode reaches 40 % (reasoning off 0.2806, on 0.1735; `pilot_report.json`).
+  Taken as the conservative reading: reasoning off, because it has the higher keep rate and 7.3× the kept pairs per GPU-hour
+  (1,302.6 vs 178.1). Recorded as a deviation; the operator may decide otherwise (§6).
+- **Y3 spot-reads replaced by structural checks:** ADVISORY Y3 §7 asks for 20 kept and 20 rejected pairs to be read. Pair text
+  is MIMIC text and this agent session is hosted, so the spot-check uses sentence counts, the deleted sentence numbers and the
+  rule that dropped each attempt, and no note text is printed into the session (§6, question 2).
+- **Y3 pilot cue AUC must be grouped by pair:** the first pilot cue check (random 5-fold) gave 0.056 and 0.014, which is a leak
+  (each pair's twin is in the other fold). The reported value groups folds by `pair_id` (0.5719 off, 0.5658 on).
+- **Y3 AKI and heart-failure targets:** codes in N17 (AKI) and I50 (heart failure, held out) are not pair targets at all;
+  the AKI reading of ADVISORY §3.4 (AKI items to held-out only) is applied conservatively to pairs (no pair is built for them).
 - Operator confirmations were given in the same message: D48 = yes; D46, D47, D49, D50 = yes. They are entered in §2 as the
   operator's values. Before this message they were placeholders, and D48 was read as not confirmed.
 

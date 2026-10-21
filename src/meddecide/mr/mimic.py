@@ -13,14 +13,19 @@ patient ids, so an evaluation set that must be disjoint from MIMIC-III training 
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+import re
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from meddecide.gen.core import split_of
 from meddecide.mr import icd
+
+# the dataset key of MIMIC-IV in subject_split (ADVISORY osler_v4 §3.3); MIMIC-III uses "mimiciii"
+MIMIC4_DATASET = "mimic4"
 
 # MIMIC-III NOTEEVENTS CATEGORY (stripped) -> page class; "Physician" and "Nursing" are split by DESCRIPTION below.
 CATEGORY_TO_PAGE: dict[str, str] = {
@@ -124,7 +129,7 @@ def iter_mimic4_notes(note_csv: str | Path, page_class: str, *, chunksize: int =
             hadm = None if pd.isna(row.hadm_id) else int(row.hadm_id)
             for i, page in enumerate(pages):
                 yield NotePage("mimiciv", str(row.note_id), int(row.subject_id), hadm, page_class, i, len(pages), page,
-                               subject_split(row.subject_id, "mimiciv"))
+                               subject_split(row.subject_id, MIMIC4_DATASET))
 
 
 # ---- ICD-10 family codes per admission ----------------------------------------------------------
@@ -171,3 +176,193 @@ def family_label(family: str, coded: Mapping[str, list[str]]) -> tuple[str | Non
 def late_anchor(anchor_year_group: str) -> bool:
     """MIMIC-IV ``patients.anchor_year_group`` starting in 2014 or later (no overlap with MIMIC-III's 2001-2012)."""
     return int(str(anchor_year_group)[:4]) >= 2014
+
+
+# ---- discharge-note sections (osler_v4 Y1; ADVISORY §3.8) -------------------------------------------
+
+# normalised header text -> canonical section key (the MIMIC-IV discharge-note template; identifiers kept apart)
+SECTION_KEYS: dict[str, str] = {
+    "name": "identifiers", "unit no": "identifiers", "date of birth": "identifiers", "facility": "identifiers",
+    "admission date": "dates", "discharge date": "dates", "sex": "demographics", "service": "service",
+    "allergies": "allergies", "attending": "attending",
+    "chief complaint": "chief_complaint",
+    "major surgical or invasive procedure": "procedures",
+    "history of present illness": "history_of_present_illness",
+    "past medical history": "past_medical_history", "social history": "social_history",
+    "family history": "family_history",
+    "physical exam": "physical_exam", "physical exam on admission": "physical_exam",
+    "pertinent results": "pertinent_results",
+    "brief hospital course": "brief_hospital_course",
+    "medications on admission": "medications_on_admission",
+    "discharge medications": "discharge_medications",
+    "discharge disposition": "discharge_disposition",
+    "discharge diagnosis": "discharge_diagnosis", "discharge diagnoses": "discharge_diagnosis",
+    "discharge condition": "discharge_condition", "discharge instructions": "discharge_instructions",
+    "followup instructions": "followup_instructions",
+}
+# the printed header of each priority section (rendered in a prompt; other sections use a generic title)
+SECTION_TITLES: dict[str, str] = {
+    "chief_complaint": "Chief Complaint", "history_of_present_illness": "History of Present Illness",
+    "brief_hospital_course": "Brief Hospital Course", "procedures": "Major Surgical or Invasive Procedure",
+    "discharge_diagnosis": "Discharge Diagnosis", "discharge_medications": "Discharge Medications",
+    "pertinent_results": "Pertinent Results",
+}
+# section priority when a note must be cut (ADVISORY §3.8); the other sections follow in document order
+PRIORITY_SECTIONS: tuple[str, ...] = (
+    "chief_complaint", "history_of_present_illness", "brief_hospital_course", "procedures", "discharge_diagnosis",
+    "discharge_medications", "pertinent_results",
+)
+TRUNCATION_MARK = "[... truncated]"
+
+_HEADER = re.compile(r"^\s*([A-Za-z][A-Za-z ]{1,60}?)\s*:(.*)$")
+
+
+def section_header(line: str) -> tuple[str, str] | None:
+    """(canonical key, text after the colon) when the line opens a known section; None for any other line."""
+    match = _HEADER.match(line)
+    if match is None:
+        return None
+    key = SECTION_KEYS.get(" ".join(match.group(1).lower().split()))
+    return None if key is None else (key, match.group(2).strip())
+
+
+def sections(text: str) -> dict[str, str]:
+    """A discharge note split into its known sections, in document order. Text before the first known header is kept as
+    ``preamble``. A repeated header is joined under its key. A header-like line that is not a known section stays with the
+    section above it. Empty sections are dropped."""
+    lines_by_key: dict[str, list[str]] = {"preamble": []}
+    current = "preamble"
+    for line in text.splitlines():
+        found = section_header(line)
+        if found is None:
+            lines_by_key[current].append(line)
+            continue
+        current, rest = found
+        lines_by_key.setdefault(current, [])
+        if rest:
+            lines_by_key[current].append(rest)
+    bodies = {key: "\n".join(lines).strip() for key, lines in lines_by_key.items()}
+    return {key: body for key, body in bodies.items() if body}
+
+
+def _render(key: str, body: str) -> str:
+    if key == "preamble":
+        return body
+    return f"{SECTION_TITLES.get(key, key.replace('_', ' ').capitalize())}:\n{body}"
+
+
+def _fit_prefix(text: str, room: int, count: Callable[[str], int]) -> str:
+    """The longest character prefix of ``text`` whose count fits in ``room``."""
+    low, high = 0, len(text)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if count(text[:mid].rstrip()) <= room:
+            low = mid
+        else:
+            high = mid - 1
+    return text[:low]
+
+
+def _fill(order: list[str], budget: int, secs: Mapping[str, str], count: Callable[[str], int]) -> str:
+    """Whole sections in ``order`` while they fit with the marker's tokens reserved; the section that does not fit is cut
+    to the remaining room and followed by the marker, so a cut note always ends with the marker and fits the budget."""
+    reserve = count(TRUNCATION_MARK)
+    parts: list[str] = []
+    used = 0
+    for key in order:
+        block = _render(key, secs[key])
+        size = count(block)
+        if used + size <= budget - reserve:
+            parts.append(block)
+            used += size
+            continue
+        cut = _fit_prefix(block, budget - reserve - used, count).rstrip()
+        parts.append((cut + "\n" if cut else "") + TRUNCATION_MARK)
+        break
+    return "\n\n".join(parts)
+
+
+def prioritised_text(secs: Mapping[str, str], max_tokens: int, count: Callable[[str], int]) -> tuple[str, bool]:
+    """The note text for a prompt capped at ``max_tokens`` (``count`` gives a token length). A note that fits is returned
+    whole with cut=False. Otherwise the priority sections come first, in ADVISORY order, then the other sections in
+    document order, until the budget is spent; the section that does not fit is cut at the budget with a marker, and
+    later sections are dropped. Returns (text, cut)."""
+    document_order = list(secs)
+    full = "\n\n".join(_render(key, secs[key]) for key in document_order)
+    if count(full) <= max_tokens:
+        return full, False
+    order = [key for key in PRIORITY_SECTIONS if key in secs] + [key for key in document_order
+                                                               if key not in PRIORITY_SECTIONS]
+    budget = max_tokens
+    for _ in range(8):
+        text = _fill(order, budget, secs, count)
+        excess = count(text) - max_tokens
+        if excess <= 0:
+            return text, True
+        budget -= excess   # joining blocks can add a token at a boundary; shrink the budget and try again
+    raise RuntimeError("prioritised_text: the note did not fit the prompt cap after 8 tries")
+
+
+# ---- admission tables (osler_v4 Y1) -----------------------------------------------------------------
+
+def coding_summary(diagnoses: pd.DataFrame) -> pd.DataFrame:
+    """Per admission (index hadm_id): ICD-10 and ICD-9 row counts and the coding class icd10, icd9, mixed or none. ICD-10
+    admissions are the coding substrate (ADVISORY §3.3); the others are recorded and not used."""
+    is10 = diagnoses["icd_version"].eq(10)
+    by_hadm = diagnoses["hadm_id"]
+    out = pd.DataFrame({"n_icd10": is10.groupby(by_hadm).sum(), "n_icd9": (~is10).groupby(by_hadm).sum()}).astype(int)
+    pure10 = (out["n_icd10"] > 0) & (out["n_icd9"] == 0)
+    pure9 = (out["n_icd9"] > 0) & (out["n_icd10"] == 0)
+    out["coding"] = np.select([pure10, pure9, (out["n_icd10"] > 0) & (out["n_icd9"] > 0)],
+                              ["icd10", "icd9", "mixed"], default="none")
+    return out
+
+
+def icd10_codes(diagnoses: pd.DataFrame) -> pd.DataFrame:
+    """Per admission: the ICD-10-CM codes in seq_num order (icd10_codes) and the code of seq_num 1 (principal_icd10)."""
+    rows = diagnoses[diagnoses["icd_version"].eq(10)].sort_values(["hadm_id", "seq_num"], kind="stable")
+    codes = rows.groupby("hadm_id")["icd_code"].agg(list).rename("icd10_codes")
+    principal = rows[rows["seq_num"].eq(1)].groupby("hadm_id")["icd_code"].first().rename("principal_icd10")
+    return pd.concat([codes, principal], axis=1)
+
+
+def pcs_codes(procedures: pd.DataFrame) -> pd.DataFrame:
+    """Per admission: the ICD-10-PCS codes in seq_num order (codes only; titles are kept in the dictionary table)."""
+    rows = procedures[procedures["icd_version"].eq(10)].sort_values(["hadm_id", "seq_num"], kind="stable")
+    return rows.groupby("hadm_id")["icd_code"].agg(list).rename("pcs10_codes").to_frame()
+
+
+def drg_fields(drg: pd.DataFrame) -> pd.DataFrame:
+    """Per admission: the MS-DRG (HCFA rows: code and CMS title, public domain) and the APR-DRG severity and
+    risk-of-mortality levels (APR rows: levels only; the APR description is never read, D46)."""
+    hcfa = drg[drg["drg_type"].eq("HCFA")].sort_values(["hadm_id", "drg_code"], kind="stable")
+    ms = hcfa.drop_duplicates("hadm_id").set_index("hadm_id")[["drg_code", "description"]]
+    ms = ms.rename(columns={"drg_code": "ms_drg_code", "description": "ms_drg_title"})
+    apr = drg[drg["drg_type"].eq("APR")].drop_duplicates("hadm_id").set_index("hadm_id")[["drg_severity", "drg_mortality"]]
+    apr = apr.rename(columns={"drg_severity": "apr_severity", "drg_mortality": "apr_mortality"})
+    rows = drg.groupby(["hadm_id", "drg_type"]).size().unstack(fill_value=0)
+    counts = rows.rename(columns=lambda t: f"n_drg_{str(t).lower()}")
+    return ms.join(apr, how="outer").join(counts, how="outer")
+
+
+def admission_table(admissions: pd.DataFrame, patients: pd.DataFrame, coding: pd.DataFrame, codes: pd.DataFrame,
+                    pcs: pd.DataFrame, drg: pd.DataFrame) -> pd.DataFrame:
+    """One row per admission: patient split (``subject_split``, patient-level), late-anchor flag, coding class, ICD-10 codes,
+    principal code, PCS codes and DRG fields. Admissions without a row in a side table get empty values, counted by the
+    caller."""
+    base = admissions[["hadm_id", "subject_id"]].drop_duplicates("hadm_id").set_index("hadm_id")
+    groups = patients.set_index("subject_id")["anchor_year_group"]
+    base = base.join(groups, on="subject_id")
+    splits = {sid: subject_split(sid, MIMIC4_DATASET) for sid in base["subject_id"].unique()}
+    base["split"] = base["subject_id"].map(splits)
+    base["late_anchor"] = base["anchor_year_group"].map(lambda g: late_anchor(g) if isinstance(g, str) else False)
+    out = base.join(coding).join(codes).join(pcs).join(drg)
+    for col in ("n_icd10", "n_icd9"):
+        out[col] = out[col].fillna(0).astype(int)
+    out["coding"] = out["coding"].fillna("none")
+    for col in ("icd10_codes", "pcs10_codes"):
+        out[col] = out[col].apply(lambda v: v if isinstance(v, list) else [])
+    for col in ("n_drg_hcfa", "n_drg_apr"):
+        if col in out.columns:
+            out[col] = out[col].fillna(0).astype(int)
+    return out
