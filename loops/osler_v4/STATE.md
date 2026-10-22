@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T09:20:00Z`
+Last updated (UTC): `2026-10-22T09:31:00Z`
 Iterations so far: `1`
 
 ---
@@ -100,7 +100,8 @@ Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in output
 
 ```
 Task closed: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part 2026-10-22T03:58:46Z to 09:15:24Z; closed 2026-10-22T09:20Z; its entry is in §4).
-Running job:    Y4 zero-shot ceiling screen, Python PID 809816 (uv wrapper PID 809812), started 2026-10-22T09:16:49Z: `y4_zeroshot.py --model Qwen/Qwen3.5-4B --items data/bench/osler_v4/mimic_dev_all.jsonl --name qwen35_4b_mimic_dev`; log outputs/osler_v4/Y4/logs/zeroshot_qwen35_4b.log; rows outputs/osler_v4/Y4/zeroshot/qwen35_4b_mimic_dev/predictions.jsonl (6,257 expected). Next, in order: `y4_ceiling.py --name qwen35_4b_mimic_dev`; the suite freeze (`y4_mimic_suite.py`); the baselines (`y4_pplx_flash.py` on the suite and the fast dev v4 MIMIC partition; `y4_meddecider.py` for MedDecider-4B and, as an extra row, MedDecider-9B at ec8a69da…; `y4_checkpoint_score.py` for osler_v2's Osler-4B).
+Running job:    (1) Y4 baselines chain, PID 811627 (`outputs/osler_v4/Y4/logs/y4_chain_baselines.sh`, started 09:29:41Z; log outputs/osler_v4/Y4/logs/y4_chain_baselines.log): pplx-flash (authors' code) and MedDecider-4B (authors' code, --verify 50) and osler_v2's Osler-4B on the MIMIC partition of fast dev v4 (5,562 items) and on CG v2 (8,307 items), then MedDecider-9B (extra row, its failure does not stop the chain). Each run writes outputs/osler_v4/Y4/baselines/<name>/. (2) Y4 suite freeze, Python PID 811727 (uv 811660), started 09:29:47Z: `scripts/osler_v4/y4_mimic_suite.py` (overlap check against every training file, about 49 GB, takes a long time); log outputs/osler_v4/Y4/logs/suite_freeze.log.
+Done so far (Y4): the ceiling screen (C080), the ceiling aggregator (outputs/osler_v4/Y4/ceiling_qwen35_4b_mimic_dev.json), the APR label check (C081), the MIMIC partition items (C082). Next: the suite baselines (pplx-flash, MedDecider-4B, osler_v2, MedDecider-9B on the frozen suite) once the freeze writes its file; then the Y4 closure (SELF_AUDIT, the §4 entry, DONE).
 Chain:          the Y5 chain (outputs/osler_v4/Y5/logs/y5_chain.sh, PID 783889) ended at 09:15:24Z: dev, anchor (112,128 items, 5 h budget), join and report all completed without error (log outputs/osler_v4/Y5/logs/y5_chain.log).
 Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
 Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
