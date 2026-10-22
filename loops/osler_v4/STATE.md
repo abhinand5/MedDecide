@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-21T22:13:30Z`
+Last updated (UTC): `2026-10-22T00:13:30Z`
 Iterations so far: `1`
 
 ---
@@ -84,7 +84,7 @@ Task in flight: Y3 (started 2026-10-21T19:25:21Z). Y1 closed 19:41:36Z (its chec
 Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
 Server:         RUNNING (vLLM PID 509604, launched 19:44:18Z, ready 19:51:04Z), under build_chain.sh PID 509602. The chain sends SIGINT to the server when the build exits, which is about 03:51Z (8 h deadline).
 Running job:    build PID 511361 (`y3_pairs.py build --mode off --hours 8`, started about 19:51Z); log outputs/osler_v4/Y3/logs/build_chain.log; waiter bg6uhczna (returns when PID 509602 exits; the GPU is free then).
-Progress 2026-10-21T22:13Z: dev 250 pairs and test 250 pairs complete; train 2,481 pairs (4,962 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); GPU 94.8 GB at 100 %.
+Progress 2026-10-22T00:13Z: dev 250 pairs and test 250 pairs complete; train about 5,148 pairs (10,296 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); 19,635 attempts; GPU 94.8 GB at 99 %. Earlier: 2026-10-21T22:13Z, train 2,481 pairs.
 
 - [x] helper module (meddecide.mr.mimic_pairs) and 19 unit tests with a fake teacher
 - [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
