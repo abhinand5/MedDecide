@@ -82,21 +82,22 @@ completed checklist goes into the iteration-log entry.
 ```
 Task:           Y6 — Stage A: A4, A5, re-scored A0/A1/A3, and the choice. IN_PROGRESS since 2026-10-22T12:11:12Z. Writes loops/osler_v4/stage_a.md before Stage B.
 Working dir:    outputs/osler_v4/Y6/ (A0, A1, A3, A4, A5 with checkpoints and predictions; replays/; logs/; a5_mix_manifest.json; readout_gate.json per arm; choice.json at the choice step). Private: data/train/osler_v4/y6_a5_mix.jsonl (gitignored).
-GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`. A0 scored 12:32:21Z; A1 scoring since about 12:32Z (PID 875418); then A3 scored; then A4 trained and scored; then A5 trained and scored (the CPU marker is already there). Nothing else runs on the GPU.
+GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`. A0, A1 and A3 scored (12:32:21Z, 12:53:48Z, 13:15:11Z). A4 training since 13:15Z (PID 920836, about 75 GB on the GPU; about five hours); then A4 scoring; then A5 training (the CPU prep is done) and A5 scoring. Nothing else runs on the GPU.
 CPU prep:       PID 873098 finished 2026-10-22T12:16:12Z (`outputs/osler_v4/Y6/logs/a5_cpu_prep.done`): the A5 mix and its replay (C108).
-Progress 2026-10-22T12:37Z: A0 re-scored: fast dev v4 accuracy 0.7675, CG v2 0.7879; its decisions reproduce osler_v3's A0 (C106); no failing readout cell on fast dev v4 or CG v2 (C107). The D12 restriction for the choice is recorded in §7 (before any choice).
+Progress 2026-10-22T13:20Z: A1 and A3 re-scored and checked: no failing readout cell on fast dev v4 or CG v2 (C111, C113); the re-scores reproduce osler_v3's decisions except a few items (C110, C112): two near-tie decision changes and two wrong, confident noul items with probability changes (A1); three CG items change correctness, one of them a confident change of 0.162 in probability (A3). The batch check (`scripts/osler_v4/y6_batch_check.py`) needs the GPU: the model's forward pass calls a CUDA-only kernel, so the CPU attempt failed (`outputs/osler_v4/Y6/logs/batch_check_A3.log`); it runs after the chain. The D12 restriction for the choice is recorded in §7 (before any ranking).
 
-- [x] A0 re-scored (score on fast dev v4 and CG v2); reproduction of osler_v3's A0 (C106); readout gate: 0 failing cells (C107)
-- [ ] A1 and A3 re-scored (A1 running); their readout gates: `scripts/osler_v4/y6_readout_gate.py --arm A1` and `--arm A3`
-- [ ] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, the hash matches block_A3) and scored; its readout gate
+- [x] A0 re-scored; reproduction of osler_v3's A0 (C106); readout gate: 0 failing cells (C107)
+- [x] A1 re-scored; reproduction (C110); readout gate (C111)
+- [x] A3 re-scored; reproduction (C112); readout gate (C113)
+- [ ] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, hash matched block_A3) and scored; check block_result.json (steps as planned, evaluation steps as planned, log mismatches 0); its readout gate
 - [x] A5 mix (manifest: rows add up) and the A5 replay (same batches as A3's replay) (C108)
-- [ ] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored; its readout gate
-- [x] restriction for the choice recorded in §7 before any choice (the gate on every compared arm; templates that pass for both arms in each comparison)
-- [x] choice machinery: `cmd_choose` applies the restriction (a template's pairs count only when it passes for both the arm and A0; the CG v2 ranking uses the templates that pass for every qualifying arm and A0; the failing cells are written to choice.json); the library functions and their tests (readout_gate 6, stage_a_restriction 4; C109)
-- [ ] run `y6_stage_a.py choose` when A5 is scored (the gate table per arm: `y6_readout_gate.py --arm <A>`); choice.json
-- [ ] loops/osler_v4/stage_a.md (per run: MR, knowledge, CG v2 with paired intervals; the choice and its reason; the gate per arm); CLAIMS rows for every number
+- [ ] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored; the same checks; its readout gate
+- [x] restriction for the choice recorded in §7 before any ranking
+- [x] choice machinery: `cmd_choose` applies the restriction (C109; tests: readout_gate 6, stage_a_restriction 4)
+- [ ] the batch-dependence check on the GPU after the chain: `y6_batch_check.py` (the A3 items whose decisions changed; alone against batched, float32 and bfloat16); a claim for its result
+- [ ] `y6_stage_a.py choose` with the restriction when A5 is scored → outputs/osler_v4/Y6/choice.json; then loops/osler_v4/stage_a.md (per run: MR, knowledge and CG v2 with paired intervals; the choice and its reason; the gate per arm); CLAIMS rows for every number
 - [ ] SELF_AUDIT for Y6 (fresh process: the choice's inputs re-derived; probabilities; the scoring of each new run)
-- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; commit and push (the Y6 scripts: y6_a5_replay.py, y6_readout_gate.py, y6_reproduce_a0.py, readout_gate.py and its tests)
+- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; the GPU-visible pytest and ruff; commit and push
 ```
 
 ---

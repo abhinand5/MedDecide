@@ -5,26 +5,31 @@ predictions osler_v3 wrote for the same checkpoint, on the items the two sets sh
 correct flags, the accuracy on the shared items, and the probability differences (the largest, and the share above 0.01 and
 0.05 per question type). Item text is never printed; only counts and differences.
 
-Usage (CPU):
-    uv run --frozen python scripts/osler_v4/y6_reproduce_a0.py
+Usage (CPU; the same check applies to each re-scored arm whose osler_v3 record exists, A0, A1 or A3):
+    uv run --frozen python scripts/osler_v4/y6_reproduce_a0.py [--arm A0|A1|A3]
 """
 
 from __future__ import annotations
 
+import argparse
 from collections import defaultdict
 from pathlib import Path
 
 from meddecide.utils.io import iter_jsonl
 
-NEW = Path("outputs/osler_v4/Y6/A0")
-OLD = Path("outputs/osler_v3/stage_a/A0")
 PAIRS = {"cg": ("cg_predictions.jsonl", "cg_v2_predictions.jsonl"), "dev": ("dev_predictions.jsonl", "fastdev_v4_predictions.jsonl")}
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--arm", default="A0", choices=("A0", "A1", "A3"))
+    args = parser.parse_args()
+    new_dir = Path("outputs/osler_v4/Y6") / args.arm
+    old_dir = Path("outputs/osler_v3/stage_a") / args.arm
+    print(f"{args.arm}: osler_v3 record {old_dir} against the re-score {new_dir}")
     for name, (old_file, new_file) in PAIRS.items():
-        old = {str(r["item_id"]): r for r in iter_jsonl(OLD / old_file)}
-        new = {str(r["item_id"]): r for r in iter_jsonl(NEW / new_file)}
+        old = {str(r["item_id"]): r for r in iter_jsonl(old_dir / old_file)}
+        new = {str(r["item_id"]): r for r in iter_jsonl(new_dir / new_file)}
         shared = [k for k in old if k in new]
         same_key = sum(old[k]["predicted_key"] == new[k]["predicted_key"] for k in shared)
         same_flag = sum(bool(old[k]["correct"]) == bool(new[k]["correct"]) for k in shared)
