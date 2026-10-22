@@ -38,6 +38,7 @@ from meddecide.utils.provenance import gpu_name, utcnow
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v4" / "Y4" / "zeroshot"
+BASE_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"  # Qwen/Qwen3.5-4B, the osler base revision (cached)
 ZEROSHOT_SCRIPT = REPO / "scripts" / "osler" / "o2_run_zeroshot.py"
 
 
@@ -71,6 +72,7 @@ def to_o2_row(row: dict[str, Any]) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--model", required=True, help="a base model id, e.g. Qwen/Qwen3.5-4B")
+    parser.add_argument("--revision", default=BASE_REVISION, help="the pinned commit of --model (the osler base by default)")
     parser.add_argument("--items", type=Path, required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--limit", type=int, default=0, help="score only the first N new items (smoke runs)")
@@ -78,8 +80,9 @@ def main() -> None:
     zs = _zeroshot_module()
     out_dir = OUT / args.name
     out_path = out_dir / "predictions.jsonl"
-    tok = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForCausalLM.from_pretrained(args.model, dtype=torch.bfloat16, device_map="cuda").eval()
+    tok = AutoTokenizer.from_pretrained(args.model, revision=args.revision)
+    model = AutoModelForCausalLM.from_pretrained(args.model, revision=args.revision, dtype=torch.bfloat16,
+                                                 device_map="cuda").eval()
     checks = check_label_tokens(tok, args.model)
     variant, variant_detail = detect_variant(model, tok, checks)
     write_json(out_dir / "variant.json", {"model": args.model, "variant": variant, "detail": variant_detail,
