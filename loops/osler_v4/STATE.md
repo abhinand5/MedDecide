@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T10:15:49Z`
+Last updated (UTC): `2026-10-22T12:12Z`
 Iterations so far: `1`
 
 ---
@@ -27,9 +27,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | DONE (dev 250 and test 250 pairs; train 10,125 pairs of a 40,000 target: the 8 GPU-hour limit ended the build; cue AUC dev 0.5645, gate < 0.75 passes) | 2026-10-21T19:25:21Z | 2026-10-22T03:58Z |
-| Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | IN_PROGRESS (CPU preparation done; the GPU steps started 2026-10-22T09:16:49Z with the zero-shot ceiling screen; then the suite freeze and the baselines) | 2026-10-21T21:26:55Z | |
+| Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | DONE (14 baseline runs complete and audited in a fresh process, C104; pplx-flash 0.624 on the frozen suite with every cell passing; MedDecider-4B has no set-level result under D12, STATE §6 question 6; full pytest with the GPU visible, C105) | 2026-10-21T21:26:55Z | 2026-10-22T12:12Z |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | DONE (parity 40 of 40 against the single-request reference; dev diagnostics recorded; 112,128 anchor soft labels scored in the 5 h budget; overlap with benchmark rows 0) | 2026-10-21T21:33:00Z | 2026-10-22T09:20Z |
-| Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | PENDING | | |
+| Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | IN_PROGRESS (GPU chain PID 873094 and CPU prep PID 873098 started; the choice waits for the D12 gating deviation, STATE §6 question 7) | 2026-10-22T12:11:12Z | |
 | Y7 | Stage B: blocks B1–B4 under keep rule v2 | yes | Y6 | PENDING | | |
 | Y8 | Final Osler-4B (63,304 steps) | yes | Y7 | PENDING | | |
 | Y9 | Evaluation, Gate O4, size-class scoreboard | yes | Y8 | PENDING | | |
@@ -80,40 +80,21 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task closed: Y3 (started 2026-10-21T19:25:21Z; closed 2026-10-22T03:58Z; its entry is in §4). The GPU is now used by Y5 (block below).
-Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
-Server:         RUNNING (vLLM PID 509604, launched 19:44:18Z, ready 19:51:04Z), under build_chain.sh PID 509602. The chain sends SIGINT to the server when the build exits, which is about 03:51Z (8 h deadline).
-Running job:    build PID 511361 (`y3_pairs.py build --mode off --hours 8`, started about 19:51Z); log outputs/osler_v4/Y3/logs/build_chain.log; waiter bg6uhczna (returns when PID 509602 exits; the GPU is free then).
-Progress 2026-10-22T02:13Z: dev 250 pairs and test 250 pairs complete; train about 7,839 pairs (15,678 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); 28,914 attempts; GPU 94.8 GB at 100 %. Earlier: 2026-10-22T00:13Z, train about 5,148 pairs; 2026-10-21T22:13Z, 2,481 pairs.
-Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in outputs/osler_v4/Y3/logs/build_chain.log and stops the server (SIGINT to PID 509604). Then, in order: Y3 cue check (`y3_pairs.py cue --build build_off`, gate AUC < 0.75 on dev), `y3_pairs.py report --mode off`, SELF_AUDIT.md, CLAIMS rows, full pytest with the card free (the four CUDA-gated tests), Y3 DONE. Then the GPU order of ADVISORY §5: Y5 (`y5_soft_labels.py parity`, `dev`, `anchor --max-hours 5`, `join`, `report`), then Y4 (`y4_zeroshot.py` on mimic_dev_all, `y4_ceiling.py`, `y4_mimic_suite.py` freeze, baselines `y4_pplx_flash.py` and `y4_meddecider.py`), then Y6.
+Task:           Y6 — Stage A: A4, A5, re-scored A0/A1/A3, and the choice. IN_PROGRESS since 2026-10-22T12:11:12Z. Writes loops/osler_v4/stage_a.md before Stage B.
+Working dir:    outputs/osler_v4/Y6/ (A0, A1, A3, A4, A5 with checkpoints and predictions; replays/; logs/; a5_mix_manifest.json; choice.json at the choice step). Private: data/train/osler_v4/y6_a5_mix.jsonl (gitignored).
+GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`: A0, A1, A3 scored; then A4 trained and scored; then it waits for the CPU marker, trains and scores A5. Nothing else runs on the GPU.
+CPU prep:       PID 873098, `outputs/osler_v4/Y6/logs/y6_cpu_prep.sh`, log `outputs/osler_v4/Y6/logs/y6_cpu_prep.log`: the A5 mix (`scripts/osler_v4/y6_a5_mix.py`), then the A5 replay (`scripts/osler_v4/y6_a5_replay.py`, written under outputs/osler_v4/Y6/replays, not under osler_v3's outputs); marker `outputs/osler_v4/Y6/logs/a5_cpu_prep.done`.
+Y4 closed 2026-10-22T12:1xZ (its §4 entry; the closure commit).
 
-- [x] helper module (meddecide.mr.mimic_pairs) and 19 unit tests with a fake teacher
-- [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
-- [x] pilot off (200 train attempts, 152 s) and pilot on (200 attempts, 687 s); pilot-report: no mode reaches a 40 % keep rate
-- [x] mode decision: off (deviation, §7); loops/osler_v4/crafted.md pilot section written
-- [x] full-suite acceptance with the GPU free: 962 passed, 1 skipped (torchvision), 2 deselected (C070); pplx parity test with torchvision for that run: 2 passed (C071)
-- [x] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8`: finished 03:53:08Z (dev 250, test 250, train 10,125 of a 40,000 target); server stopped by the chain, GPU 0 MiB at 03:53:39Z
-- [x] cue check on the build: dev AUC 0.5645 (gate < 0.75 passes; C068); `report --mode off` wrote crafted.md (build and cue sections)
-- [x] SELF_AUDIT.md (outputs/osler_v4/Y3/SELF_AUDIT.md) from the fresh-process audit scripts/osler_v4/y3_audit.py (C066, C067, C069)
-- [x] STATE updated, committed, pushed; Y3 DONE (§1 row and the §4 entry below)
+- [ ] A0, A1, A3 re-scored from osler_v3's checkpoints (score on fast dev v4 and CG v2; A2 is not re-scored)
+- [ ] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, hash matches block_A3, checked) and scored
+- [ ] A5 mix (statuses in outputs/osler_v4/Y6/a5_mix_manifest.json; rows add up) and the A5 replay (13,992 steps), CPU
+- [ ] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored
+- [ ] choice: implement the D12 gating (CG v2 templates that pass for every qualifying arm; the same gate on MR and knowledge where arms are compared) and record it as a deviation in §7 BEFORE `y6_stage_a.py choose`; write outputs/osler_v4/Y6/choice.json
+- [ ] loops/osler_v4/stage_a.md (per run: MR, knowledge, CG v2 with paired intervals; the choice and its reason; the gating); CLAIMS rows for every number
+- [ ] SELF_AUDIT for Y6 (fresh process: the choice's inputs re-derived; probabilities; the scoring parity of each new run)
+- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; commit and push
 ```
-
-```
-Task closed: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part 2026-10-22T03:58:46Z to 09:15:24Z; closed 2026-10-22T09:20Z; its entry is in §4).
-Running job:    (1) Y4 baselines chain, PID 811627 (`outputs/osler_v4/Y4/logs/y4_chain_baselines.sh`, started 09:29:41Z; it stopped during cg_v2_meddecider4b, see §7; its remaining steps run as chain PID 817056, `outputs/osler_v4/Y4/logs/y4_chain_rest.sh`, after the suite chain; log outputs/osler_v4/Y4/logs/y4_chain_baselines.log): pplx-flash (authors' code), MedDecider-4B (authors' code, --verify 50) and osler_v2's Osler-4B on the MIMIC partition of fast dev v4 (5,562 items) and on CG v2 (8,307 items), then MedDecider-9B (extra row). Each run writes outputs/osler_v4/Y4/baselines/<name>/. (2) Y4 suite chain, PID 812383 (`outputs/osler_v4/Y4/logs/y4_chain_suite.sh`, log outputs/osler_v4/Y4/logs/y4_chain_suite.log): it waits for PID 811627, then scores the frozen suite (4,253 items) with pplx-flash, MedDecider-4B and osler_v2, the held-out items (110, additional) with the same three, and MedDecider-9B on the suite (extra row).
-Done so far (Y4): the ceiling screen (C080), the ceiling aggregator (outputs/osler_v4/Y4/ceiling_qwen35_4b_mimic_dev.json), the APR label check (C081), the MIMIC partition items (C082), the suite freeze at 09:33Z (C083–C085: 4,253 items in 9 templates; 4 templates excluded with reasons; training overlap 0; read-only files). The freeze fixed one wiring path before it ran (§7). Next: the Y4 closure (SELF_AUDIT, the §4 entry, DONE) after both chains, then Y6.
-Chain:          the Y5 chain (outputs/osler_v4/Y5/logs/y5_chain.sh, PID 783889) ended at 09:15:24Z: dev, anchor (112,128 items, 5 h budget), join and report all completed without error (log outputs/osler_v4/Y5/logs/y5_chain.log).
-Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
-Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
-
-- [x] helper module meddecide.distill.soft_labels (request and answer mapping, exclusion keys, pool order); tests/test_soft_labels_v4.py (22 passed)
-- [x] driver scripts/osler_v4/y5_soft_labels.py (pool, parity, dev, anchor, join, report); ruff clean
-- [x] pool (CPU): exclusions from every benchmark row, anchor templates only, request-mappable rows only, one row per normalised text (the first build deduplicated by item id; corrected, §7 item 5); manifest outputs/osler_v4/Y5/anchor_pool_manifest.json (eligible 870,161; written 400,000)
-- [ ] GPU, after the Y3 build and the server stop: parity (40 of 40 argmax with the single-request reference, D39's bar), dev diagnostics, anchor scoring (≤ 5 h), join (overlap must be 0), report
-- [ ] SELF_AUDIT, CLAIMS rows, STATE and commit; Y5 DONE or BLOCKED
-```
-
-Y4 CPU preparation items done since the last update (same file, §4 entry): `scripts/osler_v4/y4_mimic_dev_all.py` built `data/bench/osler_v4/mimic_dev_all.jsonl` (6,257 items, 13 templates, counts in `outputs/osler_v4/Y4/mimic_dev_all_manifest.json`); the interim CPU pytest run is in `outputs/osler_v4/Y4/logs/pytest_interim_cpu.log` (GPU-marked tests skip with the card hidden; the final run waits for the card).
 
 ---
 
@@ -198,6 +179,14 @@ Y4 CPU preparation items done since the last update (same file, §4 entry): `scr
 - Checklist (completed): pool; parity; dev; anchor; join (overlap 0); report; duplicate check; audit; SELF_AUDIT; CLAIMS C057–C079; STATE.
 - Next: Y4 (zero-shot ceiling screen running, PID 809816); then the suite freeze and the baselines; then Y6.
 
+### Y4 — DONE — 2026-10-22T12:12Z
+- What ran: `scripts/osler_v4/y4_mimic_suite.py` (the freeze, 09:33Z); `y4_pplx_flash.py`, `y4_meddecider.py` (MedDecider-4B and -9B) and `y4_checkpoint_score.py` (osler_v2) in `outputs/osler_v4/Y4/logs/y4_chain_{baselines,suite,rest}.sh`, one GPU job at a time; `scripts/osler_v4/y4_baselines_report.py`; `scripts/osler_v4/y4_rederive.py` (fresh process, 14 runs); `ruff check .` and the full pytest with the GPU visible (C105).
+- Output: `outputs/osler_v4/Y4/` (baselines_report.json, baselines/<run>/, SELF_AUDIT.md, rederive_final.txt, mimic_audit_suite_v1_manifest.json; gitignored); `loops/osler_v4/baselines.md` (committed aggregates).
+- Headline: on the frozen MIMIC audit suite (4,253 items, 9 templates; C083) zero-shot pplx-flash scores micro 0.624 with every cell passing (C087); osler_v2 0.5551, below its base on 8 of 9 templates (C090); MedDecider-9B 0.6189 (C089, extra). MedDecider-4B has no set-level result under D12: its drg_cc_level cell is a constant answer (C088, C093). On CG v2, pplx-flash's set-level figure fails the gate on one cell (C101); osler_v2 scores 0.7565 over 13 templates (C102). On the MIMIC partition of fast dev v4 (a development proxy): pplx-flash 0.6638, osler_v2 0.5951, MedDecider-9B 0.6352 (C098–C100, C103).
+- Surprises: (1) my first report's macro and set-level status were wrong; corrected before any gate used them (STATE §7; six claim rows corrected in place). (2) The trainer's keys for options beyond 26 are base-26 (BA for 26); the audit checks every row (STATE §7). (3) ed_acuity is below the majority rate for every baseline; the suite has no level-5 gold while the models answer 5 on 22–96 items (C094). (4) rad_exam (Naive Bayes at the 0.90 limit) scores 0.94–0.97 on the partition for every model (C098–C100, C103): flagged for the Y7 decision.
+- Checklist (completed): CPU preparation (fast dev v4, CG v2, the MIMIC partition, the zero-shot ceiling screen, the APR check, the suite freeze); the baselines (C087–C103); the report and the fresh-process audit (C104); parity (C092, C103); pytest (C105); SELF_AUDIT; STATE.
+- Next: Y6 (Stage A) on the GPU, started 2026-10-22T12:11:12Z: A0, A1 and A3 re-scored, then A4 and A5 trained. The choice needs the D12 gating recorded as a deviation first (STATE §6, question 7).
+
 ---
 
 ## 5. Blocked items
@@ -236,6 +225,8 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    raises) and the statistics. Options: (a) leave `rows.py` as it is for this loop and record it; (b) change the hash in a
    later loop, which changes every item id of those mixes and so every paired comparison built on ids. I pick (a).
    Operator's decision: whether the id scheme is fixed, and when.
+6. **Gate O4's MedDecider-4B comparison under D12 (for Y9).** MedDecider-4B's `mimic_drg_cc_level_v1` cell fails the readout gate (a constant answer, A, on 0.952 of 498 items; CLAIMS C088, C093), so its suite-level accuracy is not a result, and D49 names MedDecider-4B as a Gate O4 baseline. Options: (a) the MedDecider-4B comparison is NOT MEASURED at the set level and Gate O4 is read against zero-shot pplx-flash alone (the D12 reading, with no new rule); (b) every arm and the baseline are compared on the eight templates that pass (a rule change the operator must approve, since the suite was frozen with nine); (c) the template is dropped from the suite (not allowed: the suite is frozen). I pick (a). Operator's decision wanted before Y9.
+7. **The Stage A choice and the CG v2 figures under D12 (for Y6).** ADVISORY Y6 ranks the qualifying runs by their CG v2 accuracy. Under D12 a set-level accuracy is a result only when every cell in it passes, and two CG v2 figures may not: zero-shot pplx-flash's (its `nfcorpus_relevant_noul_v1` cell is a constant `no` on 0.908 of 87 items; C093) and any arm's own cells. Options: (a) the Y6 choice is BLOCKED until the operator states how CG v2 is scored under D12; (b) the ranking uses the CG v2 templates that pass the gate for every qualifying arm (the same items for each arm, labelled as such). The zero-shot offset cancels in the ranking, so the zero-shot figure is needed only for the report, where it stays NOT MEASURED at set level, with its passing-cell figure as an additional row; (c) the failing template stays in the ranking (not allowed by D12). I pick (b) and will record it as a deviation before the choice step. The Y6 training and re-scoring steps do not depend on it. Operator's decision wanted before the choice.
 
 ---
 
@@ -347,6 +338,10 @@ deviation — that is a `BLOCKED`.
   fails reads READOUT_FAIL and is not reported as a result (D12). Observed on the complete baselines: MedDecider-4B on MIMIC
   drg_cc_level answers A on 0.945 of items (READOUT_FAIL); pplx-flash on CG v2 nfcorpus_relevant_noul answers no on 0.908
   (READOUT_FAIL). `scripts/osler_v4/y4_baselines_report.py` applies the checks.
+- **Y4 (2026-10-22): the set-level status of the baselines report.** The first version of `scripts/osler_v4/y4_baselines_report.py` gave a set's overall status PASS even when one of its template cells failed the readout gate (MedDecider-4B on the suite, `mimic_drg_cc_level_v1`). Under D12 a set-level accuracy that includes a failing cell is not a result. The report now sets such a set's status to READOUT_FAIL with the failing cells named, writes `reportable: false`, and gives the passing-cell figure as an additional, labelled row. The cell checks, the thresholds and the D21 handling are unchanged. The fix came before any claim cited a set-level figure (CLAIMS C087–C093 cite the fixed report). The report also names the templates a run did not score: the CG v2 MedDecider-4B figure has no `cg_v2_ddxplus_validate_v1` cell (49 options; the authors' prompt has ten letters), so it covers 12 of 13 templates (CLAIMS C097).
+- **Y4 (2026-10-22): the readout diagnostics are not gates.** Each cell of the report also carries the median top-1 minus top-2 gap, the share of exact ties and the argmax position counts (CLAIMS C093). They explain a constant answer; they do not change any cell's status.
+- **Y4 (2026-10-22): the macro in the baselines report was not the project's macro (corrected).** The report's first versions gave each set a macro accuracy computed as a per-class recall over gold keys pooled across templates, and their set-level readout checks pooled the same keys. The project's macro accuracy (G1, D24; `meddecide.eval.metrics.template_macro_accuracy`) is the unweighted mean of the per-template accuracies. The report now gives that template macro for each set, drops the per-class column, and applies the readout checks per template only (D12). Claims C087, C089, C090, C091, C098 and C100 carried the pooled figure; their values and recompute commands were corrected in place (IDs unchanged). No gate or choice used the macro: the gates use micro accuracy and the per-cell checks.
+- **Y4 (2026-10-22): the trainer's option keys beyond 26 options.** osler_v2's rows key options by position: A to Z for positions 0 to 25, then two-letter base-26 keys (BA for position 26), which the 49-option DDXPlus items need. `scripts/osler_v4/y4_rederive.py` checks every scored row's key against its position (`position_key`); the keys are names only, and the macro, majority and modal figures agree under the item's own keys (CLAIMS C096, C102).
 
 ---
 
