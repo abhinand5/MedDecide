@@ -22,3 +22,17 @@ Rule (pre-registered): modes with keep rate >= 0.40; the higher kept pairs per G
 
 Mode: **off** (reasoning in the selection call: off; verification calls are always reasoning-off). See STATE §7 for the deviation: no mode reached the 40 % keep rate, and reasoning off has the higher keep rate and the higher kept pairs per GPU-hour.
 
+## 3. Build
+
+| stage | target | kept | attempts | outcomes |
+|---|---|---|---|---|
+| dev | 250 | 250 | 1016 | string rule: a keyword is left in the edit 345; kept 250; nothing selected 146; original not read as documented 76; other coded diagnosis lost by the edit 59; not used: stage target reached 53; edit still read as documented 50; no eligible target code 25; more than 30 % of sentences selected 9; selection not a valid list 3 |
+| test | 250 | 250 | 1023 | string rule: a keyword is left in the edit 345; kept 250; nothing selected 141; original not read as documented 88; other coded diagnosis lost by the edit 53; not used: stage target reached 53; edit still read as documented 40; no eligible target code 33; more than 30 % of sentences selected 16; selection not a valid list 4 |
+| train | 40000 | 10125 | 34515 | string rule: a keyword is left in the edit 11553; kept 10125; nothing selected 5322; original not read as documented 2934; other coded diagnosis lost by the edit 1613; edit still read as documented 1439; no eligible target code 929; more than 30 % of sentences selected 447; selection not a valid list 153 |
+
+Wall-clock 28880.2 s = 8.022 GPU-hours. Usage: {'calls': 126759, 'prompt_tokens': 517907537, 'cached_tokens': 0, 'completion_tokens': 2627292, 'reasoning_tokens': 0}.
+
+## 4. Cue check (ADVISORY Y3 §6)
+
+Naive Bayes on note text (no question), trained on train pairs (edit vs original), ROC AUC on dev pairs: **0.5645** on 500 dev items (gate: AUC < 0.75). Passes.
+

@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T02:13:30Z`
+Last updated (UTC): `2026-10-22T04:00:00Z`
 Iterations so far: `1`
 
 ---
@@ -26,7 +26,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | DONE | 2026-10-21T18:26:40Z | 2026-10-21T18:53:35Z |
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
 | Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
-| Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | IN_PROGRESS (pilot done; build pending) | 2026-10-21T19:25:21Z | |
+| Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | DONE (dev 250 and test 250 pairs; train 10,125 pairs of a 40,000 target: the 8 GPU-hour limit ended the build; cue AUC dev 0.5645, gate < 0.75 passes) | 2026-10-21T19:25:21Z | 2026-10-22T03:58Z |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | IN_PROGRESS (CPU preparation: fast dev v4, CG v2 and the suite script are built; GPU steps wait for the Y3 build) | 2026-10-21T21:26:55Z | |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | IN_PROGRESS (CPU preparation: code, tests and the anchor pool; the GPU steps follow the Y3 build, per the ADVISORY §5 order Y3 → Y5 → Y4) | 2026-10-21T21:33:00Z | |
 | Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | PENDING | | |
@@ -54,7 +54,7 @@ left `IN_PROGRESS` at closure.
 | Nemotron serving: flags that worked, out tok/s, requests/h, peak memory | committed flags, no fallback; ready 6 min 43 s after launch; KV cache 382,713 tokens; A (600-token output, 64-way, 200 req): 1,509.4 out tok/s, 9,056.7 req/h; B (60-token): 20,751 req/h; GPU peak 96,971 MiB of 97,887 | `outputs/osler_v4/Y0/serve_check.json`; CLAIMS C006–C013 | Y0 |
 | MIMIC: patients / admissions / notes per split; ICD-10 share; token p50/p95 | | `loops/osler_v4/mimic.md` | Y1 |
 | MIMIC templates: train/dev/test items, NB screen, majority rate per template | 13 MIMIC templates and MedNLI built. MIMIC items train 507,374 / dev 6,257 / test 6,253; held-out 110 (test patients only). NB dev: all below 0.90 except mimic_rad_exam_v1 at 0.9000 (shortcut, excluded from the verdict). Cross-split leakage 0 after the state-text rule (lab 106 dev / 92 test, ED 2+6 and 1+3 removed). | `loops/osler_v4/mimic.md` §2; `outputs/osler_v4/Y2/counts*.json`; CLAIMS C031–C049 | Y2 |
-| minimal pairs: pilot keep rate per mode, chosen mode, cue AUC, pairs built | | `loops/osler_v4/crafted.md` | Y3 |
+| minimal pairs: pilot keep rate per mode, chosen mode, cue AUC, pairs built | pilot keep rate: off 0.2806 (55 of 196), on 0.1735 (34 of 196); no mode reached 40 %; chosen mode off (deviation, §7). Build (mode off): dev 250 of 1,016 attempts; test 250 of 1,023; train 10,125 of 34,515 (target 40,000 not reached). Pairs: dev 250, test 250, train 10,125 (21,250 rows; malformed 0; impure edits 0; over 30 % 0). Cue AUC dev 0.5645 (gate < 0.75). | `loops/osler_v4/crafted.md`; `outputs/osler_v4/Y3/audit.json`; CLAIMS C025–C030 and C066–C071 | Y3 |
 | fast dev v4 partitions; CG v2 size and sources; MIMIC suite v1 templates and items | | | Y4 |
 | pplx 27B: revision, licence, parity, anchor items scored, overlap check (must be 0) | | | Y5 |
 | Stage A: MR, knowledge, CG v2 per run; the chosen recipe | | `loops/osler_v4/stage_a.md` | Y6 |
@@ -80,7 +80,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: Y3 (started 2026-10-21T19:25:21Z). Y1 closed 19:41:36Z (its checklist is in the §4 entry).
+Task closed: Y3 (started 2026-10-21T19:25:21Z; closed 2026-10-22T03:58Z; its entry is in §4). The GPU is now used by Y5 (block below).
 Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
 Server:         RUNNING (vLLM PID 509604, launched 19:44:18Z, ready 19:51:04Z), under build_chain.sh PID 509602. The chain sends SIGINT to the server when the build exits, which is about 03:51Z (8 h deadline).
 Running job:    build PID 511361 (`y3_pairs.py build --mode off --hours 8`, started about 19:51Z); log outputs/osler_v4/Y3/logs/build_chain.log; waiter bg6uhczna (returns when PID 509602 exits; the GPU is free then).
@@ -91,15 +91,16 @@ Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in output
 - [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
 - [x] pilot off (200 train attempts, 152 s) and pilot on (200 attempts, 687 s); pilot-report: no mode reaches a 40 % keep rate
 - [x] mode decision: off (deviation, §7); loops/osler_v4/crafted.md pilot section written
-- [ ] full-suite acceptance for the Y1 and Y3 code with the GPU free (after the build): the interim CPU runs are CLAIMS C063 and C064 (952 passed, 4 CUDA-gated skips)
-- [~] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8` (dev 250, test 250, train up to 40,000 kept): running; dev and test complete, train in progress (see Progress above)
-- [ ] cue check on the build (AUC < 0.75 on dev, ADVISORY Y3 §6); crafted.md build and cue sections (report --mode off)
-- [ ] SELF_AUDIT.md (outputs/osler_v4/Y3); CLAIMS rows C024 onward
-- [ ] STATE updated, committed, pushed; Y3 DONE or BLOCKED
+- [x] full-suite acceptance with the GPU free: 962 passed, 1 skipped (torchvision), 2 deselected (C070); pplx parity test with torchvision for that run: 2 passed (C071)
+- [x] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8`: finished 03:53:08Z (dev 250, test 250, train 10,125 of a 40,000 target); server stopped by the chain, GPU 0 MiB at 03:53:39Z
+- [x] cue check on the build: dev AUC 0.5645 (gate < 0.75 passes; C068); `report --mode off` wrote crafted.md (build and cue sections)
+- [x] SELF_AUDIT.md (outputs/osler_v4/Y3/SELF_AUDIT.md) from the fresh-process audit scripts/osler_v4/y3_audit.py (C066, C067, C069)
+- [x] STATE updated, committed, pushed; Y3 DONE (§1 row and the §4 entry below)
 ```
 
 ```
-Task in flight: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part waits for the Y3 build and the server stop).
+Task in flight: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part started 2026-10-22T03:58:46Z with the parity step).
+Running job:    Y5 parity PID 783575 (Python; uv wrapper PID 783533; `y5_soft_labels.py parity`, detached); log outputs/osler_v4/Y5/logs/parity.log; it loads the 27B checkpoint onto the GPU (about 54 GB) and scores 40 CG v2 items through three paths (single-request, batched, fast).
 Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
 Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
 
@@ -174,6 +175,16 @@ Y4 CPU preparation items done since the last update (same file, §4 entry): `scr
 - Surprises: the first run's split bookkeeping was wrong (fixed; see §7); 208,046 radiology notes are for subjects with no hospital admission; 1,749 discharge notes exceed the 8,192-token cap (cut by section priority in Y2 and Y3).
 - Checklist (completed): schemas and tokenizer; `sections` with unit tests; admission table; private parquet; script run; `mimic.md` §1; acceptance; SELF_AUDIT; CLAIMS C015–C024; STATE; commit.
 - Next: Y3 build (GPU) is running; Y2 templates (CPU) are next, including the ED and MedNLI templates from the operator steer.
+
+---
+
+### Y3 — DONE — 2026-10-22T03:58Z
+- What ran: `scripts/osler_v4/y3_pairs.py build --mode off --hours 8` under `outputs/osler_v4/Y3/logs/build_chain.sh` (PIDs: chain 509602, Nemotron server 509604, build 511361; build finished 03:53:08Z, chain done 03:53:39Z); `y3_pairs.py cue --build build_off` (CPU); `y3_pairs.py report --mode off`; `scripts/osler_v4/y3_audit.py` (fresh process); the full suite with the card visible (C070) and `tests/test_pplx_parity.py` with torchvision for that run (C071).
+- Output: data/mimic_build/pairs/build_off/rows_{dev,test,train}.jsonl (private); outputs/osler_v4/Y3/{audit.json,SELF_AUDIT.md,logs/}; loops/osler_v4/crafted.md.
+- Headline: mode-off Nemotron pairs: dev 250 and test 250 complete; train 10,125 pairs from 34,515 attempts, short of its 40,000 target because the 8 GPU-hour limit ended the build (C066). The fresh-process audit: every edit is a pure deletion, no pair selects over 30 %, every kept pair sits in its stage's split, and the test pairs are all late-anchor (C067). The Naive Bayes cue AUC on dev is 0.5645 (gate < 0.75; C068).
+- Surprises: the train target was not reached; the largest rejection is the string rule (11,553 of 34,515 train attempts); the reasoning-on pilot's 76 invalid lists are unexplained (logged only); no mode reached the pre-registered 40 % keep rate (a recorded deviation).
+- Checklist (completed): build; cue; report; audit; full-suite acceptance (C070) and the pplx parity test (C071); SELF_AUDIT; CLAIMS C066–C071; STATE.
+- Next: Y5 (27B soft labels) on the GPU (parity running); then Y4 (ceiling screen, suite freeze, baselines).
 
 ---
 
