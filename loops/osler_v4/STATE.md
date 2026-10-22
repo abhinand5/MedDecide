@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T04:00:00Z`
+Last updated (UTC): `2026-10-22T04:01:00Z`
 Iterations so far: `1`
 
 ---
@@ -101,6 +101,7 @@ Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in output
 ```
 Task in flight: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part started 2026-10-22T03:58:46Z with the parity step).
 Running job:    Y5 parity PID 783575 (Python; uv wrapper PID 783533; `y5_soft_labels.py parity`, detached); log outputs/osler_v4/Y5/logs/parity.log; it loads the 27B checkpoint onto the GPU (about 54 GB) and scores 40 CG v2 items through three paths (single-request, batched, fast).
+Chain:          outputs/osler_v4/Y5/logs/y5_chain.sh, PID 783889 (detached; log outputs/osler_v4/Y5/logs/y5_chain.log). It waits for PID 783575, then runs `dev`, `anchor --max-hours 5`, `join`, `report` in order and stops at the first failure. It prints "CHAIN DONE" when finished. Expect about 6 h from 04:00Z (anchor 5 h).
 Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
 Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
 
