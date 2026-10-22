@@ -331,6 +331,11 @@ deviation — that is a `BLOCKED`.
      for the point estimate is not in this driver; the choice does not depend on it (a common offset), and it is needed for the
      report only.
 
+- **Y4 (2026-10-22): the ceiling file name.** `scripts/osler_v4/y4_mimic_suite.py` read `outputs/osler_v4/Y4/ceiling_qwen35_4b.json`,
+  a name `y4_ceiling.py` never writes for `--name qwen35_4b_mimic_dev` (it writes `ceiling_qwen35_4b_mimic_dev.json`). The constant
+  now names the file the aggregator writes. Only the path changed: the Naive Bayes limit (0.90), the ceiling limit (0.97) and every
+  rule are as they were, and the freeze has not run yet.
+
 ---
 
 ## 8. Closure summary feed

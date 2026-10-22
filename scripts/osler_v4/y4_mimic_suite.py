@@ -3,7 +3,7 @@
 The suite is the late-anchor test items of the D46 structured-gold templates (Y2 test splits; test rows are late-anchor by
 construction), minus any template that fails D35's screens on dev:
 - Naive Bayes macro accuracy on dev at or above 0.90 (from outputs/osler_v4/Y2/counts*.json);
-- zero-shot Qwen3.5-4B ceiling at or above 0.97 on dev (from the GPU ceiling screen, outputs/osler_v4/Y4/ceiling_qwen35_4b.json).
+- zero-shot Qwen3.5-4B ceiling at or above 0.97 on dev (from the GPU ceiling screen, outputs/osler_v4/Y4/ceiling_qwen35_4b_mimic_dev.json).
 Excluded templates are listed with their reason and are never in the verdict. Not in the suite (additional rows, never in a
 verdict): the held-out items (heart failure and AKI), the Y3 test pairs (mimic_doc_support_v1) and the MedNLI test split.
 
@@ -31,7 +31,7 @@ HELDOUT = SUITE_DIR / "mimic_heldout_v1.jsonl"
 MANIFEST_PRIVATE = SUITE_DIR / "manifest.json"
 MANIFEST = Path("outputs/osler_v4/Y4/mimic_audit_suite_v1_manifest.json")
 COUNTS = [Path("outputs/osler_v4/Y2/counts.json"), Path("outputs/osler_v4/Y2/counts_lab_med.json")]
-CEILING = Path("outputs/osler_v4/Y4/ceiling_qwen35_4b.json")
+CEILING = Path("outputs/osler_v4/Y4/ceiling_qwen35_4b_mimic_dev.json")  # the file y4_ceiling.py writes for --name qwen35_4b_mimic_dev
 MIMIC_TEMPLATES = (
     "mimic_icd_support_v1", "mimic_icd_specificity_v1", "mimic_principal_dx_v1", "mimic_msdrg_v1",
     "mimic_drg_cc_level_v1", "mimic_apr_severity_v1", "mimic_apr_mortality_v1", "mimic_pcs_support_v1",
