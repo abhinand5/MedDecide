@@ -34,6 +34,7 @@ from meddecide.utils.provenance import gpu_name, utcnow
 
 MODEL = "lion-ai/MedDecider-4B"
 REVISION = "570b37090c379ad722186a79a3432a31be463fc9"
+MAX_OPTIONS = 10  # the authors' LETTERS = "ABCDEFGHIJ" (meddecider_infer.py); the O2 runner uses the same cap
 OUT = Path("outputs/osler_v4/Y4/baselines")
 
 
@@ -80,6 +81,9 @@ def main() -> None:
                 break
             counts["rows read"] += 1
             labels = [str(o["label"]) for o in row["options"]]
+            if len(labels) > MAX_OPTIONS:
+                counts[f"skipped: more options than the authors' prompt letters ({MAX_OPTIONS})"] += 1
+                continue
             if len(set(labels)) != len(labels):
                 counts["skipped: repeated labels (the authors' prompt keys options by label)"] += 1
                 continue

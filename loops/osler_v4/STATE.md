@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T09:35:00Z`
+Last updated (UTC): `2026-10-22T10:15:00Z`
 Iterations so far: `1`
 
 ---
@@ -100,7 +100,7 @@ Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in output
 
 ```
 Task closed: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part 2026-10-22T03:58:46Z to 09:15:24Z; closed 2026-10-22T09:20Z; its entry is in §4).
-Running job:    (1) Y4 baselines chain, PID 811627 (`outputs/osler_v4/Y4/logs/y4_chain_baselines.sh`, started 09:29:41Z; log outputs/osler_v4/Y4/logs/y4_chain_baselines.log): pplx-flash (authors' code), MedDecider-4B (authors' code, --verify 50) and osler_v2's Osler-4B on the MIMIC partition of fast dev v4 (5,562 items) and on CG v2 (8,307 items), then MedDecider-9B (extra row). Each run writes outputs/osler_v4/Y4/baselines/<name>/. (2) Y4 suite chain, PID 812383 (`outputs/osler_v4/Y4/logs/y4_chain_suite.sh`, log outputs/osler_v4/Y4/logs/y4_chain_suite.log): it waits for PID 811627, then scores the frozen suite (4,253 items) with pplx-flash, MedDecider-4B and osler_v2, the held-out items (110, additional) with the same three, and MedDecider-9B on the suite (extra row).
+Running job:    (1) Y4 baselines chain, PID 811627 (`outputs/osler_v4/Y4/logs/y4_chain_baselines.sh`, started 09:29:41Z; it stopped during cg_v2_meddecider4b, see §7; its remaining steps run as chain PID 817056, `outputs/osler_v4/Y4/logs/y4_chain_rest.sh`, after the suite chain; log outputs/osler_v4/Y4/logs/y4_chain_baselines.log): pplx-flash (authors' code), MedDecider-4B (authors' code, --verify 50) and osler_v2's Osler-4B on the MIMIC partition of fast dev v4 (5,562 items) and on CG v2 (8,307 items), then MedDecider-9B (extra row). Each run writes outputs/osler_v4/Y4/baselines/<name>/. (2) Y4 suite chain, PID 812383 (`outputs/osler_v4/Y4/logs/y4_chain_suite.sh`, log outputs/osler_v4/Y4/logs/y4_chain_suite.log): it waits for PID 811627, then scores the frozen suite (4,253 items) with pplx-flash, MedDecider-4B and osler_v2, the held-out items (110, additional) with the same three, and MedDecider-9B on the suite (extra row).
 Done so far (Y4): the ceiling screen (C080), the ceiling aggregator (outputs/osler_v4/Y4/ceiling_qwen35_4b_mimic_dev.json), the APR label check (C081), the MIMIC partition items (C082), the suite freeze at 09:33Z (C083–C085: 4,253 items in 9 templates; 4 templates excluded with reasons; training overlap 0; read-only files). The freeze fixed one wiring path before it ran (§7). Next: the Y4 closure (SELF_AUDIT, the §4 entry, DONE) after both chains, then Y6.
 Chain:          the Y5 chain (outputs/osler_v4/Y5/logs/y5_chain.sh, PID 783889) ended at 09:15:24Z: dev, anchor (112,128 items, 5 h budget), join and report all completed without error (log outputs/osler_v4/Y5/logs/y5_chain.log).
 Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
@@ -336,6 +336,11 @@ deviation — that is a `BLOCKED`.
   a name `y4_ceiling.py` never writes for `--name qwen35_4b_mimic_dev` (it writes `ceiling_qwen35_4b_mimic_dev.json`). The constant
   now names the file the aggregator writes. Only the path changed: the Naive Bayes limit (0.90), the ceiling limit (0.97) and every
   rule are as they were, and the freeze has not run yet.
+
+- **Y4 (2026-10-22): the MedDecider runner's option cap.** The authors' prompt letters options A–J (`LETTERS = "ABCDEFGHIJ"`, ten options),
+  and my runner had no cap, so the CG v2 run stopped with IndexError after 7,296 rows. The O2 runner had the cap. The runner now
+  skips and counts items with more than ten options (C086: 1,000 CG v2 items, 0 in the suite, 0 in the MIMIC partition), and the
+  CG v2 run is repeated in the rest chain. No item was edited or dropped silently.
 
 ---
 
