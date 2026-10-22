@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T04:01:00Z`
+Last updated (UTC): `2026-10-22T04:04:00Z`
 Iterations so far: `1`
 
 ---
@@ -56,7 +56,7 @@ left `IN_PROGRESS` at closure.
 | MIMIC templates: train/dev/test items, NB screen, majority rate per template | 13 MIMIC templates and MedNLI built. MIMIC items train 507,374 / dev 6,257 / test 6,253; held-out 110 (test patients only). NB dev: all below 0.90 except mimic_rad_exam_v1 at 0.9000 (shortcut, excluded from the verdict). Cross-split leakage 0 after the state-text rule (lab 106 dev / 92 test, ED 2+6 and 1+3 removed). | `loops/osler_v4/mimic.md` §2; `outputs/osler_v4/Y2/counts*.json`; CLAIMS C031–C049 | Y2 |
 | minimal pairs: pilot keep rate per mode, chosen mode, cue AUC, pairs built | pilot keep rate: off 0.2806 (55 of 196), on 0.1735 (34 of 196); no mode reached 40 %; chosen mode off (deviation, §7). Build (mode off): dev 250 of 1,016 attempts; test 250 of 1,023; train 10,125 of 34,515 (target 40,000 not reached). Pairs: dev 250, test 250, train 10,125 (21,250 rows; malformed 0; impure edits 0; over 30 % 0). Cue AUC dev 0.5645 (gate < 0.75). | `loops/osler_v4/crafted.md`; `outputs/osler_v4/Y3/audit.json`; CLAIMS C025–C030 and C066–C071 | Y3 |
 | fast dev v4 partitions; CG v2 size and sources; MIMIC suite v1 templates and items | | | Y4 |
-| pplx 27B: revision, licence, parity, anchor items scored, overlap check (must be 0) | | | Y5 |
+| pplx 27B: revision, licence, parity, anchor items scored, overlap check (must be 0) | revision cce0f3f80033e9d89d80831d5281fd72124aacce; licence apache-2.0 (C073). Parity (C072): reference_batched argmax 40 of 40 against the single-request reference (max abs diff 0.0353); the batched path is the scoring path; the fast path also 40 of 40 and is not used. Anchor items scored: pending (chain). Overlap check: pending (chain's join). | `outputs/osler_v4/Y5/parity.json`; CLAIMS C072–C073 | Y5 |
 | Stage A: MR, knowledge, CG v2 per run; the chosen recipe | | `loops/osler_v4/stage_a.md` | Y6 |
 | Stage B: kept blocks; own / MR / general / knowledge / CG v2 per block; MIMIC share | | `loops/osler_v4/blocks.md` | Y7 |
 | final: steps, selected step, CG v2 and MIMIC trend | | | Y8 |
@@ -100,7 +100,7 @@ Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in output
 
 ```
 Task in flight: Y5 (CPU part started 2026-10-21T21:33:00Z; GPU part started 2026-10-22T03:58:46Z with the parity step).
-Running job:    Y5 parity PID 783575 (Python; uv wrapper PID 783533; `y5_soft_labels.py parity`, detached); log outputs/osler_v4/Y5/logs/parity.log; it loads the 27B checkpoint onto the GPU (about 54 GB) and scores 40 CG v2 items through three paths (single-request, batched, fast).
+Running job:    Y5 dev diagnostics PID 784313 (Python; uv wrapper PID 784293), started 04:02:55Z by the chain; log outputs/osler_v4/Y5/logs/y5_chain.log (the dev step writes into the chain log). Parity finished 04:02:27Z: path reference_batched (C072). The chain runs `anchor` next.
 Chain:          outputs/osler_v4/Y5/logs/y5_chain.sh, PID 783889 (detached; log outputs/osler_v4/Y5/logs/y5_chain.log). It waits for PID 783575, then runs `dev`, `anchor --max-hours 5`, `join`, `report` in order and stops at the first failure. It prints "CHAIN DONE" when finished. Expect about 6 h from 04:00Z (anchor 5 h).
 Working dir:    outputs/osler_v4/Y5/ (logs, manifests, parity, dev diagnostics, anchor scores); soft labels under data/train/osler_v4/ (private).
 Pinned teacher: perplexity-ai/pplx-decider-v1.2-27b @ cce0f3f80033e9d89d80831d5281fd72124aacce (README and LICENSE: Apache-2.0).
