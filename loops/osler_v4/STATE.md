@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T10:15:00Z`
+Last updated (UTC): `2026-10-22T10:25:00Z`
 Iterations so far: `1`
 
 ---
@@ -341,6 +341,12 @@ deviation — that is a `BLOCKED`.
   and my runner had no cap, so the CG v2 run stopped with IndexError after 7,296 rows. The O2 runner had the cap. The runner now
   skips and counts items with more than ten options (C086: 1,000 CG v2 items, 0 in the suite, 0 in the MIMIC partition), and the
   CG v2 run is repeated in the rest chain. No item was edited or dropped silently.
+- **Y4 (2026-10-22): the readout checks for the baselines.** The authors' decision models (pplx-flash and MedDecider) normalise over the
+  offered options and are trained readouts, so D21 applies: label mass is a diagnostic, not a gate, and it is not read here. The gate
+  for their cells is the constant-answer and below-chance checks of `meddecide.eval.health` (the thresholds are the code's). A cell that
+  fails reads READOUT_FAIL and is not reported as a result (D12). Observed on the complete baselines: MedDecider-4B on MIMIC
+  drg_cc_level answers A on 0.945 of items (READOUT_FAIL); pplx-flash on CG v2 nfcorpus_relevant_noul answers no on 0.908
+  (READOUT_FAIL). `scripts/osler_v4/y4_baselines_report.py` applies the checks.
 
 ---
 
