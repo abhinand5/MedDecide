@@ -60,9 +60,11 @@ def main() -> None:
     parser.add_argument("--name", required=True)
     parser.add_argument("--limit", type=int, default=0, help="score only the first N items (smoke runs)")
     parser.add_argument("--verify", type=int, default=0, help="items checked against the authors' decide() dict")
+    parser.add_argument("--model", default=MODEL, help="the Hub repo (MedDecider-4B by default; MedDecider-9B is an extra row)")
+    parser.add_argument("--revision", default=REVISION, help="the pinned commit of --model")
     args = parser.parse_args()
     started = time.time()
-    local = Path(snapshot_download(MODEL, revision=REVISION))
+    local = Path(snapshot_download(args.model, revision=args.revision))
     sys.path.insert(0, str(local))
     from meddecider_infer import MedDecider  # the authors' module, from the checkpoint
 
@@ -104,7 +106,7 @@ def main() -> None:
                                              "max_abs_diff": max(verify_diffs) if verify_diffs else None,
                                              "note": "vector form vs the authors' decide(orders=2) dict (rounded to 4 dp)"})
     write_json(out_dir / "manifest.json", {
-        "model": MODEL, "revision": REVISION, "items_file": str(args.items), "scored": scored,
+        "model": args.model, "revision": args.revision, "items_file": str(args.items), "scored": scored,
         "counts": dict(sorted(counts.items())), "gpu": gpu_name(), "wall_clock_s": round(time.time() - started, 1),
         "generated_utc": utcnow(),
     })
