@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from meddecide.bench.schema import Item
+from meddecide.eval.readout_gate import gate_by_template
 from meddecide.model.pplx import ATTENTION_TARGETS, load_any
 from meddecide.train.arm_run import run_arm
 from meddecide.train.blocks import EVAL_QUARTERS, keep_statistics, pair_by_item
@@ -33,7 +34,15 @@ from meddecide.train.config import load_config
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.osler_arm import dev_prediction_rows
 from meddecide.train.osler_v3 import DOMAIN_PREFIXES
-from meddecide.train.stage_a_choice import ArmResult, choose
+from meddecide.train.stage_a_choice import (
+    REFERENCE,
+    ArmResult,
+    choose,
+    common_templates,
+    passing_templates,
+    qualifies,
+    restrict_pairs,
+)
 from meddecide.train.trainer import Trainer
 from meddecide.utils.hashing import file_sha256
 from meddecide.utils.io import iter_jsonl, read_json, write_json, write_jsonl
@@ -157,27 +166,52 @@ def _predictions(arm: str, name: str) -> list[dict[str, Any]]:
 
 
 def cmd_choose(args: argparse.Namespace) -> None:
+    """The pre-registered rule with the D12 restriction (STATE §7, Y6): a cell that fails the readout gate is not compared.
+
+    Each run's MR and knowledge lower bounds use the templates that pass for that run and for A0 (the same paired items). The
+    qualifying runs are then ranked on the CG v2 templates that pass for all of them and for A0. When every cell passes, these are
+    the full sets and the rule is exactly as written.
+    """
     arms = [arm for arm in SCORED_ARMS if (OUT / arm / "cg_v2_predictions.jsonl").exists()]
-    if "A0" not in arms:
-        raise SystemExit("A0 has no predictions: score it first")
-    reference = _predictions("A0", "fastdev_v4")
-    results: list[ArmResult] = []
+    if REFERENCE not in arms:
+        raise SystemExit(f"{REFERENCE} has no predictions: score it first")
+    dev = {arm: _predictions(arm, "fastdev_v4") for arm in arms}
+    cg = {arm: _predictions(arm, "cg_v2") for arm in arms}
+    reference_dev = dev[REFERENCE]
+    lowers: dict[str, tuple[float, float]] = {}
     detail: dict[str, Any] = {}
     for arm in arms:
-        cg_rows = _predictions(arm, "cg_v2")
-        cg_accuracy = sum(bool(r["correct"]) for r in cg_rows) / len(cg_rows)
-        if arm == "A0":
-            results.append(ArmResult("A0", None, None, cg_accuracy))
-            detail[arm] = {"cg_v2_accuracy": cg_accuracy, "cg_v2_items": len(cg_rows)}
+        failing = {"fastdev_v4": sorted(t for t, g in gate_by_template(dev[arm]).items() if not g.passes),
+                   "cg_v2": sorted(t for t, g in gate_by_template(cg[arm]).items() if not g.passes)}
+        detail[arm] = {"failing_cells": failing}
+        if arm == REFERENCE:
             continue
-        stats = keep_statistics(pair_by_item(_predictions(arm, "fastdev_v4"), reference))
-        results.append(ArmResult(arm, stats["mr"].lo, stats["knowledge"].lo, cg_accuracy))
-        detail[arm] = {"cg_v2_accuracy": cg_accuracy, "cg_v2_items": len(cg_rows),
-                       "mr_macro_difference": stats["mr"].as_dict(), "knowledge_micro_difference": stats["knowledge"].as_dict()}
+        templates = passing_templates(dev[arm]) & passing_templates(reference_dev)
+        pairs = restrict_pairs(pair_by_item(dev[arm], reference_dev), templates)
+        stats = keep_statistics(pairs)
+        lowers[arm] = (stats["mr"].lo, stats["knowledge"].lo)
+        detail[arm].update({"fastdev_v4_templates_compared": len(templates), "fastdev_v4_items_compared": len(pairs),
+                            "mr_macro_difference": stats["mr"].as_dict(),
+                            "knowledge_micro_difference": stats["knowledge"].as_dict()})
+    qualifying = [REFERENCE] + [arm for arm in lowers if qualifies(*lowers[arm])]
+    cg_common = common_templates([passing_templates(cg[arm]) for arm in qualifying])
+    results: list[ArmResult] = []
+    for arm in arms:
+        rows = [r for r in cg[arm] if str(r["template_id"]) in cg_common]
+        cg_accuracy = sum(bool(r["correct"]) for r in rows) / len(rows)
+        if arm == REFERENCE:
+            results.append(ArmResult(REFERENCE, None, None, cg_accuracy))
+        else:
+            results.append(ArmResult(arm, lowers[arm][0], lowers[arm][1], cg_accuracy))
+        detail.setdefault(arm, {})
+        detail[arm].update({"cg_v2_templates_compared": len(cg_common), "cg_v2_items_compared": len(rows),
+                            "cg_v2_accuracy_on_compared": cg_accuracy})
     decision = choose(results)
-    write_json(OUT / "choice.json", {"decision": decision, "arms": detail, "rule": {
-        "mr_and_knowledge_lower_bound_limit": -0.01, "tie_margin": 0.003, "resamples": 1000, "seed": 0},
-        "generated_utc": utcnow()})
+    write_json(OUT / "choice.json", {"decision": decision, "cg_v2_templates_compared": sorted(cg_common), "arms": detail,
+                                     "rule": {"mr_and_knowledge_lower_bound_limit": -0.01, "tie_margin": 0.003,
+                                              "resamples": 1000, "seed": 0,
+                                              "restriction": "D12: templates that pass the readout gate for every compared run"},
+                                     "generated_utc": utcnow()})
     print(f"chosen: {decision['chosen']} ({decision['reason']})", flush=True)
 
 

@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from meddecide.eval.health import DEFAULT_DEGENERATE_MAJORITY_CEILING, DEFAULT_MAX_MODAL_SHARE
-from meddecide.eval.metrics import bootstrap_ci, template_macro_accuracy
+from meddecide.eval.metrics import template_macro_accuracy
+from meddecide.eval.readout_gate import cell_gate
 from meddecide.utils.io import iter_jsonl, write_json
 
 BASELINES = Path("outputs/osler_v4/Y4/baselines")
@@ -42,30 +43,18 @@ def top_gap(probs: list[float]) -> float:
 
 
 def cell_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """One template's cell: micro accuracy, chance, the two readout checks, and diagnostics that are not gates."""
-    gold = [str(r["gold_key"]) for r in rows]
-    predicted = [str(r["predicted_key"]) for r in rows]
-    correct = [bool(r["correct"]) for r in rows]
-    n = len(rows)
-    chance = sum(1.0 / len(r["probs"]) for r in rows) / n
-    ci = bootstrap_ci([1.0 if c else 0.0 for c in correct])
-    counts = Counter(gold)
-    majority_share = counts.most_common(1)[0][1] / n
-    modal_key, modal_count = Counter(predicted).most_common(1)[0]
-    modal_share = modal_count / n
-    failures = []
-    if modal_share >= DEFAULT_MAX_MODAL_SHARE and majority_share <= DEFAULT_DEGENERATE_MAJORITY_CEILING:
-        failures.append(f"constant answer ({modal_key}) on {modal_share:.3f} of items")
-    if ci[2] < chance:
-        failures.append(f"below chance (CI upper {ci[2]:.4f} < chance {chance:.4f})")
+    """One template's cell: the readout gate of meddecide.eval.readout_gate, and diagnostics that are not gates."""
+    gate = cell_gate([str(r["gold_key"]) for r in rows], [str(r["predicted_key"]) for r in rows],
+                     [bool(r["correct"]) for r in rows], [1.0 / len(r["probs"]) for r in rows])
     # diagnostics only (not gates): a constant answer that is a tie artifact shows a zero median gap and many exact ties
+    n = len(rows)
     gaps = sorted(top_gap(r["probs"]) for r in rows)
     positions = Counter(max(range(len(r["probs"])), key=lambda i: r["probs"][i]) for r in rows)
-    return {"items": n, "micro_accuracy": round(sum(correct) / n, 4), "chance": round(chance, 4),
-            "majority_share": round(majority_share, 4), "modal_share": round(modal_share, 4), "modal_key": modal_key,
-            "median_top_gap": round(gaps[n // 2], 6), "tied_top_share": round(sum(g < 1e-6 for g in gaps) / n, 4),
-            "argmax_position_counts": {str(k): v for k, v in sorted(positions.items())},
-            "status": "PASS" if not failures else "READOUT_FAIL — " + "; ".join(failures)}
+    return {"items": n, "micro_accuracy": round(gate.accuracy, 4), "chance": round(gate.chance, 4),
+            "majority_share": round(gate.majority_share, 4), "modal_share": round(gate.modal_share, 4),
+            "modal_key": gate.modal_key, "median_top_gap": round(gaps[n // 2], 6),
+            "tied_top_share": round(sum(g < 1e-6 for g in gaps) / n, 4),
+            "argmax_position_counts": {str(k): v for k, v in sorted(positions.items())}, "status": gate.status}
 
 
 def set_report(rows: list[dict[str, Any]], cells: dict[str, dict[str, Any]], missing: list[str]) -> dict[str, Any]:

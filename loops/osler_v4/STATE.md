@@ -81,19 +81,22 @@ completed checklist goes into the iteration-log entry.
 
 ```
 Task:           Y6 — Stage A: A4, A5, re-scored A0/A1/A3, and the choice. IN_PROGRESS since 2026-10-22T12:11:12Z. Writes loops/osler_v4/stage_a.md before Stage B.
-Working dir:    outputs/osler_v4/Y6/ (A0, A1, A3, A4, A5 with checkpoints and predictions; replays/; logs/; a5_mix_manifest.json; choice.json at the choice step). Private: data/train/osler_v4/y6_a5_mix.jsonl (gitignored).
-GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`: A0, A1, A3 scored; then A4 trained and scored; then it waits for the CPU marker, trains and scores A5. Nothing else runs on the GPU.
-CPU prep:       PID 873098, `outputs/osler_v4/Y6/logs/y6_cpu_prep.sh`, log `outputs/osler_v4/Y6/logs/y6_cpu_prep.log`: the A5 mix (`scripts/osler_v4/y6_a5_mix.py`), then the A5 replay (`scripts/osler_v4/y6_a5_replay.py`, written under outputs/osler_v4/Y6/replays, not under osler_v3's outputs); marker `outputs/osler_v4/Y6/logs/a5_cpu_prep.done`.
-Y4 closed 2026-10-22T12:1xZ (its §4 entry; the closure commit).
+Working dir:    outputs/osler_v4/Y6/ (A0, A1, A3, A4, A5 with checkpoints and predictions; replays/; logs/; a5_mix_manifest.json; readout_gate.json per arm; choice.json at the choice step). Private: data/train/osler_v4/y6_a5_mix.jsonl (gitignored).
+GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`. A0 scored 12:32:21Z; A1 scoring since about 12:32Z (PID 875418); then A3 scored; then A4 trained and scored; then A5 trained and scored (the CPU marker is already there). Nothing else runs on the GPU.
+CPU prep:       PID 873098 finished 2026-10-22T12:16:12Z (`outputs/osler_v4/Y6/logs/a5_cpu_prep.done`): the A5 mix and its replay (C108).
+Progress 2026-10-22T12:37Z: A0 re-scored: fast dev v4 accuracy 0.7675, CG v2 0.7879; its decisions reproduce osler_v3's A0 (C106); no failing readout cell on fast dev v4 or CG v2 (C107). The D12 restriction for the choice is recorded in §7 (before any choice).
 
-- [ ] A0, A1, A3 re-scored from osler_v3's checkpoints (score on fast dev v4 and CG v2; A2 is not re-scored)
-- [ ] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, hash matches block_A3, checked) and scored
-- [ ] A5 mix (statuses in outputs/osler_v4/Y6/a5_mix_manifest.json; rows add up) and the A5 replay (13,992 steps), CPU
-- [ ] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored
-- [ ] choice: implement the D12 gating (CG v2 templates that pass for every qualifying arm; the same gate on MR and knowledge where arms are compared) and record it as a deviation in §7 BEFORE `y6_stage_a.py choose`; write outputs/osler_v4/Y6/choice.json
-- [ ] loops/osler_v4/stage_a.md (per run: MR, knowledge, CG v2 with paired intervals; the choice and its reason; the gating); CLAIMS rows for every number
-- [ ] SELF_AUDIT for Y6 (fresh process: the choice's inputs re-derived; probabilities; the scoring parity of each new run)
-- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; commit and push
+- [x] A0 re-scored (score on fast dev v4 and CG v2); reproduction of osler_v3's A0 (C106); readout gate: 0 failing cells (C107)
+- [ ] A1 and A3 re-scored (A1 running); their readout gates: `scripts/osler_v4/y6_readout_gate.py --arm A1` and `--arm A3`
+- [ ] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, the hash matches block_A3) and scored; its readout gate
+- [x] A5 mix (manifest: rows add up) and the A5 replay (same batches as A3's replay) (C108)
+- [ ] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored; its readout gate
+- [x] restriction for the choice recorded in §7 before any choice (the gate on every compared arm; templates that pass for both arms in each comparison)
+- [x] choice machinery: `cmd_choose` applies the restriction (a template's pairs count only when it passes for both the arm and A0; the CG v2 ranking uses the templates that pass for every qualifying arm and A0; the failing cells are written to choice.json); the library functions and their tests (readout_gate 6, stage_a_restriction 4; C109)
+- [ ] run `y6_stage_a.py choose` when A5 is scored (the gate table per arm: `y6_readout_gate.py --arm <A>`); choice.json
+- [ ] loops/osler_v4/stage_a.md (per run: MR, knowledge, CG v2 with paired intervals; the choice and its reason; the gate per arm); CLAIMS rows for every number
+- [ ] SELF_AUDIT for Y6 (fresh process: the choice's inputs re-derived; probabilities; the scoring of each new run)
+- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; commit and push (the Y6 scripts: y6_a5_replay.py, y6_readout_gate.py, y6_reproduce_a0.py, readout_gate.py and its tests)
 ```
 
 ---
@@ -342,6 +345,7 @@ deviation — that is a `BLOCKED`.
 - **Y4 (2026-10-22): the readout diagnostics are not gates.** Each cell of the report also carries the median top-1 minus top-2 gap, the share of exact ties and the argmax position counts (CLAIMS C093). They explain a constant answer; they do not change any cell's status.
 - **Y4 (2026-10-22): the macro in the baselines report was not the project's macro (corrected).** The report's first versions gave each set a macro accuracy computed as a per-class recall over gold keys pooled across templates, and their set-level readout checks pooled the same keys. The project's macro accuracy (G1, D24; `meddecide.eval.metrics.template_macro_accuracy`) is the unweighted mean of the per-template accuracies. The report now gives that template macro for each set, drops the per-class column, and applies the readout checks per template only (D12). Claims C087, C089, C090, C091, C098 and C100 carried the pooled figure; their values and recompute commands were corrected in place (IDs unchanged). No gate or choice used the macro: the gates use micro accuracy and the per-cell checks.
 - **Y4 (2026-10-22): the trainer's option keys beyond 26 options.** osler_v2's rows key options by position: A to Z for positions 0 to 25, then two-letter base-26 keys (BA for position 26), which the 49-option DDXPlus items need. `scripts/osler_v4/y4_rederive.py` checks every scored row's key against its position (`position_key`); the keys are names only, and the macro, majority and modal figures agree under the item's own keys (CLAIMS C096, C102).
+- **Y6 (2026-10-22): the readout gate in the Stage A choice (recorded before any arm is ranked).** ADVISORY Y6's rule is applied as written, with two restrictions that follow from D12 and D21: a readout cell that fails the gate (a constant answer or below chance; `meddecide.eval.readout_gate`, whose thresholds are those of `meddecide.eval.health`) is not a result. (a) An arm's MR and knowledge lower bounds are computed on the templates that pass for both that arm and A0, on the same paired items. (b) The CG v2 accuracies used for the ranking are computed on the CG v2 templates that pass for every qualifying arm and for A0, the same items for each arm. If no cell fails for any compared arm, both restrictions are the full sets and the rule applies exactly as written. The gate was checked on A0 before any other arm was ranked: no failing cell on fast dev v4 (60 templates) or CG v2 (13 templates; CLAIMS C107), and A0's re-score reproduces osler_v3's decisions (C106). The zero-shot CG v2 offset cancels in the ranking (STATE §6, question 7).
 
 ---
 
