@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T00:13:30Z`
+Last updated (UTC): `2026-10-22T02:13:30Z`
 Iterations so far: `1`
 
 ---
@@ -84,13 +84,14 @@ Task in flight: Y3 (started 2026-10-21T19:25:21Z). Y1 closed 19:41:36Z (its chec
 Working dir:    outputs/osler_v4/Y3/ (pilot_off, pilot_on, build_off); private pairs under data/mimic_build/pairs/ (gitignored)
 Server:         RUNNING (vLLM PID 509604, launched 19:44:18Z, ready 19:51:04Z), under build_chain.sh PID 509602. The chain sends SIGINT to the server when the build exits, which is about 03:51Z (8 h deadline).
 Running job:    build PID 511361 (`y3_pairs.py build --mode off --hours 8`, started about 19:51Z); log outputs/osler_v4/Y3/logs/build_chain.log; waiter bg6uhczna (returns when PID 509602 exits; the GPU is free then).
-Progress 2026-10-22T00:13Z: dev 250 pairs and test 250 pairs complete; train about 5,148 pairs (10,296 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); 19,635 attempts; GPU 94.8 GB at 99 %. Earlier: 2026-10-21T22:13Z, train 2,481 pairs.
+Progress 2026-10-22T02:13Z: dev 250 pairs and test 250 pairs complete; train about 7,839 pairs (15,678 rows in data/mimic_build/pairs/build_off/rows_train.jsonl); 28,914 attempts; GPU 94.8 GB at 100 %. Earlier: 2026-10-22T00:13Z, train about 5,148 pairs; 2026-10-21T22:13Z, 2,481 pairs.
+Next on exit: the chain prints "BUILD FINISHED" and "BUILD CHAIN DONE" in outputs/osler_v4/Y3/logs/build_chain.log and stops the server (SIGINT to PID 509604). Then, in order: Y3 cue check (`y3_pairs.py cue --build build_off`, gate AUC < 0.75 on dev), `y3_pairs.py report --mode off`, SELF_AUDIT.md, CLAIMS rows, full pytest with the card free (the four CUDA-gated tests), Y3 DONE. Then the GPU order of ADVISORY §5: Y5 (`y5_soft_labels.py parity`, `dev`, `anchor --max-hours 5`, `join`, `report`), then Y4 (`y4_zeroshot.py` on mimic_dev_all, `y4_ceiling.py`, `y4_mimic_suite.py` freeze, baselines `y4_pplx_flash.py` and `y4_meddecider.py`), then Y6.
 
 - [x] helper module (meddecide.mr.mimic_pairs) and 19 unit tests with a fake teacher
 - [x] driver scripts/osler_v4/y3_pairs.py (pilot, build, cue, pilot-report, report); the six-attempt smoke test was deleted
 - [x] pilot off (200 train attempts, 152 s) and pilot on (200 attempts, 687 s); pilot-report: no mode reaches a 40 % keep rate
 - [x] mode decision: off (deviation, §7); loops/osler_v4/crafted.md pilot section written
-- [ ] full-suite acceptance for the Y1 and Y3 code (ruff and pytest with the GPU free): running from 19:41Z
+- [ ] full-suite acceptance for the Y1 and Y3 code with the GPU free (after the build): the interim CPU runs are CLAIMS C063 and C064 (952 passed, 4 CUDA-gated skips)
 - [~] restart Nemotron (serve_nemotron.sh, detached); `build --mode off --hours 8` (dev 250, test 250, train up to 40,000 kept): running; dev and test complete, train in progress (see Progress above)
 - [ ] cue check on the build (AUC < 0.75 on dev, ADVISORY Y3 §6); crafted.md build and cue sections (report --mode off)
 - [ ] SELF_AUDIT.md (outputs/osler_v4/Y3); CLAIMS rows C024 onward
