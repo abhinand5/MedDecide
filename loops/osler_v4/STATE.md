@@ -81,17 +81,17 @@ completed checklist goes into the iteration-log entry.
 
 ```
 Task:           Y7 — Stage B: blocks B1–B4 under keep rule v2 (GPU, about five hours per block). IN_PROGRESS since 2026-10-23T00:35Z. Writes loops/osler_v4/blocks.md.
-Chosen recipe:  A0 (STATE §7 and loops/osler_v4/stage_a.md): the control, KL 0, osler_v3's C1 mix, 13,992 steps. B0 = A0 (no new run; checkpoint outputs/osler_v3/stage_a/A0/checkpoints/best).
-Working dir:    outputs/osler_v4/Y7/ (blocks B1 to B4 with checkpoints and predictions; logs/; the keep decisions in JSON). Private data: data/train/osler_v4/ (block mixes; gitignored).
-GPU chain:      none running (the Y6 chain PID 873094 ended 2026-10-23T00:25:10Z; the GPU is free).
-Progress 2026-10-23T00:35Z: Y6 DONE (the choice A0; C118, C120, C121, C122). Y7 starts: the block runner, the mixes, then B1.
+Chosen recipe:  A0 (STATE §7 and loops/osler_v4/stage_a.md): the control, KL 0, osler_v2's C1 mix, 13,992 steps. B0 = A0 (no new run; scored in outputs/osler_v4/Y6/A0/).
+Working dir:    outputs/osler_v4/Y7/ (block_<name>.json, replays/, <arm>/ with checkpoints and predictions, keep_<arm>.json, logs/). Private data: data/train/osler_v4/block_<name>.jsonl (gitignored).
+GPU job:        B1 training, PID 1025358 (driver PID 1025361), started 2026-10-23T00:41:35Z, log outputs/osler_v4/Y7/logs/B1_train.log (about five hours; loading the 7.8 GB file first). Nothing else runs on the GPU.
+Progress 2026-10-23T00:44Z: the B1 mix is built (C123: 1,353,552 rows; replay 0.2000, MIMIC 0.3157, largest template 0.0456; all caps hold) and its replay is written (13,992 steps; 51,619 items realised). Keep rule v2 is in src/meddecide/train/keep_v2.py (margins as D47; 4 tests).
 
-- [ ] read the block machinery: scripts/osler_v3/x7_block_run.py (the stage-B driver), src/meddecide/train/blocks.py (keep_statistics, keep_verdict, KEEP_MARGINS), the caps and mix builders (mix_items, mix.rows); confirm the keep margins against ADVISORY Y7 (own > +0.02; MR > −0.015; general > −0.01; knowledge > −0.02; CG v2 > −0.01)
-- [ ] B1 mix (CPU): the Y2 MIMIC structured-gold templates added to B0's mix; the caps (no template above 8 % of a block; replay at least 20 %; MIMIC templates as a whole at most 35 %); the manifest with counts and drop reasons
-- [ ] B1 train (GPU, 13,992 steps, the A0 recipe) and its validation; B1 keep decision against B0 (rule v2; the new templates removed from MR, general and knowledge)
-- [ ] B2 mix (Y3 mimic_doc_support_v1 pairs; added to the last kept block), train, keep decision
-- [ ] B3 mix (Y2b late sources: ED, MedNLI; MIMIC-III page category NOT MEASURED, MIMIC-III still absent), train, keep decision; or NOT MEASURED if the sources are not ready
-- [ ] B4 mix (osler_v3's X1 real sources, RAGTruth and DrugProt, re-judged under rule v2), train, keep decision
+- [x] the keep rule v2 margins as a library function (src/meddecide/train/keep_v2.py; tests/test_keep_v2_v4.py), leaving blocks.KEEP_MARGINS (rule v1) untouched
+- [x] B1 mix (CPU): scripts/osler_v4/y7_build_block.py (the osler_v3 X8 rule with the MIMIC cap 35 %); the eleven non-ED MIMIC train files; C123
+- [x] B1 replay (CPU): scripts/osler_v4/y7_replay.py (outputs under outputs/osler_v4/Y7/replays)
+- [ ] B1 train (GPU, PID 1025358; log outputs/osler_v4/Y7/logs/B1_train.log) and its validation (steps as planned, evaluation steps, logged steps, realised items 51,619)
+- [ ] B1 score on fast dev v4 and CG v2 (y7_block.py score --arm B1), its readout gate (y6_readout_gate.py-style check per arm), then the keep decision: scripts/osler_v4/y7_keep.py --arm B1 --base-dir outputs/osler_v4/Y6/A0 (outputs/osler_v4/Y7/keep_B1.json); claims
+- [ ] B2 (Y3 mimic_doc_support_v1 pairs; added to the last kept block), B3 (the ED templates and MedNLI; MIMIC-III NOT MEASURED), B4 (osler_v3's X1 real sources): each mix, train, score, keep decision
 - [ ] loops/osler_v4/blocks.md (every check's point and interval per block; the MIMIC partition, labelled, for every block; the realised MIMIC share per block)
 - [ ] SELF_AUDIT for Y7; claims for every number; Y7 closure: §1 DONE or BLOCKED; §4 entry; commit and push
 ```
