@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-22T16:05Z`
+Last updated (UTC): `2026-10-23T00:36Z`
 Iterations so far: `1`
 
 ---
@@ -29,8 +29,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | DONE (dev 250 and test 250 pairs; train 10,125 pairs of a 40,000 target: the 8 GPU-hour limit ended the build; cue AUC dev 0.5645, gate < 0.75 passes) | 2026-10-21T19:25:21Z | 2026-10-22T03:58Z |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | DONE (14 baseline runs complete and audited in a fresh process, C104; pplx-flash 0.624 on the frozen suite with every cell passing; MedDecider-4B has no set-level result under D12, STATE §6 question 6; full pytest with the GPU visible, C105) | 2026-10-21T21:26:55Z | 2026-10-22T12:12Z |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | DONE (parity 40 of 40 against the single-request reference; dev diagnostics recorded; 112,128 anchor soft labels scored in the 5 h budget; overlap with benchmark rows 0) | 2026-10-21T21:33:00Z | 2026-10-22T09:20Z |
-| Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | IN_PROGRESS (GPU chain PID 873094 and CPU prep PID 873098 started; the choice waits for the D12 gating deviation, STATE §6 question 7) | 2026-10-22T12:11:12Z | |
-| Y7 | Stage B: blocks B1–B4 under keep rule v2 | yes | Y6 | PENDING | | |
+| Y6 | Stage A: A4, A5 + re-scored A0/A1/A3 + choice | yes | Y4, Y5 | DONE (the pre-registered choice is A0, the control; C118, C120; A4 qualifies by 0.0001 and trails A0 on CG v2; no readout cell fails for any arm; full pytest with the GPU visible, C122; loops/osler_v4/stage_a.md) | 2026-10-22T12:11:12Z | 2026-10-23T00:35Z |
+| Y7 | Stage B: blocks B1–B4 under keep rule v2 | yes | Y6 | IN_PROGRESS (B0 = A0, no new run; B1 next) | 2026-10-23T00:35Z | |
 | Y8 | Final Osler-4B (63,304 steps) | yes | Y7 | PENDING | | |
 | Y9 | Evaluation, Gate O4, size-class scoreboard | yes | Y8 | PENDING | | |
 | Y10 | Memorisation and PHI audit | small | Y8 | PENDING | | |
@@ -80,24 +80,20 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task:           Y6 — Stage A: A4, A5, re-scored A0/A1/A3, and the choice. IN_PROGRESS since 2026-10-22T12:11:12Z. Writes loops/osler_v4/stage_a.md before Stage B.
-Working dir:    outputs/osler_v4/Y6/ (A0, A1, A3, A4, A5 with checkpoints and predictions; replays/; logs/; a5_mix_manifest.json; readout_gate.json per arm; choice.json at the choice step). Private: data/train/osler_v4/y6_a5_mix.jsonl (gitignored).
-GPU chain:      PID 873094, `outputs/osler_v4/Y6/logs/y6_chain.sh`, log `outputs/osler_v4/Y6/logs/y6_chain.log`. A0, A1 and A3 scored (12:32:21Z, 12:53:48Z, 13:15:11Z). A4 training since 13:15Z (PID 920836, about 75 GB on the GPU; about five hours); then A4 scoring; then A5 training (the CPU prep is done) and A5 scoring. Nothing else runs on the GPU.
-CPU prep:       PID 873098 finished 2026-10-22T12:16:12Z (`outputs/osler_v4/Y6/logs/a5_cpu_prep.done`): the A5 mix and its replay (C108).
-Progress 2026-10-23T00:05Z: A5 trained (00:03:49Z; the step-13,992 checkpoint; its validation passed; C116: full fast dev v4 accuracy 0.7743 (13,575 correct), template macro 0.8067; in-training 0.7737). A5 scoring since 00:03:50Z (PID 979807, under the chain PID 873094; log outputs/osler_v4/Y6/logs/y6_chain.log). Then: A5 readout gate and C117, the batch-dependence check on the GPU, the restricted choice, stage_a.md, SELF_AUDIT and the Y6 closure. Earlier, 21:52Z: A5 training at step 9,350 of 13,992 (last logged 21:51Z). Running: the chain PID 873094 (log outputs/osler_v4/Y6/logs/y6_chain.log) and A5 training PID 953675 (about 96 GB on the GPU, 100 %). Evaluations: step 3,498 accuracy 0.7405 (template macro 0.7679); step 6,996 accuracy 0.7556 (template macro 0.7858), against A4 0.7401 and 0.7684 at the same steps; no non-finite values; gradient norms as A4. Expected: training and its post-training full-dev passes about 23:30Z, then A5 scoring (about 20 minutes), then the readout gate and claims for A5, the batch-dependence check on the GPU, and the restricted choice. Earlier, 19:15Z: A4 trained (18:52:13Z; the step-13,992 checkpoint, its validation passed; C114) and scored (19:13:40Z; fast dev v4 0.7805, CG v2 0.7836; C115: no failing cell). A5 training since 19:13Z (PID 953678, about five hours), then A5 scoring. Earlier, 16:05Z: A4 training at step 7,250 or more of 13,992 (last logged 15:50:49Z; evaluations on fast dev v4: step 3,498 accuracy 0.7401; step 6,996 accuracy 0.7684, template macro 0.7955; two evaluations left; ETA about 18:10Z). The operator answered §6 questions 6 and 7 (recorded in §6 and §7). Earlier, 13:20Z: A1 and A3 re-scored and checked: no failing readout cell on fast dev v4 or CG v2 (C111, C113); the re-scores reproduce osler_v3's decisions except a few items (C110, C112): two near-tie decision changes and two wrong, confident noul items with probability changes (A1); three CG items change correctness, one of them a confident change of 0.162 in probability (A3). The batch check (`scripts/osler_v4/y6_batch_check.py`) needs the GPU: the model's forward pass calls a CUDA-only kernel, so the CPU attempt failed (`outputs/osler_v4/Y6/logs/batch_check_A3.log`); it runs after the chain. The D12 restriction for the choice is recorded in §7 (before any ranking).
+Task:           Y7 — Stage B: blocks B1–B4 under keep rule v2 (GPU, about five hours per block). IN_PROGRESS since 2026-10-23T00:35Z. Writes loops/osler_v4/blocks.md.
+Chosen recipe:  A0 (STATE §7 and loops/osler_v4/stage_a.md): the control, KL 0, osler_v3's C1 mix, 13,992 steps. B0 = A0 (no new run; checkpoint outputs/osler_v3/stage_a/A0/checkpoints/best).
+Working dir:    outputs/osler_v4/Y7/ (blocks B1 to B4 with checkpoints and predictions; logs/; the keep decisions in JSON). Private data: data/train/osler_v4/ (block mixes; gitignored).
+GPU chain:      none running (the Y6 chain PID 873094 ended 2026-10-23T00:25:10Z; the GPU is free).
+Progress 2026-10-23T00:35Z: Y6 DONE (the choice A0; C118, C120, C121, C122). Y7 starts: the block runner, the mixes, then B1.
 
-- [x] A0 re-scored; reproduction of osler_v3's A0 (C106); readout gate: 0 failing cells (C107)
-- [x] A1 re-scored; reproduction (C110); readout gate (C111)
-- [x] A3 re-scored; reproduction (C112); readout gate (C113)
-- [x] A4 trained (KL 0.1; A3's broad replay outputs/osler_v3/replays/A3_pplx.json, hash matched block_A3) and scored; check block_result.json (steps as planned, evaluation steps as planned, log mismatches 0); its readout gate
-- [x] A5 mix (manifest: rows add up) and the A5 replay (same batches as A3's replay) (C108)
-- [x] A5 trained (distill_weight 0.5; KL 0; the Y5 distributions on anchor items) and scored; the same checks; its readout gate
-- [x] restriction for the choice recorded in §7 before any ranking
-- [x] choice machinery: `cmd_choose` applies the restriction (C109; tests: readout_gate 6, stage_a_restriction 4)
-- [ ] the batch-dependence check on the GPU after the chain: `y6_batch_check.py` (the A3 items whose decisions changed; alone against batched, float32 and bfloat16); a claim for its result
-- [ ] `y6_stage_a.py choose` with the restriction when A5 is scored → outputs/osler_v4/Y6/choice.json; then loops/osler_v4/stage_a.md (per run: MR, knowledge and CG v2 with paired intervals; the choice and its reason; the gate per arm); CLAIMS rows for every number
-- [ ] SELF_AUDIT for Y6 (fresh process: the choice's inputs re-derived; probabilities; the scoring of each new run)
-- [ ] Y6 closure: §1 DONE or BLOCKED; §4 entry; §3 cleared; the GPU-visible pytest and ruff; commit and push
+- [ ] read the block machinery: scripts/osler_v3/x7_block_run.py (the stage-B driver), src/meddecide/train/blocks.py (keep_statistics, keep_verdict, KEEP_MARGINS), the caps and mix builders (mix_items, mix.rows); confirm the keep margins against ADVISORY Y7 (own > +0.02; MR > −0.015; general > −0.01; knowledge > −0.02; CG v2 > −0.01)
+- [ ] B1 mix (CPU): the Y2 MIMIC structured-gold templates added to B0's mix; the caps (no template above 8 % of a block; replay at least 20 %; MIMIC templates as a whole at most 35 %); the manifest with counts and drop reasons
+- [ ] B1 train (GPU, 13,992 steps, the A0 recipe) and its validation; B1 keep decision against B0 (rule v2; the new templates removed from MR, general and knowledge)
+- [ ] B2 mix (Y3 mimic_doc_support_v1 pairs; added to the last kept block), train, keep decision
+- [ ] B3 mix (Y2b late sources: ED, MedNLI; MIMIC-III page category NOT MEASURED, MIMIC-III still absent), train, keep decision; or NOT MEASURED if the sources are not ready
+- [ ] B4 mix (osler_v3's X1 real sources, RAGTruth and DrugProt, re-judged under rule v2), train, keep decision
+- [ ] loops/osler_v4/blocks.md (every check's point and interval per block; the MIMIC partition, labelled, for every block; the realised MIMIC share per block)
+- [ ] SELF_AUDIT for Y7; claims for every number; Y7 closure: §1 DONE or BLOCKED; §4 entry; commit and push
 ```
 
 ---
@@ -190,6 +186,14 @@ Progress 2026-10-23T00:05Z: A5 trained (00:03:49Z; the step-13,992 checkpoint; i
 - Surprises: (1) my first report's macro and set-level status were wrong; corrected before any gate used them (STATE §7; six claim rows corrected in place). (2) The trainer's keys for options beyond 26 are base-26 (BA for 26); the audit checks every row (STATE §7). (3) ed_acuity is below the majority rate for every baseline; the suite has no level-5 gold while the models answer 5 on 22–96 items (C094). (4) rad_exam (Naive Bayes at the 0.90 limit) scores 0.94–0.97 on the partition for every model (C098–C100, C103): flagged for the Y7 decision.
 - Checklist (completed): CPU preparation (fast dev v4, CG v2, the MIMIC partition, the zero-shot ceiling screen, the APR check, the suite freeze); the baselines (C087–C103); the report and the fresh-process audit (C104); parity (C092, C103); pytest (C105); SELF_AUDIT; STATE.
 - Next: Y6 (Stage A) on the GPU, started 2026-10-22T12:11:12Z: A0, A1 and A3 re-scored, then A4 and A5 trained. The choice needs the D12 gating recorded as a deviation first (STATE §6, question 7).
+
+### Y6 — DONE — 2026-10-23T00:35Z
+- What ran: `scripts/osler_v4/y6_stage_a.py` (score A0, A1, A3, A4, A5; train A4 and A5; choose) in `outputs/osler_v4/Y6/logs/y6_chain.sh` (PID 873094; one GPU job at a time; ended 00:25:10Z), with `y6_cpu_prep.sh` (the A5 mix and replay, CPU); `y6_readout_gate.py` (the gate per arm); `y6_reproduce_a0.py` (osler_v3's decisions, A0, A1, A3); `y6_batch_check.py` (the GPU batch-dependence check, after the chain); `y6_rederive.py` (fresh process: choice inputs and probability checks); `meddecide.eval.readout_gate` (6 tests) and `meddecide.train.stage_a_choice` (the restriction, 4 tests); the full pytest with the GPU visible (C122).
+- Output: `outputs/osler_v4/Y6/` (A0 to A5 directories, choice.json, batch_check_A3.json, a5_mix_manifest.json, replays/, SELF_AUDIT.md; gitignored); `loops/osler_v4/stage_a.md` (committed).
+- Headline: the pre-registered choice is A0, the control (C118). A4 (KL 0.1) qualifies with a 0.0001 margin on its MR lower bound and trails A0 on CG v2 by 0.0043; A1, A3 and A5 fail a lower bound. On fast dev v4 the arms score A0 0.7675, A4 0.7805, A5 0.7743; on CG v2 A0 0.7879, A4 0.7836, A5 0.7791 (C106, C115, C117). The distillation arm A5 is below A4 on both partitions and on CG v2. No readout cell fails for any arm (C107, C111, C113, C115, C117).
+- Surprises: (1) bfloat16 scores depend on batch composition: one probability moves by 0.22 and a decision changes; float32 moves by at most 0.001 on the same items (C119). The loop's scores are bfloat16; Y8 and Y9 must decide the precision. (2) The in-training and full-dev accuracies of the same checkpoint differ by two items (A4) and ten (A5); the cause is not checked (C114, C116). (3) A3's re-score differs from osler_v3's record on three CG items, consistent with the batch effect (C112, C119). (4) The CPU attempt at the batch check failed (a CUDA-only kernel); it ran on the GPU.
+- Checklist (completed): the osler_v3 re-scores (C106, C110, C112) and their gates (C107, C111, C113); the A4 and A5 trainings (C114, C116) and scores (C115, C117); the A5 mix and replay (C108); the choice (C118) and its fresh-process audit (C120); the probability checks (C121); the batch check (C119); stage_a.md; SELF_AUDIT; the closure pytest (C122).
+- Next: Y7 (Stage B) on the chosen recipe A0: B0 is A0 (no new run); B1 (the Y2 MIMIC templates), B2 (the Y3 pairs), B3 (the Y2b late sources; NOT MEASURED for MIMIC-III) and B4 (osler_v3's X1 real sources), each judged under keep rule v2.
 
 ---
 
