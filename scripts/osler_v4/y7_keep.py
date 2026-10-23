@@ -15,12 +15,17 @@ Writes outputs/osler_v4/Y7/keep_<arm>.json. Usage (CPU; after the arm is scored)
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
 from meddecide.eval.readout_gate import gate_by_template
-from meddecide.train.blocks import KNOWLEDGE_SOURCES, MR_SOURCES, macro_difference, micro_difference, pair_by_item
+from meddecide.train.blocks import (
+    KNOWLEDGE_SOURCES,
+    MR_SOURCES,
+    macro_difference,
+    micro_difference,
+    pair_by_item,
+)
 from meddecide.train.keep_v2 import keep_v2_verdict
 from meddecide.utils.io import iter_jsonl, read_json, write_json
 from meddecide.utils.provenance import utcnow
@@ -39,6 +44,21 @@ def failing(rows: list[dict[str, Any]]) -> list[str]:
 
 def summary(difference: Any) -> dict[str, float]:
     return {"point": round(difference.point, 6), "lower": round(difference.lo, 6), "upper": round(difference.hi, 6)}
+
+
+SHORTCUT_LIMIT = 0.90  # D35 and ADVISORY Y2: a Naive Bayes dev screen at or above this is a shortcut
+SCREEN_FILES = (REPO / "outputs" / "osler_v4" / "Y2" / "counts.json", REPO / "outputs" / "osler_v4" / "Y2" / "counts_lab_med.json")
+
+
+def shortcut_templates() -> set[str]:
+    """The templates whose Naive Bayes dev screen (the Y2 counts) is at or above the shortcut limit (STATE §7, Y7)."""
+    out: set[str] = set()
+    for path in SCREEN_FILES:
+        for template, value in read_json(path)["templates"].items():
+            screen = value.get("screens", {}).get("nb_macro_accuracy_dev")
+            if screen is not None and float(screen) >= SHORTCUT_LIMIT:
+                out.add(template)
+    return out
 
 
 def main() -> None:
@@ -61,13 +81,18 @@ def main() -> None:
     cg_pass = passing(cand_cg) & passing(base_cg)
     dev_pairs = pair_by_item(cand_dev, base_dev)
     cg_pairs = pair_by_item(cand_cg, base_cg)
-    own_pairs = [(x, c) for x, c in dev_pairs if str(x["template_id"]) in new_templates and str(x["template_id"]) in cand_pass]
+    shortcuts = shortcut_templates()
+    own_candidates = {t for t in new_templates if t not in shortcuts}
+    own_pairs = [(x, c) for x, c in dev_pairs if str(x["template_id"]) in own_candidates and str(x["template_id"]) in cand_pass]
+    own_with_shortcuts_pairs = [(x, c) for x, c in dev_pairs if str(x["template_id"]) in new_templates
+                                and str(x["template_id"]) in cand_pass]
     rest = [(x, c) for x, c in dev_pairs if str(x["template_id"]) not in new_templates and str(x["template_id"]) in cand_pass]
     mr_pairs = [(x, c) for x, c in rest if str(x["source"]) in MR_SOURCES]
     general_pairs = [(x, c) for x, c in rest if str(x["source"]) not in MR_SOURCES]
     knowledge_pairs = [(x, c) for x, c in general_pairs if str(x["source"]) in KNOWLEDGE_SOURCES]
     cg_pairs_pass = [(x, c) for x, c in cg_pairs if str(x["template_id"]) in cg_pass]
     own = macro_difference(own_pairs)
+    own_with_shortcuts = macro_difference(own_with_shortcuts_pairs)
     mr = macro_difference(mr_pairs)
     general = macro_difference(general_pairs)
     knowledge = micro_difference(knowledge_pairs)
@@ -75,11 +100,12 @@ def main() -> None:
     verdict = keep_v2_verdict({"own": own.lo, "mr": mr.lo, "general": general.lo, "knowledge": knowledge.lo, "cg_v2": cg.lo})
     result: dict[str, Any] = {
         "block": args.arm, "generated_utc": utcnow(), "base_dir": str(args.base_dir), "candidate_dir": str(cand_dir),
-        "new_templates": sorted(new_templates),
+        "new_templates": sorted(new_templates), "shortcut_templates_excluded_from_own": sorted(new_templates & shortcuts),
         "statistics": {"own": summary(own), "mr": summary(mr), "general": summary(general), "knowledge": summary(knowledge),
                        "cg_v2": summary(cg)},
-        "items": {"own": len(own_pairs), "mr": len(mr_pairs), "general": len(general_pairs), "knowledge": len(knowledge_pairs),
-                  "cg_v2": len(cg_pairs_pass)},
+        "additional_not_in_verdict": {"own_with_shortcut_templates": summary(own_with_shortcuts)},
+        "items": {"own": len(own_pairs), "own_with_shortcut_templates": len(own_with_shortcuts_pairs), "mr": len(mr_pairs),
+                  "general": len(general_pairs), "knowledge": len(knowledge_pairs), "cg_v2": len(cg_pairs_pass)},
         "failing_cells": {"candidate_fastdev_v4": failing(cand_dev), "base_fastdev_v4": failing(base_dev),
                           "candidate_cg_v2": failing(cand_cg), "base_cg_v2": failing(base_cg)},
         "excluded_new_templates": sorted(new_templates - cand_pass), "verdict": verdict,
