@@ -25,7 +25,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | Y0 | Orientation, Nemotron serving, MIMIC guard | small | — | DONE | 2026-10-21T18:26:40Z | 2026-10-21T18:53:35Z |
 | Y1 | MIMIC foundation (tables, sections, splits) | no | Y0 | DONE | 2026-10-21T18:54:18Z | 2026-10-21T19:44:00Z |
-| Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: MIMIC-III absent) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
+| Y2 | MIMIC structured-gold templates (+ Y2b late sources when present) | no | Y1 | DONE (mimic_page_category_v1 NOT MEASURED: present but not built before B2's decision (missed re-check)) | 2026-10-21T19:44:00Z | 2026-10-21T20:40:16Z |
 | Y3 | Nemotron-crafted minimal pairs (`mimic_doc_support_v1`) | yes | Y0, Y1 | DONE (dev 250 and test 250 pairs; train 10,125 pairs of a 40,000 target: the 8 GPU-hour limit ended the build; cue AUC dev 0.5645, gate < 0.75 passes) | 2026-10-21T19:25:21Z | 2026-10-22T03:58Z |
 | Y4 | Fast dev v4, CG v2, MIMIC audit suite v1, baselines | yes | Y2, Y3 | DONE (14 baseline runs complete and audited in a fresh process, C104; pplx-flash 0.624 on the frozen suite with every cell passing; MedDecider-4B has no set-level result under D12, STATE §6 question 6; full pytest with the GPU visible, C105) | 2026-10-21T21:26:55Z | 2026-10-22T12:12Z |
 | Y5 | pplx 27B soft labels (only if D48 confirmed) | yes | Y0 | DONE (parity 40 of 40 against the single-request reference; dev diagnostics recorded; 112,128 anchor soft labels scored in the 5 h budget; overlap with benchmark rows 0) | 2026-10-21T21:33:00Z | 2026-10-22T09:20Z |
@@ -201,7 +201,7 @@ Progress 2026-10-23T00:44Z: the B1 mix is built (C123: 1,353,552 rows; replay 0.
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
-| Y2 mimic_page_category_v1 | MIMIC-III page-category template (B3 part) | NOT MEASURED — MIMIC-III 1.4 is still queued (dm status 0/28 files at 20:40Z and again at 22:09Z) | Re-check at Y4 and before the B2 keep decision; build it then if the files are present, else B3 goes ahead without it (operator steer 2026-10-21) |
+| Y2 mimic_page_category_v1 | MIMIC-III page-category template (B3 part) | NOT MEASURED — present but not built before B2's decision (missed re-check); MIMIC-III 1.4 is on disk (28 files; NOTEEVENTS.csv.gz modified 2026-10-22T10:02:24Z; C142) | none: no block is added for it (operator ruling 2026-10-23, item 4) |
 
 ---
 
@@ -354,6 +354,34 @@ deviation — that is a `BLOCKED`.
 - **Y7 (2026-10-23): the own check excludes a shortcut template (recorded before the B1 keep decision).** Keep rule v2's own check (D47: the block's new templates on fast dev) is applied to the new templates that pass the Naive Bayes screen (below the 0.90 shortcut limit, D35; ADVISORY Y2). mimic_rad_exam_v1 is among B1's new templates and sits exactly at the limit (Naive Bayes dev macro 0.9000; CLAIMS C084, C095). Its gain would measure a lexical shortcut rather than the skill the own check is for, so the conservative reading is to leave it out of own. The own figure with it is reported as additional. This is decided on the screen, before any B1 keep statistic exists. The other four bounds and every margin are unchanged, and the decision is recorded here before B1's keep decision (ADVISORY Y7: take the conservative option and record a Deviation).
 - **Operator decision (2026-10-22), Y6, STATE §6 question 7: the CG v2 ranking.** The operator chose (b): the qualifying Stage A arms are ranked on the CG v2 templates whose readout passes D12 for every qualifying arm, on the same items for each arm. A0 is one of the qualifying arms by definition (`choose` lists it first), so `cmd_choose` takes the intersection over A0 and the qualifying arms, and every arm (qualifying or not) is scored on those templates. The zero-shot pplx-flash set-level CG v2 figure is NOT MEASURED (its failing cell `nfcorpus_relevant_noul_v1`: CLAIMS C093, C101); its passing-cell figure is an additional row (C101). This is recorded before the choice step, which has not run.
 - **Operator decision (2026-10-22), Y9, STATE §6 question 6: Gate O4's MedDecider-4B comparison on the MIMIC audit suite, pre-registered before any final result.** The operator chose (b). On the frozen suite v1 (4,253 items, 9 templates; CLAIMS C083), the MedDecider-4B comparison uses the 8 templates whose MedDecider-4B readout passes D12, with identical items for both models compared (the final Osler-4B and MedDecider-4B). The excluded template is `mimic_drg_cc_level_v1` (constant answer on 0.952 of its items; CLAIMS C088, C093). The set-level MedDecider-4B figure is NOT MEASURED, and both are reported alongside the comparison. The zero-shot pplx-flash comparison uses all 9 templates. D49's baselines are unchanged (MedDecider-4B and zero-shot pplx-decider-flash-v1.2); only the template set of the MedDecider-4B comparison is fixed here. Recorded before Y8 and Y9 run, so no final result has been seen.
+- **Operator ruling (Stage B, 2026-10-23), before any final run; recorded verbatim.**
+
+  > Operator ruling (Stage B, 2026-10-23), before any final run. Record it verbatim in STATE §7
+  > and blocks.md as an operator ruling; keep rule v2's NOT KEPT verdicts stay reported unchanged.
+  >
+  > 1. Override for the MIMIC-family blocks only (B1, B2, B3): each enters the final mix if its
+  >    own lower bound > +0.02 and its knowledge lower bound > -0.02. Their MR, general and CG v2
+  >    regressions at block length are accepted and reported. Reason: the fixed 13,992-step block
+  >    runs dilute the base mix (B1 cuts the C1 share by ~32%; MR is step-sensitive, osler_v3
+  >    C131), and the 63,304-step final gives the C1 part about osler_v2's exposure. B4 is judged
+  >    by keep rule v2 as written.
+  > 2. Unchanged: Gate O4, the MR suite v1, the MIMIC audit suite v1, the final selection rule, the
+  >    recipe (A0) and the step budget. Y8 records CG v2 and MIMIC at every evaluation, as planned.
+  > 3. Final-mix caps: MIMIC-family share <= 35% (subsample the MIMIC rows proportionally across
+  >    templates if needed and record counts), replay >= 20%, no template > 8%.
+  > 4. Record fix: MIMIC-III (NOTEEVENTS, ADMISSIONS, ...) has been on disk since
+  >    2026-10-22T10:02Z; the re-check before B2's decision was missed. Correct the NOT MEASURED
+  >    reason for mimic_page_category_v1 to "present but not built before B2's decision (missed
+  >    re-check)". Do not add a block for it.
+  > 5. Continue: finish B3 and B4, then Y8.
+
+  Applied in this loop (recorded before any final run):
+  - Item 1: B1 enters the final mix (own lower bound +0.1581 > +0.02; knowledge lower bound −0.0134 > −0.02; C129). B2 enters
+    (own +0.0475 > +0.02; knowledge −0.0163 > −0.02; C139). B3 enters if its own and knowledge lower bounds pass when its keep
+    decision is written. The NOT KEPT verdicts of B1 and B2 stay as reported.
+  - Item 4: MIMIC-III 1.4 is on disk: 28 files; NOTEEVENTS.csv.gz modified 2026-10-22 10:02:24 UTC; ADMISSIONS.csv.gz modified
+    2026-10-22 05:22:30 UTC (C142). The NOT MEASURED reason for mimic_page_category_v1 is corrected in §1, §5 and blocks.md. The
+    dated status records (CLAIMS C065 and the 2026-10-21 lines of §6) are history and stay as written.
 
 ---
 
