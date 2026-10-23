@@ -48,6 +48,7 @@ _TOP_LEVEL_KEYS = {
     "epochs",
     "shuffle_options",
     "eval_every",
+    "eval_steps",
     "eval_items",
     "eval_batch_size",
     "eval_max_batch_tokens",
@@ -110,6 +111,8 @@ class StudentConfig:
     epochs: int = 1
     shuffle_options: bool = True
     eval_every: int = 200
+    # explicit evaluation steps (osler_v4 Y8: 10 evaluations ending at the step budget); None keeps the eval_every schedule
+    eval_steps: tuple[int, ...] | None = None
     eval_items: int = 256
     # forward-only dev scoring may use bigger batches than training (no activations are kept);
     # None falls back to batch_size / max_batch_tokens

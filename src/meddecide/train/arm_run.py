@@ -9,7 +9,7 @@ trainer's: dev macro, Brier tie-break).
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +44,7 @@ def run_arm(
     revision: str | None = None,
     device: str | None = None,
     dtype: str | None = None,
+    partition_hook: Callable[[int, Trainer], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Train one arm and return (and write to ``out_dir/arm_result.json``) its summary."""
     if not train_items:
@@ -80,11 +81,15 @@ def run_arm(
     tier1 = tier1_items(dev_items)
     tier1_trajectory: list[dict[str, Any]] = []
     eval_trajectory: list[dict[str, Any]] = []
+    partitions: list[dict[str, Any]] = []
 
     def observe(step: int, metrics: dict[str, Any]) -> None:
         eval_trajectory.append({"step": step, "macro_accuracy": float(metrics["macro_accuracy"]),
                                 "template_macro_accuracy": float(metrics["template_macro_accuracy"]),
                                 "accuracy": float(metrics["accuracy"]), "brier": float(metrics["brier"])})
+        if partition_hook is not None:
+            # recorded at every evaluation for the report; never a selection signal (osler_v4 Y8)
+            partitions.append(partition_hook(step, trainer))
         if tier1:
             decisions = model.predict(tier1, batch_size=config.eval_batch_size or config.batch_size)
             per_source = accuracy_by_source(decisions, tier1)
@@ -129,6 +134,7 @@ def run_arm(
         "schedule": result.schedule,
         "eval_subset_items": len(eval_subset),
         "evaluations": eval_trajectory,
+        "partitions": partitions,
         "tier1_trajectory": tier1_trajectory,
         "full_dev_items": len(dev_items),
         "full_dev_metrics": full_dev,

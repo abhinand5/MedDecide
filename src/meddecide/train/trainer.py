@@ -168,6 +168,20 @@ class TrainResult:
         return None
 
 
+def is_eval_step(step: int, eval_every: int | None, eval_steps: Sequence[int] | None = None) -> bool:
+    """Whether a step is an evaluation step: the explicit list when one is given, else every eval_every steps (0 or None: never)."""
+    if eval_steps is not None:
+        return step in eval_steps
+    return bool(eval_every) and step % eval_every == 0
+
+
+def evaluation_grid(steps: int, count: int) -> tuple[int, ...]:
+    """count evaluation steps spread evenly over steps, the last one at the step budget (osler_v4 Y8: 10 evaluations at 63,304)."""
+    if count < 1 or steps < count:
+        raise ValueError(f"cannot place {count} evaluations in {steps} steps")
+    return tuple(round(steps * k / count) for k in range(1, count + 1))
+
+
 class Trainer:
     """Trains the pointer head and LoRA adapter of a :class:`MedDecideModel`."""
 
@@ -511,11 +525,7 @@ class Trainer:
                     on_step(total_steps)
                 if config.log_every and total_steps % config.log_every == 0:
                     self._log({"event": "step", **record.to_dict()})
-                if (
-                    eval_items is not None
-                    and config.eval_every
-                    and total_steps % config.eval_every == 0
-                ):
+                if eval_items is not None and is_eval_step(total_steps, config.eval_every, config.eval_steps):
                     metrics = self.evaluate(eval_items, batch_size=config.batch_size)
                     self._log({"event": "eval", "step": total_steps, "metrics": metrics})
                     if self.eval_hook is not None:

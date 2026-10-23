@@ -96,4 +96,7 @@ Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C
 - **B3** (ED acuity and ED disposition, 40,000 train rows each, and MedNLI, 11,232 train rows) on B0, with a replay top-up. Second attempt running:
   retry chain PID 1154282 (`outputs/osler_v4/Y7/logs/y7_b3_retry_chain.sh`); the first attempt stopped after step 10,450 (C143, STATE §7). MIMIC-III page category (`mimic_page_category_v1`) is NOT MEASURED:
   present but not built before B2's decision (missed re-check). The MedNLI rows carry the source label `mimic_iv` in the Y2 build; no keep partition uses it.
-- **B4** (osler_v3's X1 real sources, RAGTruth and DrugProt, 69,464 train rows) on the last kept block. Pending.
+- **B4** (osler_v3's X1 real sources, RAGTruth and DrugProt, 69,464 train rows) on the last kept block, judged by keep rule v2 as
+  written (ruling item 1). Armed: chain PID 1219705 (`outputs/osler_v4/Y7/logs/y7_b4_chain.sh`) starts when the B3 chain exits and
+  takes its base from the B3 keep decision (B3's block if keep rule v2 kept B3, else B0). The four X1 templates pass the D35 screens
+  (CLAIMS C146); DrugProt's gold label occurs in the record text for 59 of 400 dev items (recorded, not excluded).
