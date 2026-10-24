@@ -108,3 +108,13 @@ def test_truncate_log_after_drops_only_later_steps(tmp_path: Path) -> None:
     kept = list(log.read_text(encoding="utf-8").splitlines())
     assert kept == ['{"event": "step", "step": 1}', '{"event": "step", "step": 2}', '{"event": "run"}']
     assert truncate_log_after(tmp_path / "missing.jsonl", 2) == 0
+
+
+def test_keep_last_prunes_the_oldest_complete_checkpoints(tmp_path: Path) -> None:
+    from meddecide.train.resume import complete_checkpoints
+
+    _, optimizer = _model_and_optimizer()
+    for step in (5000, 10000, 15000):
+        write_full_checkpoint(tmp_path / f"step_{step:06d}", optimizer=optimizer, run_state={"step": step}, keep_last=2)
+    assert [p.name for p in complete_checkpoints(tmp_path)] == ["step_010000", "step_015000"]
+    assert latest_full_checkpoint(tmp_path) == tmp_path / "step_015000"

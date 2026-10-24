@@ -14,14 +14,10 @@ Usage (CPU; after the keep decisions of B1 to B4 exist):
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
-from meddecide.train.final_mix import build_final_mix
-from meddecide.utils.hashing import file_sha256
-from meddecide.utils.io import read_json, write_json
-from meddecide.utils.provenance import git_commit, utcnow
+from meddecide.utils.io import read_json
 
 REPO = Path(__file__).resolve().parents[2]
 Y7 = REPO / "outputs" / "osler_v4" / "Y7"
@@ -58,24 +54,9 @@ def add_files(name: str) -> list[Path]:
 
 
 def main() -> None:
-    decisions = {name: entering(name) for name in ("B1", "B2", "B3", "B4")}
-    family = {name: add_files(name) for name in FAMILY if decisions[name][0]}
-    other = add_files("B4") if decisions["B4"][0] else []
-    report: dict[str, Any] = build_final_mix(BASE, family, other, BROAD, OUT)
-    report.update({
-        "built_utc": utcnow(), "git_commit": git_commit(REPO), "command": " ".join(sys.argv),
-        "base": str(BASE.relative_to(REPO)), "broad_pool": str(BROAD.relative_to(REPO)), "file": str(OUT.relative_to(REPO)),
-        "file_sha256": file_sha256(OUT),
-        "entering": {name: {"enters": decisions[name][0], "reason": decisions[name][1], **decisions[name][2]}
-                     for name in decisions},
-    })
-    Y8.mkdir(parents=True, exist_ok=True)
-    write_json(Y8 / "final_mix.json", report)
-    print(f"final mix: rows {report['rows']}; family kept {report['family_kept']} of {report['family_available']}; "
-          f"top-up {report['topup_rows']}; family share {report['family_share']:.4f}; replay share "
-          f"{report['replay_share']:.4f}; largest template {report['largest_template_share']:.4f}; checks {report['checks']}",
-          flush=True)
-
+    # The final mix is composed in memory by scripts/osler_v4/y8_train.py: the disk quota cannot hold the ~9.5 GB file
+    # (CLAIMS C164). The composition and its counts are printed by scripts/osler_v4/y8_compose_check.py.
+    raise SystemExit("y8_final_mix.py no longer writes the mix file; see y8_compose_check.py and y8_train.py")
 
 if __name__ == "__main__":
     main()

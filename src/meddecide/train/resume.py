@@ -108,9 +108,14 @@ def set_rng_state(state: dict[str, Any]) -> None:
         torch.cuda.set_rng_state_all(state["torch_cuda"])
 
 
-def write_full_checkpoint(directory: Path, *, optimizer: torch.optim.Optimizer, run_state: dict[str, Any]) -> Path:
+def write_full_checkpoint(directory: Path, *, optimizer: torch.optim.Optimizer, run_state: dict[str, Any],
+                          keep_last: int = 0) -> Path:
     """Write a full checkpoint atomically: the files go to a partial directory, which is renamed into place last."""
     partial = directory.parent / f"{directory.name}.partial"
+    if keep_last > 0:  # the disk quota is small: before the write, keep only keep_last - 1 older complete checkpoints
+        older = [p for p in complete_checkpoints(directory.parent) if p != directory]
+        for old in older[: max(0, len(older) - (keep_last - 1))]:
+            shutil.rmtree(old)
     if partial.exists():
         shutil.rmtree(partial)
     partial.mkdir(parents=True)
@@ -137,13 +142,19 @@ def read_full_checkpoint(directory: Path) -> FullCheckpoint:
     )
 
 
-def latest_full_checkpoint(root: Path) -> Path | None:
-    """The complete step_<NNNNNN> directory with the largest step under root, or None."""
+def complete_checkpoints(root: Path) -> list[Path]:
+    """The complete step_<NNNNNN> directories under root, oldest first."""
     if not root.exists():
-        return None
+        return []
     found: list[tuple[int, Path]] = []
     for child in root.iterdir():
         match = STEP_DIR.match(child.name)
         if match and (child / COMPLETE).exists():
             found.append((int(match.group(1)), child))
-    return max(found)[1] if found else None
+    return [child for _, child in sorted(found)]
+
+
+def latest_full_checkpoint(root: Path) -> Path | None:
+    """The complete step_<NNNNNN> directory with the largest step under root, or None."""
+    found = complete_checkpoints(root)
+    return found[-1] if found else None

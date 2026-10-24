@@ -379,6 +379,7 @@ class Trainer:
         full_checkpoint_dir: str | Path | None = None,
         full_checkpoint_every: int = 0,
         resume_from: str | Path | None = None,
+        full_checkpoint_keep_last: int = 0,
     ) -> TrainResult:
         """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs).
 
@@ -605,6 +606,7 @@ class Trainer:
                             "schedule": schedule, "seed": config.seed,
                             "config_fingerprint": config_fingerprint(config.to_dict()),
                         },
+                        keep_last=full_checkpoint_keep_last,
                     )
             epochs_completed = epoch + 1
             epoch += 1

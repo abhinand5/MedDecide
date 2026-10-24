@@ -8,9 +8,10 @@ rows already in the mix. A family above its cap is subsampled proportionally acr
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter, defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from fractions import Fraction
 from math import ceil, floor
 from pathlib import Path
@@ -83,13 +84,13 @@ def scan_rows(path: Path) -> tuple[set[str], Counter[str], int]:
     return ids, templates, replay
 
 
-def build_final_mix(base: Path, family: Mapping[str, Sequence[Path]], other: Sequence[Path], broad: Path, out: Path,
-                    salt: str = "final_mix") -> dict[str, Any]:
-    """Write the final mix: the base rows, the other rows, the kept family rows and the replay top-up; check every cap first.
+def compose_final_mix(base: Path, family: Mapping[str, Sequence[Path]], other: Sequence[Path], broad: Path,
+                      salt: str = "final_mix") -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Compose the final mix in memory: the base rows, the other rows, the kept family rows and the replay top-up; check every cap first.
 
     family maps each entering MIMIC-family block to its added files; its rows count toward the family cap (MedNLI included). The
     family is subsampled proportionally across templates, by stable-hash rank within a template, when it exceeds the cap. The top-up
-    is drawn from the broad pool in stable-hash order, base and added ids excluded. A breached cap raises before anything is written.
+    is drawn from the broad pool in stable-hash order, base and added ids excluded. A breached cap raises before any row is composed.
     """
     base_ids, base_templates, base_replay = scan_rows(base)
     base_rows = sum(base_templates.values())
@@ -150,23 +151,36 @@ def build_final_mix(base: Path, family: Mapping[str, Sequence[Path]], other: Seq
     }
     if not all(checks.values()):
         raise ValueError(f"the final mix breaks a cap: {checks}")
+    rows: list[dict[str, Any]] = [row for path in (base, *other) for row in iter_rows(path)]
+    per_file: dict[str, int] = {}
+    for paths in family.values():
+        for path in paths:
+            kept_rows = [row for row in iter_rows(path) if str(row["item_id"]) in kept]
+            per_file[path.name] = len(kept_rows)
+            rows.extend(kept_rows)
+    rows.extend(topup)
+    if len(rows) != total:
+        raise ValueError(f"composed {len(rows)} rows, expected {total}")
+    report["family_kept_per_file"] = per_file
+    report["composition_sha256"] = composition_sha256(str(row["item_id"]) for row in rows)
+    return rows, report
+
+
+def composition_sha256(item_ids: Iterable[str]) -> str:
+    """The SHA-256 of a composed mix's item ids in order, one per line: the identity of a mix that is not written to disk."""
+    digest = hashlib.sha256()
+    for item in item_ids:
+        digest.update(item.encode("utf-8") + b"\n")
+    return digest.hexdigest()
+
+
+def build_final_mix(base: Path, family: Mapping[str, Sequence[Path]], other: Sequence[Path], broad: Path, out: Path,
+                    salt: str = "final_mix") -> dict[str, Any]:
+    """Compose the final mix and write it as JSONL (the file record of the composition; the Y8 run composes it in memory)."""
+    rows, report = compose_final_mix(base, family, other, broad, salt)
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as fh:
-        for path in (base, *other):
-            with path.open(encoding="utf-8") as src:
-                for line in src:
-                    if line.strip():
-                        fh.write(line if line.endswith("\n") else line + "\n")
-        per_file: dict[str, int] = {}
-        for paths in family.values():
-            for path in paths:
-                written = 0
-                for row in iter_rows(path):
-                    if str(row["item_id"]) in kept:
-                        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-                        written += 1
-                per_file[path.name] = written
-        for row in topup:
+        for row in rows:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    report["family_kept_per_file"] = per_file
+    report["file"] = str(out)
     return report

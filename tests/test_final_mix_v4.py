@@ -81,3 +81,20 @@ def test_build_final_mix_subsamples_the_family_and_tops_up_the_replay(tmp_path: 
     assert report["rows"] == 155 and report["replay_rows"] == 31
     assert all(report["checks"].values())
     assert sum(1 for _ in out.open(encoding="utf-8")) == 155
+
+
+def test_compose_matches_the_written_mix_and_is_deterministic(tmp_path: Path) -> None:
+    from meddecide.train.final_mix import compose_final_mix, composition_sha256
+
+    base = _mix_file(tmp_path / "base.jsonl", [(f"b{i}", f"base_{i % 20}", "snli" if i < 30 else "other") for i in range(100)])
+    family = _mix_file(tmp_path / "family.jsonl", [(f"f{i}", f"fam_{i % 6}", "mimic_iv") for i in range(60)])
+    broad = _mix_file(tmp_path / "broad.jsonl", [(f"r{i}", f"broad_{i % 30}", "broad") for i in range(300)])
+    rows, report = compose_final_mix(base, {"B1": [family]}, [], broad)
+    again, _ = compose_final_mix(base, {"B1": [family]}, [], broad)
+    assert [r["item_id"] for r in rows] == [r["item_id"] for r in again]
+    assert len(rows) == report["rows"] == 155
+    written = tmp_path / "out" / "final_mix.jsonl"
+    build_final_mix(base, {"B1": [family]}, [], broad, written)
+    file_ids = [json.loads(line)["item_id"] for line in written.open(encoding="utf-8")]
+    assert file_ids == [r["item_id"] for r in rows]
+    assert report["composition_sha256"] == composition_sha256(file_ids)
