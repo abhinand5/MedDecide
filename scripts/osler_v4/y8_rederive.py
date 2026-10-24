@@ -8,8 +8,9 @@ majority baseline, and the Brier score as the sum over options averaged over ite
 
 Reported, not compared as equal: the in-training evaluation at the selected step against the reloaded checkpoint's scoring. The
 reloaded scores come from another batch composition, and bfloat16 scores can move a few decisions (CLAIMS C114, C116, C119). The
-final scores are calibrated (the temperature is fitted on fast dev v4 at the end), so their Brier score differs from the uncalibrated
-in-training one by design; only the argmax-based figures are compared with it.
+end-of-run predictions (dev_predictions.jsonl, cg_v2_predictions.jsonl) are scored by Trainer.score at temperature 1, the same path as
+the in-training evaluation, so their Brier scores are uncalibrated (STATE §7 deviation item 1; C191). The calibrated figures are the
+labelled re-scores in outputs/osler_v4/Y8/calibrated, not these.
 
 The readout gate (D12; meddecide.eval.readout_gate) is applied per template to the selected checkpoint's CG v2 and fast dev v4 rows.
 
@@ -166,7 +167,7 @@ def main() -> None:
             "fast_dev_template_macro": {"in_training": in_training["template_macro_accuracy"],
                                         "reloaded": dev_fig["template_macro_accuracy"]},
             "cg_v2_n_correct": {"in_training": in_training_cg["n_correct"], "reloaded": cg_fig["n_correct"]},
-            "fast_dev_brier": {"in_training_uncalibrated": in_training["brier"], "reloaded_calibrated": dev_fig["brier"]},
+            "fast_dev_brier": {"in_training_T1": in_training["brier"], "reloaded_T1": dev_fig["brier"]},
         }
 
     mismatches = [c for c in checks if not c["ok"]]

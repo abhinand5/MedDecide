@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-24T19:23Z`
+Last updated (UTC): `2026-10-24T19:28Z`
 Iterations so far: `1`
 
 ---
@@ -240,6 +240,12 @@ Checklist:
 - Headline: the run is at logged step 53,700 (19:22Z; about 75 steps per minute). The Y8 readout gate script is written (scripts/osler_v4/y8_readout_gate.py) and is not yet committed: it is tested on the Y8 outputs at Y8 DONE.
 - Commit: C193, the scorer and its tests, and these entries, committed and pushed to `loop/osler_v4` before Y8 finishes.
 - Next: the chain runs to step 63,304 (evaluations at 56,974 and 63,304 remain); then the end-of-run fit and save; then the Y8 DONE work (calibrated re-scores, the GPU-visible suite, the readout gate, re-derivations, SELF_AUDIT). The exit watcher `b8dn9q8uh` ends at chain exit or at 22:16Z.
+
+### Y8 progress — 2026-10-24T19:28Z (the run continues; not a DONE entry)
+- What ran: the CPU-hidden gate for this commit (C194); a step-log health check at 19:27Z (C195). Committed: the corrections to the Y8 re-derivation (its docstring and the reloaded Brier label now say temperature 1, C191; the figures are unchanged) and scripts/osler_v4/y8_steplog_stats.py (the SELF_AUDIT inputs: logged-step health, large per-step losses by batch size, clipping against the earlier Stage A and B arms, allocator warnings; its counts are written at Y8 DONE, not here).
+- Headline: logged steps continue with no gaps (C195). The large per-step losses are mostly one-item batches (counts at Y8 DONE). The calibrated re-score checks are ready and have not run: scripts/osler_v4/y8_readout_gate.py (not committed until it has run on the Y8 outputs) and outputs/osler_v4/Y8/logs/y8_post.sh (the calibrated re-scores of CG v2 and fast dev v4, then the GPU-visible two-process suite; it refuses to start without final_result.json and arm_result.json).
+- Commit: the two scripts with C194 and C195, committed and pushed to `loop/osler_v4` before Y8 finishes.
+- Next: the chain runs to step 63,304 (the evaluations at 56,974 and 63,304 remain); then the post-chain run, the Y8 DONE checks and SELF_AUDIT. The exit watcher `b8dn9q8uh` ends at chain exit or at 22:16Z.
 
 ---
 
