@@ -37,6 +37,13 @@ from meddecide.bench.schema import Item
 from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
 from meddecide.train.losses import ce_plus_brier, kl_to_reference, teacher_reference
+from meddecide.train.resume import (
+    config_fingerprint,
+    read_full_checkpoint,
+    restore_optimizer_params,
+    set_rng_state,
+    write_full_checkpoint,
+)
 from meddecide.train.temperature import TemperatureFit, fit_per_qtype, fit_temperature
 
 if TYPE_CHECKING:
@@ -369,6 +376,9 @@ class Trainer:
         max_seconds: float | None = None,
         on_step: Callable[[int], None] | None = None,
         schedule_steps: int | None = None,
+        full_checkpoint_dir: str | Path | None = None,
+        full_checkpoint_every: int = 0,
+        resume_from: str | Path | None = None,
     ) -> TrainResult:
         """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs).
 
@@ -376,6 +386,10 @@ class Trainer:
         planned epoch). ``None`` (the default, and every caller before S9) keeps the constant LRs
         the optimizer was built with; the schedule is also skipped when ``lr_schedule`` is
         ``"constant"``.
+
+        ``full_checkpoint_every`` > 0 with ``full_checkpoint_dir`` writes a full checkpoint (the trainable tensors, the optimizer,
+        the run state and the RNG states) every that many steps; ``resume_from`` continues from one with the same data order and
+        LR schedule (meddecide.train.resume). Both default off, and the run is then the same as before.
         """
         config = self.config
         if config.device.startswith("cuda") and torch.cuda.is_available():
@@ -403,12 +417,37 @@ class Trainer:
                 "floor": float(config.lr_floor),
                 "peak_lr_by_group": [float(g["base_lr"]) for g in self.optimizer.param_groups],
             }
+        # resume (osler_v4 Y8): the state of a full checkpoint, restored before the first batch. The batches the checkpoint already took
+        # in its epoch are skipped, so the data order continues exactly (the order is a pure function of seed, epoch and batch index)
+        skip_in_epoch = 0
+        epoch_start_step = 0
+        if resume_from is not None:
+            saved = read_full_checkpoint(Path(resume_from))
+            run = saved.run_state
+            if run["config_fingerprint"] != config_fingerprint(config.to_dict()):
+                raise ValueError("resume: the training configuration differs from the checkpoint's")
+            if run["schedule"] != schedule:
+                raise ValueError("resume: the LR schedule differs from the checkpoint's")
+            restore_optimizer_params(self.optimizer, saved.trainable)
+            self.optimizer.load_state_dict(saved.optimizer)
+            set_rng_state(saved.rng)
+            total_steps = int(run["step"])
+            epoch = int(run["epoch"])
+            epoch_start_step = int(run["epoch_start_step"])
+            skip_in_epoch = int(run["batches_in_epoch"])
+            epochs_completed = int(run["epochs_completed"])
+            best = run["best"]
+            best_step = run["best_step"]
+            consecutive_below = int(run["consecutive_below"])
+            self._log({"event": "resume", "from_step": total_steps, "epoch": epoch, "batches_in_epoch": skip_in_epoch})
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
         # N steps, not "N steps or one pass, whichever comes first" (the overfit test relies on
         # this to see its 64 items many times)
         while epoch < config.epochs or (
             steps is not None and total_steps < steps and stopped_early is None
         ):
+            if skip_in_epoch == 0:
+                epoch_start_step = total_steps
             order = shuffled_order(len(items), seed=config.seed, epoch=epoch)
             for _, batch in iter_batches(
                 self.model,
@@ -421,6 +460,9 @@ class Trainer:
                 epoch=epoch,
                 seed=config.seed,
             ):
+                if skip_in_epoch > 0:
+                    skip_in_epoch -= 1  # a batch the checkpoint already took: its step is not repeated
+                    continue
                 if steps is not None and total_steps >= steps:
                     stopped_early = f"step budget {steps} reached"
                     break
@@ -552,6 +594,18 @@ class Trainer:
                             self._log({"event": "tripwire", "step": total_steps,
                                        "metric": key, key: float(metrics[key])})
                             break
+                if full_checkpoint_dir is not None and full_checkpoint_every and total_steps % full_checkpoint_every == 0:
+                    write_full_checkpoint(
+                        Path(full_checkpoint_dir) / f"step_{total_steps:06d}",
+                        optimizer=self.optimizer,
+                        run_state={
+                            "step": total_steps, "epoch": epoch, "epoch_start_step": epoch_start_step,
+                            "batches_in_epoch": total_steps - epoch_start_step, "epochs_completed": epochs_completed,
+                            "best": best, "best_step": best_step, "consecutive_below": consecutive_below,
+                            "schedule": schedule, "seed": config.seed,
+                            "config_fingerprint": config_fingerprint(config.to_dict()),
+                        },
+                    )
             epochs_completed = epoch + 1
             epoch += 1
             if stopped_early:

@@ -32,6 +32,7 @@ from meddecide.train.blocks import EVAL_QUARTERS
 from meddecide.train.config import load_config
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.osler_arm import dev_prediction_rows
+from meddecide.train.resume import latest_full_checkpoint, truncate_log_after
 from meddecide.train.trainer import Trainer
 from meddecide.utils.hashing import file_sha256
 from meddecide.utils.io import read_json, write_json, write_jsonl
@@ -94,10 +95,24 @@ def cmd_train(args: argparse.Namespace) -> None:
         "dev_items": len(dev_items), "train_items": len(train_items), "steps": steps, "kl_to_base": 0.0,
         "distill_weight": 0.0, "base_model": "pplx-decider-flash-v1.2 (D39)", "recipe": "A0 (the chosen Stage A recipe)",
     })
+    # resumable block runs (operator steer, 2026-10-23): the logs are cut back to the checkpoint's step first
+    full_dir = out_dir / "full"
+    resume_from = None
+    if args.resume:
+        resume_from = latest_full_checkpoint(full_dir)
+        if resume_from is None:
+            raise SystemExit(f"{args.arm}: --resume, but no complete full checkpoint exists under {full_dir}")
+        truncate_log_after(out_dir / "logs" / "train.jsonl", int(resume_from.name.split("_")[1]))
     summary = run_arm(config, train_items=train_items, dev_items=dev_items, out_dir=out_dir, steps=steps,
-                      eval_subset_size=len(dev_items))
+                      eval_subset_size=len(dev_items),
+                      full_checkpoint_dir=full_dir if args.full_checkpoint_every else None,
+                      full_checkpoint_every=args.full_checkpoint_every, resume_from=resume_from)
     expected = [steps * q // EVAL_QUARTERS for q in range(1, EVAL_QUARTERS + 1)]
-    eval_steps = [e["step"] for e in summary["evaluations"]]
+    # the complete record of the run: after a resume, the summary holds only the evaluations run since the resume
+    records = [json.loads(line) for line in (out_dir / "logs" / "train.jsonl").open(encoding="utf-8") if line.strip()]
+    evaluations = [{"step": r["step"], **{k: v for k, v in r["metrics"].items() if isinstance(v, (int, float))}}
+                   for r in records if r.get("event") == "eval"]
+    eval_steps = [e["step"] for e in evaluations]
     sizes = replay["sizes"][:steps]
     validation = {
         "steps_taken": summary["steps"], "steps_as_planned": summary["steps"] == steps,
@@ -108,7 +123,7 @@ def cmd_train(args: argparse.Namespace) -> None:
     write_json(out_dir / "block_result.json", {
         "arm": args.arm, "kl_to_base": 0.0, "distill_weight": 0.0, "steps": steps,
         "realised_items": sum(sizes), "selected": summary["selected"], "best_step": summary["best_step"],
-        "evaluations": summary["evaluations"], "full_dev_metrics": summary["full_dev_metrics"],
+        "evaluations": evaluations, "full_dev_metrics": summary["full_dev_metrics"],
         "validation": validation, "train_wall_clock_s": summary["train_wall_clock_s"],
         "total_wall_clock_s": round(time.time() - started, 1),
     })
@@ -148,6 +163,9 @@ def main() -> None:
     train.add_argument("--arm", required=True, choices=ARMS)
     train.add_argument("--train", required=True, type=Path)
     train.add_argument("--replay", required=True, type=Path)
+    train.add_argument("--full-checkpoint-every", type=int, default=0,
+                       help="write a full checkpoint every this many steps under <run>/full (0 = none)")
+    train.add_argument("--resume", action="store_true", help="continue from the latest complete full checkpoint")
     score = sub.add_parser("score")
     score.add_argument("--arm", required=True, choices=ARMS)
     args = parser.parse_args()

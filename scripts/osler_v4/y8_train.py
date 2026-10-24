@@ -8,13 +8,19 @@ are scored and recorded; they are not in the selection. After training, the sele
 are written. The temperatures are fitted on fast dev v4 and saved with the checkpoint (run_arm). The run refuses to start when
 outputs/osler_v4/Y8/arm_result.json exists (the osler_v3 X9 guard), and when the replay was made from another file.
 
+Resumable (operator steer, 2026-10-23): a full checkpoint (the trainable tensors, the optimizer, the run state and the RNG states) is written
+every 5,000 steps under outputs/osler_v4/Y8/full/. `--resume` continues from the latest complete one with the same data order; the logs are
+cut back to that step first, so every record appears once.
+
 Usage (GPU; one job; detached; nothing else on the GPU):
     source scripts/pod_env.sh && setsid nohup uv run --frozen python scripts/osler_v4/y8_train.py \
         > outputs/osler_v4/Y8/logs/final_train.log 2>&1 < /dev/null &
+    (after an interruption: the same command with --resume, appended to the same log)
 """
 
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import importlib.util
 import json
@@ -27,6 +33,7 @@ from meddecide.train.arm_run import run_arm
 from meddecide.train.config import load_config
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.osler_arm import dev_prediction_rows
+from meddecide.train.resume import latest_full_checkpoint, truncate_log_after
 from meddecide.train.trainer import Trainer, evaluation_grid
 from meddecide.utils.hashing import file_sha256
 from meddecide.utils.io import read_json, write_json, write_jsonl
@@ -42,6 +49,7 @@ OUT = REPO / "outputs" / "osler_v4" / "Y8"
 STEPS = 63_304  # ADVISORY Y8: the smallest multiple of 8 at or above 1.5 x 42,200
 EVALUATIONS = 10  # ADVISORY Y8
 MIMIC_PREFIX = "mimic_"
+CHECKPOINT_EVERY = 5_000  # the operator steer (2026-10-23): a full checkpoint every 5,000 steps
 
 
 def _v8():
@@ -56,7 +64,16 @@ def numbers(metrics: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
 
 
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    with path.open(encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("--resume", action="store_true",
+                        help="continue from the latest complete full checkpoint under outputs/osler_v4/Y8/full")
+    args = parser.parse_args()
     if (OUT / "arm_result.json").exists():
         raise SystemExit("Y8: outputs/osler_v4/Y8/arm_result.json exists; the final run is not repeated (osler_v3 X9 guard)")
     replay = read_json(REPLAY)
@@ -89,6 +106,17 @@ def main() -> None:
     mimic_items = [mix_row_to_item(row) for row in dev_rows if str(row["template_id"]).startswith(MIMIC_PREFIX)]
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "logs").mkdir(parents=True, exist_ok=True)
+    resume_from = None
+    if args.resume:
+        resume_from = latest_full_checkpoint(OUT / "full")
+        if resume_from is None:
+            raise SystemExit("Y8: --resume, but no complete full checkpoint exists under outputs/osler_v4/Y8/full")
+        step = int(resume_from.name.split("_")[1])
+        dropped = (truncate_log_after(OUT / "logs" / "train.jsonl", step)
+                   + truncate_log_after(OUT / "logs" / "partitions.jsonl", step))
+        with (OUT / "logs" / "resumes.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"resumed_from": str(resume_from.relative_to(REPO)), "step": step,
+                                 "dropped_records": dropped, "utc": utcnow()}) + "\n")
     write_json(OUT / "provenance.json", {
         "built_at_utc": started, "git_commit": git_commit(REPO), "command": " ".join(sys.argv),
         "config_file": str(RECIPE.relative_to(REPO)), "train_file": str(MIX.relative_to(REPO)), "train_sha256": file_sha256(MIX),
@@ -106,12 +134,17 @@ def main() -> None:
         return record
 
     summary = run_arm(config, train_items=train_items, dev_items=dev_items, out_dir=OUT, steps=STEPS,
-                      eval_subset_size=len(dev_items), partition_hook=partitions)
+                      eval_subset_size=len(dev_items), partition_hook=partitions,
+                      full_checkpoint_dir=OUT / "full", full_checkpoint_every=CHECKPOINT_EVERY, resume_from=resume_from)
     config_scoring = dataclasses.replace(config, kl_to_base=0.0, distill_weight=0.0)
     model = load_any(OUT / "checkpoints" / "best", device=config_scoring.device, dtype=config_scoring.dtype)
     scored = Trainer(model, config_scoring).score(cg_items)
     write_jsonl(OUT / "cg_v2_predictions.jsonl", dev_prediction_rows(scored))
-    eval_steps = [e["step"] for e in summary["evaluations"]]
+    # the complete record of the run: after a resume, the summary holds only the evaluations run since the resume
+    evaluations = [{"step": r["step"], **numbers(r["metrics"])}
+                   for r in read_jsonl(OUT / "logs" / "train.jsonl") if r.get("event") == "eval"]
+    partitions_record = read_jsonl(OUT / "logs" / "partitions.jsonl")
+    eval_steps = [e["step"] for e in evaluations]
     validation = {
         "steps_taken": summary["steps"], "steps_as_planned": summary["steps"] == STEPS,
         "stopped_early": summary["stopped_early"], "evaluation_steps": eval_steps,
@@ -120,7 +153,7 @@ def main() -> None:
     }
     write_json(OUT / "final_result.json", {
         "steps": STEPS, "selected": summary["selected"], "best_step": summary["best_step"],
-        "evaluations": summary["evaluations"], "partitions": summary["partitions"],
+        "evaluations": evaluations, "partitions": partitions_record,
         "cg_v2_at_selected": numbers(scored.metrics()), "cg_v2_items": len(cg_items),
         "full_dev_metrics": summary["full_dev_metrics"], "temperature_fits": summary["temperature_fits"],
         "validation": validation, "realised_items": sum(replay["sizes"][:STEPS]),

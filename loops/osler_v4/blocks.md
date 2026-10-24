@@ -61,6 +61,8 @@ Every block's largest template share is capped at 8 %, and the replay share is a
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | B0 | A0 (no new run) | — | 830,076 (osler_v2 C1) | 0.2104 | 0 | not recorded | — | — | — | — | — | base |
 | B1 | the eleven non-ED MIMIC structured-gold training files (427,374 rows) and a replay top-up (96,102 rows) | B0 | 1,353,552 | 0.2000 | 0.3157 | snli_nli_choice_v1, 0.0456 | +0.1737 [+0.1581; +0.1900] | −0.0346 [−0.0458; −0.0228] | −0.0119 [−0.0261; +0.0011] | −0.0050 [−0.0134; +0.0037] | −0.0214 [−0.0276; −0.0147] | **NOT KEPT** (MR, general and CG v2 fail) |
+| B3 | the ED acuity and ED disposition templates (40,000 rows each) and MedNLI (11,232 rows), with a replay top-up | B0 | 933,374 | 0.2000 | 0.0857 | snli_nli_choice_v1, 0.0661 | +0.1908 [+0.1625; +0.2183] | −0.0080 [−0.0188; +0.0029] | +0.0143 [+0.0057; +0.0225] | +0.0010 [−0.0082; +0.0094] | −0.0095 [−0.0163; −0.0029] | **NOT KEPT** (MR and CG v2 fail; enters the final mix under operator item 1) |
+| B4 | osler_v3's X1 real sources, RAGTruth and DrugProt (69,464 rows), with a replay top-up (6,624 rows) | B0 | 906,164 | 0.2000 | 0.0000 | snli_nli_choice_v1, 0.0681 | +0.1819 [+0.1462; +0.2219] | −0.0009 [−0.0103; +0.0085] | +0.0058 [−0.0024; +0.0143] | −0.0074 [−0.0156; +0.0007] | −0.0206 [−0.0272; −0.0148] | **NOT KEPT** (CG v2 fails; not in the final mix) |
 | B2 | the Y3 `mimic_doc_support_v1` pairs (20,250 rows; no top-up needed) | B0 | 850,326 | 0.2053 | 0.0238 | snli_nli_choice_v1, 0.0725 | +0.0775 [+0.0475; +0.1075] | −0.0116 [−0.0225; −0.0006] | +0.0041 [−0.0044; +0.0124] | −0.0079 [−0.0163; +0.0010] | −0.0138 [−0.0203; −0.0076] | **NOT KEPT** (MR and CG v2 fail) |
 
 Each cell is point [lower; upper]. Item counts: B1 own 3,962, MR 3,197, general 9,973, knowledge 4,040, CG v2 8,307; B2 own 400, MR 3,197, general 13,935, knowledge 4,040, CG v2 8,307.
@@ -91,12 +93,24 @@ Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C
   single correct item (a valid one-item batch; minimum batch size 1). The non-finite check is clean. Hypothesis, not separately
   tested: a saturated probability in float32.
 
+### B3 notes (the second attempt)
+
+- **Verdict: not kept under keep rule v2** (MR and CG v2 fail; CLAIMS C152). Under operator item 1 it enters the final mix (own lower
+  +0.1625 > +0.02; knowledge lower −0.0082 > −0.02).
+- **Readout defect (C150, C151).** `ragtruth_sentence_supported_v1` is READOUT_FAIL on fast dev v4: a constant answer, A on 90.5 % of
+  its 400 items. The base A0 answers A on 85.75 %; the gold answers are near balance (A 211, B 189). No label or pipeline defect
+  was found: the bias is in the base, and B3 crosses the D12 limit of 0.90. The keep statistics exclude the cell from both
+  comparisons (the general partition loses it).
+- **First attempt.** It stopped after step 10,450 without a traceback (C143) and was trained again from step 0; the second attempt
+  finished (C147–C149). The two attempts' evaluations differ by up to 0.35 accuracy points at the same step (GPU nondeterminism).
+
 ### B3 and B4
 
-- **B3** (ED acuity and ED disposition, 40,000 train rows each, and MedNLI, 11,232 train rows) on B0, with a replay top-up. Second attempt running:
-  retry chain PID 1154282 (`outputs/osler_v4/Y7/logs/y7_b3_retry_chain.sh`); the first attempt stopped after step 10,450 (C143, STATE §7). MIMIC-III page category (`mimic_page_category_v1`) is NOT MEASURED:
+- **B3** (ED acuity and ED disposition, 40,000 train rows each, and MedNLI, 11,232 train rows) on B0, with a replay top-up. Second attempt finished
+  (C147–C152; chain PID 1154282 done); the first attempt stopped after step 10,450 (C143, STATE §7). MIMIC-III page category (`mimic_page_category_v1`) is NOT MEASURED:
   present but not built before B2's decision (missed re-check). The MedNLI rows carry the source label `mimic_iv` in the Y2 build; no keep partition uses it.
-- **B4** (osler_v3's X1 real sources, RAGTruth and DrugProt, 69,464 train rows) on the last kept block, judged by keep rule v2 as
-  written (ruling item 1). Armed: chain PID 1219705 (`outputs/osler_v4/Y7/logs/y7_b4_chain.sh`) starts when the B3 chain exits and
-  takes its base from the B3 keep decision (B3's block if keep rule v2 kept B3, else B0). The four X1 templates pass the D35 screens
-  (CLAIMS C146); DrugProt's gold label occurs in the record text for 59 of 400 dev items (recorded, not excluded).
+- **B4** (osler_v3's X1 real sources, RAGTruth and DrugProt, 69,464 train rows) on B0 (B3 was not kept under keep rule v2), judged by
+  keep rule v2 as written (ruling item 1). **NOT KEPT**: CG v2 fails (lower −0.0272 against −0.010); own, MR, general and knowledge
+  pass (CLAIMS C162). B4 therefore does not enter the final mix. The four X1 templates pass the D35 screens (C146); DrugProt's gold
+  label occurs in the record text for 59 of 400 dev items (recorded, not excluded). Training ran twice: the first attempt stopped at
+  about step 600 at the disk-quota incident (C154); the retry (full checkpoints every 5,000 steps, C157) selected step 10,494 (C158–C159).

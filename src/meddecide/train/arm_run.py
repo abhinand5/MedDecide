@@ -45,6 +45,9 @@ def run_arm(
     device: str | None = None,
     dtype: str | None = None,
     partition_hook: Callable[[int, Trainer], dict[str, Any]] | None = None,
+    full_checkpoint_dir: str | Path | None = None,
+    full_checkpoint_every: int = 0,
+    resume_from: str | Path | None = None,
 ) -> dict[str, Any]:
     """Train one arm and return (and write to ``out_dir/arm_result.json``) its summary."""
     if not train_items:
@@ -104,7 +107,8 @@ def run_arm(
     total_steps = steps if steps is not None else step_count(example_budget(len(train_items)), config.batch_size)
     best_dir = out / "checkpoints" / "best"
     result = trainer.train(train_items, steps=total_steps, eval_items=eval_subset, checkpoint_dir=best_dir,
-                           schedule_steps=total_steps)
+                           schedule_steps=total_steps, full_checkpoint_dir=full_checkpoint_dir,
+                           full_checkpoint_every=full_checkpoint_every, resume_from=resume_from)
     selected = "final model (no checkpoint was saved)"
     final_model = model
     if result.best_step is not None and best_dir.exists():
