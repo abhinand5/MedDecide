@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-24T19:14Z`
+Last updated (UTC): `2026-10-24T19:23Z`
 Iterations so far: `1`
 
 ---
@@ -98,7 +98,8 @@ Checklist:
 - [x] replay in process (C166)
 - [x] full suite with the GPU visible before launch (C165); launch 2026-10-24T02:34:17Z
 - [x] first full checkpoints written and complete: 5,000 (C167), 10,000
-- [ ] before Y9 launches: the Y4 checkpoint scorer applies the saved calibration (C191; §7 deviation), with a unit test; at Y8 DONE, a labelled calibrated re-score of the selected checkpoint's CG v2 and fast dev (additional; the T = 1 figures stay labelled)
+- [x] before Y9 launches: the Y4 checkpoint scorer applies the saved calibration and checks it against the arm's dev fits (C191; §7 deviation item 3; code and five unit tests in C193); the Y9 chain passes --arm-result for its final and osler_v2 steps
+- [ ] at Y8 DONE: a labelled calibrated re-score of the selected checkpoint's CG v2 and fast dev (additional; the T = 1 figures stay labelled), and the readout gate on the end-of-run and calibrated predictions (scripts/osler_v4/y8_readout_gate.py)
 - [x] evaluations at 6,330 (C173), 12,661 (C178), 18,991 (C180), 25,322 (C183), 31,652 (C184), 37,982 (C185), 44,313 (C186) and 50,643 (C189) recorded in CLAIMS; tier-1 diagnostics C181, C183, C184, C185, C186 and C189
 - [x] commit and push before Y8 finishes (operator steer 2026-10-24, received by 17:01Z; §7): ruff and the CPU-hidden two-process suite first (C188); the commit carries C183 to C188, STATE, the code-split library and tests, the Y8 scripts and the y9_gate change; outputs excluded
 - [ ] training finished 63,304 steps: logged steps, non-finite check, evaluation steps on the grid, realised items 242,255 (validation as in Y7)
@@ -233,6 +234,12 @@ Checklist:
 - Headline: the 50,643 evaluation is the running best (fast dev v4 template macro 0.8458, accuracy 0.8231). CG v2 accuracy 0.7314 (the flat 0.72 to 0.75 band; template macro 0.7761); MIMIC partition accuracy 0.8013, higher at each evaluation than the one before. The Brier values at the evaluations and partitions are at T = 1 (C191): accuracy and the selection are unaffected; the fitted temperature reaches the checkpoint at the end of the run; the Y9 scorer must apply the saved calibration before Y9 launches.
 - Commit: C189 to C192, these entries and the §7 deviation, committed and pushed to `loop/osler_v4` before Y8 finishes.
 - Next: Y8 continues (evaluations at 56,974 and 63,304; then the end-of-run temperature fit and save, and the final scoring). The exit wait `bs02izqng` ends at about 19:16Z; on a timeout with the chain alive, re-arm two hours.
+
+### Y8 progress — 2026-10-24T19:23Z (the run continues; not a DONE entry)
+- What ran: the Y9 calibration fix (the scorer applies the saved calibration and checks it against the arm's dev fits; five unit tests; the Y9 chain's final and osler_v2 steps pass --arm-result); the CPU-hidden gate for this commit (C193; ruff and the two processes, no silent stop); a read-only check that the saved calibrations of the earlier arms equal their arm_result.json fits to six decimals (Y6 A4, Y7 B1, osler_v2 W7).
+- Headline: the run is at logged step 53,700 (19:22Z; about 75 steps per minute). The Y8 readout gate script is written (scripts/osler_v4/y8_readout_gate.py) and is not yet committed: it is tested on the Y8 outputs at Y8 DONE.
+- Commit: C193, the scorer and its tests, and these entries, committed and pushed to `loop/osler_v4` before Y8 finishes.
+- Next: the chain runs to step 63,304 (evaluations at 56,974 and 63,304 remain); then the end-of-run fit and save; then the Y8 DONE work (calibrated re-scores, the GPU-visible suite, the readout gate, re-derivations, SELF_AUDIT). The exit watcher `b8dn9q8uh` ends at chain exit or at 22:16Z.
 
 ---
 
@@ -491,6 +498,7 @@ deviation — that is a `BLOCKED`.
   2. The saved best checkpoint carries `calibration: {}` until the end-of-run fit and save (`arm_run.py` lines 123 and 126). Its `saved_temperature` is the base decision-config constant (1.5539092221462472), not a fit; nothing scores with it.
   3. The Y4 checkpoint scorer that the Y9 chain uses for the final model and for osler_v2 (steps 1 and 4) takes the same path, although its docstring says it calibrates. Decided: before Y9 launches, every Osler checkpoint with a saved calibration is scored through `apply_temperature` with that calibration (ADVISORY Y9: calibrated), with a unit test. Baseline models keep their own native probabilities. Y4 figures that were at T = 1 stay labelled as such.
   4. At Y8 DONE: the driver's T = 1 figures stay in the record under their label, and a labelled calibrated re-score of the selected checkpoint's CG v2 and fast dev is added as an additional analysis. No check, gate, threshold or selection rule changes.
+  5. Status (2026-10-24T19:23Z): item 3 is implemented (C193). The Y9 chain (outputs/osler_v4/Y9/logs/y9_chain.sh, not launched) passes `--arm-result` to its final and osler_v2 steps. The saved calibrations match the arms' dev fits to six decimals on the earlier arms checked (Y6 A4, Y7 B1, osler_v2 W7).
 
 ---
 

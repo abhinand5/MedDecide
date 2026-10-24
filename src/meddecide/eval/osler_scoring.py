@@ -95,6 +95,23 @@ def dev_temperatures(arm_result: Mapping[str, Any]) -> dict[str, float]:
     return {str(qtype): float(fit["temperature"]) for qtype, fit in fits.items()}
 
 
+def checkpoint_temperatures(model: Any, arm_result: Mapping[str, Any] | None = None) -> dict[str, float]:
+    """The per-question-type temperatures a loaded checkpoint is scored with: its saved calibration (``model.json``).
+
+    An empty calibration is refused rather than scored uncalibrated without a word. With an arm result, the saved values must
+    equal its dev fits to six decimals (the end-of-run fit and the arm's record are the same fits).
+    """
+    temperatures = {str(qtype): float(value) for qtype, value in dict(model.calibration).items()}
+    if not temperatures:
+        raise ValueError("the checkpoint has no saved calibration; calibrated scoring needs the dev fits")
+    if arm_result is not None:
+        saved_rounded = {qtype: round(value, 6) for qtype, value in temperatures.items()}
+        recorded_rounded = {qtype: round(value, 6) for qtype, value in dev_temperatures(arm_result).items()}
+        if saved_rounded != recorded_rounded:
+            raise ValueError(f"the saved calibration {saved_rounded} differs from the arm's dev fits {recorded_rounded}")
+    return temperatures
+
+
 def _score_pass(scorer: Any, items: Sequence[Item], temperatures: Mapping[str, float] | None,
                 score_kwargs: Mapping[str, Any]) -> Any:
     """One scoring pass, calibrated with the model's own ``apply_temperature`` when temperatures are given.
