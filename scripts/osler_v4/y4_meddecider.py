@@ -59,6 +59,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--items", required=True, type=Path)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--out-root", type=Path, default=OUT, help="the output directory (Y9 writes under outputs/osler_v4/Y9)")
     parser.add_argument("--limit", type=int, default=0, help="score only the first N items (smoke runs)")
     parser.add_argument("--verify", type=int, default=0, help="items checked against the authors' decide() dict")
     parser.add_argument("--model", default=MODEL, help="the Hub repo (MedDecider-4B by default; MedDecider-9B is an extra row)")
@@ -70,7 +71,7 @@ def main() -> None:
     from meddecider_infer import MedDecider  # the authors' module, from the checkpoint
 
     mj = MedDecider(str(local))
-    out_dir = OUT / args.name
+    out_dir = args.out_root / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     verify_diffs: list[float] = []
     counts: Counter[str] = Counter()

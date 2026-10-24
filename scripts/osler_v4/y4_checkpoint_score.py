@@ -37,6 +37,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", required=True, type=Path)
     parser.add_argument("--items", required=True, type=Path)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--out-root", type=Path, default=OUT, help="the output directory (Y9 writes under outputs/osler_v4/Y9)")
+    parser.add_argument("--label", default="osler_v2 Osler-4B (trainer-based; pplx-decider-flash-v1.2 base, D39)", help="the manifest label")
     parser.add_argument("--limit", type=int, default=0, help="score only the first N items (smoke runs)")
     args = parser.parse_args()
     started = time.time()
@@ -47,11 +49,11 @@ def main() -> None:
         rows = rows[: args.limit]
     items = [mix_row_to_item(row) for row in rows]  # a row the schema rejects stops the run (loud)
     scored = Trainer(model, config).score(items)
-    out = OUT / args.name
+    out = args.out_root / args.name
     out.mkdir(parents=True, exist_ok=True)
     write_jsonl(out / "predictions.jsonl", dev_prediction_rows(scored))
     write_json(out / "manifest.json", {
-        "model": "osler_v2 Osler-4B (trainer-based; pplx-decider-flash-v1.2 base, D39)",
+        "model": args.label,
         "checkpoint": str(args.checkpoint), "items_file": str(args.items), "items": len(items),
         "metrics": {k: v for k, v in scored.metrics().items() if isinstance(v, (int, float))},
         "gpu": gpu_name(), "git_commit": git_commit(REPO), "wall_clock_s": round(time.time() - started, 1),

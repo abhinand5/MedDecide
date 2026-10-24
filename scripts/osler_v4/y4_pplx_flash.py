@@ -53,12 +53,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--items", required=True, type=Path)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--out-root", type=Path, default=OUT, help="the output directory (Y9 writes under outputs/osler_v4/Y9)")
+    parser.add_argument("--checkpoint", type=Path, default=CHECKPOINT, help="the snapshot to score (the 27B for the Y9 ceiling)")
+    parser.add_argument("--revision", default=REVISION, help="the pinned commit of --checkpoint")
+    parser.add_argument("--label", default="pplx-decider-flash-v1.2 (zero-shot, authors' code)", help="the manifest label")
     parser.add_argument("--limit", type=int, default=0, help="score only the first N items (smoke runs)")
     args = parser.parse_args()
     started = time.time()
     package = teacher_package()
-    decider = package.Decider.from_pretrained(CHECKPOINT, device="cuda", fast=False)
-    out_dir = OUT / args.name
+    decider = package.Decider.from_pretrained(args.checkpoint, device="cuda", fast=False)
+    out_dir = args.out_root / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     counts: Counter[str] = Counter()
     scored_items = 0
@@ -110,8 +114,8 @@ def main() -> None:
     gc.collect()  # the process ends after the manifest: the card is free for the next job then
     torch.cuda.empty_cache()
     write_json(out_dir / "manifest.json", {
-        "model": "pplx-decider-flash-v1.2 (zero-shot, authors' code)", "revision": REVISION,
-        "checkpoint": str(CHECKPOINT), "items_file": str(args.items), "scored": scored_items,
+        "model": args.label, "revision": args.revision,
+        "checkpoint": str(args.checkpoint), "items_file": str(args.items), "scored": scored_items,
         "counts": dict(sorted(counts.items())), "gpu": gpu_name(), "wall_clock_s": round(time.time() - started, 1),
         "generated_utc": utcnow(),
     })
