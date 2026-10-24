@@ -15,9 +15,11 @@ Usage (CPU; after the scoring chain):
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from typing import Any
 
+from meddecide.eval.code_split import place_section, render_code_section
 from meddecide.eval.gate_o4 import (
     MEDDECIDER_OPTION_CAP,
     CheckResult,
@@ -40,6 +42,7 @@ Y4_RUNS = REPO / "outputs" / "osler_v4" / "Y4" / "baselines"
 OUT_JSON = REPO / "outputs" / "osler_v4" / "Y9" / "gate.json"
 GATE_MD = REPO / "loops" / "osler_v4" / "gate_o4.md"
 RESULTS_MD = REPO / "loops" / "osler_v4" / "results.md"
+CODE_SPLIT_JSON = REPO / "outputs" / "osler_v4" / "Y8" / "code_split.json"  # the Y8 steer's additional rows, kept in results.md
 
 GATE_CHECKS = (("i", "mr_verdict", "mr_or_mimic"), ("ii", "mimic_suite", "mr_or_mimic"),
                ("iii", "panel", "accuracy"), ("iv", "knowledge", "accuracy"))
@@ -273,7 +276,10 @@ def write_results_markdown(report: dict[str, Any]) -> str:
             lines.append(f"| {spec['label']} | {e['scored_items']} | {e['template_macro_accuracy']:.4f} | {e['brier_item_mean']:.4f} "
                          f"| {e['status']} | {e['skipped_by_runner']} |")
         lines.append("")
-    return "\n".join(lines) + "\n"
+    text = "\n".join(lines) + "\n"
+    if CODE_SPLIT_JSON.exists():  # the additional rows are written by y8_code_split.py; a rewrite of this file keeps them
+        text = place_section(text, render_code_section(json.loads(CODE_SPLIT_JSON.read_text(encoding="utf-8"))))
+    return text
 
 
 def main() -> None:
