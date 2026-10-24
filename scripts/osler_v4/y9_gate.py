@@ -266,7 +266,7 @@ def write_results_markdown(report: dict[str, Any]) -> str:
         lines += [f"## {set_name}", "", "| model | scored items | template macro accuracy | Brier (item mean) | readout | skipped by runner |",
                   "|---|---|---|---|---|---|"]
         for model, spec in MODELS.items():
-            e = report["scoreboard"][set_name].get(model, {"status": "NOT RUN"})
+            e = report["scoreboard"].get(set_name, {}).get(model, {"status": "NOT RUN"})
             if "scored_items" not in e:
                 lines.append(f"| {spec['label']} | NOT RUN | — | — | — | — |")
                 continue
