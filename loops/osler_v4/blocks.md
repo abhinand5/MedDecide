@@ -61,13 +61,51 @@ Every block's largest template share is capped at 8 %, and the replay share is a
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | B0 | A0 (no new run) | — | 830,076 (osler_v2 C1) | 0.2104 | 0 | not recorded | — | — | — | — | — | base |
 | B1 | the eleven non-ED MIMIC structured-gold training files (427,374 rows) and a replay top-up (96,102 rows) | B0 | 1,353,552 | 0.2000 | 0.3157 | snli_nli_choice_v1, 0.0456 | +0.1737 [+0.1581; +0.1900] | −0.0346 [−0.0458; −0.0228] | −0.0119 [−0.0261; +0.0011] | −0.0050 [−0.0134; +0.0037] | −0.0214 [−0.0276; −0.0147] | **NOT KEPT** (MR, general and CG v2 fail) |
+| B2 | the Y3 `mimic_doc_support_v1` pairs (20,250 rows; no top-up needed) | B0 | 850,326 | 0.2053 | 0.0238 | snli_nli_choice_v1, 0.0725 | +0.0775 [+0.0475; +0.1075] | −0.0116 [−0.0225; −0.0006] | +0.0041 [−0.0044; +0.0124] | −0.0079 [−0.0163; +0.0010] | −0.0138 [−0.0203; −0.0076] | **NOT KEPT** (MR and CG v2 fail) |
 | B3 | the ED acuity and ED disposition templates (40,000 rows each) and MedNLI (11,232 rows), with a replay top-up | B0 | 933,374 | 0.2000 | 0.0857 | snli_nli_choice_v1, 0.0661 | +0.1908 [+0.1625; +0.2183] | −0.0080 [−0.0188; +0.0029] | +0.0143 [+0.0057; +0.0225] | +0.0010 [−0.0082; +0.0094] | −0.0095 [−0.0163; −0.0029] | **NOT KEPT** (MR and CG v2 fail; enters the final mix under operator item 1) |
 | B4 | osler_v3's X1 real sources, RAGTruth and DrugProt (69,464 rows), with a replay top-up (6,624 rows) | B0 | 906,164 | 0.2000 | 0.0000 | snli_nli_choice_v1, 0.0681 | +0.1819 [+0.1462; +0.2219] | −0.0009 [−0.0103; +0.0085] | +0.0058 [−0.0024; +0.0143] | −0.0074 [−0.0156; +0.0007] | −0.0206 [−0.0272; −0.0148] | **NOT KEPT** (CG v2 fails; not in the final mix) |
-| B2 | the Y3 `mimic_doc_support_v1` pairs (20,250 rows; no top-up needed) | B0 | 850,326 | 0.2053 | 0.0238 | snli_nli_choice_v1, 0.0725 | +0.0775 [+0.0475; +0.1075] | −0.0116 [−0.0225; −0.0006] | +0.0041 [−0.0044; +0.0124] | −0.0079 [−0.0163; +0.0010] | −0.0138 [−0.0203; −0.0076] | **NOT KEPT** (MR and CG v2 fail) |
 
-Each cell is point [lower; upper]. Item counts: B1 own 3,962, MR 3,197, general 9,973, knowledge 4,040, CG v2 8,307; B2 own 400, MR 3,197, general 13,935, knowledge 4,040, CG v2 8,307.
+Each cell is point [lower; upper]. Item counts: B1 own 3,962, MR 3,197, general 9,973, knowledge 4,040, CG v2 8,307; B2 own 400, MR 3,197, general 13,935, knowledge 4,040, CG v2 8,307; B3 own 1,200, MR 3,197, general 12,735, knowledge 4,040, CG v2 8,307; B4 own 1,250, MR 3,197, general 13,085, knowledge 4,040, CG v2 8,307. The partitions close on the 17,532 fast dev v4 items: B1 3,962 own + 400 shortcut + 3,197 MR + 9,973 general; B2 400 + 3,197 + 13,935; B3 1,200 + 3,197 + 12,735 + 400 excluded for readout; B4 1,250 + 3,197 + 13,085 (C168).
 
-Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C128; B1 keep C129; the shortcut-included own figure C130. B2 pre-check C131; B2 mix and replay C132–C133; B2 training C134–C136; B2 scoring, readout and keep C137–C139.
+Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C128; B1 keep C129; the shortcut-included own figure C130. B2 pre-check C131; B2 mix and replay C132–C133; B2 training C134–C136; B2 scoring, readout and keep C137–C139. B3 first attempt C143; B3 retry (training, scoring, readout and keep) C147–C152. B4 mix
+C153; B4 first attempt C154; resumable-training tests C155–C156; B4 retry (training, scoring, readout and keep) C157–C162. The fresh-process
+re-derivation of every number in this file, the MIMIC partition and the training draws: C168–C172.
+
+## Additional rows (labelled; not in any verdict)
+
+**MIMIC partition.** The fast dev v4 items whose template id starts with `mimic_`: 5,562 items in 14 templates. They are the union
+of the MIMIC templates the blocks add (4,362 items from B1's eleven templates, including the shortcut; 400 from B2's
+`mimic_doc_support_v1`; 800 from B3's ED templates), so the partition holds each block's own templates and is not a held-out measure.
+No template fails the readout gate for any block or for B0. Template macro of the paired difference against B0, with the bootstrap of
+the verdicts (1,000 resamples, seed 0, within templates); the B0 row gives B0's template macro on the same items (C169).
+
+| block | template macro accuracy | difference against B0, point [lower; upper] |
+|---|---|---|
+| B0 | 0.6126 | — |
+| B1 | 0.7662 | +0.1535 [+0.1404; +0.1666] |
+| B2 | 0.6327 | +0.0201 [+0.0094; +0.0298] |
+| B3 | 0.6867 | +0.0741 [+0.0641; +0.0845] |
+| B4 | 0.6440 | +0.0314 [+0.0212; +0.0424] |
+
+**Training draws and scored checkpoints** (C170, C171). Each block runs 13,992 steps (279 logged steps; no non-finite value). The
+realised items are what the trainer draws, counted from the replayed batches.
+
+| block | realised items (per step) | MIMIC share, mix / realised | largest realised template | selected step (scored) | scored correct, fast dev v4 / CG v2 | in-training correct at the selected step |
+|---|---|---|---|---|---|---|
+| B1 | 51,619 (3.69) | 0.3157 / 0.3135 | snli_nli_choice_v1, 0.0456 | 13,992 | 14,174 / 6,367 | 14,171 |
+| B2 | 78,391 (5.60) | 0.0238 / 0.0242 | snli_nli_choice_v1, 0.0706 | 13,992 | 13,602 / 6,430 | 13,604 |
+| B3 | 85,229 (6.09) | 0.0857 / 0.0866 | snli_nli_choice_v1, 0.0658 | 13,992 | 13,941 / 6,466 | 13,934 |
+| B4 | 84,191 (6.02) | 0.0000 / 0.0000 | snli_nli_choice_v1, 0.0696 | 10,494 | 13,866 / 6,374 | 13,871 |
+
+B1's realised items are fewer per step because its structured MIMIC items are long (1,446 real tokens per item, against 733 to 871 for
+the other blocks; C171). The B3 MIMIC share counts the ED templates only: MedNLI carries the source label `mimic_iv` and is in neither
+the partition nor the share. The scored counts are the predictions the keep decisions use; the in-training counts are the trainer's
+evaluations at the same checkpoint (the difference is 2 to 7 items; C170).
+
+**Final mix (Y8 input, C164).** 1,456,593 rows: osler_v2 C1 (830,076) + the family rows of B1, B2 and B3 that enter by ruling item 1
+(538,856 available; 509,807 kept by a stable-hash proportional subsample at the 35 % family cap) + a replay top-up of 116,710 from
+osler_v3's broad pool. Replay share 0.2000; family share 0.3500; largest template broad_aqua_rat_v1 0.0480; 74 templates. B4 is not in
+the final mix.
 
 ### B1 notes
 
@@ -89,9 +127,10 @@ Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C
 - **Readout.** No readout cell fails on either set (C138).
 - **Consequence.** B2 is not part of the last kept block, so B3 builds on B0 as well.
 - **Training record.** The run completed 13,992 steps (C134). Its fast dev v4 evaluations were accuracy 0.7359, 0.7664, 0.7716 and
-  0.7760 at steps 3,498, 6,996, 10,494 and 13,992 (C135). One logged step (1,650) has loss, CE, Brier and gradient exactly zero on a
-  single correct item (a valid one-item batch; minimum batch size 1). The non-finite check is clean. Hypothesis, not separately
-  tested: a saturated probability in float32.
+  0.7760 at steps 3,498, 6,996, 10,494 and 13,992 (C135). One logged step (1,650) is a one-item batch answered correctly, with loss 5.96e-07, CE
+  5.96e-07, Brier 7.3e-13 and gradient norm 4.6e-05: numerically zero, not exactly zero (the wording of the first version was
+  wrong). B2 has 13 logged one-item steps with loss below 1e-6, all correct (the smallest, 7.5e-18, at step 13,800). The
+  non-finite check is clean for every block (C172). Hypothesis, not separately tested: a saturated probability in float32.
 
 ### B3 notes (the second attempt)
 
@@ -113,4 +152,6 @@ Claims: block mix C123; B1 training C124–C126; B1 scoring and readout C127–C
   keep rule v2 as written (ruling item 1). **NOT KEPT**: CG v2 fails (lower −0.0272 against −0.010); own, MR, general and knowledge
   pass (CLAIMS C162). B4 therefore does not enter the final mix. The four X1 templates pass the D35 screens (C146); DrugProt's gold
   label occurs in the record text for 59 of 400 dev items (recorded, not excluded). Training ran twice: the first attempt stopped at
-  about step 600 at the disk-quota incident (C154); the retry (full checkpoints every 5,000 steps, C157) selected step 10,494 (C158–C159).
+  about step 600 at the disk-quota incident (C154); the retry (full checkpoints every 5,000 steps, C157) selected step 10,494 (C158–C159). The scored
+  predictions are those of the selected checkpoint, not of the final step (C160): 13,866 of 17,532 correct on fast dev v4, while the
+  in-training evaluation at the same step counts 13,871 (C170).
