@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-24T05:58:28Z`
+Last updated (UTC): `2026-10-24T09:13:06Z`
 Iterations so far: `1`
 
 ---
@@ -84,14 +84,14 @@ Task:           Y8 — Final Osler-4B, 63,304 steps (GPU; resumable). IN_PROGRES
 Recipe:         A0 (STATE §7; loops/osler_v4/stage_a.md): control, KL 0, osler_v2 C1 base plus the entering MIMIC-family blocks (B1, B2, B3 by operator ruling item 1; B4 not kept). Ten evaluations at 6,330 … 63,304 (CG v2 and the MIMIC partition at each; selection by fast dev v4 template macro, unchanged).
 Mix:            composed in memory (C164): 1,456,593 rows; composition SHA-256 9d25e30f…; family share 0.3500, replay share 0.2000, largest template 0.0480. Replay in process: 63,304 steps, 242,255 items realised (C166).
 Running:        chain PID 1472063, driver PID 1472069 (`outputs/osler_v4/Y8/logs/y8_chain.sh`); log outputs/osler_v4/Y8/logs/final_train.log; events outputs/osler_v4/Y8/logs/train.jsonl; chain exit code in outputs/osler_v4/Y8/logs/y8_chain.log. Full checkpoints every 5,000 steps under outputs/osler_v4/Y8/full (newest two kept). After an interruption: `bash outputs/osler_v4/Y8/logs/y8_chain.sh --resume` (identical data order; STATE §7).
-Progress:       2026-10-24T06:55:04Z: evaluations at 6,330 (C173) and 12,661 (C178) recorded: fast dev v4 template macro 0.7782 and 0.8107 (accuracies 0.7590 and 0.7915); CG v2 0.7677 and the MIMIC partition 0.7304 at 12,661. No non-finite logged values; full checkpoints 5,000 and 10,000 complete (C167). The pace has varied between 56 and 77 steps per minute; with 51,504 steps and nine evaluations of about 18 minutes left, the training end is expected between about 2026-10-24T19:45Z and 2026-10-25T00:00Z (the 56 to 77 steps-per-minute range, plus nine evaluations).
+Progress:       2026-10-24T09:13:06Z: evaluations at 6,330 (C173), 12,661 (C178) and 18,991 (C180) recorded. Fast dev v4 template macro 0.7782, 0.8107 and 0.8079, so the running best is 12,661. CG v2 template macro 0.7628, 0.7677 and 0.7561; MIMIC partition template macro 0.6956, 0.7304 and 0.7492 (C173, C178, C180). Tier-1 diagnostics by source at the same three steps (C181; development rows, never a selection signal). Logged steps every 50; the last, 21,250 at 09:13Z; non-finite logged values 0. One PyTorch allocator warning in the log at 02:47:56Z (an allocation of 150,994,944 bytes with 85,524,480 bytes free, of 101,975,851,008); the run went on, and its cause is not checked (for SELF_AUDIT). Pace 47 to 77 steps per minute (about 63 without evaluations); 42,054 steps and seven evaluations of about 18 minutes remain, so the training end is expected between about 2026-10-24T20:30Z and 2026-10-25T02:30Z, most likely about 2026-10-24T22:30Z.
 Working rule:   one GPU job at a time; the Y7 closure work is CPU only and does not touch the GPU.
 Checklist:
 - [x] final mix composed in memory and checked (C164; scripts/osler_v4/y8_compose_check.py)
 - [x] replay in process (C166)
 - [x] full suite with the GPU visible before launch (C165); launch 2026-10-24T02:34:17Z
 - [x] first full checkpoints written and complete: 5,000 (C167), 10,000
-- [x] evaluation at 6,330 recorded in CLAIMS (C173); evaluation at 12,661 (C178)
+- [x] evaluations at 6,330 (C173), 12,661 (C178) and 18,991 (C180) recorded in CLAIMS; tier-1 diagnostics C181
 - [ ] training finished 63,304 steps: logged steps, non-finite check, evaluation steps on the grid, realised items 242,255 (validation as in Y7)
 - [ ] selection by fast dev v4 template macro over the ten evaluations; scored on fast dev v4 and CG v2; readout gate; CG v2 and MIMIC trend at every evaluation
 - [ ] Y8 DONE: §2 final row, §4 entry, SELF_AUDIT, CLAIMS rows, commit and push
@@ -440,6 +440,7 @@ deviation — that is a `BLOCKED`.
 
 
 - **Incident (2026-10-24, the CPU test suite): single-process runs stop silently inside `tests/test_trainer_o6.py` (C177).** Three attempts (about 06:19Z, 06:30Z and 06:45Z) stopped at about test 972 of 1,021, inside the second test of that file, with exit code 125 and no traceback; the wrapper shell did not write its exit line either. The file passes alone (13 passed) and in a four-file combination; the cgroup reports no OOM event; a 200 MB write and 200 small file creations succeeded. The cause is not established. Mitigation for this loop: the suite runs as two processes (every file except `tests/test_trainer_o6.py`: 1,004 passed, 4 skipped, 2 deselected; that file: 13 passed), both exit 0; the counts are in C177. Not a test failure; a process-level stop that needs investigating before the next long run.
+- **Follow-up (2026-10-24T09:16Z to 09:23Z): the silent stop again, then a clean rerun (C182).** In the 09:16Z run the second process (the trainer file, output captured, GPU hidden) exited with status 1 after its first test and left only one dot in its log. That log was overwritten by the rerun, so the exit is recorded here and not in a file. The same file then passed in three runs: 13 passed with capture (09:18Z), 13 passed with `-s` (09:19Z), and 13 passed in the rerun's second process (09:22Z); the single gradient-norm test passed alone (09:17Z). The first process of the rerun left 617 MB in `/workspace/tmp/pytest-of-root` (measured 09:21Z); the failing run started with that directory present (not measured then). The likely cause is quota headroom while those files existed, as in the B4 incident; this is not verified. Mitigation: the two processes run in sequence with the temporary directory removed after each. The Y8 run writes 82 MB full checkpoints (two kept), so the same quota is its risk: a silent stop shows as a log that stops with no final line.
 
 ---
 
