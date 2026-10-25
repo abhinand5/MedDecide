@@ -261,8 +261,9 @@ def write_gate_markdown(report: dict[str, Any]) -> str:
             if "accuracy" not in entry:
                 lines.append(f"- {set_name}: {entry.get('status', 'NOT RUN')}")
                 continue
-            lines.append(f"- {set_name}: accuracy {_fmt(entry['accuracy'])}; Brier {_fmt(entry['brier'])}; items {entry['items']}; "
-                         f"unpaired {entry['unpaired'] or 'none'}.")
+            label = f"{set_name} (post hoc; additional)" if entry.get("post_hoc") else set_name
+            lines.append(f"- {label}: accuracy {_fmt(entry['accuracy'])}; Brier {_fmt(entry['brier'])}; items {entry['items']}; "
+                         f"unpaired {entry.get('unpaired') or 'none'}.")
         per = report["additional"][base].get("panel_per_dataset")
         if per:
             lines.append("- panel per dataset (accuracy, final minus baseline):")
@@ -286,8 +287,10 @@ def write_results_markdown(report: dict[str, Any]) -> str:
             if "scored_items" not in e:
                 lines.append(f"| {spec['label']} | NOT RUN | — | — | — | — |")
                 continue
-            lines.append(f"| {spec['label']} | {e['scored_items']} | {e['template_macro_accuracy']:.4f} | {e['brier_item_mean']:.4f} "
-                         f"| {e['status']} | {e['skipped_by_runner']} |")
+            macro = "—" if e["template_macro_accuracy"] is None else f"{e['template_macro_accuracy']:.4f}"
+            brier = "—" if e["brier_item_mean"] is None else f"{e['brier_item_mean']:.4f}"
+            lines.append(f"| {spec['label']} | {e['scored_items']} | {macro} | {brier} "
+                         f"| {e['status']} | {e.get('skipped_by_runner', '—')} |")
         lines.append("")
     text = "\n".join(lines) + "\n"
     if CODE_SPLIT_JSON.exists():  # the additional rows are written by y8_code_split.py; a rewrite of this file keeps them
