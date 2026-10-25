@@ -113,6 +113,9 @@ def load_scored(model: str, set_name: str, items: list[dict[str, Any]]) -> dict[
 
 def scoreboard_line(rows: list[dict[str, Any]], items_by_id: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """A model's own figures on the items it scored: template macro accuracy, Brier (item mean) and the readout status."""
+    if not rows:  # every item unpaired or unscored for this model: reported, never a figure
+        return {"scored_items": 0, "template_macro_accuracy": None, "brier_item_mean": None, "templates": 0,
+                "readout_failures": {}, "status": "NOT MEASURED (no scored items)"}
     templates: dict[str, list[float]] = {}
     briers: list[float] = []
     for r in rows:
@@ -195,6 +198,16 @@ def additional(model: str, base: str, final_by_set: dict[str, Any], base_by_set:
                 part = comparison(pairing, templates=frozenset({template}))
                 per[template] = {"items": part.items, "accuracy": _diff(part.accuracy), "brier": _diff(part.brier)}
             out["panel_per_dataset"] = per
+    # post hoc (decided after the verdict was read; osler_v1 flagged these two templates as too good, V180 to V183): the MR verdict
+    # without them, labelled additional; the verdict above keeps all seven templates as pre-registered
+    flagged = frozenset({"pmc_similar_patient_v1", "mr_icd_support_template_v2"})
+    f, b = final_by_set.get("mr_verdict"), base_by_set.get("mr_verdict")
+    if f is not None and b is not None:
+        pairing = pair_rows(f["rows"], b["rows"], items_by_set["mr_verdict"], option_cap=MODELS[base]["cap"])
+        kept = frozenset(comparison(pairing).templates) - flagged
+        part = comparison(pairing, templates=kept)
+        out["mr_verdict_without_osler_v1_flags"] = {"post_hoc": True, "items": part.items, "templates": sorted(kept),
+                                                    "accuracy": _diff(part.accuracy), "brier": _diff(part.brier)}
     return out
 
 
