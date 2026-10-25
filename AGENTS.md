@@ -17,18 +17,17 @@
 
 ## Current loop
 
-- **Loop:** `osler_v4` (loop 1g — MIMIC at scale, Nemotron-crafted minimal pairs, the panel lever, a longer final)
-- **Mission:** MIMIC-IV payer-audit templates with labels from database fields and Nemotron-edited documentation minimal pairs
-  (D45, D46); a frozen MIMIC audit suite; Stage A recipe (KL 0.1 + broad replay; pplx 27B distillation on general items if
-  D48 is confirmed) chosen on CG v2; Stage B blocks under keep rule v2 (D47); a 63,304-step Osler-4B (D50); Gate O4 (D49)
-  and a size-class scoreboard — then hard-stop for review.
-- **Branch:** `loop/osler_v4` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v4/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v4/STATE.md`
-- **Outputs:** `outputs/osler_v4/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v4/CLAIMS.md`
+- **Loop:** `osler_v5` (loop 1h — fix and max the Osler-4B)
+- **Mission:** per-item loss weighting (D51), option-count augmentation with a positional health check (D52), four short
+  recipe arms on osler_v4's exact mix chosen by a dev composite of MR, MIMIC and CG (D54), a 63,304-step Osler-4B, a
+  weight-space blend toward the base chosen on dev (D53), Gate O5 (D55), a membership audit — then hard-stop for review.
+- **Branch:** `loop/osler_v5` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v5/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
+- **Run state:** `loops/osler_v5/STATE.md`
+- **Outputs:** `outputs/osler_v5/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v5/CLAIMS.md`
 - **Style:** advisory
-- **Started:** `2026-10-21T18:26:40Z`
+- **Started:** `<fill in at Z0>`
 
 ---
 
@@ -132,7 +131,9 @@ These were decided by the operator. If evidence contradicts one, record it in ST
 - Deterministic IDs (stable hashes) for items and templates.
 - Small pure functions for parsing, templating, metrics — with unit tests.
 - `pathlib.Path`; no hardcoded paths outside config defaults.
-- `uv run ruff check .` and `uv run pytest` pass before any commit.
+- `uv run ruff check .` and `uv run pytest` pass before any commit that changes code (`src/`, `scripts/`, `tests/`,
+  `configs/`). A commit that changes only `loops/` files skips them (osler_v4: the suite cost about 15 minutes per progress
+  commit and held unpushed work for hours).
 
 ### Git
 
@@ -215,6 +216,7 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
+| `osler_v4` | MIMIC-IV payer-audit templates (13 + MedNLI; labels from database fields), 10,125 Nemotron-edited minimal pairs, the frozen MIMIC audit suite v1 (4,253 items). Stage A chose the control (KL + replay and 27B distillation did not beat it on CG v2); Stage B kept no block, B1–B3 entered under an operator ruling. 63,304-step final. **Gate O4 FAIL** vs zero-shot pplx on the external panel (−0.042 [−0.058, −0.027]); MR verdict +0.139, MIMIC suite +0.165, knowledge −0.007 pass; vs MedDecider-4B the panel is NOT MEASURED (10-letter prompt). MIMIC suite 0.800, above pplx-27B (0.682) and every model ≤ 10B. Membership AUC 0.504. Advisor diagnosis (after the loop, dev only): readout collapse on two-letter option codes (DDXPlus 2 of 499), per-step loss averaging gave MIMIC ~60 % of the gradient for 36 % of items, selection ignored CG. | `loops/osler_v4/FINDINGS.md` |
 | `osler_v3` | Stage A (control, KL-to-base 0.1 and 0.5, broad replay; 13,992 steps each) chose the control on the clinical-general dev proxy, where all runs sat within 0.003. Stage B kept no block: RAGTruth + DrugProt (+0.151 on its own templates), restyle pages and indicator charts each failed the keep rule's MR-gain check (−0.004 to −0.010). X9 skipped (the kept mix equals osler_v2's); no Gate O3 verdict. Additional rows: KL 0.1 and broad replay narrowed the panel gap against pplx from −0.025 to about −0.011 (intervals reach zero) at no MR cost; every short run is 0.018–0.025 below osler_v2's 42,200-step model on MR (run length, untested). | `loops/osler_v3/FINDINGS.md` |
 | `osler_v2` | pplx-decider-flash-v1.2 chosen as the base on dev (MR +3.8, knowledge +9.2 over Qwen3.5-4B at C0); training 1.8× faster (attention-only LoRA, checkpointing only above 8,192 tokens). Real text (CodiEsp, MTSamples, EHR-Rel) kept (+7.5 MR dev); teacher prose rejected again; Gemma charts blocked by a certainty-word cue check. **Gate O3 FAIL** on one check: MR suite +26.3 vs MedDecider-4B and +15.8 vs its base; external panel −0.4 vs MedDecider-4B but −2.0 [−3.4, −0.6] vs zero-shot pplx-flash (limit −2.0); knowledge +0.2 on paired items. | `loops/osler_v2/FINDINGS.md` |
 | `osler_v1` | Synthetic-first medical-record audit data (generators, Synthea, MTSamples, CodiEsp, PMC-Patients, 31,000 verified teacher pages), replay 15 %, four data blocks (B1 kept: generators + Synthea; teacher prose and real text not kept), attention-only final Osler-4B (9B deferred). **Gate O2 FAIL**: MR suite +8.1 accuracy vs MedDecider-4B but Brier worse (real-text ICD, overconfident); external panel −2.2 (limit −2.0). Knowledge guard passes at +4.4 — the attention-only adapter fixed osler_v0's loss. Generated MR items +23.5 vs MedDecider-4B; real text −7.4. The MR suite was dominated by a vocabulary-solvable template and three ceiling templates. | `loops/osler_v1/FINDINGS.md` |
