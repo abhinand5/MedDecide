@@ -8,17 +8,18 @@ It is a report for the release decision, not a gate (ADVISORY Y10).
    zero-shot base (pplx-decider-flash-v1.2) is the control on the same items. The test items are later admissions than most training
    items, so the AUC also reads any train-to-test shift; the control shows how much of it is shift alone.
 2. Verbatim probe. 300 train-split discharge notes; the first 128 tokens are the prefix and the next 64 the truth. 64 tokens are generated
-   greedily by the exported plain causal LM of the final model (D23: the option-code rows written back into a copy of the LM head, the
-   adapter merged) and by the zero-shot base. A continuation counts when it matches the truth on at least 50 consecutive aligned tokens.
+   greedily by a plain causal LM of the final model (its backbone with the adapter merged; the D23 exported option-code head copied into
+   an untied LM head) and by the zero-shot base. A continuation counts when it matches the truth on at least 50 consecutive aligned tokens.
+   The decision path's probabilities on 20 membership items are compared with the causal export: an additional, labelled row.
 
 Only counts and figures are written under outputs/osler_v4/Y10 and loops/osler_v4/audit.md. Item and note texts stay in data/ and are
 never printed. Subcommands (run in this order; the scoring steps use one GPU job at a time):
 
-    uv run --frozen python scripts/osler_v4/y10_audit.py members          # CPU: the 4,000 items and their sampling counts
-    CUDA_VISIBLE_DEVICES=  (see the chain in outputs/osler_v4/Y10/logs)    # GPU: y4_checkpoint_score.py and y4_pplx_flash.py on the items
-    uv run --frozen python scripts/osler_v4/y10_audit.py auc              # CPU: the membership AUC and its control
-    uv run --frozen python scripts/osler_v4/y10_audit.py probe            # GPU: the verbatim probe (final and base)
-    uv run --frozen python scripts/osler_v4/y10_audit.py report           # CPU: loops/osler_v4/audit.md
+    uv run --frozen python scripts/osler_v4/y10_audit.py members   # CPU: the 4,000 items and their sampling counts
+    bash scripts/osler_v4/y10_chain.sh                             # GPU: the membership scores, then the probe (one job at a time)
+    uv run --frozen python scripts/osler_v4/y10_audit.py auc       # CPU: the membership AUC and its control
+    uv run --frozen python scripts/osler_v4/y10_audit.py report    # CPU: loops/osler_v4/audit.md
+    uv run --frozen python scripts/osler_v4/y10_rederive.py        # CPU: fresh-process re-derivation (R6)
 """
 
 from __future__ import annotations
@@ -54,6 +55,7 @@ LABELS = ITEMS_DIR / "membership_labels.json"
 NOTES = REPO / "data" / "mimic_build" / "discharge_notes.parquet"
 REPORT = REPO / "loops" / "osler_v4" / "audit.md"
 PER_CLASS = 2000
+EXPORT_CHECK_ITEMS = 20
 PROBE_NOTES = 300
 PREFIX_TOKENS = 128
 CONTINUATION_TOKENS = 64
@@ -161,33 +163,118 @@ def cmd_auc(_: argparse.Namespace) -> None:
 
 def cmd_probe(_: argparse.Namespace) -> None:
     import torch
-    from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    from meddecide.model.optcode import exported_lm_head
     from meddecide.model.pplx import load_any
-    from meddecide.model.readout_checks import exported_causal_lm
 
     notes = read_json(Y8_BEST / "model.json")
     base_id, revision = notes["base_model_id"], notes["revision"]
     tokenizer = AutoTokenizer.from_pretrained(base_id, revision=revision)
+    pad_id = tokenizer.pad_token_id or tokenizer.eos_token_id
     rows = _probe_notes(tokenizer)
-    model = load_any(Y8_BEST, device="cuda", dtype=torch.bfloat16)
-    matrix = model.exported_option_code_lm_head().float().cpu()
+    model = load_any(Y8_BEST, device="cuda", dtype="bfloat16")
+    check_items = [mix_row_to_item(r) for r in list(iter_jsonl(ITEMS))[:EXPORT_CHECK_ITEMS]]
+    batches, native = _native_probabilities(model, check_items)
+    token_ids, optcode = list(model.optcode_token_ids), model.optcode
+    merged = model.peft_model.merge_and_unload().eval()
     del model
     gc.collect()
     torch.cuda.empty_cache()
-    causal = exported_causal_lm(base_id, matrix, revision=revision, dtype=torch.bfloat16, device="cuda")
-    causal = PeftModel.from_pretrained(causal, Y8_BEST / "adapter").merge_and_unload().eval()
-    final = _generate_counts(causal, rows, tokenizer.pad_token_id or tokenizer.eos_token_id)
+    causal = AutoModelForCausalLM.from_pretrained(base_id, revision=revision, dtype=torch.bfloat16, device_map="cuda")
+    _load_backbone(causal, merged)
+    del merged
+    gc.collect()
+    torch.cuda.empty_cache()
+    causal.lm_head = _untied_head(exported_lm_head(causal.lm_head.weight, optcode))
+    causal.eval()
+    export = _export_agreement(causal, batches, native, token_ids)
+    final = _generate_counts(causal, rows, pad_id)
     del causal
     gc.collect()
     torch.cuda.empty_cache()
-    control = AutoModelForCausalLM.from_pretrained(base_id, revision=revision, dtype=torch.bfloat16, device_map="cuda").eval()
-    base = _generate_counts(control, rows, tokenizer.pad_token_id or tokenizer.eos_token_id)
+    backbone = _zero_shot_backbone(base_id, revision)
+    control = AutoModelForCausalLM.from_pretrained(base_id, revision=revision, dtype=torch.bfloat16, device_map="cuda")
+    _load_backbone(control, backbone)
+    del backbone
+    gc.collect()
+    torch.cuda.empty_cache()
+    control.eval()
+    base = _generate_counts(control, rows, pad_id)
     write_json(Y10 / "probe.json", {"generated_utc": utcnow(), "git_commit": git_commit(REPO), "notes": len(rows),
                                     "prefix_tokens": PREFIX_TOKENS, "continuation_tokens": CONTINUATION_TOKENS,
-                                    "run": VERBATIM_RUN, "final": final, "base": base})
-    print(f"probe: final {final['matches']} of {len(rows)}; base {base['matches']} of {len(rows)}", flush=True)
+                                    "run": VERBATIM_RUN, "export_agreement": export, "final": final, "base": base})
+    print(f"probe: export argmax agreement {export['argmax_agree']} of {export['items']}; "
+          f"final {final['matches']} of {len(rows)}; base {base['matches']} of {len(rows)}", flush=True)
+
+
+def _native_probabilities(model: Any, items: list[Any]) -> tuple[list[Any], list[Any]]:
+    """The decision path's probabilities over the offered codes, one item per batch (the readout the gate reads)."""
+    import torch
+
+    batches, native = [], []
+    for item in items:
+        batch = model.collate([model.encode_item(item)])
+        with torch.no_grad():
+            _, probs = model.batch_logits(batch)
+        batches.append(batch)
+        native.append(probs.detach().float().cpu())
+    return batches, native
+
+
+def _load_backbone(causal: Any, source_model: Any) -> bool:
+    """Copy a backbone's weights into a causal LM: the merged decision backbone, or the zero-shot backbone. A state-dict copy, not a PEFT
+    reload, because the decision backbone and a causal class can name their modules differently. Every causal backbone key must be found,
+    exactly or under `language_model.`. The LM head is then tied to the embeddings again, as the base checkpoint ties it: on the first run
+    transformers reported the tie as broken for this checkpoint, so the probe stops if the tie does not hold."""
+    source = source_model.state_dict()
+    mapped = {}
+    for key in causal.model.state_dict():
+        if key in source:
+            mapped[key] = source[key]
+        elif f"language_model.{key}" in source:
+            mapped[key] = source[f"language_model.{key}"]
+        else:
+            raise SystemExit("a causal backbone key has no source weight; the probe stops")
+    causal.model.load_state_dict(mapped, strict=True)
+    causal.tie_weights()
+    if causal.lm_head.weight.data_ptr() != causal.model.embed_tokens.weight.data_ptr():
+        raise SystemExit("the LM head is not tied to the embeddings after the copy; the probe stops")
+    return True
+
+
+def _zero_shot_backbone(base_id: str, revision: str) -> Any:
+    """The zero-shot base's backbone, loaded as the decision model loads it (pplx.py), so that its keys match the checkpoint."""
+    import torch
+    from transformers.models.qwen3_5.modeling_qwen3_5 import Qwen3_5Model
+
+    return Qwen3_5Model.from_pretrained(base_id, revision=revision, dtype=torch.bfloat16, attn_implementation="sdpa",
+                                        device_map="cuda").eval()
+
+
+def _untied_head(matrix: Any) -> Any:
+    """A new LM head that carries the exported matrix, untied from the embeddings (as exported_causal_lm does)."""
+    import torch
+    from torch import nn
+
+    head = nn.Linear(int(matrix.shape[1]), int(matrix.shape[0]), bias=False, device=matrix.device, dtype=matrix.dtype)
+    with torch.no_grad():
+        head.weight.copy_(matrix)
+    return head
+
+
+def _export_agreement(causal: Any, batches: list[Any], native: list[Any], token_ids: list[int]) -> dict[str, Any]:
+    """Additional and labelled: the causal export against the decision path at the answer position. The decision path uses non-causal
+    full attention (pplx's mask hook), so a causal LM is not expected to match it exactly; the figures say by how much."""
+    from meddecide.model.readout_checks import causal_option_probabilities
+
+    agree, options, diff = 0, 0, 0.0
+    for batch, nat in zip(batches, native, strict=True):
+        probs = causal_option_probabilities(causal, batch, token_ids).float().cpu()
+        diff = max(diff, float((nat - probs).abs().max()))
+        agree += int(int(nat.argmax()) == int(probs.argmax()))
+        options += int(nat.numel())
+    return {"items": len(batches), "options": options, "argmax_agree": agree, "probs_max_abs_diff": diff}
 
 
 def _probe_notes(tokenizer: Any) -> list[dict[str, Any]]:
@@ -212,6 +299,7 @@ def _generate_counts(model: Any, rows: list[dict[str, Any]], pad_id: int) -> dic
     import torch
 
     runs: list[int] = []
+    nlls: list[float] = []  # the mean negative log-likelihood of the true continuation (a sanity figure: a random model is near ln V)
     device = next(model.parameters()).device
     for row in rows:
         ids = torch.tensor([row["prefix"]], dtype=torch.long, device=device)
@@ -220,10 +308,16 @@ def _generate_counts(model: Any, rows: list[dict[str, Any]], pad_id: int) -> dic
                                  do_sample=False, pad_token_id=pad_id)
         generated = out[0, ids.shape[1]:].tolist()
         runs.append(longest_aligned_run(generated, row["truth"]))
+        with torch.no_grad():
+            full = torch.tensor([row["prefix"] + row["truth"]], dtype=torch.long, device=device)
+            logits = model(input_ids=full).logits[0, len(row["prefix"]) - 1 : -1].float()
+            target = torch.tensor(row["truth"], dtype=torch.long, device=device)
+            nlls.append(float(torch.nn.functional.cross_entropy(logits, target)))
     bins = {"at_least_50": sum(r >= 50 for r in runs), "at_least_25": sum(r >= 25 for r in runs),
             "at_least_10": sum(r >= 10 for r in runs)}
-    return {"matches": sum(r >= VERBATIM_RUN for r in runs), "run_bins": bins,
-            "longest_run_max": max(runs), "longest_run_median": sorted(runs)[len(runs) // 2]}
+    return {"matches": sum(r >= VERBATIM_RUN for r in runs), "run_bins": bins, "runs": runs,
+            "longest_run_max": max(runs), "longest_run_median": sorted(runs)[len(runs) // 2],
+            "truth_nll_mean": round(sum(nlls) / len(nlls), 6), "truth_nll_median": round(sorted(nlls)[len(nlls) // 2], 6)}
 
 
 def cmd_report(_: argparse.Namespace) -> None:
@@ -258,6 +352,15 @@ def cmd_report(_: argparse.Namespace) -> None:
         f"| zero-shot base (control) | {probe['base']['matches']} | {probe['base']['run_bins']['at_least_50']} | "
         f"{probe['base']['run_bins']['at_least_25']} | {probe['base']['run_bins']['at_least_10']} | "
         f"{probe['base']['longest_run_median']} |", "",
+        f"Additional, not a gate: the causal export of the final model against its decision path, at the answer position, on "
+        f"{probe['export_agreement']['items']} membership items ({probe['export_agreement']['options']} offered options). The argmax agrees "
+        f"on {probe['export_agreement']['argmax_agree']} items; the largest absolute probability difference is "
+        f"{probe['export_agreement']['probs_max_abs_diff']:.4f}. The decision path uses non-causal full attention, so the probe measures the "
+        "causal LM that ADVISORY Y10 names, not the decision path.", "",
+        f"Additional, labelled sanity figure: the mean negative log-likelihood of the true continuation, in nats per token (a random model "
+        f"is near the natural log of the vocabulary size): final {probe['final']['truth_nll_mean']:.3f} (median of the notes "
+        f"{probe['final']['truth_nll_median']:.3f}); zero-shot base {probe['base']['truth_nll_mean']:.3f} (median "
+        f"{probe['base']['truth_nll_median']:.3f}).", "",
     ]
     REPORT.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"wrote {REPORT}", flush=True)
