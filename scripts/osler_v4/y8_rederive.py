@@ -5,6 +5,7 @@ evaluation; the logged steps (non-finite values); the evaluation steps against t
 highest template macro accuracy on fast dev v4, a tie to the lower Brier; configs/osler_v3/block_arm.yaml sets the metric); the CG v2
 and fast dev v4 figures at the selected checkpoint, from the predictions the run wrote (accuracy, template macro accuracy, the
 majority baseline, and the Brier score as the sum over options averaged over items); the replay's batches and realised items.
+The prediction item ids are the trainer's (mix_row_to_item), compared with the source rows' ids in file order.
 
 Reported, not compared as equal: the in-training evaluation at the selected step against the reloaded checkpoint's scoring. The
 reloaded scores come from another batch composition, and bfloat16 scores can move a few decisions (CLAIMS C114, C116, C119). The
@@ -29,12 +30,14 @@ from typing import Any
 
 from meddecide.eval.metrics import template_macro_accuracy
 from meddecide.eval.readout_gate import gate_by_template
+from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.trainer import evaluation_grid
 from meddecide.utils.io import write_json
 
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "outputs" / "osler_v4" / "Y8"
 CG_FILE = REPO / "data" / "bench" / "osler_v4" / "cg_v2.jsonl"
+DEV_FILE = REPO / "data" / "bench" / "osler_v4" / "fastdev_v4.jsonl"
 STEPS = 63_304
 EVALUATIONS = 10
 DEV_ITEMS = 17_532  # fast dev v4 (Y4 manifest)
@@ -129,8 +132,10 @@ def main() -> None:
         cg_rows = read_jsonl(cg_path)
         cg_fig = figures(cg_rows)
         compare("CG v2 predictions: items", len(cg_rows), CG_ITEMS)
-        cg_ids = {str(r["item_id"]) for r in cg_rows}
-        compare("CG v2 predictions: item ids are the CG v2 file's", cg_ids == {str(r["item_id"]) for r in read_jsonl(CG_FILE)}, True)
+        # the scorer writes the trainer's item ids (mix_row_to_item), in the source file's order; the source file's own item_id
+        # is not the scoring path's id (the first run compared those and found no overlap; kept as rederive_first_run.json)
+        compare("CG v2 predictions: item ids are the trainer's ids of the CG v2 rows, in file order",
+                [str(r["item_id"]) for r in cg_rows] == [mix_row_to_item(row).item_id for row in read_jsonl(CG_FILE)], True)
         compare("CG v2 majority baseline (definition check, first partition)", cg_fig["majority_baseline"],
                 partitions[0]["cg_v2"]["majority_baseline"])
         info["cg_v2_at_selected"] = cg_fig
@@ -139,6 +144,8 @@ def main() -> None:
         dev_rows = read_jsonl(dev_path)
         dev_fig = figures(dev_rows)
         compare("fast dev v4 predictions: items", len(dev_rows), DEV_ITEMS)
+        compare("fast dev v4 predictions: item ids are the trainer's ids of the fast dev v4 rows, in file order",
+                [str(r["item_id"]) for r in dev_rows] == [mix_row_to_item(row).item_id for row in read_jsonl(DEV_FILE)], True)
         compare("fast dev v4 majority baseline (definition check, last evaluation)", dev_fig["majority_baseline"],
                 evals[-1]["majority_baseline"])
         info["dev_at_selected"] = dev_fig
