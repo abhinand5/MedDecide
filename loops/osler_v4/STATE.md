@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (Y11), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-21T18:26:40Z`
-Last updated (UTC): `2026-10-25T12:30Z`
+Last updated (UTC): `2026-10-25T12:34Z`
 Iterations so far: `1`
 
 ---
@@ -34,7 +34,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Y8 | Final Osler-4B (63,304 steps) | yes | Y7 | DONE (launched 2026-10-24T02:34:17Z; PID 1472063 chain, 1472069 driver; resumable, full checkpoints every 5,000 steps; training finished 63,304 steps (end record 22:37Z; chain exit 0 at 23:16:58Z; C202); selected checkpoint 63,304 (C200; C204, C205); calibrated re-scores and the readout gate done (C206 to C208); the GPU-visible suite passed in two chunks (C216), SELF_AUDIT written, the CPU-hidden gate passed (C217)) | 2026-10-24T02:34:17Z | 2026-10-25T00:12Z |
 | Y9 | Evaluation, Gate O4, size-class scoreboard | yes | Y8 | DONE (Gate O4 against zero-shot pplx-flash: FAIL on the external panel, −0.0421 [−0.0584, −0.0269] against the limit −2.0 points; MR verdict, MIMIC suite and knowledge PASS; against MedDecider-4B NOT MEASURED (panel 4.87 % unpaired), the other three checks PASS; the 27B ceiling and the scoreboard rows are additional; C218 to C232) | 2026-10-25T00:15Z | 2026-10-25T11:35Z |
 | Y10 | Memorisation and PHI audit | small | Y8 | DONE (membership AUC: final 0.504202 [0.485310; 0.522114], zero-shot control 0.508969 [0.492595; 0.527421]; no measurable membership signal. Verbatim probe: 0 of 300 matches for the final causal export and 0 of 300 for the control, which does not measure memorisation here, because the final causal export generates poorly on these notes (true-continuation NLL 7.673 nats per token against 2.725 for the control); C233 to C238) | 2026-10-25T11:36Z | 2026-10-25T12:30Z |
-| Y11 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| Y11 | Findings and closure — HARD STOP | no | all | DONE (FINDINGS.md and NEXT.md written; five claims re-run in fresh processes and reproduced, C118, C213, C229, C230, C237; Loop status STOPPED) | 2026-10-25T12:34Z | 2026-10-25T12:34Z |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions and the GPU sequence in ADVISORY §5).
 Never run two GPU jobs at once (the Nemotron server counts). A `BLOCKED` task does not block unrelated work. No row may be
@@ -80,19 +80,17 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task:           Y10 — Memorisation and PHI audit (GPU, small; ADVISORY Y10). DONE 2026-10-25T12:30Z (closed; Y11 is next). Writes outputs/osler_v4/Y10/, loops/osler_v4/audit.md and the Y10 rows of §1, §2 and CLAIMS. A report for the release decision, not a gate.
-Recipe:         ADVISORY Y10: membership AUC (2,000 members against 2,000 non-members, the final calibrated model and the zero-shot control) and the verbatim probe (300 notes, 128-token prefixes, 64 greedy tokens, at least 50 consecutive aligned tokens; the zero-shot control).
-Running:        nothing. The chain (scripts/osler_v4/y10_chain.sh) exited 0 at 12:11:05Z; the probe rerun exited 0 at 12:25:28Z.
-Progress:       11:50Z: final membership, 4,000 rows (exit 0). 11:59Z: base membership, 4,000 rows (exit 0). 12:11Z: first probe run; its control had random weights, so its outputs are kept as probe_first_run.json and not used (§7 of 2026-10-25T12:30Z). 12:25Z: probe rerun with the corrected causal and control construction (exit 0). 12:26Z: membership AUC, report and fresh-process re-derivation (0 mismatches; C237). 12:29Z: CPU gate for the Y10 commit (C238).
+Task:           Y11 — Findings and closure (HARD STOP). DONE 2026-10-25T12:34Z; Loop status STOPPED. Writes loops/osler_v4/FINDINGS.md, loops/osler_v4/NEXT.md and §8 of this file.
+Recipe:         ADVISORY Y11 and GOAL "Done when": FINDINGS with the Summary first, the ADVISORY §2 outcomes, the Stage A choice, the blocks, the final's CG and MIMIC trends, the size-class scoreboard and the five-claim spot-check; NEXT.md; STATE stopped; commit; push; stop.
+Running:        nothing.
+Progress:       2026-10-25T12:34Z: FINDINGS.md and NEXT.md written (the wrong B1 cell, the per-block MIMIC share and the 27B sentence were corrected before the commit). The five-claim spot-check was re-run in fresh processes: C118, C213, C229 (its CPU step), C230 and C237 all reproduce their recorded figures (FINDINGS §8). No row is IN_PROGRESS. The GOAL artifacts exist: mimic.md, crafted.md, stage_a.md, blocks.md, gate_o4.md, results.md, audit.md.
 Checklist:
-- [x] members: 4,000 rows (2,000 + 2,000) written before Y10 started (outputs/osler_v4/Y10/sampling.json; counts only)
-- [x] membership scores: final (calibrated) and zero-shot control, 4,000 rows each (C234)
-- [x] verbatim probe: causal export of the final model and the zero-shot control (C235; the export agreement C236)
-- [x] auc and report: membership.json; loops/osler_v4/audit.md (C233)
-- [x] fresh-process re-derivation: 0 mismatches (C237)
-- [x] SELF_AUDIT at outputs/osler_v4/Y10/SELF_AUDIT.md (R6)
-- [x] CLAIMS rows C233 to C238
-- [x] CPU-hidden gate for the Y10 commit (C238: ruff; 1,026 and 13 passed); commit and push; Y10 DONE
+- [x] FINDINGS.md: Summary first; the §2 outcomes; Stage A; blocks; the final's CG and MIMIC trends; the size-class scoreboard; the spot-check
+- [x] five-claim spot-check re-run in fresh processes (FINDINGS §8)
+- [x] NEXT.md (proposals; nothing started)
+- [x] STATE §8 closure summary feed
+- [x] Loop status STOPPED; no row IN_PROGRESS
+- [x] committed and pushed with this closure commit (the hash is the top line of git log on loop/osler_v4); then stop
 ```
 
 ---
@@ -267,6 +265,13 @@ Checklist:
 - Headline: the membership AUC is 0.504202 [0.485310, 0.522114] for the final Osler-4B (calibrated) and 0.508969 [0.492595, 0.527421] for the zero-shot control, on 2,000 members and 2,000 non-members (C233): no measurable membership signal. The verbatim probe gives 0 of 300 matches for the final causal export and 0 of 300 for the control (C235), but the final export generates poorly on these notes (true-continuation NLL 7.673 nats per token against 2.725), so the zero count does not measure memorisation. The causal export agrees with the decision path's argmax on 16 of 20 items (additional; C236).
 - Surprises: (1) the draft chain had three defects and a probe that could not load the pplx head; corrected before any run (§7). (2) The first probe run's control had random weights (transformers' load report); rerun, and the first run's outputs are kept but not used (SELF_AUDIT §5.3). (3) The final's causal export is a poor language model, because the decision path uses non-causal attention (SELF_AUDIT §5.1 and §5.2).
 - Next: Y11 (findings and closure, the hard stop). Operator question 13 asks whether a follow-up memorisation test is wanted before any release decision.
+
+### Y11 — DONE — 2026-10-25T12:34Z
+- What ran: `loops/osler_v4/FINDINGS.md` and `NEXT.md`; the five-claim spot-check in fresh processes (`scripts/osler_v4/y9_rederive.py`, `y9_parity.py` (CPU step), `y10_rederive.py`, `y8_steplog_stats.py`, and the recorded command of C118); the GOAL artifact and no-IN_PROGRESS checks.
+- Output: `loops/osler_v4/FINDINGS.md` and `NEXT.md` (committed); §8 of this file.
+- Headline: Gate O4 fails against zero-shot pplx-flash on the external panel (−0.0421 [−0.0584, −0.0269], limit −2.0 points; C220) and is NOT MEASURED against MedDecider-4B (C221). No Stage A arm beats the control on CG v2 (C118). No Stage B block is kept under keep rule v2 (C129, C139, C152, C162). The final Osler-4B is first of the models of 10B or fewer parameters on the MIMIC suite (0.7995) and MedNLI (0.8762), but not on every scope (C228). The membership AUC is 0.504 for the final and 0.509 for the control (C233).
+- Surprises: the final scores below osler_v2 on the MR verdict (0.8431 against 0.8621; C228), and its causal export generates poorly, so the verbatim probe is uninformative for memorisation (C235, C236).
+- Next: no PENDING task remains; the loop stops here. Proposals are in NEXT.md, and operator questions 4 to 13 are in §6.
 
 ---
 
@@ -554,4 +559,13 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | Gate O4 FAILS against zero-shot pplx-decider-flash-v1.2 on the external panel (−0.0421 [−0.0584, −0.0269], limit −2.0 points); its MR verdict, MIMIC suite and knowledge checks pass against that baseline. | C220 | loops/osler_v4/gate_o4.md |
+| 2 | Gate O4 against MedDecider-4B is NOT MEASURED (212 of 4,353 panel items unpaired, 4.87 %); its other three checks pass. | C221 | loops/osler_v4/gate_o4.md |
+| 3 | Stage A: the control A0 is the pre-registered choice; A4 (KL 0.1 with broad replay) qualifies by 0.0001 and trails A0 on CG v2 (0.7836 against 0.7879); distillation (A5) is below A4. | C106, C115, C117, C118 | loops/osler_v4/stage_a.md |
+| 4 | Stage B: no block is kept under keep rule v2; under operator ruling 1, B1 to B3 enter the final mix and B4 does not. | C129, C139, C152, C162 | loops/osler_v4/blocks.md |
+| 5 | The final Osler-4B (63,304 steps; selected at 63,304 with fast dev v4 macro 0.8504) scores CG v2 0.7393 against A0's 0.7879, through the DDXPlus two-letter collapse, and its MIMIC partition 0.8087. | C200, C210, C212 | outputs/osler_v4/Y8/final_result.json |
+| 6 | Size-class scoreboard (additional): among the models of 10B or fewer parameters the final is first on the MIMIC suite (0.7995) and MedNLI (0.8762), second on the MR verdict (osler_v2 0.8621 against 0.8431), third on knowledge, and fifth of six on the panel (0.5968 against 0.6390). | C228 | loops/osler_v4/results.md |
+| 7 | No measurable membership signal: AUC 0.504 [0.485, 0.522] for the final and 0.509 for the zero-shot control, on 2,000 members and 2,000 non-members each. | C233, C234 | loops/osler_v4/audit.md |
+| 8 | The verbatim probe gives 0 of 300 matches for the final causal export and for the control, but the final export generates poorly (NLL 7.67 against 2.72), so the zero does not measure memorisation. | C235, C236 | loops/osler_v4/audit.md |
+| 9 | Carried defects, none changing a verdict: the mr_reported lexical shortcut (1.0), the held-out synthea_indicator READOUT_FAIL, the DDXPlus collapse past the D12 gate, and two flagged MR templates (operator questions 10, 11 and 13). | C210, C218, C219, C222, C225 | loops/osler_v4/FINDINGS.md (Summary 7); §6 of this file |
+| 10 | Five claims re-run in fresh processes reproduce their recorded figures (C118, C213, C229 CPU step, C230, C237). | C118, C213, C229, C230, C237 | loops/osler_v4/FINDINGS.md §8 |
