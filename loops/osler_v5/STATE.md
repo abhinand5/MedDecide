@@ -75,11 +75,11 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    none yet
+Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn), started 2026-10-26T23:09:58Z; at 23:37Z R0 was at step 1,850 of 13,992 (about 0.9 s per step); R0 python PID 3191470 (under uv 3191467 and the chain shell 3191459); chain log outputs/osler_v5/Z2/chain.log; per-arm logs outputs/osler_v5/Z2/<arm>/logs/run.log. The smoke run (R2, --smoke) passed in 9 min and its outputs were deleted. R0 at step 150: about 1 s per step; peak allocated memory 56.3 GB; one CUDA caching-allocator warning ("memory allocation failed with OOM") at about step 100, recovered by the allocator, not fatal, and training continued. The watch patterns exclude this warning and match only fatal errors (torch.OutOfMemoryError, CUDA out of memory, Traceback).
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
-- [ ] 2. smoke run of scripts/osler_v5/run_arm.py with --smoke (R2 config, 8 steps, one evaluation on cut dev sets); outputs/osler_v5/Z2/smoke_R2 deleted after
+- [x] 2. smoke run of scripts/osler_v5/run_arm.py with --smoke (R2 config, 8 steps, one evaluation on cut dev sets): passed 2026-10-26T23:09Z; its outputs deleted
 - [ ] 3. scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 at 13,992 steps (evaluations at 6,996 and 13,992); each arm's full/ deleted after its arm_result.json
 - [ ] 4. scripts/osler_v5/z2_choose.py → outputs/osler_v5/Z2/choice.json (qualifiers, the choice, the tie band); loops/osler_v5/arms.md written from it
 - [ ] 5. CLAIMS rows for the arms and the choice; STATE; commit; push
