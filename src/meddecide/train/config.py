@@ -15,6 +15,7 @@ import yaml
 
 from meddecide.model.head import HeadSettings
 from meddecide.model.meddecide_model import DEFAULT_LORA_TARGETS, LoraSettings
+from meddecide.train.option_augment import validate_templates
 
 DEFAULT_CONFIG_PATH = Path("configs/student_v0.yaml")
 
@@ -68,6 +69,9 @@ _TOP_LEVEL_KEYS = {
     "kl_to_base",
     "kl_exclude_template_prefixes",
     "distill_weight",
+    "loss_weighting",
+    "option_augment_probability",
+    "option_augment_templates",
 }
 
 
@@ -151,6 +155,13 @@ class StudentConfig:
     # osler_v4 Y6 (D48): + distill_weight * KL(teacher || model) over the batch's items that carry a teacher distribution
     # (SoftItem.teacher_probs, the pplx 27B soft labels); needs no base model. 0.0 = off
     distill_weight: float = 0.0
+    # osler_v5 (D51): "per_step" (the osler_v4 behaviour: the loss is a mean over the batch's items) or "per_item" (after clipping,
+    # the gradients are multiplied by n_items / batch_size; KL and distillation are sums over the masked items divided by batch_size)
+    loss_weighting: str = "per_step"
+    # osler_v5 (D52a): the probability that an eligible choice row of a closed-list template is rebuilt with more options
+    # (meddecide.train.option_augment); the templates must be on that list. 0.0 and no templates = off
+    option_augment_probability: float = 0.0
+    option_augment_templates: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -185,6 +196,8 @@ class StudentConfig:
         kwargs = {k: v for k, v in data.items() if k not in {"lora", "head"}}
         if "kl_exclude_template_prefixes" in kwargs:
             kwargs["kl_exclude_template_prefixes"] = tuple(kwargs["kl_exclude_template_prefixes"] or ())
+        if "option_augment_templates" in kwargs:
+            kwargs["option_augment_templates"] = validate_templates(kwargs["option_augment_templates"] or ())
         cfg = cls(lora=lora, head=head, **kwargs)
         # arithmetic and range checks that would otherwise surface as a confusing crash later
         if cfg.batch_size < 1 or cfg.max_batch_tokens < 1 or cfg.max_prompt_tokens < 1:
@@ -211,6 +224,12 @@ class StudentConfig:
             raise ValueError("kl_to_base needs the option-code readout")
         if cfg.distill_weight < 0:
             raise ValueError("distill_weight must be >= 0")
+        if cfg.loss_weighting not in ("per_step", "per_item"):
+            raise ValueError(f"loss_weighting must be 'per_step' or 'per_item', got {cfg.loss_weighting!r}")
+        if not 0.0 <= cfg.option_augment_probability <= 1.0:
+            raise ValueError("option_augment_probability must be in [0, 1]")
+        if (cfg.option_augment_probability > 0) != bool(cfg.option_augment_templates):
+            raise ValueError("option augmentation needs both a probability above 0 and at least one closed-list template")
         if cfg.backbone not in ("qwen", "pplx"):
             raise ValueError(f"backbone must be 'qwen' or 'pplx', got {cfg.backbone!r}")
         if cfg.backbone == "pplx" and (cfg.readout != "option_code" or cfg.bidirectional_full_attention):

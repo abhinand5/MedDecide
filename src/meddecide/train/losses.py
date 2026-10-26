@@ -85,11 +85,15 @@ def kl_to_reference(
     anchor: Tensor,
     *,
     eps: float = 1e-12,
+    per_item_normaliser: int | None = None,
 ) -> Tensor:
     """Mean over anchor items of ``KL(ref || probs)`` across each item's offered options (osler_v3 KL-to-base).
 
     ``ref_probs`` are the frozen base model's probabilities for the same flat options (no gradient); ``anchor`` is a
     ``(n_items,)`` boolean mask of the items the penalty applies to. Returns a zero tensor when no item is an anchor.
+
+    With ``per_item_normaliser`` (osler_v5 D51, ``loss_weighting: per_item``) the penalty is the **sum** over the anchor items divided
+    by that normaliser (the batch size), not the mean over anchors.
     """
     if probs.shape != ref_probs.shape or item_index.shape != probs.shape or anchor.shape != (n_items,):
         raise ValueError("kl_to_reference expects matching flat probs, index and an (n_items,) anchor mask")
@@ -99,7 +103,25 @@ def kl_to_reference(
     mask = anchor.to(probs.device)
     if not bool(mask.any()):
         return probs.sum() * 0.0
+    if per_item_normaliser is not None:
+        if per_item_normaliser < 1:
+            raise ValueError("per_item_normaliser must be >= 1")
+        return per_item[mask].sum() / per_item_normaliser
     return per_item[mask].mean()
+
+
+def item_weight(n_items: int, batch_size: int) -> float:
+    """The per-item factor of ``loss_weighting: per_item`` (osler_v5 D51): n_items / batch_size, applied after clipping."""
+    if not 1 <= n_items <= batch_size:
+        raise ValueError(f"a batch of {n_items} items does not fit batch_size {batch_size}")
+    return n_items / batch_size
+
+
+def scale_gradients(parameters: Sequence[Tensor], factor: float) -> None:
+    """Multiply every present gradient in place (the post-clip step of ``per_item``)."""
+    for parameter in parameters:
+        if parameter.grad is not None:
+            parameter.grad.mul_(factor)
 
 
 def teacher_reference(

@@ -36,7 +36,13 @@ import torch
 from meddecide.bench.schema import Item
 from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
-from meddecide.train.losses import ce_plus_brier, kl_to_reference, teacher_reference
+from meddecide.train.losses import (
+    ce_plus_brier,
+    item_weight,
+    kl_to_reference,
+    scale_gradients,
+    teacher_reference,
+)
 from meddecide.train.resume import (
     config_fingerprint,
     read_full_checkpoint,
@@ -123,6 +129,8 @@ class StepRecord:
     # osler_v4 Y6 (D48): the distillation penalty's value on this step and the number of items with a teacher distribution
     distill: float = 0.0
     n_teacher: int = 0
+    # osler_v5 (D51): the factor applied to the clipped gradient (n_items / batch_size under per_item; 1.0 under per_step)
+    applied_scale: float = 1.0
 
     @property
     def items_per_s(self) -> float:
@@ -334,6 +342,10 @@ class Trainer:
     def save_checkpoint(self, path: str | Path) -> Path:
         return self.model.save(path)
 
+    def _per_item_normaliser(self) -> int | None:
+        """The batch size that KL and distillation sums are divided by under ``per_item`` (osler_v5 D51), else None (the mean)."""
+        return self.config.batch_size if self.config.loss_weighting == "per_item" else None
+
     # ---- learning-rate schedule --------------------------------------------
     @staticmethod
     def lr_factor(step: int, *, total_steps: int, warmup_steps: int, floor: float = 0.0) -> float:
@@ -497,7 +509,7 @@ class Trainer:
                 kl_value = 0.0
                 if ref_probs is not None and anchor is not None:
                     kl = kl_to_reference(probs, ref_probs.to(probs.device), model_batch.marker_item.to(probs.device),
-                                         model_batch.batch_size, anchor)
+                                         model_batch.batch_size, anchor, per_item_normaliser=self._per_item_normaliser())
                     total_loss = total_loss + config.kl_to_base * kl
                     kl_value = float(kl.detach())
                 distill_value = 0.0
@@ -511,17 +523,18 @@ class Trainer:
                     if n_teacher:
                         distill = kl_to_reference(probs, teacher_flat.to(probs.device, probs.dtype),
                                                   model_batch.marker_item.to(probs.device), model_batch.batch_size,
-                                                  teacher_mask)
+                                                  teacher_mask, per_item_normaliser=self._per_item_normaliser())
                         total_loss = total_loss + config.distill_weight * distill
                         distill_value = float(distill.detach())
                 self.optimizer.zero_grad(set_to_none=True)
                 total_loss.backward()
-                grad_norm = float(
-                    torch.nn.utils.clip_grad_norm_(
-                        [p for group in self.optimizer.param_groups for p in group["params"]],
-                        config.grad_clip,
-                    )
-                )
+                params = [p for group in self.optimizer.param_groups for p in group["params"]]
+                grad_norm = float(torch.nn.utils.clip_grad_norm_(params, config.grad_clip))
+                # osler_v5 D51: under per_item the clipped gradient is multiplied by n_items / batch_size (clip first, then scale)
+                applied_scale = 1.0
+                if config.loss_weighting == "per_item":
+                    applied_scale = item_weight(model_batch.batch_size, config.batch_size)
+                    scale_gradients(params, applied_scale)
                 if config.tripwire_grad_norm is not None and grad_norm > config.tripwire_grad_norm:
                     stopped_early = (
                         f"gradient-norm tripwire at step {total_steps + 1}: {grad_norm:.1f} > "
@@ -562,6 +575,7 @@ class Trainer:
                     n_anchor=int(anchor.sum()) if anchor is not None else 0,
                     distill=distill_value,
                     n_teacher=n_teacher,
+                    applied_scale=applied_scale,
                 )
                 self.history.append(record)
                 if on_step is not None:

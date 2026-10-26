@@ -11,9 +11,9 @@
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
-Run started (UTC): `<fill in bootstrap>`
-Last updated (UTC): `<fill in every iteration>`
-Iterations so far: `<increment each wake>`
+Run started (UTC): `2026-10-26T19:24:27Z`
+Last updated (UTC): `2026-10-26T19:58Z`
+Iterations so far: `1`
 
 ---
 
@@ -23,7 +23,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 
 | id | task | GPU | deps | status | started (UTC) | finished (UTC) |
 |---|---|---|---|---|---|---|
-| Z0 | Orientation and recipe code (D51–D54) | no | — | PENDING | | |
+| Z0 | Orientation and recipe code (D51–D54) | no | — | DONE | 2026-10-26T19:24:27Z | 2026-10-26T19:58Z |
 | Z1 | Probes on the osler_v4 final (blend curve, readout reset) | yes | Z0 | PENDING | | |
 | Z2 | Recipe arms R0–R3 and the choice | yes | Z0 | PENDING | | |
 | Z3 | Final Osler-4B (63,304 steps) | yes | Z2 | PENDING | | |
@@ -45,10 +45,14 @@ left `IN_PROGRESS` at closure.
 
 | key | value | source | task |
 |---|---|---|---|
-| suite counts (passed / skipped / deselected); disk headroom test | | | Z0 |
-| mix composition SHA-256 (must equal 9d25e30f…) | | | Z0 |
-| closed-set list (template, label-set size, reason); expected share of trained items with > 26 options | | | Z0 |
-| S, its parts and positional health for zero-shot pplx, A0, osler_v4 final (additional) | | | Z0 |
+| suite counts (passed / skipped / deselected); disk headroom test | baseline 1042 passed, 1 skipped, 2 deselected, exit 0 (174 s, 2026-10-26T19:24:52Z), with the two osler_v4 deselects; ruff clean. Disk: 2 GB write in 2.0 s (1.1 GB/s), test file removed (2026-10-26T19:24:49Z) | `outputs/osler_v5/Z0/logs/pytest_baseline.log` | Z0 |
+| mix composition SHA-256 (must equal 9d25e30f…) | `9d25e30f53d7823d051b9c71334c248660318c86ce904c26f855b9a9dbc618b8`, equal to osler_v4's. 1,456,593 rows (base 830,076; family kept 509,807; replay 291,319 = 20.00 %; top-up 116,710); 74 templates; largest template 4.80 % | `outputs/osler_v5/Z0/logs/compose_check.log`; `outputs/osler_v5/Z0/mix_template_stats.json` | Z0 |
+| closed-set list (template, label-set size, reason); expected share of trained items with > 26 options | **On the list** (reasons in `CLOSED_LIST`, `src/meddecide/train/option_augment.py`): `mimic_principal_dx_v1` (label set 4,457; 37,843 rows; one principal diagnosis per admission, distractors deduplicated by code and title) and `mimic_msdrg_v1` (672; 37,844 rows; one MS-DRG per admission). **Excluded by name:** `mimic_rad_exam_v1` (ADVISORY Z0.3), `mimic_icd_support_v1` (not exclusive by construction; conservative), `fda_route_choice_v1` (defect, §6). **Every other template is excluded** (not a closed set by construction, or unverified). Expected share of trained items above 26 options: 3.51 % at 13,992 steps, 3.46 % at 63,304 | `outputs/osler_v5/Z0/augment_expectation.json` | Z0 |
+| expected two-letter golds per row (mean over rows 26–63 at p = 1; the minimum row) | arm (13,992 steps): 2,818 eligible of 53,572 realised items (5.26 %); mean 19.35, minimum 0.77 (row 63); the p that would give a mean of 20 is 1.03, so unreachable. Final (63,304 steps): 12,584 eligible of 242,255 (5.19 %); mean 86.41, minimum 3.45; p needed 0.23. **Chosen p = 1.0** (§7, deviation 1) | `outputs/osler_v5/Z0/augment_expectation.json` | Z0 |
+| per_item check: MIMIC share of the applied update, replayed on Y8's batches | per_step 0.5880 (clip-aware on the 1,266 logged steps; full run unclipped 0.5773). per_item 0.3365 (clip-aware; full run unclipped 0.3417; 82,789 MIMIC of 242,255 realised items). Replay against Y8's record: 0 mismatches in items, real tokens and padded tokens over 63,304 steps; the 1,266 logged steps match on counts. Stop rule (about 0.34–0.40): met, as 0.3365 rounds to 0.34 (§7, deviation 4) | `outputs/osler_v5/Z0/replay/summary.json`; `outputs/osler_v5/Z0/logs/replay.log` | Z0 |
+| S, its parts and positional health for zero-shot pplx, A0, osler_v4 final (additional) | **osler_v4 final:** S 0.8420 (MR 0.9787 on 3,197; MIMIC 0.8082 on 5,562; CG micro 0.7393 on 8,307); positional (original order) two-letter 0.0040 (2 of 499) against single-letter 0.6407: **FAILS**, and the two-letter accuracy is below the 0.0204 chance. **A0:** S 0.7920 (MR 0.9778; MIMIC 0.6102; CG micro 0.7879); positional 0.4790 against 0.8104: passes. **Zero-shot pplx-flash:** S NOT MEASURED (no MR-partition file for fast dev v4; the MIMIC 0.6638 and CG micro 0.7888 on 8,296 items are recorded); positional 0.6112 against 0.7964: passes | `outputs/osler_v5/Z0/composite.json`; `outputs/osler_v5/Z0/logs/composite.log` | Z0 |
+| CG check: the osler_v4 final against the α = 0 reference on identical items (D54; ADVISORY Z0.6) | on the 8,296 identical CG v2 items: final 0.7395, zero-shot pplx-flash 0.7888, gap −0.0493. The final **fails** the CG qualifier, so the check discriminates. The α = 0 reference itself is re-scored on GPU in Z1 with the reference path (§7, deviation 6) | `outputs/osler_v5/Z0/composite.json` (`cg_micro_identical_items`) | Z0 |
+| D52(b) positional check under two seeded permutations (DDXPlus dev) | NOT MEASURED in Z0: scoring under the permutations needs the model on the GPU. The code is in place (`permutation_for`, `positional_health`, `run_arm.py`); the osler_v4 final, A0 and zero-shot pplx are scored in Z1 | — | Z0 → Z1 |
 | probes: blend curve on the osler_v4 final; readout-reset DDXPlus split | | `loops/osler_v5/probes.md` | Z1 |
 | arms R0–R3: S, parts, knowledge, positional health, MIMIC gradient share; the chosen arm | | `loops/osler_v5/arms.md` | Z2 |
 | final: selected step; S trend; positional health per evaluation | | | Z3 |
@@ -69,15 +73,23 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none
-Working dir:    outputs/osler_v5/<id>/
+Task in flight: none (Z0 DONE 2026-10-26T19:58Z)
+Working dir:    outputs/osler_v5/Z0/ (gitignored; the committed record is CLAIMS C001–C025 and §2 to §7)
 
-- [ ] <step 1>
-- [ ] <step 2>
-- [ ] acceptance check run and passed
-- [ ] self-audit (R6) written to SELF_AUDIT.md
-- [ ] CLAIMS.md rows appended
-- [ ] STATE updated, committed, pushed
+- [x] 1. ruff and the suite baseline: 1042 passed (C001); after the code, 1080 passed (C002)
+- [x] 2. disk headroom: 2 GB test write, logged (C003)
+- [x] 3. composition SHA-256 re-derived, equal to 9d25e30f… (C004)
+- [x] 4. closed-set list with reasons and expected two-letter golds, in §2 before any run (C013–C015; p = 1.0, §7.1)
+- [x] 5. D51 per_item weighting in the trainer; tests with a lone MIMIC item and eight replay items under clipping (tests/test_osler_v5_losses.py)
+- [x] 6. Y8 batches replayed on CPU: per_step 0.588, per_item 0.3365; 0 mismatches against Y8's record (C007–C011); stop rule judged met (§7.3)
+- [x] 7. D52(a) option augmentation with the closed list and its reasons; unit tests (tests/test_osler_v5_option_augment.py)
+- [x] 8. fda_route_choice_v1 defect verified in the builder source; excluded and reported (§6.1)
+- [x] 9. D52(b) positional check and seeded permutations (composite.py); original-order values recorded (C019); permutations measured on GPU in Z1
+- [x] 10. D53 blend by adapter scaling and readout interpolation; tiny-model tests and the real-model check (C021–C023)
+- [x] 11. D54 composite S from prediction files; S, parts and positional health for A0 and the osler_v4 final; zero-shot S NOT MEASURED (C016–C020)
+- [x] 12. configs: configs/osler_v5/arm_R0.yaml, arm_R0p.yaml, arm_R2.yaml, arm_R3.yaml (the final config is written at Z3)
+- [x] 13. acceptance: the osler_v4 final fails the CG comparison on identical items (C020); self-audit at outputs/osler_v5/Z0/SELF_AUDIT.md; re-derivation 15 of 15 (C024)
+- [x] 14. CLAIMS appended; STATE updated; ruff and the suite pass (C002); commit and push: see the commit on loop/osler_v5
 ```
 
 ---
@@ -99,6 +111,12 @@ Working dir:    outputs/osler_v5/<id>/
      each one so a reader who has not seen the task can repeat it: what was measured,
      what came out, with what denominator. -->
 
+### Z0 — DONE — 2026-10-26T19:58Z
+- What ran: ruff and the suite before and after the code (C001–C002); composer check; `scripts/osler_v5/z0_{mix_stats,replay,augment_expectation,composite,blend_check,rederive}.py` (CPU); 38 new unit tests; outputs in `outputs/osler_v5/Z0/` (gitignored), claims C001–C025, `SELF_AUDIT.md`.
+- Headline: the replay of Y8's 63,304 batches matches Y8's record exactly (0 mismatches, C007). The MIMIC share of the applied update is 0.588 under per_step and 0.337 under per_item (clip-aware, C010–C011). The α = 0 blend matches the reference path to 2e-10 and α = 1 matches the trained model exactly (C021, C023). The osler_v4 final fails the positional check (two-letter 0.0040 against single-letter 0.6407, C019) and trails zero-shot on identical CG items (0.7395 against 0.7888, C020).
+- Surprises: p = 1.0 gives 19.35 expected two-letter golds per row at arm length (target 20, C013) and 86 at final length (C014). The prediction ids are re-derived, so the item-id question (operator 5) stays open. The zero-shot CG file lacks 11 items and has no MR partition on fast dev v4.
+- Next: Z1 (GPU probes): blend curve, readout split, α = 0 reference and permutations on dev, written to `loops/osler_v5/probes.md`.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -111,6 +129,15 @@ Working dir:    outputs/osler_v5/<id>/
 Anything you could not resolve without a human. Be specific enough to answer without
 re-reading the run: state the ambiguity, the options, and which you would pick.
 
+1. **`fda_route_choice_v1` is defective (ADVISORY Z0.3; the finding asked for).** The item builder
+   (`src/meddecide/bench/fresh/openfda.py`) sets gold to `routes[0]` and offers the whole route vocabulary, so a label that lists
+   several routes has other true answers. The template has 155 rows in the mix. Options: (a) report it and leave the mix unchanged,
+   which this loop must do because the mix hash is fixed; (b) rebuild the template with multi-route handling in a new loop. **I would
+   pick (a) now and list (b) in NEXT.md.** It is excluded from augmentation (`EXCLUDED_NAMED`).
+2. **Item-id scheme (operator question 5, still open).** The prediction files carry the id that `mix_row_to_item` derives, not the id
+   on the frozen item row. Every join in this loop uses the derived id and checks the id set against the frozen file. **I would
+   pick leaving it as it is**; a change would touch every frozen prediction file.
+
 ---
 
 ## 7. Deviations from the plan
@@ -118,6 +145,34 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 Any place you departed from GOAL/ADVISORY, with the reason. An empty section is the
 expected outcome. Editing code or a check to make it pass is never an acceptable
 deviation — that is a `BLOCKED`.
+
+1. **p = 1.0 for the closed list (D52a; ADVISORY Z0.3).** The rule says to raise p while the expected two-letter golds per row stay below
+   20. At arm length the mean over rows 26–63 is 19.35 at p = 1, the maximum, so the target is unreachable there; at final length p of
+   0.23 or more suffices. p = 1.0 goes into R2, R3 and the final, so one recipe is compared throughout. The arm-length shortfall is
+   reported with the arms; the positional check (D52b) is the measured test of whether rows 26–63 get trained.
+2. **Per-item KL and distillation (D51).** The text divides the KL and distillation sums by batch size and multiplies the whole
+   post-clip gradient by n/B. I implemented that literally, so an anchor's KL weight is (n/B)·λ/B after clipping and equals λ/B only in
+   full batches. R3 runs on this reading; its consequence is that KL weighs less in short batches.
+3. **The per_item check (ADVISORY Z0.2).** The primary value is the clip-aware share on the 1,266 logged steps, as the replay script's
+   docstring fixed it before the run. It is 0.3365, which rounds to 0.34, the lower edge of "about 0.34–0.40". I judge the rule met; the
+   unclipped full-run value 0.3417 agrees. The move from 0.588 to 0.337 is the effect the rule was for.
+4. **Advisor figures not reproduced (notes, not changes).** "MIMIC 36 % of the items": the rows with the `mimic_` prefix are 34.27 % of the
+   mix and 34.17 % of the realised items; the MIMIC family including MedNLI is 35.0 % (the family cap). "Closed-list items 5.9 %": the two
+   templates are 5.20 % of mix rows (75,687) and 5.26 % of the arm's realised items. The replay reproduces the advisor's shares 0.59 and 0.34.
+5. **The CG qualifier (ADVISORY Z0.6).** The check names "the revised CG qualifier (ADVISORY Z4)". Z4 as written compares an α with
+   α = 1, and the osler_v4 final is α = 1, so it cannot fail that comparison. I read the check as the Z4 qualifier against the α = 0
+   reference on identical items (D54's reference). On existing predictions the final fails: 0.7395 against 0.7888 on 8,296 items. Z1
+   re-scores the α = 0 reference on the reference path and repeats the check there.
+6. **Arm choice (GOAL against ADVISORY Z2).** GOAL says the arms are "chosen by a dev composite of MR, MIMIC and CG (D54)". ADVISORY Z2
+   gives the rule: qualify on positional health, knowledge and the MR and MIMIC bounds, then take the highest CG v2 micro. I follow Z2, the
+   more specific text. S is the checkpoint-selection statistic (ADVISORY Z3).
+7. **Zero-shot composite incomplete.** Its fast-dev-v4 MR partition has no prediction file, and 11 of 8,307 CG v2 items are absent from its
+   CG file (9 MedMCQA, 2 HeadQA; the cause is not recorded in osler_v4). The D54 value of 0.791 for its CG micro is not reproduced on
+   those items (0.7888). S is NOT MEASURED for it until Z1 scores the α = 0 reference on all items of fast dev v4 and CG v2.
+8. **Full fast dev in the trainer's evaluation.** The arm driver keeps the trainer's own full-dev evaluation (its dev-macro tripwire, as
+   in Y8) and scores the same set again in its hook. This doubles the dev scoring at each evaluation and changes no number.
+9. **No augmented row is a KL anchor in R3.** Both closed templates carry the `mimic_` prefix that the osler_v4 anchor list excludes, so
+   "augmented anchors included" holds with an empty set.
 
 ---
 
