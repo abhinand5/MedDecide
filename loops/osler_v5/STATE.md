@@ -41,7 +41,7 @@ left `IN_PROGRESS` at closure.
 ## 2. Key values discovered during the run
 
 **Operator confirmations** (filled by the operator before kickoff; the loop never edits this line):
-- D51–D55 (per-item weighting, option-count augmentation and positional health, blend, dev composite, Gate O5): `<yes | no>`
+- D51–D55 (per-item weighting, option-count augmentation and positional health, blend, dev composite, Gate O5): `yes` — recorded 2026-10-26 by the advisor on the operator's standing instruction in chat ("I agree with whatever you go with"), after the independent review (commit a9ca386).
 
 | key | value | source | task |
 |---|---|---|---|
