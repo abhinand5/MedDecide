@@ -16,7 +16,7 @@ import pytest  # noqa: E402
 import torch  # noqa: E402
 
 from meddecide.bench.schema import Item  # noqa: E402
-from meddecide.model.blend import Blend  # noqa: E402
+from meddecide.model.blend import Blend, export_blend  # noqa: E402
 from meddecide.model.meddecide_model import LoraSettings, MedDecideModel  # noqa: E402
 from meddecide.model.readout_checks import synthetic_choice_item  # noqa: E402
 
@@ -118,3 +118,13 @@ def test_alpha_outside_the_unit_interval_is_refused(tiny_dir) -> None:
         blend.apply(1.2)
     with pytest.raises(ValueError, match="alpha must be in"):
         blend.apply(-0.1)
+
+
+def test_an_exported_blend_reproduces_the_blended_scores_as_an_ordinary_model(tiny_dir) -> None:
+    model = _trained_model(tiny_dir)
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 5, 3])]
+    blend = Blend(model)
+    blend.apply(0.4)
+    blended = _probs(model, items)
+    export_blend(blend, 0.4)
+    assert (_probs(model, items) - blended).abs().max().item() < 1e-5

@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from meddecide.eval.composite import accuracy, composite, positional_health
+from meddecide.eval.composite import accuracy, composite, positional_health, template_macro_accuracy
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.utils.io import write_json
 
@@ -100,7 +100,7 @@ def main() -> None:
         else:
             mimic_rows = load(files["fast_mimic"])
             entry["mimic_rows"] = len(mimic_rows)
-            entry["mimic_accuracy"] = accuracy(mimic_rows)
+            entry["mimic_template_macro"] = template_macro_accuracy(mimic_rows)
             entry["cg_micro_on_file_rows"] = accuracy(cg_rows)
             entry["composite"] = "NOT MEASURED — the MR partition of fast dev v4 has no prediction file for this model"
             entry["positional_health_original_order"] = positional_health(cg_rows).to_dict()

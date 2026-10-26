@@ -54,3 +54,20 @@ class Blend:
                 for name, scale in scales.items():
                     module.scaling[name] = scale * alpha
         self.alpha = float(alpha)
+
+
+def export_blend(blend: Blend, alpha: float) -> None:
+    """Make the model itself carry the blend at ``alpha`` (osler_v5 Z4): the LoRA B matrices are multiplied by alpha, so with the
+    scalings unchanged the update is alpha times the trained one, exactly as the adapter scaling gives; the readout is the blend.
+    The model then saves and reloads as an ordinary checkpoint. After this call the Blend object must not be applied again."""
+    if not 0.0 <= alpha <= 1.0:
+        raise ValueError(f"alpha must be in [0, 1], got {alpha}")
+    blend.apply(1.0)  # the trained scalings and readout first
+    model = blend.model
+    with torch.no_grad():
+        if model.peft_model is not None:
+            for name, parameter in model.peft_model.named_parameters():
+                if "lora_B" in name:
+                    parameter.mul_(alpha)
+        readout = (1.0 - alpha) * blend.base_readout + alpha * blend.trained_readout
+        model.optcode.weight.copy_(readout.to(device=model.optcode.weight.device, dtype=model.optcode.weight.dtype))

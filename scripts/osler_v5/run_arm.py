@@ -28,6 +28,7 @@ from typing import Any
 
 import torch
 
+from meddecide.bench.schema import Item
 from meddecide.eval.composite import composite, permutation_for, positional_health
 from meddecide.model.meddecide_model import reorder_options
 from meddecide.model.pplx import PplxDecisionModel
@@ -93,9 +94,13 @@ def main() -> None:
     parser.add_argument("--steps", type=int, required=True)
     parser.add_argument("--evaluations", type=int, default=2, help="evaluations spread evenly over the steps, the last at the budget")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--smoke", action="store_true",
+                        help="a code-path check only: every dev set is cut to a few hundred items (the positional check keeps both groups)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="compose the mix, apply the augmentation and convert every item on the CPU, then stop before the model")
     args = parser.parse_args()
     out = (REPO / args.out) if not Path(args.out).is_absolute() else Path(args.out)
-    if (out / "arm_result.json").exists():
+    if (out / "arm_result.json").exists() and not args.dry_run:
         raise SystemExit(f"{out}: arm_result.json exists; the arm is not run twice (refuse-twice guard)")
     for directory in (out, out / "logs", out / "evals", out / "checkpoints"):
         directory.mkdir(parents=True, exist_ok=True)
@@ -109,6 +114,8 @@ def main() -> None:
     train_items = [mix_row_to_item(row) for row in rows]
     del rows
     fast_rows, cg_rows, know_rows = read_jsonl(DEV), read_jsonl(CG), read_jsonl(KNOW)
+    if args.smoke:
+        fast_rows, cg_rows, know_rows = fast_rows[::50], cg_rows[::20], know_rows[::20]
     fast_items = [mix_row_to_item(r) for r in fast_rows]
     cg_items = [mix_row_to_item(r) for r in cg_rows]
     know_items = [mix_row_to_item(r) for r in know_rows]
@@ -121,6 +128,13 @@ def main() -> None:
         "steps": args.steps, "evaluation_steps": list(grid), "mix": mix_info, "dev_items": len(fast_items), "cg_items": len(cg_items),
         "knowledge_items": len(know_items), "positional_items": len(ddx_items),
     })
+
+    if args.dry_run:
+        counts = {"train_items": len(train_items), "dev_items": len(fast_items), "cg_items": len(cg_items),
+                  "knowledge_items": len(know_items), "positional_items": len(ddx_items), "grid": list(grid)}
+        write_json(out / "dry_run.json", {"utc": utcnow(), "config": config.to_dict(), "mix": mix_info, "counts": counts})
+        print(json.dumps({"dry_run": True, **counts, "augmentation": mix_info.get("augmentation", {}).get("seen")}, sort_keys=True), flush=True)
+        return
 
     resume_from = None
     if args.resume:
@@ -143,7 +157,8 @@ def main() -> None:
     def evaluate_dev(step: int, _metrics: dict[str, Any]) -> None:
         """Every dev set at one evaluation: rows saved, composite and positional health recorded; the model's checkpoint kept."""
         started_eval = time.time()
-        fast_scored = trainer.score(fast_items)
+        # the trainer has just scored the full fast dev set for its tripwire (the same model, items and settings): reuse that result
+        fast_scored = cached.pop("fast") if "fast" in cached else trainer.score(fast_items)
         cg_scored = trainer.score(cg_items)
         know_scored = trainer.score(know_items)
         fast_pred = dev_prediction_rows(fast_scored)
@@ -179,6 +194,16 @@ def main() -> None:
               f"{[h['passes'] for h in perm_health.values()]}", flush=True)
 
     trainer.eval_hook = evaluate_dev
+    cached: dict[str, Any] = {}
+    score_direct = trainer.score
+
+    def score_and_keep_fast_dev(items: list[Item], *, batch_size: int | None = None) -> Any:
+        scored = score_direct(items, batch_size=batch_size)
+        if items is fast_items:
+            cached["fast"] = scored
+        return scored
+
+    trainer.score = score_and_keep_fast_dev  # type: ignore[method-assign]
     # the trainer evaluates the full fast dev v4 at each evaluation step, as in osler_v4 Y8: the dev-macro tripwire reads that
     # measurement; the hook then scores the dev sets for the composite, the knowledge set and the positional check
     result = trainer.train(train_items, steps=args.steps, eval_items=fast_items, schedule_steps=args.steps,

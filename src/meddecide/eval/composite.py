@@ -3,8 +3,9 @@
 The rows are the prediction rows of meddecide.train.osler_arm.dev_prediction_rows (item_id, source, template_id, n_options, gold_index,
 correct, ...). Nothing here reads a test split, the external panel, the MIMIC audit suite or a held-out file; the callers pass dev rows.
 
-S is the mean of three item accuracies on dev: the MR partition (osler_v3's keep-rule partition: the MR sources), the MIMIC partition of
-fast dev v4 (the template ids that start with mimic_), and the CG v2 **micro** accuracy (item-pooled, not template macro, D54).
+S is the mean of three accuracies on dev: the MR partition (osler_v3's keep-rule partition: the MR sources) and the MIMIC partition of
+fast dev v4 (the template ids that start with mimic_), each as a **template macro** accuracy (the statistic of the keep rule and of
+Gate O4), and the CG v2 **micro** accuracy (item-pooled, not template macro, D54).
 """
 
 from __future__ import annotations
@@ -40,6 +41,16 @@ def accuracy(rows: Sequence[dict[str, Any]]) -> float:
     return sum(bool(row["correct"]) for row in rows) / len(rows)
 
 
+def template_macro_accuracy(rows: Sequence[dict[str, Any]]) -> float:
+    """Mean over templates of the item accuracy within each template (every template weighs the same)."""
+    if not rows:
+        raise ValueError("template macro accuracy of an empty partition")
+    groups: dict[str, list[bool]] = {}
+    for row in rows:
+        groups.setdefault(str(row["template_id"]), []).append(bool(row["correct"]))
+    return sum(sum(v) / len(v) for v in groups.values()) / len(groups)
+
+
 def mr_partition(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
     return [row for row in rows if str(row["source"]) in MR_SOURCES]
 
@@ -50,7 +61,7 @@ def mimic_partition(rows: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @dataclass(frozen=True)
 class CompositeParts:
-    """S and its three parts (dev accuracies). ``s`` is their mean."""
+    """S and its three parts (dev accuracies): mr and mimic are template macro, cg_micro is item-pooled. ``s`` is their mean."""
 
     mr: float
     mimic: float
@@ -72,7 +83,7 @@ def composite(fast_rows: Sequence[dict[str, Any]], cg_rows: Sequence[dict[str, A
     """S over fast dev v4 rows (for the MR and MIMIC partitions) and CG v2 rows (micro)."""
     mr = mr_partition(fast_rows)
     mimic = mimic_partition(fast_rows)
-    return CompositeParts(mr=accuracy(mr), mimic=accuracy(mimic), cg_micro=accuracy(cg_rows),
+    return CompositeParts(mr=template_macro_accuracy(mr), mimic=template_macro_accuracy(mimic), cg_micro=accuracy(cg_rows),
                           n_mr=len(mr), n_mimic=len(mimic), n_cg=len(cg_rows))
 
 

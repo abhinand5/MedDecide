@@ -21,6 +21,14 @@ Y8 = REPO / "outputs" / "osler_v4" / "Y8"
 MR = {"mr_v1", "mr_synthea", "mr_teacher", "mr_mtsamples", "mr_codiesp", "mr_pmc"}
 
 
+def template_macro(rows: list[dict]) -> float:
+    """Mean over templates of the item accuracy within each template (plain python; D54's default accuracy for MR and MIMIC)."""
+    groups: dict[str, list[bool]] = {}
+    for row in rows:
+        groups.setdefault(str(row["template_id"]), []).append(bool(row["correct"]))
+    return float(np.mean([np.mean(v) for v in groups.values()]))
+
+
 def check(name: str, derived: float, recorded: float, tol: float = 1e-9) -> bool:
     ok = abs(derived - recorded) <= tol
     print(f"{name}: derived {derived:.10f}, recorded {recorded:.10f}, {'match' if ok else 'MISMATCH'}", flush=True)
@@ -84,12 +92,14 @@ def main() -> None:
     ):
         _, fast_rows = ids_and_rows(fast_path, fast_pred)
         _, cg_rows = ids_and_rows(cg_path, cg_pred)
-        mr = [r["correct"] for r in fast_rows if r["source"] in MR]
-        mimic = [r["correct"] for r in fast_rows if str(r["template_id"]).startswith("mimic_")]
+        mr = [r for r in fast_rows if r["source"] in MR]
+        mimic = [r for r in fast_rows if str(r["template_id"]).startswith("mimic_")]
         cg = [r["correct"] for r in cg_rows]
-        s = (np.mean(mr) + np.mean(mimic) + np.mean(cg)) / 3
+        s = (template_macro(mr) + template_macro(mimic) + np.mean(cg)) / 3
         recorded = composite_recorded["models"][name]["composite"]
         results.append(check(f"{name} S", float(s), recorded["S"]))
+        results.append(check(f"{name} MR template macro", template_macro(mr), recorded["mr"]))
+        results.append(check(f"{name} MIMIC template macro", template_macro(mimic), recorded["mimic"]))
         results.append(check(f"{name} CG v2 micro", float(np.mean(cg)), recorded["cg_micro"]))
 
     # 4. the two-letter expectation at arm length, in plain numpy

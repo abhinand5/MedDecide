@@ -11,6 +11,7 @@ from meddecide.eval.composite import (
     mr_partition,
     permutation_for,
     positional_health,
+    template_macro_accuracy,
 )
 
 
@@ -24,6 +25,18 @@ def test_accuracy_is_item_pooled_and_an_empty_partition_is_an_error() -> None:
     assert accuracy([_row("a"), _row("b", correct=False), _row("c"), _row("d")]) == 0.75
     with pytest.raises(ValueError, match="empty"):
         accuracy([])
+
+
+def test_the_mr_and_mimic_parts_are_template_macro_and_cg_is_item_pooled() -> None:
+    big = [_row(f"b{i}", source="mr_v1", template="mr_big", correct=(i < 9)) for i in range(10)]  # 0.9 within one template
+    small = [_row("s1", source="mr_v1", template="mr_small", correct=False)]  # 0.0 within one template
+    assert template_macro_accuracy(big + small) == pytest.approx(0.45)
+    assert accuracy(big + small) == pytest.approx(9 / 11)
+    mimic = [_row("m1", template="mimic_x", correct=True)]
+    parts = composite(big + small + mimic, [_row("c1", correct=True), _row("c2", correct=False)])
+    assert parts.mr == pytest.approx(0.45)
+    assert parts.mimic == 1.0
+    assert parts.cg_micro == 0.5
 
 
 def test_the_mr_and_mimic_partitions_follow_the_source_and_the_template_prefix() -> None:
