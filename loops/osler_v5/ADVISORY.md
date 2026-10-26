@@ -1,12 +1,14 @@
 # ADVISORY — osler_v5: fix and max the Osler-4B
 
-Planned 2026-10-25 by the advisor (Claude Opus) with the operator, after the osler_v4 review. Read in full at the start of
-every iteration. New decisions: D51–D55 in `docs/plans/PROGRAM.md` §3 (D26–D50 still hold).
+Planned 2026-10-25 by the advisor (Claude Opus) with the operator; revised 2026-10-26 after an independent review (Opus 5.5,
+max effort) that checked the plan against osler_v4's logs. New decisions: D51–D55 in `docs/plans/PROGRAM.md` §3 (D26–D50
+still hold). Read in full at the start of every iteration.
 
 ## 1. Where things stand
 
-osler_v4's final Osler-4B (63,304 steps, pplx-flash base, mix composition `9d25e30f…`: osler_v2's C1 + MIMIC B1–B3, 1,456,593
-rows) is the best open model we measured on real-record audit, and it fails Gate O4 on one check:
+osler_v4's final Osler-4B (63,304 steps; osler_v2's C1 mix plus MIMIC B1–B3, 1,456,593 rows, composition SHA-256
+`9d25e30f53d7823d051b9c71334c248660318c86ce904c26f855b9a9dbc618b8`) is the best open model we measured on real-record audit,
+and it fails Gate O4 on one check:
 
 | Gate O4 check | vs zero-shot pplx-flash | vs MedDecider-4B |
 |---|---|---|
@@ -16,35 +18,33 @@ rows) is the best open model we measured on real-record audit, and it fails Gate
 | (iv) knowledge | −0.007 [−0.017, +0.005] PASS | +0.006 PASS |
 
 MIMIC suite scoreboard (template macro): osler_v4 0.800, pplx-27B 0.682, zero-shot pplx 0.634, MedDecider-9B 0.628.
-osler_v2 scores 0.862 on the MR verdict, osler_v4 0.843. Membership AUC 0.504 (no signal).
+Membership AUC 0.504 (no signal).
 
-**Diagnosis (advisor, after the loop; dev data and training logs only, never the panel):**
-1. **Readout collapse on many-option items.** Training items average 2–6 options, so readout rows past F rarely see a gold.
-   DDXPlus dev (49 options) on items whose gold has a two-letter code: zero-shot pplx 0.611, A0 at 14k 0.479, osler_v2 0.064,
-   osler_v4 final 0.004 (C210). With single-letter gold, osler_v2 equals pplx (0.796), so the knowledge is there. DDXPlus alone
-   accounts for osler_v2's whole CG v2 deficit, and for 0.039 of osler_v4's 0.049 deficit against A0 (C212).
-2. **Per-step loss averaging over-weights long items.** Batches are filled to 8 items or 8,192 tokens after a length sort, so a
-   long MIMIC note often trains alone and weighs as much as eight replay items. In Y8, MIMIC was 36 % of trained items and about
-   60 % of the gradient weight (from `outputs/osler_v4/Y8/logs/train.jsonl`). The replay floor of 20 % was nominal.
-3. **General skill erodes beyond the readout.** The panel also drops on yes/no and 4-option datasets, and the 110 MIMIC held-out
-   items fall below zero-shot (0.638 vs 0.720). Weight-space distance from the base is the lever left: KL 0.1 and broad replay
-   each moved osler_v3's panel gap by about +0.013 (single runs, additional rows), and a blend toward the base (D53) needs no
-   retraining.
-4. **Selection ignored CG.** Fast dev v4's pooled macro rose to 0.850 while CG v2 stayed at 0.73 (D54 fixes this).
+**Diagnosis (dev data and training logs only; never the panel):**
+1. **Readout collapse on many-option items.** In the final, readout rows 26–254 are bit-identical to the base; rows A–Z moved by
+   1.8× their base norm. No training item offers more than 26 options, so those rows never get a gradient. DDXPlus (49 options)
+   two-letter gold: zero-shot pplx 0.611, osler_v4 0.004 (2 of 499); single-letter gold is intact (C210, C212).
+2. **Per-step loss averaging over-weights long items.** 69 % of logged steps clip at norm 1.0 (median pre-clip norm 9.7). Batches
+   are filled after a length sort, so MIMIC was 36 % of trained items and about 60 % of the applied update.
+3. **General skill erodes beyond the readout.** The panel also drops on yes/no and 4-option datasets. Weight-space distance from
+   the base is the lever left; KL 0.1 and broad replay moved osler_v3's panel gap by about +0.013 each (single runs).
+4. **Selection ignored CG.** Fast dev v4's pooled macro rose to 0.850 while CG v2 micro stayed at 0.74 (D54 fixes this).
 
 ## 2. The questions this loop answers
 
-1. Does per-item loss weighting (D51) and option-count augmentation (D52) fix the CG v2 loss **without** losing the audit lead?
+1. Do per-item weighting (D51) and option-count augmentation (D52) fix the CG v2 readout loss without losing the audit lead?
 2. Does KL 0.1 on general anchors add to them?
 3. How much of the panel-proxy gap does a blend toward the base (D53) recover, and at what audit cost?
-4. Does the fixed, blended Osler-4B pass **Gate O5** (D55), and beat osler_v4's final on every scope?
+4. Does the blended Osler-4B pass **Gate O5** (D55: Gate O4 unchanged)?
 
 Outcomes (write the ones that apply into FINDINGS):
-- **(1) Gate O5 passes:** this recipe (arm, length, α rule) goes to the 9B next loop unchanged.
-- **(2) Fixes restore CG v2 but the panel still fails:** the panel loss is not visible on dev; report per dataset (additional) and
-  propose nothing that selects on the panel.
-- **(3) The blend trades too much audit:** report the α curve on dev; the rule's choice stands.
-- **(4) Positional health fails everywhere:** the augmentation did not reach the readout; report and stop the recipe question.
+- **(1) Every measured check passes against both baselines:** the MedDecider-4B panel reads NOT MEASURED (ten letters). FINDINGS
+  states "PASS vs zero-shot pplx-flash; NOT MEASURED vs MedDecider-4B"; the recipe goes to Osler-9B.
+- **(2) Fixes restore CG v2 but the panel still fails:** the panel loss is not visible on dev; report per dataset (additional)
+  and propose nothing that selects on the panel.
+- **(3) The blend trades too much audit:** report the α curve on dev; the Z4 rule's choice stands.
+- **(4) Positional health fails everywhere, or the CG-first arm rule selects an arm that fails it:** the augmentation did not reach
+  the readout. Report it and stop the recipe question; no arm is chosen on S alone in that case.
 
 **Release targets** (reported, not gates): MIMIC suite ≥ +0.10 over zero-shot pplx (point estimate); MR verdict template macro ≥
 osler_v2's − 0.01; panel non-inferior to zero-shot pplx (the gate check).
@@ -54,110 +54,116 @@ osler_v2's − 0.01; panel non-inferior to zero-shot pplx (the gate check).
 1. **Everything from osler_v4 §3 still holds** (base pplx-flash, D33 attention-only LoRA, D40 speed recipe, D37, labels by code,
    dev-only selection, held-out lists unchanged, MIMIC local only, nothing MIMIC-derived committed). The KL anchor prefixes are
    osler_v4's list unchanged.
-2. **The mix is osler_v4's final mix, recomposed in memory** with `scripts/osler_v4/y8_train.py`'s composer: its composition
-   SHA-256 must equal `9d25e30f53d7823d051b9c71334c248660318c86ce904c26f855b9a9dbc618b8` before any run. No new data sources.
-   **Never train on DDXPlus** (any split): CG v2's DDXPlus must stay an unbiased proxy.
+2. **The mix is osler_v4's final mix, recomposed in memory** with `scripts/osler_v4/y8_train.py`'s composer. Its composition SHA-256
+   must equal `9d25e30f…` before any run. No new data sources. **Never train on DDXPlus** (any split).
 3. **Frozen sets reused, never rebuilt:** fast dev v4, CG v2, knowledge dev v2, the MR suite v1, the MIMIC audit suite v1, the
    held-out files, the panel, the knowledge test. Check every set's hash against osler_v4's manifests before use.
 4. **Baselines are not re-scored.** Gate O5 and the scoreboard reuse osler_v4's prediction files (Y4, Y9) for zero-shot pplx,
-   MedDecider-4B/-9B, JEV-9B, pplx-27B, osler_v2 and the osler_v4 final, after checking that their item ids match the frozen sets.
-   Only osler_v5 models are scored.
+   MedDecider-4B/-9B, JEV-9B, pplx-27B, osler_v2 and the osler_v4 final, after checking item ids. Only osler_v5 models are scored.
+   The zero-shot CG v2 reference is the α = 0 model on identical items (D54), not a baseline file's macro.
 5. **Disk:** keep at least 30 GB free (`df` is misleading on this volume; test with a 2 GB write). Full checkpoints keep the newest
-   two. Delete each finished arm's `full/` resume states once its result is recorded. The quota stalled osler_v4 for 5 hours.
-6. **Commit cadence (AGENTS.md, amended for this loop):** ruff and the full suite run before a commit that changes code
-   (`src/`, `scripts/`, `tests/`, `configs/`); a commit that changes only `loops/` files skips the suite. Run the suite in the
-   osler_v4 chunked, CPU-hidden form (C217).
-7. **Nemotron is not available** (its weights were removed on 2026-10-25 to free space). No teacher work in this loop.
+   two. Delete each finished arm's `full/` resume states once its result is recorded.
+6. **No suite and no large writes during a GPU job.** osler_v4 lost arms to a silent death during a CPU build and to a quota filled
+   by a suite run. Code commits that change `src/`, `scripts/`, `tests/` or `configs/` run ruff and the suite only between GPU jobs
+   (osler_v4's chunked, CPU-hidden form, C217). `loops/`-only commits skip the suite.
+7. **Watchdog:** a GPU job whose log has not advanced for 15 minutes is treated as dead: it is resumed from its newest full
+   checkpoint, and the resume is recorded. The `arm_result.json` refuse-twice guard allows a resume and refuses a second
+   completed run.
+8. **Nemotron is not available** (weights removed 2026-10-25). No teacher work in this loop.
 
 ## 4. Tasks
 
-### Z0 — Orientation and the recipe code (CPU, ~5 h)
+### Z0 — Orientation and the recipe code (CPU, ~8–10 h)
 
 1. Read this ADVISORY, PROGRAM D49–D55, osler_v4's FINDINGS and NEXT. Ruff and the suite (osler_v4 deselects); record counts.
-2. **D51:** `loss_weighting: per_step | per_item` in the trainer config (default `per_step`). Under `per_item`, multiply the step's
-   total loss (CE + Brier + KL + distillation) by `n_items / batch_size`. Unit test: a 1-item and an 8-item batch of identical
-   items give per-item gradients in the ratio 1 : 1; `per_step` reproduces the old loss to the bit.
-3. **D52(a):** `option_count_augment: {p: 0.3, min_options: 8, max_options: 64}` (default off), applied in `iter_batches` after
-   option shuffling, seeded by (seed, epoch, item).
-   - **The closed-set list:** for each `choice` template in the mix, decide by reading its builder whether the gold is a
-     single-valued field of the record (exactly one label of the set is true: e.g. an admission's MS-DRG, a radiology exam
-     name, a page category, an ED disposition, a principal diagnosis). Write the list with one reason per template, and the
-     label-set size from train, to STATE §2 **before any run**. Templates whose other labels could also be true (multi-label
-     coding, free-text MCQ options) are excluded. Never change the list after a run.
-   - Distractors come from the template's **train** label set, never from dev or test items.
-   - Unit tests on synthetic items: gold kept, no duplicate labels, count within range, gold position uniform over 10,000 draws.
-   - Record the share of trained items expected to have > 26 options.
-4. **D52(b):** the positional health check (`meddecide.eval.code_split` extended): for every dev template with > 26 options,
-   two-letter-gold accuracy ≥ 0.5 × single-letter-gold accuracy. Test on synthetic predictions.
-5. **D53:** `blend(checkpoint, alpha) -> checkpoint`: scale the LoRA update by α (merge with scale α, or set the adapter scaling)
-   and interpolate the readout with its step-0 values (`R_init` = the readout as loaded before training). α = 1 must reproduce
-   the trained model's probabilities (test, max abs diff < 1e-5 in fp32); α = 0 must reproduce zero-shot pplx (same test).
-6. **D54:** the composite S (dev) as a pure function over prediction files, with the three partitions taken exactly as osler_v4
-   Y6 took the MR partition, the fast dev v4 MIMIC partition, and CG v2. Compute S, its parts and positional health for zero-shot
-   pplx, A0 and the osler_v4 final from existing predictions (additional rows; they calibrate expectations, choose nothing).
-7. Write the Z2 and Z3 configs (below). Commit.
+2. **D51:** `loss_weighting: per_step | per_item` (default `per_step`). Under `per_item` the clip is applied first, then the
+   gradients are multiplied by `n_items / batch_size`; KL and distillation are summed over masked items and divided by
+   `batch_size` (not averaged over anchors). Tests use mixed batches with clipping on: a lone MIMIC item and eight replay items
+   must give the item-weighted update ratio. Replay Y8's logged batches on the CPU and record the MIMIC share of the applied update
+   under `per_step` (expected near 0.59) and under `per_item` (expected near 0.34). If `per_item` does not move the share to about
+   0.34–0.40, stop and record it before any run.
+3. **D52(a):** the closed list is `mimic_principal_dx_v1` and `mimic_msdrg_v1` (only 5.9 % of items together). Write the list with
+   reasons to STATE §2 before any run, together with the expected number of two-letter golds per row; raise p if that number is
+   below 20 per row. Also flag the defect: `fda_route_choice_v1` sets gold = routes[0] while offering the drug's other routes;
+   it is not augmented and is reported to the operator as a finding. Unit tests on synthetic items: gold kept, no duplicate codes or
+   titles, count within range, gold position uniform, frequency-weighted distractors, the fallback below max(original, 8).
+4. **D52(b):** the positional check on DDXPlus dev under the original order and two seeded permutations.
+5. **D53:** `blend(checkpoint, alpha)` by adapter scaling with R_base the readout at step 0. Tests: α = 0 reproduces the base
+   model's probabilities against `MedDecideModel.reference_option_probs` (not an export file), max abs diff < 1e-5 in fp32; α = 1
+   reproduces the trained model. Re-score the exported blend on dev before Z5.
+6. **D54:** the composite S (dev) as a pure function over prediction files: MR partition (osler_v3's), fast dev v4's MIMIC partition,
+   CG v2 micro. Compute S, its parts and positional health for zero-shot pplx, A0 and the osler_v4 final from existing predictions
+   (additional rows; they calibrate expectations and choose nothing). **Check:** the osler_v4 final must fail the revised CG
+   qualifier (ADVISORY Z4) on these numbers, or the check has no discriminating power and the plan is BLOCKED for review.
+7. Write the configs. Commit.
 
 ### Z1 — Probes on the osler_v4 final (GPU, ~3 h; additional, choose nothing)
 
 On the osler_v4 final checkpoint, dev only (fast dev v4 + CG v2):
-1. **Blend curve:** α ∈ {0.3, 0.5, 0.7, 0.85, 1.0}: S and its three parts, knowledge dev, positional health, CG v2 per template.
-2. **Readout reset:** the final with readout rows ≥ 26 restored to `R_init`: DDXPlus code split and CG v2.
+1. **Blend curve:** α ∈ {0.3, 0.5, 0.7, 0.85, 1.0}: S and its parts, knowledge dev, positional health, CG v2 micro per template.
+2. **Readout split:** (a) the trained adapter with the base readout; (b) the base adapter (adapter off) with the trained readout.
+   Report DDXPlus two-letter accuracy and CG v2 micro for each. (The earlier plan's "restore rows ≥ 26" is a no-op: those rows are
+   already at base values.)
 
-Report in `loops/osler_v5/probes.md`. These rows inform the reader; the pre-registered rules below do not change because of them.
+Report in `loops/osler_v5/probes.md`. These rows inform the reader; the rules below do not change because of them.
 
 ### Z2 — Recipe arms (GPU, 4 runs, ~4.5 h each)
 
-Each arm: osler_v4's final mix (§3.2), 13,992 steps, the osler_v4 Y8 recipe otherwise (configs/osler_v3/block_arm.yaml, D40,
-seed 0), evaluations at 6,996 and 13,992 on fast dev v4 + CG v2.
+Each arm: osler_v4's final mix (§3.2), 13,992 steps, the osler_v4 Y8 recipe otherwise (configs/osler_v3/block_arm.yaml, D40),
+evaluations at 6,996 and 13,992 on fast dev v4 + CG v2.
 
 | arm | recipe |
 |---|---|
-| R0 | control: osler_v4's final recipe (`per_step`, no augmentation, KL 0) |
-| R1 | `loss_weighting: per_item` |
-| R2 | R1 + `option_count_augment` (D52a) |
-| R3 | R2 + `kl_to_base: 0.1` on anchors (osler_v4 prefixes; augmented anchors included) |
+| R0 | control: osler_v4's final recipe (`per_step`, no augmentation, KL 0), seed 0 |
+| R0' | R0 at seed 1 (measures the seed noise that the tie band must exceed) |
+| R2 | `loss_weighting: per_item` + option-count augmentation (D52a), seed 0 |
+| R3 | R2 + `kl_to_base: 0.1` on anchors (osler_v4 prefixes; augmented anchors included), seed 0 |
 
-**Choice rule** (pre-registered; paired bootstrap within templates, 1,000 resamples, seed 0; values at step 13,992):
-- An arm **qualifies** if positional health passes and its knowledge dev lower bound against R0 > −0.01.
-- **Choose the qualifying arm with the highest S.** If a simpler arm (lower number) is within 0.003 of it, the simpler arm wins.
-- If no arm qualifies, choose the highest-S arm, record it as a deviation and continue.
+**Choice rule** (pre-registered; values at step 13,992, paired bootstrap within templates, 1,000 resamples, seed 0):
+- An arm **qualifies** if positional health passes, its knowledge-dev lower bound against R0 > −0.01, and its MR and MIMIC lower
+  bounds against R0 > −0.03.
+- **Choose the qualifying arm with the highest CG v2 micro.** The fuller-fix arm (the higher-numbered) wins ties within
+  max(0.005, |R0 − R0'|).
+- If no arm qualifies, outcome (4) applies. Choose nothing and report.
 
 Delete each arm's `full/` after its result is recorded. Write `loops/osler_v5/arms.md`.
 
-### Z3 — Final Osler-4B (GPU, ~21 h)
+### Z3 — Final Osler-4B (GPU, ~24 h)
 
-- The chosen arm's recipe on the same mix, **63,304 steps** (osler_v4's length, so the final compares one-to-one with osler_v4's),
-  10 evaluations on fast dev v4 + CG v2, resumable full checkpoints every 5,000 steps (newest two kept).
-- **Checkpoint selection by S** among evaluations that pass positional health; if none passes, the highest S, flagged.
+- The chosen arm's recipe on the same mix, **63,304 steps** (osler_v4's length, so the final compares one-to-one with osler_v4's;
+  Y8 took 20.7 h without KL, and this run takes about 24.5 h with it).
+- Ten evaluations on fast dev v4 + CG v2 at Y8's steps (6,330 … 63,304), so the step-63,304 R0 is free for comparison.
+- Full checkpoints every 2,500 steps (newest two kept), watchdog per ADVISORY §3.7.
+- **Checkpoint selection by S** among evaluations that pass positional health; if none passes, outcome (4).
 - Record S, its parts, knowledge dev and positional health at every evaluation.
-- Temperatures fitted on dev and saved with the checkpoint. Refuse to run twice (the `arm_result.json` guard).
+- Temperatures fitted on dev and saved with the checkpoint. Refuse to run twice (the `arm_result.json` guard, resume allowed).
 
 ### Z4 — Blend (GPU, ~3 h)
 
-α ∈ {0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} on the selected checkpoint; temperatures refitted per α on fast dev v4.
-**Rule** (pre-registered):
-- An α qualifies if positional health passes, knowledge dev ≥ the α = 1 value − 0.01 (point estimate), and CG v2 template macro
-  ≥ zero-shot pplx's CG v2 template macro − 0.01.
-- Choose the qualifying α with the highest S; within 0.002 of it, the larger α wins.
-- If no α meets the CG floor, choose the α with the highest CG v2 template macro among those whose S is within 0.01 of the
-  highest S.
+α ∈ {0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} on the selected checkpoint; temperatures refitted per α on fast dev v4. Report Brier
+and the D12 readout gate at each α.
 
-Export the blended model as one checkpoint (`outputs/osler_v5/Z4/final_blended/`). Write `loops/osler_v5/blend.md`.
+**Rule** (pre-registered):
+- Retention: for each of the MR and MIMIC dev macros, the gain over α = 0 at α must be ≥ 80 % of the gain at α = 1.
+- An α qualifies if it passes the retention rule, positional health, and CG v2 micro ≥ its α = 1 value.
+- **Choose the smallest qualifying α.** If none qualifies, α = 1 is kept and the blend is reported as not used (outcome 3).
+
+Export the chosen blend (adapter scaling, calibration saved) to `outputs/osler_v5/Z4/final_blended/`. Write `loops/osler_v5/blend.md`.
 
 ### Z5 — Evaluation and Gate O5 (GPU, ~3 h)
 
-Score the blended final (calibrated) on the frozen sets: the MR suite v1 (verdict and reported-only), the MIMIC audit suite v1,
-the held-out files, the external panel, the knowledge test, MedNLI test. Also score the unblended (α = 1) checkpoint as an
-additional row.
+Score the blended final (calibrated) on the frozen sets: the MR suite v1 (verdict and reported-only), the MIMIC audit suite v1, the
+held-out files, the external panel, the knowledge test, MedNLI test. Also score the unblended (α = 1) checkpoint as an additional row.
 
-**Apply Gate O5 (D55) exactly**, with the pre-registration written to STATE §7 before any test-set scoring. Scoreboard rows
-(additional, from existing predictions): zero-shot pplx, MedDecider-4B/-9B, JEV-9B, pplx-27B (ceiling), osler_v2, osler_v4 final.
-Report the panel per dataset, the release targets of §2, and the DDXPlus code split. Write `gate_o5.md` and `results.md`.
+**Apply Gate O5 (D55 = Gate O4 unchanged) exactly.** Write the pre-registration into STATE §7 before any test-set scoring. Scoreboard
+rows (additional, from existing predictions): zero-shot pplx, MedDecider-4B/-9B, JEV-9B, pplx-27B (ceiling), osler_v2, osler_v4 final.
+Report the panel per dataset, the MedDecider-4B panel comparison on the 4,141 pairable items as an additional row, the release
+targets of §2, and the DDXPlus code split. Write `gate_o5.md` and `results.md`.
 
 ### Z6 — Membership audit (small GPU, ~1 h)
 
 osler_v4 Y10's membership test (2,000 MIMIC train vs 2,000 test items, same templates) on the blended final; AUC with interval.
-The verbatim probe is not repeated (osler_v4 C236: uninformative for the causal export). Write `loops/osler_v5/audit.md`.
+The verbatim probe is not repeated (osler_v4 C236). Write `loops/osler_v5/audit.md`.
 
 ### Z7 — Findings and closure — HARD STOP
 
@@ -168,33 +174,31 @@ spot-check), NEXT.md, `Loop status: STOPPED`, commit, push, stop.
 
 | id | task | GPU | deps |
 |---|---|---|---|
-| Z0 | Orientation and recipe code (D51–D54) | no | — |
-| Z1 | Probes on the osler_v4 final (blend curve, readout reset) | yes | Z0 |
-| Z2 | Recipe arms R0–R3 and the choice | yes | Z0 |
+| Z0 | Orientation, recipe code (D51–D54), CPU replays and checks | no | — |
+| Z1 | Probes on the osler_v4 final (blend curve, readout split) | yes | Z0 |
+| Z2 | Recipe arms R0, R0', R2, R3 and the choice | yes | Z0 |
 | Z3 | Final Osler-4B (63,304 steps) | yes | Z2 |
 | Z4 | Blend α on dev and export | yes | Z3 |
 | Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 |
 | Z6 | Membership audit | small | Z4 |
 | Z7 | Findings and closure — HARD STOP | no | all |
 
-GPU sequence: Z1 → Z2 → Z3 → Z4 → Z5 → Z6. GPU hours (planning guesses): Z1 3, Z2 19, Z3 21, Z4 3, Z5 3, Z6 1 — **about 50
-GPU-hours; 3.5–4 days with overhead.** While Z3 trains, pre-write Z4–Z5 code (CPU only).
+GPU sequence: Z1 → Z2 → Z3 → Z4 → Z5 → Z6. GPU hours (planning estimates): Z1 3, Z2 18, Z3 25, Z4 3, Z5 3, Z6 1 — **about 53
+GPU-hours; budget 4.5 days with overhead.** While Z3 trains, pre-write Z4–Z5 code (CPU only; no suite run during the job).
 
 ## 6. Out of scope
 
 - Osler-9B (next loop, on this loop's recipe) and Osler-0.8B; base, attention, head or adapter changes.
-- New data sources, teachers, Nemotron work, 27B distillation (osler_v4 A5 trailed A4; the anchors are under-scored).
+- New data sources, teachers, Nemotron work, 27B distillation.
 - DDXPlus training data; any panel, test, MIMIC-suite or held-out influence on a choice.
-- Changing a frozen set, Gate O5, the choice rules or the closed-set list after any run.
+- Changing a frozen set, Gate O5, the choice rules, the blend rule or the closed list after any run.
 - Releasing or uploading anything; the HF backup.
 
 ## 7. Failure modes to avoid
 
-1. **The augmentation leaks a label.** A distractor equal to another true label makes the gold wrong. Only single-answer
-   closed-set templates, with reasons; when unsure, exclude.
-2. **Per-item weighting silently changes the learning rate.** Long-item steps now move the weights less; report the realised
-   gradient-weight share by family (MIMIC vs other) for R0 and R1 from the step logs.
-3. **The blend breaks calibration.** Temperatures are refitted per α; report Brier at each α.
-4. **Re-using a baseline file that does not match the set.** Check item ids and counts before Gate O5; a mismatch is BLOCKED,
-   not re-scored silently.
-5. **Disk quota.** Check headroom before every GPU job; clean arm resume states as you go.
+1. **Augmentation mislabels.** A distractor that is also a true label makes the gold wrong. Only the closed list; deduplicate by code
+   and title; when unsure, exclude.
+2. **Per-item weighting does not reach MIMIC's share.** Z0.2's replay check is a gate for the arms.
+3. **The blend breaks calibration.** Temperatures are refitted per α; Brier at each α is reported.
+4. **A baseline file does not match its set.** Check item ids and counts before Gate O5; a mismatch is BLOCKED, never re-scored silently.
+5. **Silent process death.** Watchdog and no large writes during GPU jobs (ADVISORY §3.6–3.7).

@@ -11,7 +11,7 @@ This loop fixes those and nothing else:
 - **four short recipe arms** on osler_v4's exact mix, chosen by a **dev composite** of MR, MIMIC and CG (D54);
 - a **63,304-step final** (the same length as osler_v4's, for a one-to-one comparison);
 - a **weight-space blend toward the base** chosen on dev (D53);
-- **Gate O5** (D55: Gate O4 plus a fixed pairing rule for MedDecider's ten letters), a membership audit, and a hard stop.
+- **Gate O5** (D55: Gate O4 unchanged; the MedDecider-4B panel comparison stays NOT MEASURED), a membership audit, and a hard stop.
 
 If the gate passes, this recipe goes to Osler-9B next loop unchanged.
 
@@ -57,7 +57,7 @@ report it and name the ADVISORY §2 outcome it implies.
 - Train on DDXPlus, any test split, the panel or its copies (e.g. `MaziyarPanahi/MedExQA-clean`), MDACE, knowledge dev v2, CG
   items or held-out items.
 - Add a data source or change the mix: its composition hash must equal osler_v4's (`9d25e30f…`).
-- Change D51–D55, the frozen sets, the choice rules, the blend rule or the closed-set list after any run, or to make something
+- Change D51–D55, the frozen sets, the choice rules, the blend rule or the closed list after any run, or to make something
   pass (that is `BLOCKED`).
 - Change the head, the attention, the base model or the adapter (D26, D33).
 - Re-score a baseline that osler_v4 already scored on the same frozen set.

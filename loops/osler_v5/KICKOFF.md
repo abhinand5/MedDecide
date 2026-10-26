@@ -41,7 +41,7 @@ Rules (full lists in AGENTS.md and GOAL.md "Do not"):
   Never edit a check, rule, gate, frozen set or the closed-set list to make something pass
   (that is BLOCKED).
 - Reuse osler_v4's baseline prediction files after checking ids; score only osler_v5 models.
-- Run ruff and the suite only for commits that change code; loops-only commits skip it.
+- Run ruff and the suite only for code commits, and never while a GPU job runs. A GPU job whose log stalls for 15 minutes is resumed from its newest checkpoint.
 - Before each GPU job, test disk headroom with a 2 GB write; delete finished arms' full/ states.
 - Defects to investigate first: below chance, a constant answer, divergence, knowledge below
   zero-shot, a result that looks too good.
