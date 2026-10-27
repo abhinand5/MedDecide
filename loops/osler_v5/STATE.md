@@ -76,7 +76,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn); chain log outputs/osler_v5/Z2/chain.log. R0 finished (exit 0 at 03:41:17Z; S 0.8288 at 13,992; positional passes in all orders; C041–C044). R0 prime finished (exit 0 at 08:13:55Z; S 0.8159; CG micro 0.7346; positional FAILS in all orders, two-letter 0.0000 / 0.0041 / 0.0021 below the 0.0204 chance; C052–C053; tie band 0.0416). R2 finished (exit 0 at 12:50:49Z; S 0.8311; CG micro 0.7986; positional passes in all orders; MR −0.0008, MIMIC −0.0146, knowledge +0.0135 against R0 with the lower bounds −0.0088, −0.0234, +0.0045, so R2 meets the qualifying bounds; C056–C058). R3 started 2026-10-27T12:50:52Z: python PID 3292313 (uv 3292307); log outputs/osler_v5/Z2/R3/logs/run.log. Memory: allocated peaks 57 GB; the allocator's reserved cache reached about 95 GB in R0 prime.
+Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished its evaluations (step 13,992 at 18:35Z: S 0.8259, CG micro 0.7844, positional passes in all orders, C062); its end-of-run scoring is running. F2 started 2026-10-27T14:36:11Z: python PID 3393087; log outputs/osler_v5/Z2/F2/logs/run.log. The old-mix arms R0, R0p, R2 are reported as additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
