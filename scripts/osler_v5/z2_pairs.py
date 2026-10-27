@@ -28,8 +28,14 @@ def load(arm: str) -> dict:
 
 
 def main() -> None:
-    arms = sys.argv[1:] or ["R0p", "R2", "R3"]
-    control = load("R0")
+    args = sys.argv[1:]
+    control_name = "R0"
+    if "--control" in args:
+        i = args.index("--control")
+        control_name = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    arms = args or ["R0p", "R2", "R3"]
+    control = load(control_name)
     out: dict = {}
     for arm in arms:
         if not (Z2 / arm / "evals" / f"step_{STEP:06d}" / "fast_dev.jsonl").exists():
@@ -39,10 +45,11 @@ def main() -> None:
         k = micro_difference(pair_by_item(x["know"], control["know"]))
         m = macro_difference(pair_by_item(mr_partition(x["fast"]), mr_partition(control["fast"])))
         mi = macro_difference(pair_by_item(mimic_partition(x["fast"]), mimic_partition(control["fast"])))
-        out[arm] = {"knowledge_micro_vs_R0": k.as_dict(), "mr_macro_vs_R0": m.as_dict(), "mimic_macro_vs_R0": mi.as_dict()}
-        print(f"{arm} minus R0 at 13,992: knowledge {k.point:+.4f} [{k.lo:+.4f}, {k.hi:+.4f}]; MR {m.point:+.4f} [{m.lo:+.4f}, {m.hi:+.4f}]; "
+        out[arm] = {f"knowledge_micro_vs_{control_name}": k.as_dict(), f"mr_macro_vs_{control_name}": m.as_dict(),
+                    f"mimic_macro_vs_{control_name}": mi.as_dict()}
+        print(f"{arm} minus {control_name} at 13,992: knowledge {k.point:+.4f} [{k.lo:+.4f}, {k.hi:+.4f}]; MR {m.point:+.4f} [{m.lo:+.4f}, {m.hi:+.4f}]; "
               f"MIMIC {mi.point:+.4f} [{mi.lo:+.4f}, {mi.hi:+.4f}]", flush=True)
-    write_json(Z2 / "pairs.json", out)
+    write_json(Z2 / f"pairs_vs_{control_name}.json", out)
 
 
 if __name__ == "__main__":
