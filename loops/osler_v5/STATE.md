@@ -75,7 +75,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn); chain log outputs/osler_v5/Z2/chain.log. R0 finished (exit 0 at 2026-10-27T03:41:17Z; S 0.8288 at 13,992; positional passes in all orders; C041–C044). R0 prime finished (exit 0 at 08:13:55Z; S 0.8159; CG micro 0.7346; positional FAILS in all orders; two-letter 0.0000 / 0.0041 / 0.0021, below the 0.0204 chance; C052–C053; the tie band is 0.0416). R2 started 2026-10-27T08:13:57Z: python PID 3254380 (uv 3254377); log outputs/osler_v5/Z2/R2/logs/run.log. R2 at step 6,996 (C054–C055): S 0.8053, CG micro 0.7737, knowledge 0.7502, positional PASSES in all orders (original two-letter 0.6212 against single 0.8523). A possible too-good result was checked: the DDXPlus answers are spread (no constant answer) and the mix has no DDXPlus-derived template; the overlap check is by template only, not by item text (a limitation). Memory: allocated peaks 57 GB; the allocator's reserved cache reached about 95 GB in R0 prime (see the note above).
+Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn); chain log outputs/osler_v5/Z2/chain.log. R0 finished (exit 0 at 03:41:17Z; S 0.8288 at 13,992; positional passes in all orders; C041–C044). R0 prime finished (exit 0 at 08:13:55Z; S 0.8159; CG micro 0.7346; positional FAILS in all orders, two-letter 0.0000 / 0.0041 / 0.0021 below the 0.0204 chance; C052–C053; tie band 0.0416). R2 finished (exit 0 at 12:50:49Z; S 0.8311; CG micro 0.7986; positional passes in all orders; MR −0.0008, MIMIC −0.0146, knowledge +0.0135 against R0 with the lower bounds −0.0088, −0.0234, +0.0045, so R2 meets the qualifying bounds; C056–C058). R3 started 2026-10-27T12:50:52Z: python PID 3292313 (uv 3292307); log outputs/osler_v5/Z2/R3/logs/run.log. Memory: allocated peaks 57 GB; the allocator's reserved cache reached about 95 GB in R0 prime.
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
@@ -181,6 +181,8 @@ deviation — that is a `BLOCKED`.
 
 ---
 
+
+11. **R3 stopped by the operator's steer (2026-10-27T14:27Z; ADVISORY §8.1, D56).** R3 (the defective mix) was terminated at PID 3292313 (exit 143). Its last logged step is 5,850 of 13,992 (117 logged steps). No evaluation was reached (the first is at 6,996), so R3 has no evaluation rows. Its training log is kept as the partial result; it is an additional record and not a candidate.
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
