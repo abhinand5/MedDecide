@@ -76,7 +76,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished (exit 0 at 19:13:32Z; S 0.8259 at 13,992; positional passes in all orders; C060, C062; readout scale C061, C063). F0 started 2026-10-27T19:13:34Z: python PID 3434651 (uv 3434648); log outputs/osler_v5/Z2/F0/logs/run.log. The old-mix arms R0, R0p, R2 are additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
+Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished (exit 0 at 19:13:32Z; S 0.8259 at 13,992; positional passes; C060, C062). F0 finished (exit 0 at 23:47:07Z; S 0.8296 at 13,992; positional FAILS in the original order, passes in permutations; C064, C065). F2 minus F0 at 13,992: knowledge lower bound -0.0150 (fails > -0.01), MIMIC lower bound -0.0343 (fails > -0.03), MR lower bound -0.0029 (passes); C066. F2s1 started 2026-10-27T23:47:09Z: python PID 3472522 (uv 3472519); log outputs/osler_v5/Z2/F2s1/logs/run.log. The old-mix arms R0, R0p, R2 are additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
