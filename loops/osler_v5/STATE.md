@@ -76,7 +76,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished its evaluations (step 13,992 at 18:35Z: S 0.8259, CG micro 0.7844, positional passes in all orders, C062); its end-of-run scoring is running. F2 started 2026-10-27T14:36:11Z: python PID 3393087; log outputs/osler_v5/Z2/F2/logs/run.log. The old-mix arms R0, R0p, R2 are reported as additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
+Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished (exit 0 at 19:13:32Z; S 0.8259 at 13,992; positional passes in all orders; C060, C062; readout scale C061, C063). F0 started 2026-10-27T19:13:34Z: python PID 3434651 (uv 3434648); log outputs/osler_v5/Z2/F0/logs/run.log. The old-mix arms R0, R0p, R2 are additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
