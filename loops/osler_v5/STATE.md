@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
-Last updated (UTC): `2026-10-26T23:01Z`
+Last updated (UTC): `2026-10-27T00:00Z`
 Iterations so far: `1`
 
 ---
@@ -75,7 +75,7 @@ completed checklist goes into the iteration-log entry.
 ```
 Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn), started 2026-10-26T23:09:58Z; at 23:37Z R0 was at step 1,850 of 13,992 (about 0.9 s per step); R0 python PID 3191470 (under uv 3191467 and the chain shell 3191459); chain log outputs/osler_v5/Z2/chain.log; per-arm logs outputs/osler_v5/Z2/<arm>/logs/run.log. The smoke run (R2, --smoke) passed in 9 min and its outputs were deleted. R0 at step 150: about 1 s per step; peak allocated memory 56.3 GB; one CUDA caching-allocator warning ("memory allocation failed with OOM") at about step 100, recovered by the allocator, not fatal, and training continued. The watch patterns exclude this warning and match only fatal errors (torch.OutOfMemoryError, CUDA out of memory, Traceback).
+Running job:    Z2 chain (scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 in turn), started 2026-10-26T23:09:58Z; R0 first evaluation (step 6,996, 01:07Z): S 0.8095, MR 0.9117, MIMIC 0.7521, CG micro 0.7648, knowledge 0.7592; positional FAILS in the original order (two-letter 0.2946 against single 0.7565) and passes in both permutations (0.499 and 0.4638); the original-order and permuted two-letter subsets differ, recorded as an observation. Before that, at 00:00Z R0 was at step 3,550 of 13,992 (about 0.81 s per step; first evaluation expected near 00:46Z, arm end near 03:40Z); R0 python PID 3191470 (under uv 3191467 and the chain shell 3191459); chain log outputs/osler_v5/Z2/chain.log; per-arm logs outputs/osler_v5/Z2/<arm>/logs/run.log. The smoke run (R2, --smoke) passed in 9 min and its outputs were deleted. R0 at step 150: about 1 s per step; peak allocated memory 56.3 GB; one CUDA caching-allocator warning ("memory allocation failed with OOM") at about step 100, recovered by the allocator, not fatal, and training continued. The watch patterns exclude this warning and match only fatal errors (torch.OutOfMemoryError, CUDA out of memory, Traceback).
 
 Z2 checklist (ADVISORY Z2):
 - [ ] 1. disk headroom: 2 GB write before each job
