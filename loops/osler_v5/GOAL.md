@@ -56,7 +56,7 @@ report it and name the ADVISORY §2 outcome it implies.
 - Use unofficial copies of credentialed data (D37), CPT descriptors or APR-DRG descriptions.
 - Train on DDXPlus, any test split, the panel or its copies (e.g. `MaziyarPanahi/MedExQA-clean`), MDACE, knowledge dev v2, CG
   items or held-out items.
-- Add a data source or change the mix: its composition hash must equal osler_v4's (`9d25e30f…`).
+- Add a data source or change the mix, except the D56 correction (drop `fda_route_choice_v1`; the corrected hash is recorded in STATE §2).
 - Change D51–D55, the frozen sets, the choice rules, the blend rule or the closed list after any run, or to make something
   pass (that is `BLOCKED`).
 - Change the head, the attention, the base model or the adapter (D26, D33).
@@ -77,3 +77,8 @@ report it and name the ADVISORY §2 outcome it implies.
 
 Then set `Loop status: STOPPED` at the top of STATE.md, commit, push, **stop**, and report: tasks completed, tasks blocked and
 why, the Gate O5 verdict, and what you would do next.
+
+
+## Corrections of 2026-10-27
+
+ADVISORY §8 (D56) supersedes Z2–Z3 where they differ: stop R3; drop the `fda_route_choice_v1` rows from the mix (recorded hash); re-run F0, F2 and F2s1 on the corrected mix; choose by the pre-registered rule; then the final on the corrected mix.

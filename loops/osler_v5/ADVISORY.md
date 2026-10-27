@@ -202,3 +202,35 @@ GPU-hours; budget 4.5 days with overhead.** While Z3 trains, pre-write Z4–Z5 c
 3. **The blend breaks calibration.** Temperatures are refitted per α; Brier at each α is reported.
 4. **A baseline file does not match its set.** Check item ids and counts before Gate O5; a mismatch is BLOCKED, never re-scored silently.
 5. **Silent process death.** Watchdog and no large writes during GPU jobs (ADVISORY §3.6–3.7).
+
+## 8. Corrections of 2026-10-27 (D56; supersedes §4 Z2–Z3 where they differ)
+
+Reason: the Z2 seed repeat (R0 prime) fails positional health and drops CG micro by 0.042 against R0 (C052–C053); the mix holds
+155 `fda_route_choice_v1` rows whose gold is `routes[0]` while other routes are also true (C048, STATE §6.1). The corrections
+were decided by the operator in chat on 2026-10-27 and are pre-registered here before any corrected-mix arm runs.
+
+1. **Stop R3 now** (the running R3 job, on the defective mix). Record it as stopped in STATE §7 with its last step. Its partial
+   results are kept as additional rows, not a candidate.
+2. **Corrected mix (D56a).** Drop every `fda_route_choice_v1` row from the training mix. Do not try to keep the rows whose defect
+   condition holds: the template is dropped whole, because the condition cannot be verified per row. Report the counts (rows
+   dropped, rows remaining), the new composition hash, and the reason. Check the dropped set against C048 (155 rows with 17 or 18
+   options); if the number differs, report the difference. Nothing else in the mix changes. Its hash is recorded in STATE §2.
+3. **Corrected arms (D56b).** Each runs 13,992 steps on the corrected mix, evaluations at 6,996 and 13,992:
+   - F0: osler_v4's recipe, per-step weighting, no augmentation, seed 0;
+   - F2: per-item weighting and option augmentation, seed 0;
+   - F2s1: F2 at seed 1.
+   Order: F2, then F0, then F2s1. The chain runs under the watchdog (§3.7). Delete each `full/` after its result.
+4. **Choice rule (D56c; pre-registered; fixed now).** A qualifier passes positional health in all three orders at 13,992 steps
+   (for F2s1, the seed-1 pass is reported whatever it is), has a knowledge-dev lower bound against F0 > −0.01, and has MR and MIMIC
+   lower bounds against F0 > −0.03 (paired bootstrap, 1,000 resamples, seed 0). The choice is the qualifier with the highest CG v2
+   micro. If the choice is F2 and F2s1 is not a positional pass, the recipe is reported as seed-unstable and still goes to the final.
+   An arm within 0.010 of the top CG micro that is the higher-numbered (fuller-fix) arm wins the tie.
+5. **Final (Z3, corrected).** The chosen recipe on the corrected mix, seed 0, **63,304 steps**, ten evaluations at Y8's steps,
+   positional health at every evaluation, checkpoint selection by S among passing evaluations (§4 Z3 rule, unchanged).
+6. **Readout-scale check (D56d; CPU only, may run while the GPU job runs).** Load the osler_v4 final, the F2 checkpoint (corrected mix)
+   and pplx's base readout; for rows A–Z and rows 26–254 report the mean row norm, and the mean distance from the base row. Report
+   the paired difference between F2 and the osler_v4 final. Additional row, labelled; no choice uses it. Do not load any MIMIC text.
+7. **Z4–Z6 and the stop** unchanged. Expected timing (planning estimate): steps 1–3 about 14 GPU-hours, the final about 24, Z4–Z6
+   about 7. Closure before 2026-11-01 is the target.
+8. **What this loop cannot claim:** whether the corrected mix alone fixes the collapse is measured by F2 and F2s1, and by the
+   corrected final's ten evaluations. A result that does not fix it is reported as such.
