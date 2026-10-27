@@ -13,6 +13,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 DROP_ALLOWED: tuple[str, ...] = ("fda_route_choice_v1",)
+# the composition hash of osler_v4's mix (the entry check of every run) and of the corrected mix (scripts/osler_v5/build_corrected_mix.py)
+ORIGINAL_COMPOSITION_SHA256 = "9d25e30f53d7823d051b9c71334c248660318c86ce904c26f855b9a9dbc618b8"
+CORRECTED_COMPOSITION_SHA256 = "78d7e5478060fc828784cb3365569e177c6961270d38a76a9cff144684e9f3be"
 
 
 def validate_drop(templates: Iterable[str]) -> tuple[str, ...]:

@@ -46,3 +46,14 @@ def test_the_osler_v5_recipe_configs_load() -> None:
     assert cfg.option_augment_templates == ("mimic_principal_dx_v1", "mimic_msdrg_v1")
     assert cfg.kl_to_base == 0.0
     assert load_config("configs/osler_v5/arm_R0.yaml").loss_weighting == "per_step"
+
+
+def test_the_corrected_mix_drop_is_validated_and_the_f_arms_load() -> None:
+    cfg = StudentConfig.from_dict({"drop_mix_templates": ["fda_route_choice_v1"]})
+    assert cfg.drop_mix_templates == ("fda_route_choice_v1",)
+    assert StudentConfig().drop_mix_templates == ()
+    with pytest.raises(ValueError, match="not allowed to be dropped"):
+        StudentConfig.from_dict({"drop_mix_templates": ["csqa_choice_v1"]})
+    assert load_config("configs/osler_v5/arm_F2.yaml").drop_mix_templates == ("fda_route_choice_v1",)
+    assert load_config("configs/osler_v5/arm_F2s1.yaml").seed == 1
+    assert load_config("configs/osler_v5/arm_F0.yaml").loss_weighting == "per_step"

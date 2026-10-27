@@ -33,7 +33,8 @@ from meddecide.eval.composite import composite, permutation_for, positional_heal
 from meddecide.model.meddecide_model import reorder_options
 from meddecide.model.pplx import PplxDecisionModel
 from meddecide.train.config import StudentConfig, load_config
-from meddecide.train.final_mix import compose_final_mix
+from meddecide.train.corrected_mix import CORRECTED_COMPOSITION_SHA256, drop_template_rows
+from meddecide.train.final_mix import compose_final_mix, composition_sha256
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.option_augment import augment_rows, build_pools
 from meddecide.train.osler_arm import dev_prediction_rows
@@ -77,6 +78,14 @@ def compose_rows(config: StudentConfig, out: Path) -> tuple[list[dict[str, Any]]
     if composition["composition_sha256"] != EXPECTED_COMPOSITION:
         raise SystemExit(f"the composed mix hash is {composition['composition_sha256']}, not osler_v4's {EXPECTED_COMPOSITION}")
     info: dict[str, Any] = {"composition_sha256": composition["composition_sha256"], "rows": len(rows)}
+    if config.drop_mix_templates:  # D56a: the corrected mix; its hash is the one recorded by build_corrected_mix.py
+        rows, drop = drop_template_rows(rows, config.drop_mix_templates)
+        corrected = composition_sha256(str(row["item_id"]) for row in rows)
+        if corrected != CORRECTED_COMPOSITION_SHA256:
+            raise SystemExit(f"the corrected mix hash is {corrected}, not the recorded {CORRECTED_COMPOSITION_SHA256}")
+        info["composition_sha256"] = corrected
+        info["rows"] = len(rows)
+        info["drop"] = drop.to_dict()
     if config.option_augment_probability > 0:
         pools = build_pools(rows, config.option_augment_templates)
         rows, report = augment_rows(rows, pools, seed=config.seed, probability=config.option_augment_probability)

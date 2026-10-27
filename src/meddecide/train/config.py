@@ -15,6 +15,7 @@ import yaml
 
 from meddecide.model.head import HeadSettings
 from meddecide.model.meddecide_model import DEFAULT_LORA_TARGETS, LoraSettings
+from meddecide.train.corrected_mix import validate_drop
 from meddecide.train.option_augment import validate_templates
 
 DEFAULT_CONFIG_PATH = Path("configs/student_v0.yaml")
@@ -72,6 +73,7 @@ _TOP_LEVEL_KEYS = {
     "loss_weighting",
     "option_augment_probability",
     "option_augment_templates",
+    "drop_mix_templates",
 }
 
 
@@ -162,6 +164,8 @@ class StudentConfig:
     # (meddecide.train.option_augment); the templates must be on that list. 0.0 and no templates = off
     option_augment_probability: float = 0.0
     option_augment_templates: tuple[str, ...] = ()
+    # osler_v5 (D56a): the training-mix templates dropped whole (meddecide.train.corrected_mix.DROP_ALLOWED); () = osler_v4's mix
+    drop_mix_templates: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -198,6 +202,8 @@ class StudentConfig:
             kwargs["kl_exclude_template_prefixes"] = tuple(kwargs["kl_exclude_template_prefixes"] or ())
         if "option_augment_templates" in kwargs:
             kwargs["option_augment_templates"] = validate_templates(kwargs["option_augment_templates"] or ())
+        if "drop_mix_templates" in kwargs:
+            kwargs["drop_mix_templates"] = validate_drop(kwargs["drop_mix_templates"] or ())
         cfg = cls(lora=lora, head=head, **kwargs)
         # arithmetic and range checks that would otherwise surface as a confusing crash later
         if cfg.batch_size < 1 or cfg.max_batch_tokens < 1 or cfg.max_prompt_tokens < 1:
