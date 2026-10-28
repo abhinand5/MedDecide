@@ -12,7 +12,7 @@
 
 Loop status: `RUNNING`  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
-Last updated (UTC): `2026-10-27T00:00Z`
+Last updated (UTC): `2026-10-28T04:37Z`
 Iterations so far: `1`
 
 ---
@@ -25,12 +25,12 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | Z0 | Orientation and recipe code (D51–D54) | no | — | DONE | 2026-10-26T19:24:27Z | 2026-10-26T19:58Z |
 | Z1 | Probes on the osler_v4 final (blend curve, readout reset) | yes | Z0 | DONE | 2026-10-26T19:59Z | 2026-10-26T23:00Z |
-| Z2 | Recipe arms R0–R3 and the choice | yes | Z0 | PENDING | | |
-| Z3 | Final Osler-4B (63,304 steps) | yes | Z2 | PENDING | | |
-| Z4 | Blend α on dev and export | yes | Z3 | PENDING | | |
-| Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | PENDING | | |
-| Z6 | Membership audit | small | Z4 | PENDING | | |
-| Z7 | Findings and closure — HARD STOP | no | all | PENDING | | |
+| Z2 | Recipe arms (corrected F0, F2, F2s1 as candidates; old-mix R0, R0 prime, R2, R3 as additional rows) and the choice | yes | Z0 | DONE — choice none (outcome 4; D56c, C070); arms C041–C077 | 2026-10-26T23:01Z | 2026-10-28T04:35Z |
+| Z3 | Final Osler-4B (63,304 steps) | yes | Z2 | BLOCKED — no arm qualifies under D56c at 13,992 steps (C070), so there is no recipe to train | | |
+| Z4 | Blend α on dev and export | yes | Z3 | BLOCKED — needs the Z3 final | | |
+| Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | BLOCKED — needs the Z3 final and the Z4 blend | | |
+| Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
+| Z7 | Findings and closure — HARD STOP | no | all | IN_PROGRESS | 2026-10-28T04:01Z | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions and the GPU sequence in ADVISORY §5).
 Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work. No row may be
@@ -55,11 +55,11 @@ left `IN_PROGRESS` at closure.
 | CG check: the osler_v4 final against the α = 0 reference on identical items (D54; ADVISORY Z0.6) | on the 8,296 identical CG v2 items: final 0.7395, zero-shot pplx-flash 0.7888, gap −0.0493. The final **fails** the CG qualifier, so the check discriminates. The α = 0 reference itself is re-scored on GPU in Z1 with the reference path (§7, deviation 6) | `outputs/osler_v5/Z0/composite.json` (`cg_micro_identical_items`) | Z0 |
 | D52(b) positional check under two seeded permutations (DDXPlus dev) | NOT MEASURED in Z0: scoring under the permutations needs the model on the GPU. The code is in place (`permutation_for`, `positional_health`, `run_arm.py`); the osler_v4 final, A0 and zero-shot pplx are scored in Z1 | — | Z0 → Z1 |
 | probes: blend curve on the osler_v4 final; readout-reset DDXPlus split | alpha 0 to 1: S (MR and MIMIC template macro; CG micro) 0.7820, 0.8252, 0.8395, 0.8415, 0.8414, 0.8386. Positional health passes at alpha 0, 0.3, 0.5 and fails from 0.7 in all orders; DDXPlus two-letter 0.6112 → 0.0040. Knowledge dev -0.0140 [-0.0228, -0.0055] at alpha 1 (MedMCQA significant, C036). Readout split: the trained readout alone takes two-letter to 0.0381; the trained adapter alone to 0.1924 (C032–C039) | `loops/osler_v5/probes.md`; `outputs/osler_v5/Z1/summary.json` | Z1 |
-| arms R0–R3: S, parts, knowledge, positional health, MIMIC gradient share; the chosen arm | | `loops/osler_v5/arms.md` | Z2 |
-| final: selected step; S trend; positional health per evaluation | | | Z3 |
-| blend: S, parts, CG floor per α; the chosen α | | `loops/osler_v5/blend.md` | Z4 |
-| Gate O5 verdict; release targets | | `loops/osler_v5/gate_o5.md` | Z5 |
-| membership AUC | | `loops/osler_v5/audit.md` | Z6 |
+| arms (corrected F0, F2, F2s1 at 13,992 steps; the candidates): S, parts, knowledge, positional health; the choice | **F0**: S 0.8296, MR 0.9325, MIMIC 0.7822, CG micro 0.7740, knowledge 0.76575; positional FAILS in the original order (C065). **F2**: S 0.8259, CG micro 0.7844, knowledge 0.7595; positional passes; knowledge lower bound −0.0150 and MIMIC lower bound −0.0343 against F0 fail (C062, C066). **F2s1**: S 0.8243, CG micro 0.7791, knowledge 0.76325; positional passes; knowledge lower bound −0.0115 and MIMIC lower bound −0.0420 fail (C068, C069). **Choice: none; outcome (4)** (C070). Additional: the old-mix arms R0, R0 prime, R2 and R3 (C041–C058, C071, C072); the zero-shot knowledge reference 0.7725, against which all three arms are lower (C075) | `loops/osler_v5/arms.md`; `outputs/osler_v5/Z2/choice_d56c.json`; `outputs/osler_v5/Z2/SELF_AUDIT.md` | Z2 |
+| final: selected step; S trend; positional health per evaluation | NOT MEASURED — no recipe qualified (C070), so no final was trained | — | Z3 |
+| blend: S, parts, CG floor per α; the chosen α | NOT MEASURED on a final (Z4 needs the Z3 checkpoint). Additional, on the osler_v4 final: S 0.7820 to 0.8415 across α 0 to 1 (C032) | `loops/osler_v5/probes.md` | Z4 |
+| Gate O5 verdict; release targets | NOT MEASURED — no final or blend to score (Z3 and Z4 blocked). The gate wiring is validated on osler_v4's final (C040) | — | Z5 |
+| membership AUC | NOT MEASURED — no final (Z3 blocked) | — | Z6 |
 
 ---
 
@@ -74,16 +74,19 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: Z2 — recipe arms, started 2026-10-26T23:01Z (GPU; one job at a time)
-Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is the claims, arms.md and this file)
-Running job:    corrected arms (ADVISORY §8.3; scripts/osler_v5/f_chain.sh: F2, then F0, then F2s1); chain log outputs/osler_v5/Z2/f_chain.log. F2 finished (exit 0 at 19:13:32Z; S 0.8259 at 13,992; positional passes; C060, C062). F0 finished (exit 0 at 23:47:07Z; S 0.8296 at 13,992; positional FAILS in the original order, passes in permutations; C064, C065). F2 minus F0 at 13,992: knowledge lower bound -0.0150 (fails > -0.01), MIMIC lower bound -0.0343 (fails > -0.03), MR lower bound -0.0029 (passes); C066. F2s1 started 2026-10-27T23:47:09Z: python PID 3472522 (uv 3472519); log outputs/osler_v5/Z2/F2s1/logs/run.log. The old-mix arms R0, R0p, R2 are additional rows; R3 was stopped at step 5,850 (§7.11). Corrected mix hash 78d7e547…f9e3be (§2; C059).
+Task in flight: Z2 closing, then Z7 (closure, HARD STOP). The choice is recorded (none, outcome 4; C070). Z3 to Z6 are BLOCKED.
+Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is CLAIMS.md, arms.md, this file, FINDINGS.md and NEXT.md)
+Running job:    F2s1 (13,992 steps; PID 3472522) is in its end-of-run step after its 13,992 evaluation, which is final (C068). The chain (scripts/osler_v5/f_chain.sh) exits after it and deletes its full/. No other GPU job. Chain log outputs/osler_v5/Z2/f_chain.log. F2 (exit 0 at 19:13:32Z) and F0 (exit 0 at 23:47:07Z) are finished, and their full/ folders are deleted (checked 2026-10-28).
 
-Z2 checklist (ADVISORY Z2):
-- [ ] 1. disk headroom: 2 GB write before each job
-- [x] 2. smoke run of scripts/osler_v5/run_arm.py with --smoke (R2 config, 8 steps, one evaluation on cut dev sets): passed 2026-10-26T23:09Z; its outputs deleted
-- [ ] 3. scripts/osler_v5/z2_chain.sh: R0, R0p, R2, R3 at 13,992 steps (evaluations at 6,996 and 13,992); each arm's full/ deleted after its arm_result.json
-- [ ] 4. scripts/osler_v5/z2_choose.py → outputs/osler_v5/Z2/choice.json (qualifiers, the choice, the tie band); loops/osler_v5/arms.md written from it
-- [ ] 5. CLAIMS rows for the arms and the choice; STATE; commit; push
+Z7 checklist (closure, ADVISORY Z7):
+- [x] F2s1 exit 0 and "chain complete" in f_chain.log (04:25:18Z); F2s1 full/ deleted (C077)
+- [x] ruff (whole repo) and the suite (baseline deselects, GPU hidden) pass: 1107 passed, 4 skipped (CUDA-only), 2 deselected (C076); Z2 code committed in the Z2 commit
+- [x] Z2 choice recorded (choice_d56c.json; arms.md; C070); Z2 SELF_AUDIT written; STATE board and §2 updated
+- [x] FINDINGS.md (Summary, outcomes, arms, Z3 to Z6 not measured, five-claim spot-check §5) and NEXT.md written
+- [ ] §4 log entries (Z2 DONE, Z3 to Z6 BLOCKED, Z7 DONE); §5 blocked rows; §6 operator item 4; §7 deviations 12 to 16; §8 closure feed
+- [ ] Loop status STOPPED; no IN_PROGRESS row; commit and push
+
+The completed Z2 checklist is in the Z2 iteration-log entry.
 ```
 
 ---
@@ -117,10 +120,34 @@ Z2 checklist (ADVISORY Z2):
 - Surprises: the probe's composite was item micro for MR and MIMIC (superseded, §7.10); the final's single-letter DDXPlus accuracy 0.6407 contradicts osler_v4's "intact" wording (C039); the Monitor's log-age stall alarm fired while the GPU was at 100 % (no resume).
 - Next: Z2 — a smoke run, then the four-arm chain (R0, R0', R2, R3) and the choice rule.
 
+### Z2 — DONE — 2026-10-28T04:35Z
+- What ran: F2, then F0, then F2s1 on the corrected mix (`scripts/osler_v5/f_chain.sh`, `run_arm.py`; 13,992 steps, evaluations at 6,996 and 13,992; chain exits 0 at 19:13:32Z, 23:47:07Z and 04:25:18Z). CPU: `z2_arm_summary.py`, `z2_pairs.py --control F0 F2 F2s1`, `z2_choose_d56c.py`, `ddx_answers` (C073), `readout_scale.py` (C061, C063), the zero-shot knowledge difference (C075), the training checks (C074); ruff and the suite (C076); completeness (C077).
+- Output: `loops/osler_v5/arms.md`; `outputs/osler_v5/Z2/choice_d56c.json`; `outputs/osler_v5/Z2/pairs_vs_F0.json`; `outputs/osler_v5/Z2/SELF_AUDIT.md`; claims C059–C077.
+- Headline: no corrected arm qualifies under D56c at 13,992 steps (C070). F0 fails positional health in the original order (two-letter 0.3647 against 0.3962; C065). F2 (S 0.8259) and F2s1 (S 0.8243) pass positional health in all orders, but fail the knowledge bound (−0.0150 and −0.0115 against > −0.01) and the MIMIC bound (−0.0343 and −0.0420 against > −0.03) against F0 (C066, C068, C069). Choice: none (outcome 4). Z3 does not start.
+- Surprises: all three corrected arms are below the zero-shot knowledge reference (0.7725); F2 is −0.0130 with an interval that excludes zero (C075). F0's positional verdict flips between 6,996 (pass) and 13,992 (fail; C064, C065). The R-arm choice module, its tests and its script (0cfb15f) were overwritten by mistake and restored from HEAD; the D56c code is in new files (§7.17). Four GPU-only tests skip with the GPU hidden (C076).
+- Next: Z3 cannot start (no recipe). Z7 closure.
+- Checklist (completed): [x] disk headroom 2 GB before each arm (`f_chain.sh`; no failure logged); [x] smoke run 2026-10-26T23:09Z; [x] F2, F0, F2s1 at 13,992 steps with evaluations at 6,996 and 13,992, `full/` removed after each (C077); [x] `z2_arm_summary.py`, `z2_pairs.py`, `z2_choose_d56c.py` (CPU) and `arms.md`; [x] claims C059–C077 and SELF_AUDIT; [x] ruff and suite (C076); [x] commit and push: the Z2 commit that carries this entry.
+
+### Z3 — BLOCKED — 2026-10-28T04:35Z
+- What ran: nothing. No GPU job was started for Z3.
+- Output: none.
+- Headline: BLOCKED. No arm qualifies under D56c at 13,992 steps (C070), so there is no recipe to train at 63,304 steps. This is the rule's outcome, not a missing input.
+- Surprises: none beyond the Z2 entry.
+- Next: a new pre-registered decision by the operator (NEXT.md items 1 to 4).
+
+### Z4, Z5, Z6 — BLOCKED — 2026-10-28T04:35Z
+- What ran: nothing.
+- Headline: each needs the Z3 final (Z5 also needs the Z4 blend), so none can start.
+- Next: Z3.
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
 |---|---|---|---|
+| Z3 | Final Osler-4B, 63,304 steps on the chosen recipe | No arm qualifies under D56c at 13,992 steps (C070), so no recipe is chosen (ADVISORY §8.4; §4 Z2 outcome 4). The F0 control fails positional health in the original order (C065); F2 and F2s1 fail the knowledge and MIMIC bounds against F0 (C066, C069). | A new pre-registered decision by the operator, in a new loop. The rule is not changed in this loop (NEXT.md items 2 to 4). |
+| Z4 | Blend α on dev and export | Needs the Z3 checkpoint, which does not exist. | Z3. |
+| Z5 | Evaluation, Gate O5, scoreboard | Needs the Z3 final and the Z4 blend. | Z3 and Z4. |
+| Z6 | Membership audit | Needs the Z3 final. | Z3. |
 
 ---
 
@@ -138,6 +165,15 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
    on the frozen item row. Every join in this loop uses the derived id and checks the id set against the frozen file. **I would
    pick leaving it as it is**; a change would touch every frozen prediction file.
 3. **The mix trains readout rows 0 to 17, not 0 to 12 (correction to my Z0 reasoning).** The composed mix has 155 rows with 17 or 18 options, all from `fda_route_choice_v1`, the defective template of §6.1 (C048). Their gold is `routes[0]`, so the readout rows 10 and 15 (K and P) receive gradient from label-questionable rows. R0 prime (seed 1) at step 6,996 answers P on 37 % and K on 29 % of the DDXPlus items and gets 0 of 499 two-letter items right (C046; below the 0.0204 chance); seed 0 does not (C047). The training dynamics look normal (CE and grad norms like R0's, C049 context), so this is a seed-dependent readout outcome, not a crash. The hypothesis that the defective template drives the K and P collapse is untested (measured facts only in C046–C049). The mix is frozen, so nothing here changes the arms; it goes to the operator with §6.1.
+4. **What should the next loop do, given outcome (4)?** No corrected arm passes the D56c knowledge and MIMIC bounds against F0 (C066, C069),
+   and F0, the control, is itself below the zero-shot knowledge reference (C075), so the bound does not test that drop. Options: (a) a new
+   loop that rebuilds `fda_route_choice_v1` with multi-route handling, screens the other templates for the same defect, and re-runs the arms
+   under its own pre-registration; (b) a new loop that pre-registers the knowledge bound against zero-shot and a MIMIC share guard, then
+   re-runs the arms (this changes a rule, which only the operator can decide); (c) stop here, and keep osler_v4's final as the best measured
+   model. **I would pick (a) first**, because the defect is known and removing it is needed under every option. Details are in `NEXT.md`.
+
+**Update to item 1 (2026-10-28):** the corrected mix drops these rows (D56a, C059), as the operator steered on 2026-10-27. The template
+repair (option (a) of item 4 above, or NEXT.md item 1) is open for the next loop.
 
 ---
 
@@ -184,6 +220,27 @@ deviation — that is a `BLOCKED`.
 
 
 11. **R3 stopped by the operator's steer (2026-10-27T14:27Z; ADVISORY §8.1, D56).** R3 (the defective mix) was terminated at PID 3292313 (exit 143). Its last logged step is 5,850 of 13,992 (117 logged steps). No evaluation was reached (the first is at 6,996), so R3 has no evaluation rows. Its training log is kept as the partial result; it is an additional record and not a candidate.
+12. **Outcome (4) reading (ADVISORY §4 Z2 against outcome (4)'s text).** §4 Z2 says "if no arm qualifies, outcome (4) applies. Choose nothing
+   and report." Outcome (4)'s own text describes positional failure ("positional health fails everywhere, or the CG-first arm rule selects an
+   arm that fails it"). Here F2 and F2s1 pass positional health at 13,992 steps. Their failing checks are the knowledge and MIMIC bounds, and
+   F0 fails positional health in one order. I took §4 Z2's explicit instruction as governing: no recipe is chosen, and Z3 to Z6 do not run.
+   This is the conservative reading. It is recorded here and not put to the operator, because the ADVISORY answers it.
+13. **Z7 closes the loop with Z3 to Z6 BLOCKED.** Z7 depends on "all". I read that as all tasks resolved, since Z3 to Z6 are blocked by the
+   rule's outcome, not by a missing input. The hard stop still requires the closure record, and FINDINGS §4 reports Z3 to Z6 as NOT MEASURED.
+14. **The control's bounds are zero (`meddecide.eval.d56c_choice`, `scripts/osler_v5/z2_choose_d56c.py`).** F0 is the control, so its paired bounds
+   against itself are 0. It fails positional health at 13,992 steps regardless, so the outcome does not depend on this convention.
+15. **The tie code refuses a tie between two arms of one fix level.** The rule says the fuller-fix arm wins a tie but does not order F2 and
+   F2s1, which is a seed repeat of F2. No tie occurred. The code raises an error rather than guess; the operator would decide.
+16. **The Z2 checklist was replaced by the steer.** The §3 checklist of 2026-10-26 described the R-arm chain (`z2_chain.sh`). ADVISORY §8.3
+   (D56b, the steer of 2026-10-27) replaced it with the F arms run by `f_chain.sh`. The completed checklist is in the Z2 iteration entry.
+   Rows labelled additional (C073 to C075, the zero-shot knowledge difference and the DDX and training checks) are used in no choice.
+17. **Committed files overwritten by mistake, then restored (provenance).** At the choice step I wrote the D56c rule over three committed files,
+   `src/meddecide/eval/arm_choice.py`, `tests/test_osler_v5_arm_choice.py` and `scripts/osler_v5/z2_choose.py`, without reading them first.
+   They were committed at 0cfb15f for the superseded R-arm design (control R0; tie band max(0.005, |R0 - R0'|)). I restored all three from HEAD,
+   and `git diff` against HEAD is empty for them, so the R-arm module and its tests are as committed and no test was edited. The D56c rule is in
+   new files: `src/meddecide/eval/d56c_choice.py`, `tests/test_d56c_choice.py` and `scripts/osler_v5/z2_choose_d56c.py`, which writes
+   `outputs/osler_v5/Z2/choice_d56c.json`. No output of the R-arm chooser existed before my run, so it had not run. The commit history holds the
+   superseded versions. The D56c results are identical to the first run (checked: qualifiers, choice, tie list and rows).
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
@@ -192,4 +249,11 @@ deviation — that is a `BLOCKED`.
 
 | # | outcome (one sentence, plain language) | claims | artifact |
 |---|---|---|---|
-| | | | |
+| 1 | No corrected arm qualifies under the pre-registered choice rule at 13,992 steps, so no final model was trained, and Z3 to Z6 are not measured. | C059, C062, C064–C070 | `loops/osler_v5/arms.md`; `loops/osler_v5/FINDINGS.md` |
+| 2 | The per-item arms pass the positional check in all three orders (F2, F2s1), but fail the knowledge and MIMIC bounds against F0; F0 fails the positional check in the original order. | C062, C065, C066, C068, C069 | `loops/osler_v5/arms.md` |
+| 3 | Knowledge is below the zero-shot reference in all three corrected arms (F2 −0.0130, interval excludes zero). The osler_v4 final's α = 1 drop was −0.0140. | C075, C036 | `loops/osler_v5/FINDINGS.md` Summary 3 |
+| 4 | The corrected mix does not clearly fix the positional collapse at seed 0. The old-mix seed-1 repeat collapses to 0.0000, and no corrected arm does. | C044, C052, C065, C073 | `loops/osler_v5/FINDINGS.md` Summary 4 |
+| 5 | The corrected arms show no training defect (no non-finite values, no constant answers); one gradient spike recovered by step 3,000. | C073, C074 | `outputs/osler_v5/Z2/SELF_AUDIT.md` |
+| 6 | Additional, on the osler_v4 final: S is 0.8386 at α = 1 and peaks at 0.8415 at α = 0.7; positional health passes at α ≤ 0.5 and fails from 0.7. | C032, C033, C034 | `loops/osler_v5/probes.md` |
+| 7 | Additional: F2's readout rows 26 to 254 sit 0.330 from pplx's base, against 0.0057 for the osler_v4 final. | C063, C061 | `loops/osler_v5/FINDINGS.md` Summary 6 |
+| 8 | Z3 to Z6 are BLOCKED. The defective template is removed from the mix (D56a), not repaired, and the next step is the operator's choice. | C059, C048, C070 | `loops/osler_v5/NEXT.md` |
