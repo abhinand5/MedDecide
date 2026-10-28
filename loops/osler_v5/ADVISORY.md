@@ -251,3 +251,32 @@ nothing.
 5. **Z8 does not reopen Z2.** The choice rule of D56c is unchanged, and F2's qualifier status at 13,992 steps stays as C070 records.
 6. **Time:** about 24 GPU-hours. Write `loops/osler_v5/z8_full_length.md` and the CLAIMS rows. Then update `docs/paper/EVIDENCE.md` §5
    with the new rows (aggregates only), commit and push, and stop.
+
+## 10. Addendum Z9–Z10 (queued 2026-10-28; operator go given in chat; additional, no choice)
+
+Order: Z9, then Z10, then Z8 only if the operator confirms it after Z10. One GPU job at a time.
+
+**Z9 — readout probe (no training; ~3 GPU-hours).** Dev only (fast dev v4, CG v2, knowledge dev v2).
+1. The osler_v4 final's adapter (`outputs/osler_v4/Y8/checkpoints/best/adapter`) with pplx's base readout (the readout at step 0),
+   and the same adapter with the trained readout (the final as it is). Calibrated as in the Z1 probes.
+2. Report S and parts, CG v2 micro, knowledge dev v2 (paired against zero-shot pplx), positional health in all three orders, and
+   DDXPlus two-letter and single-letter accuracy for both.
+3. **Reading, pre-registered now:** Z1 already measured the first configuration (C035, part (a)): two-letter 0.1924 against
+   single-letter 0.7445, so it FAILS the positional check (0.5 × single = 0.372). The adapter therefore contributes to the two-letter
+   collapse on its own, and the readout is not the sole cause. Z9 confirms or refutes this with the calibrated re-score. A result
+   that the base readout alone fixes positional health would be the first evidence for the readout hypothesis.
+4. Rules after Z9, decided now: if positional health still fails with the base readout, a frozen-readout training arm (planned as
+   Z11, not queued) is not expected to fix two-letter accuracy alone, and the adapter is the next suspect. Report both.
+
+**Z10 — comparator scoring (current harness; ~8 GPU-hours).**
+1. Zero-shot Qwen3.5-4B and Qwen3.5-9B (local weights, the revisions in `configs/`), and Clef-Flash, on: the MIMIC audit suite v1,
+   MR suite v1 (verdict and reported), MedNLI test, the external panel (7 sets), and knowledge test (5,435 paired items).
+2. **Data rule:** MIMIC items (the audit suite and held-out) go only to LOCAL models. Clef-Flash was run through the authors'
+   `systemone` client (osler_v0, `envs/clef`). Before any MIMIC item is sent, confirm that the Clef weights run locally. If Clef is
+   a hosted endpoint, its MIMIC cells are NOT MEASURED — hosted services may not see MIMIC content (AGENTS.md). Its public sets may
+   still be scored through the same client, as osler_v0 did.
+3. Score each model with the readout-health gate (D12); record the cell statuses. Report the template macro, and the item micro
+   alongside it.
+4. Additional, labelled rows only. No choice uses them. Add CLAIMS rows, and update `docs/paper/EVIDENCE.md` §5 (aggregates only).
+
+**Before Z8 (the 63,304-step F2 run), the operator decides** using the Z9 and Z10 results. Nothing in Z9–Z10 selects a model.
