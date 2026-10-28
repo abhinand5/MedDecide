@@ -31,7 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | BLOCKED — needs the Z3 final and the Z4 blend | | |
 | Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
 | Z7 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md and NEXT.md written; the loop is stopped | 2026-10-28T04:01Z | 2026-10-28T04:37Z |
-| Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | PENDING | | |
+| Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | IN_PROGRESS | 2026-10-28T20:06Z | |
 | Z10 | Additional (labelled, no choice): zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the MR suite v1 (verdict and reported), the MIMIC audit suite v1 and its held-out, MedNLI test, the 7-set panel and the knowledge test; D12 gate per cell (ADVISORY §10 Z10) | yes | Z9 | PENDING | | |
 | Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | WAITING FOR OPERATOR DECISION — not started; the operator decides after Z10 using the Z9 and Z10 results (ADVISORY §10; STATE §6.5) | | |
 
@@ -77,7 +77,20 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none. Z9 and Z10 are queued (PENDING, ADVISORY §10, operator steer 2026-10-28). Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
+Task in flight: Z9 (started 2026-10-28T20:06Z). Z10 is queued after it. Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
+
+Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
+- [x] GPU free (0 MiB, 0 %) and a 2 GB write succeeded (2026-10-28T20:04Z)
+- [x] write `scripts/osler_v5/z9_readout_probe.py` (GPU; the Z1 scoring path; per-qtype temperatures fitted on fast dev v4 for each setting; an argmax check per item)
+- [x] `scripts/osler_v5/z9_compare.py` (CPU; against C032/C035 and osler_v4's saved temperatures)
+- [x] ruff check (repo-wide) passes; the suite with the GPU hidden (no GPU job running): first run 1111 items, 4 skipped, exit 0 (the -q run printed no summary line; the count is from the progress marks); final run on the final code: see the entry below
+- [x] final suite on the final code (GPU hidden; the two osler_v4 deselects): 1107 passed, 4 skipped (CUDA-only), 2 deselected, exit 0, 163 s (2026-10-28T20:14Z); ruff check clean. Log: outputs/osler_v5/Z9/logs/pytest_before_z9_final.log
+- [x] Clef-Flash snapshot fetched to HF_HOME at the pinned revision fde727a2 (17 files, 18 GB of blobs; no partial files; 2026-10-28T20:14Z). The local-only check has NOT run yet (it needs the GPU; it runs after Z9)
+- [ ] commit the code, then the smoke run
+- [ ] smoke run (`--limit 40`) to outputs/osler_v5/Z9/smoke/ (not reported)
+- [ ] full run, detached, log to outputs/osler_v5/Z9/logs/; completeness checked (both settings, all sets, summary written)
+- [ ] `scripts/osler_v5/z9_compare.py` (CPU): comparison with C035 and C032 (Z1 summary.json), and with osler_v4's saved temperatures (Y8 model.json)
+- [ ] CLAIMS rows; self-audit; loops/osler_v5/z9_z10.md section Z9; commit and push
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is CLAIMS.md, arms.md, this file, FINDINGS.md and NEXT.md)
 Running job:    none. F2s1 exited 0 at 04:25:18Z and the chain logged "chain complete" (outputs/osler_v5/Z2/f_chain.log). No GPU process; the GPU reads 0 MiB. F2 (exit 0 at 19:13:32Z), F0 (exit 0 at 23:47:07Z) and F2s1 are finished, and their full/ folders are deleted (C077).
 
