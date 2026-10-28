@@ -10,7 +10,7 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `STOPPED`  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
+Loop status: `RUNNING`  (re-opened 2026-10-28 for the operator-approved additional run Z8; ADVISORY §9)  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
 Last updated (UTC): `2026-10-28T04:37Z` (closure at Z7)
 Iterations so far: `1`
@@ -31,6 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | BLOCKED — needs the Z3 final and the Z4 blend | | |
 | Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
 | Z7 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md and NEXT.md written; the loop is stopped | 2026-10-28T04:01Z | 2026-10-28T04:37Z |
+| Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | PENDING | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions and the GPU sequence in ADVISORY §5).
 Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work. No row may be

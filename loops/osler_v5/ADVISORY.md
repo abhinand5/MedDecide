@@ -234,3 +234,20 @@ were decided by the operator in chat on 2026-10-27 and are pre-registered here b
    about 7. Closure before 2026-11-01 is the target.
 8. **What this loop cannot claim:** whether the corrected mix alone fixes the collapse is measured by F2 and F2s1, and by the
    corrected final's ten evaluations. A result that does not fix it is reported as such.
+
+## 9. Addendum Z8 — the corrected recipe at full length (additional; operator-approved 2026-10-28)
+
+The operator approved, in chat on 2026-10-28, one additional run after the closure of Z7. It is labelled additional and chooses
+nothing.
+
+1. **Run:** the F2 recipe (per-item weighting, option augmentation, seed 0) on the **corrected mix** (D56a), **63,304 steps**, with
+   the Z3 driver (ten evaluations at Y8's steps, positional health at every evaluation, full checkpoints every 2,500 steps, the
+   watchdog of §3.7). The recipe and the mix are those of F2 (C062), so this run is F2 at full length.
+2. **Refuse to run a second copy** (the `arm_result.json` guard). Resume is allowed.
+3. **Reporting:** the ten-evaluation curve of S, its parts, CG micro, knowledge dev and positional health (fraction of passing
+   evaluations and the two-letter values), and the final checkpoint's dev figures. Test scoring after training is allowed as an
+   **additional, labelled** row (MR suite v1, MIMIC audit suite v1, panel, knowledge test), with no verdict and no effect on any choice.
+4. **Gate O5 is not applied.** Its rule is for a chosen recipe, and this run is not chosen (outcome 4 stands; C070).
+5. **Z8 does not reopen Z2.** The choice rule of D56c is unchanged, and F2's qualifier status at 13,992 steps stays as C070 records.
+6. **Time:** about 24 GPU-hours. Write `loops/osler_v5/z8_full_length.md` and the CLAIMS rows. Then update `docs/paper/EVIDENCE.md` §5
+   with the new rows (aggregates only), commit and push, and stop.
