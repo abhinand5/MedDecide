@@ -86,7 +86,11 @@ Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] ruff check (repo-wide) passes; the suite with the GPU hidden (no GPU job running): first run 1111 items, 4 skipped, exit 0 (the -q run printed no summary line; the count is from the progress marks); final run on the final code: see the entry below
 - [x] final suite on the final code (GPU hidden; the two osler_v4 deselects): 1107 passed, 4 skipped (CUDA-only), 2 deselected, exit 0, 163 s (2026-10-28T20:14Z); ruff check clean. Log: outputs/osler_v5/Z9/logs/pytest_before_z9_final.log
 - [x] Clef-Flash snapshot fetched to HF_HOME at the pinned revision fde727a2 (17 files, 18 GB of blobs; no partial files; 2026-10-28T20:14Z). The local-only check has NOT run yet (it needs the GPU; it runs after Z9)
-- [ ] commit the code, then the smoke run
+- [x] commit the code (01c2e98, 2026-10-28T20:15Z)
+- [x] smoke run 1 (the first 40 items of each set) stopped at `composite`: "template macro accuracy of an empty partition" (the first 40 fast-dev items hold no MR or MIMIC item). Its log is kept as `outputs/osler_v5/Z9/logs/probe_smoke_crashed_empty_partition.log`; no figure from it is used. Fix: the smoke subset is spread evenly through each set (committed with the full-run code)
+- [x] smoke run 2 (`--limit 300`) completed both settings at 2026-10-28T20:17Z (`outputs/osler_v5/Z9/smoke/summary.json`; not reported)
+- [x] ruff clean; suite with the GPU hidden on the fixed code: 1107 passed, 4 skipped, 2 deselected, exit 0 (165 s; 2026-10-28T20:20Z; `outputs/osler_v5/Z9/logs/pytest_before_z9_full.log`)
+- [ ] full run (detached; log `outputs/osler_v5/Z9/logs/probe.log`); completeness check; then z9_compare.py
 - [ ] smoke run (`--limit 40`) to outputs/osler_v5/Z9/smoke/ (not reported)
 - [ ] full run, detached, log to outputs/osler_v5/Z9/logs/; completeness checked (both settings, all sets, summary written)
 - [ ] `scripts/osler_v5/z9_compare.py` (CPU): comparison with C035 and C032 (Z1 summary.json), and with osler_v4's saved temperatures (Y8 model.json)

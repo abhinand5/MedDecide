@@ -17,7 +17,7 @@ Nothing is written to a test split, the panel, the MIMIC audit suite or a held-o
 Usage (GPU; one job; detached; about 1 h):
     source scripts/pod_env.sh && setsid nohup uv run --frozen python scripts/osler_v5/z9_readout_probe.py \
         > outputs/osler_v5/Z9/logs/probe.log 2>&1 < /dev/null &
-A smoke run passes --limit N (the first N items of each set; outputs/osler_v5/Z9/smoke/; no pairing).
+A smoke run passes --limit N (N items spread evenly through each set; outputs/osler_v5/Z9/smoke/; no pairing).
 """
 
 from __future__ import annotations
@@ -185,8 +185,8 @@ def main() -> None:
         "cg_v2": [mix_row_to_item(r) for r in iter_jsonl(CG)],
         "knowledge_dev_v2": [mix_row_to_item(r) for r in iter_jsonl(KNOW)],
     }
-    if args.limit:
-        sets = {key: items[: args.limit] for key, items in sets.items()}
+    if args.limit:  # items spread evenly through each set, so every partition (MR, MIMIC, DDXPlus) is non-empty
+        sets = {key: items[:: max(1, len(items) // args.limit)][: args.limit] for key, items in sets.items()}
     ddx_index = [i for i, item in enumerate(sets["cg_v2"]) if str(item.template_id).startswith(DDX_PREFIX)]
     reference = None if args.limit else list(iter_jsonl(ZERO_SHOT_KNOWLEDGE))
     blend = Blend(model)
