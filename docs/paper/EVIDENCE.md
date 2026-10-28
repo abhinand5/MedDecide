@@ -135,6 +135,17 @@ The blend improves S while positional health fails from α = 0.7. The rule (D53,
   0.0381; single-letter 0.4890 (C035). So the trained readout damages single-letter answers too.
 - Readout rows 26–254 of the osler_v4 final sit 0.0057 from pplx's base; F2's sit 0.330 (C063, additional).
 
+### 5.8 Readout probe on the osler_v4 final (dev; calibrated; additional) — C078–C087, `loops/osler_v5/z9_z10.md`
+
+| setting | S | MR macro | MIMIC macro | CG v2 micro | knowledge dev | knowledge minus zero-shot pplx [95 % interval] | DDXPlus two-letter | DDXPlus single-letter | positional, three orders |
+|---|---|---|---|---|---|---|---|---|---|
+| base readout (pplx's step-0 readout) | 0.8439 | 0.9661 | 0.8105 | 0.7551 | 0.7560 | −0.0165 [−0.0258, −0.0065] | 0.1924 | 0.7445 | fails in all three |
+| trained readout (the final as it is) | 0.8386 | 0.9672 | 0.8094 | 0.7393 | 0.7585 | −0.0140 [−0.0228, −0.0055] | 0.0040 | 0.6407 | fails in all three |
+
+Both settings are calibrated per question type on fast dev v4. The trained readout's temperatures match osler_v4's saved fit to 3 × 10⁻⁴.
+Both settings reproduce the Z1 figures exactly (C035, C032). The base readout alone does not fix positional health, so the adapter is
+the next suspect (ADVISORY §10 Z9.4). These are additional rows; no choice uses them.
+
 ---
 
 ## 6. Defects and corrections (disclose)

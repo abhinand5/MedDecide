@@ -9,7 +9,7 @@ Runs in envs/clef (the authors' stack; no meddecide import). Three checks, writt
    two public panel items are scored by the authors' systemone function on the GPU. Only the first two panel rows are read.
 
 local_only is true only when check 1 matches, check 3 succeeds, and the scan has no hit. A hit does not fail the run by itself: it
-sets local_only to false until the hit is read and an allowlist entry, with its reason, is added here (none is added by default).
+sets local_only to false until the hit is read and an allowlist entry, with its reason, is added here (ALLOWLIST holds the one hit read).
 Only when local_only is true may o2-style Z10 items go to Clef (scripts/osler_v5/z10_clef.py refuses otherwise).
 
 Usage (GPU; one job; detached, after the Z9 job has exited):
@@ -41,8 +41,13 @@ NETWORK_PATTERN = re.compile(
     r"\b(?:import|from)\s+(?:requests|httpx|urllib|http\.client|socket|aiohttp|openai|anthropic|huggingface_hub|websockets|grpc)\b"
     r"|https?://",
 )
-# (file suffix, line text fragment) pairs read and accepted by the operator's rule; empty until a hit has been read
-ALLOWLIST: tuple[tuple[str, str, str], ...] = ()
+# (file suffix, line text fragment, reason) for hits read by hand. The one hit found on 2026-10-28T20:23Z is the authors' loader's
+# import of snapshot_download. load_release_model calls it only when the path given is not a local directory; this check passes the
+# snapshot directory, and HF_HUB_OFFLINE is set, so the call is not reached. systemone sends no request and does no I/O for text items.
+ALLOWLIST: tuple[tuple[str, str, str], ...] = (
+    ("joint_schema_model.py", "from huggingface_hub import snapshot_download",
+     "authors' loader calls snapshot_download only when the path is not a local directory; the check passes a directory"),
+)
 
 
 def utcnow() -> str:
@@ -121,7 +126,7 @@ def main() -> None:
     load_ok = bool(record["offline_load_and_score"]["ok"])
     record["local_only"] = bool(record["revision_matches"] and load_ok and not unexplained)
     record["rule"] = ("local_only = revision matches the pin, the offline load and two panel scores succeed, and no network-client "
-                      "or URL line is in the authors' code outside the allowlist (ALLOWLIST, empty by default).")
+                      "or URL line is in the authors' code outside the allowlist (ALLOWLIST: one entry, read on 2026-10-28).")
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"revision matches {record['revision_matches']}; network hits {len(hits)} (unexplained {len(unexplained)}); "

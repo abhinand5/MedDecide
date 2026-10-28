@@ -31,7 +31,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | BLOCKED — needs the Z3 final and the Z4 blend | | |
 | Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
 | Z7 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md and NEXT.md written; the loop is stopped | 2026-10-28T04:01Z | 2026-10-28T04:37Z |
-| Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | IN_PROGRESS | 2026-10-28T20:06Z | |
+| Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | DONE — both settings reproduce C035 and C032 exactly; the base readout does not fix positional health (C078–C087; `loops/osler_v5/z9_z10.md`) | 2026-10-28T20:06Z | 2026-10-28T21:06Z |
 | Z10 | Additional (labelled, no choice): zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the MR suite v1 (verdict and reported), the MIMIC audit suite v1 and its held-out, MedNLI test, the 7-set panel and the knowledge test; D12 gate per cell (ADVISORY §10 Z10) | yes | Z9 | PENDING | | |
 | Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | WAITING FOR OPERATOR DECISION — not started; the operator decides after Z10 using the Z9 and Z10 results (ADVISORY §10; STATE §6.5) | | |
 
@@ -77,7 +77,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: Z9 (started 2026-10-28T20:06Z). Z10 is queued after it. Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
+Task in flight: Z10 (queued after Z9; not started). Z9 DONE 2026-10-28T21:06Z. Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
 
 Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] GPU free (0 MiB, 0 %) and a 2 GB write succeeded (2026-10-28T20:04Z)
@@ -90,7 +90,13 @@ Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] smoke run 1 (the first 40 items of each set) stopped at `composite`: "template macro accuracy of an empty partition" (the first 40 fast-dev items hold no MR or MIMIC item). Its log is kept as `outputs/osler_v5/Z9/logs/probe_smoke_crashed_empty_partition.log`; no figure from it is used. Fix: the smoke subset is spread evenly through each set (committed with the full-run code)
 - [x] smoke run 2 (`--limit 300`) completed both settings at 2026-10-28T20:17Z (`outputs/osler_v5/Z9/smoke/summary.json`; not reported)
 - [x] ruff clean; suite with the GPU hidden on the fixed code: 1107 passed, 4 skipped, 2 deselected, exit 0 (165 s; 2026-10-28T20:20Z; `outputs/osler_v5/Z9/logs/pytest_before_z9_full.log`)
-- [ ] full run (detached; log `outputs/osler_v5/Z9/logs/probe.log`); completeness check; then z9_compare.py
+- [x] full run started 2026-10-28T20:21:01Z (detached, `setsid nohup`; log `outputs/osler_v5/Z9/logs/probe.log`); the base-readout setting is scoring on the GPU (13.7 GB, 100 %) at 20:23Z
+- [x] full run completed: both settings in `outputs/osler_v5/Z9/summary.json`, the log's `done` line, finished 2026-10-28T21:04:48Z; the GPU reads 0 MiB afterwards (completeness: every row count is the frozen count, see SELF_AUDIT §2)
+- [x] `z9_compare.py` (CPU): both settings reproduce Z1 (C035, C032, C036) with zero difference; the refit temperatures agree with Y8's saved fit to 3.0 × 10⁻⁴ (C086, C087)
+- [x] CLAIMS rows C078 to C087; `outputs/osler_v5/Z9/SELF_AUDIT.md` (fresh-process re-derivation, zero differences; denominators; the below-chance trained two-letter accuracy, as recorded)
+- [x] `loops/osler_v5/z9_z10.md` Z9 section; EVIDENCE §5.8 (aggregates only)
+- [ ] suite and ruff on the committed code between GPU jobs; commit and push "Z9 DONE" (this commit); then the Z10 chain
+- [x] Z10 chain script written (`scripts/osler_v5/z10_chain.sh`: the Clef local check, Qwen3.5-4B, Qwen3.5-9B, Clef-Flash; one GPU job at a time); the local check's allowlist holds one reviewed hit (the authors' `snapshot_download` import, reachable only for a non-directory path; read 2026-10-28T20:23Z). Not run yet; it needs the suite on the committed code first
 - [ ] smoke run (`--limit 40`) to outputs/osler_v5/Z9/smoke/ (not reported)
 - [ ] full run, detached, log to outputs/osler_v5/Z9/logs/; completeness checked (both settings, all sets, summary written)
 - [ ] `scripts/osler_v5/z9_compare.py` (CPU): comparison with C035 and C032 (Z1 summary.json), and with osler_v4's saved temperatures (Y8 model.json)
@@ -167,6 +173,14 @@ The completed Z2 checklist is in the Z2 iteration-log entry.
 - Surprises: the R-arm choice files were overwritten by mistake and restored (§7.17); four GPU-only tests skip with the GPU hidden (C076).
 - Next: none in this loop (hard stop). The operator decides NEXT.md items 1 to 8. The next loop is not started.
 
+### Z9 — DONE — 2026-10-28T21:06Z
+- What ran: `scripts/osler_v5/z9_readout_probe.py` (GPU, dev only; full run 20:21:01Z to 21:04:48Z; two settings, about 22 minutes each); `scripts/osler_v5/z9_compare.py` (CPU); the fresh-process re-derivation in `outputs/osler_v5/Z9/SELF_AUDIT.md`. Two smoke runs: the first failed on an empty MR/MIMIC partition (log kept), the second completed; neither is reported. Ruff clean; suite with the GPU hidden on the final code: 1107 passed, 4 skipped, 2 deselected, exit 0 (`outputs/osler_v5/Z9/logs/pytest_before_z9_final.log`).
+- Output: `outputs/osler_v5/Z9/summary.json`, `comparison.json`, `SELF_AUDIT.md`; `loops/osler_v5/z9_z10.md` (Z9 section); CLAIMS C078 to C087; EVIDENCE §5.8.
+- Headline: the osler_v4 final with pplx's step-0 readout (C035 part a) has S 0.8439 and fails positional health in all three orders (two-letter 0.1924 against a limit of 0.3723). With its trained readout (C032 alpha 1) S is 0.8386 and two-letter is 0.0040 (2 of 499, below the 1/49 chance). Both reproduce the earlier figures exactly (C082, C087), so the readout alone does not fix positional health: the adapter is the next suspect (ADVISORY §10 Z9.4). The adapter with the base readout already shows a knowledge drop against zero-shot pplx (-0.0165 [-0.0258, -0.0065]; the trained readout -0.0140, C079, C084).
+- Surprises: the base readout's fitted temperatures are below 1 (its probabilities are flat; CG v2 Brier 0.437 raw against 0.334 calibrated, C081). The first smoke run stopped on an empty partition; the fix is an evenly spread smoke subset.
+- Next: Z10 through `scripts/osler_v5/z10_chain.sh` (the Clef local-only check, Qwen3.5-4B, Qwen3.5-9B, Clef-Flash). The Clef snapshot is downloaded and its 17 files verify against their hashes (`outputs/osler_v5/Z10/logs/clef_blob_check.txt`).
+- Checklist (completed): the Z9 checklist in §3 (all items ticked; the suite and commit are the last item, done with this entry).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -201,6 +215,13 @@ re-reading the run: state the ambiguity, the options, and which you would pick.
 
 **Update to item 1 (2026-10-28):** the corrected mix drops these rows (D56a, C059), as the operator steered on 2026-10-27. The template
 repair (option (a) of item 4 above, or NEXT.md item 1) is open for the next loop.
+
+5. **Z8: run F2 at 63,304 steps on the corrected mix? (ADVISORY §9 was approved on 2026-10-28; ADVISORY §10 says the operator decides
+   after Z10.)** Z8 is additional and chooses nothing. It is about 24 GPU-hours. What the Z9 result adds: the two-letter collapse is in the
+   adapter, not only in the readout (C080, C085). F2 passes positional health at 13,992 steps (C062), but that pass is one evaluation,
+   and the positional verdict has flipped between evaluations before (SELF_AUDIT §4.2 of Z2). Z8 is the only measurement of whether F2's
+   pass holds over the full length. Options: (a) run Z8 as approved, after Z10; (b) do not run Z8. **Decision: pending, the operator's.**
+   Z8 has not started and must not start until this is answered.
 
 ---
 
@@ -242,7 +263,6 @@ deviation — that is a `BLOCKED`.
    the saved rows with the corrected definition before it is reported.
 9. **No augmented row is a KL anchor in R3.** Both closed templates carry the `mimic_` prefix that the osler_v4 anchor list excludes, so
    "augmented anchors included" holds with an empty set.
-
 ---
 
 
@@ -268,6 +288,20 @@ deviation — that is a `BLOCKED`.
    new files: `src/meddecide/eval/d56c_choice.py`, `tests/test_d56c_choice.py` and `scripts/osler_v5/z2_choose_d56c.py`, which writes
    `outputs/osler_v5/Z2/choice_d56c.json`. No output of the R-arm chooser existed before my run, so it had not run. The commit history holds the
    superseded versions. The D56c results are identical to the first run (checked: qualifiers, choice, tie list and rows).
+
+18. **Z9 calibration reading (ADVISORY §10 Z9: "calibrated as in the Z1 probes").** Z1 fitted no temperatures (`probes.md` §5). Z9 fits one
+   temperature per question type on fast dev v4 for each setting, with osler_v4's method (Y8 `model.json`). The trained-readout refit
+   reproduces osler_v4's saved values to 3.0 × 10⁻⁴ (C086). The accuracy figures do not depend on the reading (C082, C087). Recorded as
+   reading 1 in `loops/osler_v5/z9_z10.md`.
+19. **Z9 smoke subset (a code fix, not a change of rule).** The first smoke subset (the first N items of each set) had no MR or MIMIC item,
+   so `composite` raised. The subset is now spread evenly through each set, committed at 61370d9. The crashed log is kept; no smoke figure
+   is reported.
+20. **Clef-Flash's local-only reading (ADVISORY §10 Z10.2; recorded before the check runs).** The authors' code has one network path,
+   `snapshot_download` in `load_release_model`, which runs only when the path given is not a local directory. Reading the code on
+   2026-10-28T20:23Z, I allowlisted that one hit in `scripts/osler_v5/z10_clef_local_check.py` with its reason. The check still has to
+   pass when it runs (the offline load and two panel scores), and the Clef scorer refuses to start without that record. If the operator
+   reads the path differently, Clef's cells stay NOT MEASURED.
+
 ## 8. Closure summary feed
 
 <!-- Filled at closure, feeding FINDINGS.md's Summary section. One row per major
