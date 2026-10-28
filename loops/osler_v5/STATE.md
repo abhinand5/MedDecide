@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  (re-opened 2026-10-28 for the operator-approved additional run Z8; ADVISORY §9)  <!-- set to STOPPED at the hard stop (Z7), or when no PENDING task can proceed without the operator -->
+Loop status: `RUNNING`  (re-opened 2026-10-28 for the additional runs Z9 and Z10, ADVISORY §10, operator steer 2026-10-28; Z8 waits for the operator's decision)  <!-- set to STOPPED at the hard stop (Z7 or Z10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
-Last updated (UTC): `2026-10-28T04:37Z` (closure at Z7)
+Last updated (UTC): `2026-10-28T20:05Z` (Z9 and Z10 queued by the operator's steer; Z8 waits for the operator)
 Iterations so far: `1`
 
 ---
@@ -31,7 +31,9 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Z5 | Evaluation, Gate O5, scoreboard | yes | Z4 | BLOCKED — needs the Z3 final and the Z4 blend | | |
 | Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
 | Z7 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md and NEXT.md written; the loop is stopped | 2026-10-28T04:01Z | 2026-10-28T04:37Z |
-| Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | PENDING | | |
+| Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | PENDING | | |
+| Z10 | Additional (labelled, no choice): zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the MR suite v1 (verdict and reported), the MIMIC audit suite v1 and its held-out, MedNLI test, the 7-set panel and the knowledge test; D12 gate per cell (ADVISORY §10 Z10) | yes | Z9 | PENDING | | |
+| Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | WAITING FOR OPERATOR DECISION — not started; the operator decides after Z10 using the Z9 and Z10 results (ADVISORY §10; STATE §6.5) | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions and the GPU sequence in ADVISORY §5).
 Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work. No row may be
@@ -75,7 +77,7 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: none. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure, HARD STOP). The loop is stopped.
+Task in flight: none. Z9 and Z10 are queued (PENDING, ADVISORY §10, operator steer 2026-10-28). Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is CLAIMS.md, arms.md, this file, FINDINGS.md and NEXT.md)
 Running job:    none. F2s1 exited 0 at 04:25:18Z and the chain logged "chain complete" (outputs/osler_v5/Z2/f_chain.log). No GPU process; the GPU reads 0 MiB. F2 (exit 0 at 19:13:32Z), F0 (exit 0 at 23:47:07Z) and F2s1 are finished, and their full/ folders are deleted (C077).
 
