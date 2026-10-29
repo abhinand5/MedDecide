@@ -12,7 +12,7 @@
 
 Loop status: `STOPPED`  (Z10 DONE 2026-10-29; the additional runs Z9 and Z10 ran under ADVISORY §10, operator steer 2026-10-28; Z8 is NOT started and waits for the operator's decision, §6 item 5)  <!-- set to STOPPED at the hard stop (Z7 or Z10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
-Last updated (UTC): `2026-10-29T12:10Z` (Z10 DONE; Z8 not started; loop STOPPED)
+Last updated (UTC): `2026-10-29T12:13Z` (Z10 DONE; Z8 not started; loop STOPPED; bookkeeping commit ticks the Z9 boxes and records the Clef snapshot scan)
 Iterations so far: `1`
 
 ---
@@ -91,7 +91,8 @@ Z10 checklist (ADVISORY §10 Z10; steer 2026-10-28; all items done):
 - [x] report regenerated at e12d503: `outputs/osler_v5/Z10/report.json`, `loops/osler_v5/z10.md`
 - [x] CLAIMS C088 to C103 (every recompute command tested); EVIDENCE §5.9; `loops/osler_v5/z9_z10.md` Z10 section; `outputs/osler_v5/Z10/SELF_AUDIT.md`
 - [x] STATE: board, §3, §4 entry, §6 item 5 (Z8 decision note), §7 deviations 21 to 24; loop status STOPPED
-- [x] commit "Z10 DONE" and push (this commit); Z8 not started
+- [x] Clef snapshot scan, recursive with symlinks followed (2026-10-29): no URL in any code file; no `auto_map` or `trust_remote_code`; the only network-client line is the allowlisted import (deviation 20). README and LICENSE carry documentation URLs only (the authors' leaderboard and evals page, the Cloudflare blog, model pages), and no code reads them. `scripts/osler_v5/z10_clef.py` sets HF_HUB_OFFLINE, TRANSFORMERS_OFFLINE and HF_DATASETS_OFFLINE before its imports. Not verified at the socket level. An earlier scan with `grep -r` read no files (symlinks are not followed); it was rerun with `grep -R`
+- [x] commit "Z10 DONE" pushed as 73becf8; Z8 not started. This bookkeeping commit ticks the Z9 boxes and records the scan
 
 Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] GPU free (0 MiB, 0 %) and a 2 GB write succeeded (2026-10-28T20:04Z)
@@ -109,12 +110,12 @@ Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] `z9_compare.py` (CPU): both settings reproduce Z1 (C035, C032, C036) with zero difference; the refit temperatures agree with Y8's saved fit to 3.0 × 10⁻⁴ (C086, C087)
 - [x] CLAIMS rows C078 to C087; `outputs/osler_v5/Z9/SELF_AUDIT.md` (fresh-process re-derivation, zero differences; denominators; the below-chance trained two-letter accuracy, as recorded)
 - [x] `loops/osler_v5/z9_z10.md` Z9 section; EVIDENCE §5.8 (aggregates only)
-- [ ] suite and ruff on the committed code between GPU jobs; commit and push "Z9 DONE" (this commit); then the Z10 chain
+- [x] suite and ruff on the committed code between GPU jobs; commit and push "Z9 DONE" (ba05ceb, 2026-10-28T21:11Z); then the Z10 chain
 - [x] Z10 chain script written (`scripts/osler_v5/z10_chain.sh`: the Clef local check, Qwen3.5-4B, Qwen3.5-9B, Clef-Flash; one GPU job at a time); the local check's allowlist holds one reviewed hit (the authors' `snapshot_download` import, reachable only for a non-directory path; read 2026-10-28T20:23Z). Not run yet; it needs the suite on the committed code first
-- [ ] smoke run (`--limit 40`) to outputs/osler_v5/Z9/smoke/ (not reported)
-- [ ] full run, detached, log to outputs/osler_v5/Z9/logs/; completeness checked (both settings, all sets, summary written)
-- [ ] `scripts/osler_v5/z9_compare.py` (CPU): comparison with C035 and C032 (Z1 summary.json), and with osler_v4's saved temperatures (Y8 model.json)
-- [ ] CLAIMS rows; self-audit; loops/osler_v5/z9_z10.md section Z9; commit and push
+- [x] smoke run (`--limit 40`) to outputs/osler_v5/Z9/smoke/ (not reported): superseded; that run crashed on an empty partition (the crash item above), and the `--limit 300` smoke above completed
+- [x] full run, detached, log to outputs/osler_v5/Z9/logs/; completeness checked (both settings, all sets, summary written): done, see the full-run items above
+- [x] `scripts/osler_v5/z9_compare.py` (CPU): comparison with C035 and C032 (Z1 summary.json), and with osler_v4's saved temperatures (Y8 model.json): done, see the `z9_compare.py` item above
+- [x] CLAIMS rows; self-audit; loops/osler_v5/z9_z10.md section Z9; commit and push: done (C078 to C087; ba05ceb; the items above)
 Working dir:    outputs/osler_v5/Z2/ (gitignored; the committed record is CLAIMS.md, arms.md, this file, FINDINGS.md and NEXT.md)
 Running job:    none. F2s1 exited 0 at 04:25:18Z and the chain logged "chain complete" (outputs/osler_v5/Z2/f_chain.log). No GPU process; the GPU reads 0 MiB. F2 (exit 0 at 19:13:32Z), F0 (exit 0 at 23:47:07Z) and F2s1 are finished, and their full/ folders are deleted (C077).
 
