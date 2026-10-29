@@ -136,7 +136,8 @@ def test_render_excludes_label_from_system_and_user_prompt() -> None:
 
 def test_render_lists_only_the_facts_and_target_length() -> None:
     user = render_user_prompt(_case(), target_words=180)
-    assert "Write about 180 words." in user
+    assert user.count("180 words") == 3
+    assert "Target length: 180 words." in user
     for fact in _facts():
         assert f"{fact.kind} | {fact.key}: {fact.value}" in user
     assert user.count("\n- ") == len(_facts())
@@ -495,3 +496,23 @@ def test_clinical_words_are_not_meta_banned() -> None:
     assert REASON_BANNED_META not in verdict.reasons
     assert verdict.kept
     assert verify_text(GOOD_TEXT + " The answer is clear.", _case()).banned_hits == ("answer",)
+
+
+def test_year_unit_synonym_matches_hyphenated_forms() -> None:
+    from meddecide.synth.verify import contains_fact
+
+    for text in ("a 67-year-old man", "A 67-Year-Old man", "a 67-year man", "a 67 year old man", "67 years"):
+        assert contains_fact(text, "67 years"), text
+    for text in ("a 76-year-old man", "a 6-year-old boy", "a 167-year-old"):
+        assert not contains_fact(text, "67 years"), text
+
+
+def test_year_synonym_changes_no_other_fact() -> None:
+    from meddecide.synth.verify import contains_fact, contains_phrase
+
+    assert not contains_fact("a 5-day history", "5 days")
+    assert not contains_fact("a 67-year-old", "67 months")
+    assert not contains_fact("a 67-year-old", "years 67")
+    assert contains_fact("CRP 84 mg / L", "84 mg/L")
+    # labels and banned phrases keep the plain rule
+    assert not contains_phrase("a 67-year-old", "67 years")

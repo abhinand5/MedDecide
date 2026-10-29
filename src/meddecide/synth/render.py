@@ -78,7 +78,8 @@ def render_user_prompt(
     _check_target(target_words)
     fact_lines = "\n".join(f"- {fact.kind} | {fact.key}: {fact.value}" for fact in case.facts)
     text = (
-        f"Write about {target_words} words.\n\n"
+        f"Target length: {target_words} words. Write approximately {target_words} words, "
+        f"not a short note: use the full {target_words} words.\n\n"
         f"Facts (use each one exactly as written):\n{fact_lines}"
     )
     _assert_no_label(text, (*label_phrases(case, spec), *forbidden))

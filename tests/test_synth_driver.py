@@ -38,7 +38,7 @@ from meddecide.synth.verify import (
 
 MARKER = "ZQXMARKERQ"
 FACT_LINE = re.compile(r"^- [^|]+ \| [^:]+: (.*)$", re.MULTILINE)
-WORDS = re.compile(r"Write about (\d+) words")
+WORDS = re.compile(r"Target length: (\d+) words")
 
 BEHAVIOURS = ("good", "missing", "label", "meta", "empty", "error")
 

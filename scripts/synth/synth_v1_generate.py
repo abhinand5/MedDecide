@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import statistics
 import time
 from pathlib import Path
 
@@ -62,6 +63,12 @@ def main() -> None:
             "output_tokens": output_tokens,
             "output_tokens_per_s": round(output_tokens / wall_s, 2) if wall_s > 0 else None,
         },
+        "length_ratio_median": round(
+            statistics.median(
+                r.verdict.word_count / r.planned.target_words for r in results if r.text is not None
+            ),
+            3,
+        ),
     }
     manifest = build_manifest(verdicts_of(results), run_name=args.run_name, config=config)
     write_manifest(args.manifest, manifest)

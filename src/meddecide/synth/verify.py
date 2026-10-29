@@ -6,7 +6,11 @@ Matching rules (documented, deliberately simple):
 2. The result is a token sequence. A phrase (a fact value, a label, a banned phrase) matches when its token
    sequence occurs contiguously in the text's token sequence. So "1.9 mg/dL" matches "1.9 mg/dl" and
    "1.9 mg / dL", but "15" does not match "5" and "1,9" matches "1.9".
-3. No stemming, no synonyms, no numeric normalisation: a fact is present only if its value text is present.
+3. No stemming, no numeric normalisation, and no synonyms, with one explicit exception (rule 4).
+4. Year-unit synonym, applied to fact values only (not labels or banned phrases): a fact value that is exactly
+   "<number> years" also matches the hyphenated and singular forms "<number>-year-old", "<number>-year" and
+   "<number> year old" (all case-insensitive; they tokenize to "<number> year"). The number must be the same
+   token: "67 years" does not match "76 years" or "6 years". No other unit and no other fact is affected.
 
 Every rejection carries reason codes. ``primary_reason`` is the first code in ``REASON_PRIORITY`` that applies,
 so per-family rejection counts by primary reason sum to the number of rejections.
@@ -65,6 +69,22 @@ def contains_phrase(text: str, phrase: str) -> bool:
     haystack = tokenize(text)
     width = len(needle)
     return any(haystack[i : i + width] == needle for i in range(len(haystack) - width + 1))
+
+
+def _year_synonym(phrase: str) -> tuple[str, ...] | None:
+    """Token sequence ("<number>", "year") for a phrase that is exactly "<number> years", else None."""
+    tokens = tokenize(phrase)
+    if len(tokens) == 2 and tokens[0].isdigit() and tokens[1] == "years":
+        return (tokens[0], "year")
+    return None
+
+
+def contains_fact(text: str, value: str) -> bool:
+    """Fact match: ``contains_phrase`` plus the year-unit synonym rule (module docstring, rule 4)."""
+    if contains_phrase(text, value):
+        return True
+    alt = _year_synonym(value)
+    return alt is not None and contains_phrase(text, " ".join(alt))
 
 
 def label_phrases(case: CaseFacts, spec: TemplateSpec | None = None) -> tuple[str, ...]:
@@ -126,7 +146,7 @@ def verify_text(
     if banned_hits:
         found.add(REASON_BANNED_META)
 
-    missing = tuple(fact.value for fact in case.facts if not contains_phrase(text, fact.value))
+    missing = tuple(fact.value for fact in case.facts if not contains_fact(text, fact.value))
     if missing:
         found.add(REASON_MISSING_FACT)
 
