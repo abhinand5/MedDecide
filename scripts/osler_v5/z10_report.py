@@ -11,7 +11,8 @@ Per model and set:
   the numbers (as osler_v0's O2 scoreboard did).
 - the template macro and the item micro of the reported cells (meddecide.eval.o2_metrics.summarise).
 - the knowledge set: accuracy on the reported rows, and the paired difference against osler_v4's zero-shot pplx-decider-flash-v1.2
-  (the authors' code; outputs/osler_v4/Y9/baselines/pplx_knowledge) on the items both sides scored (5,435 of 5,456 in osler_v4).
+  (the authors' code; outputs/osler_v4/Y9/baselines/pplx_knowledge) on the items both sides scored (5,435 of 5,456 in osler_v4),
+  joined on the id osler_v4 wrote (join_ids).
   The paired bootstrap is meddecide.train.blocks.micro_difference (within templates, 1,000 resamples, seed 0).
 
 Writes outputs/osler_v5/Z10/report.json (figures and cell statuses) and loops/osler_v5/z10.md (aggregates only: no item, note or
@@ -30,6 +31,7 @@ from typing import Any
 
 from meddecide.eval.o2_metrics import ScoredItem, cell_health, score_row, summarise
 from meddecide.train.blocks import micro_difference, pair_by_item
+from meddecide.train.mix_items import mix_row_to_item
 from meddecide.utils.io import iter_jsonl, write_json
 from meddecide.utils.provenance import git_commit, utcnow
 
@@ -90,10 +92,20 @@ def set_block(rows: list[dict[str, Any]], expected: int, gate: dict[str, dict[st
     return summary
 
 
+def join_ids() -> dict[str, str]:
+    """Each knowledge item's join id: the id mix_row_to_item gives it, which every osler_v4 baseline wrote (y4_pplx_flash.py).
+
+    The Y9 file's own item_id is another namespace, and the pplx file has none of its ids (checked 2026-10-29). The derived ids are
+    unique over the 5,456 items and are the ids in osler_v4's final knowledge predictions too.
+    """
+    return {str(row["item_id"]): mix_row_to_item(row).item_id for row in iter_jsonl(Y9_DIR / "knowledge.jsonl")}
+
+
 def knowledge_pairs(kept: list[dict[str, Any]]) -> dict[str, Any]:
-    """Model minus pplx on the items both scored, paired by item id; the 21 unpaired items are counted and named by count only."""
+    """Model minus pplx on the items both scored, paired by join id; the 21 unpaired items are counted and named by count only."""
+    join = join_ids()
     pplx = {str(r["item_id"]): r for r in iter_jsonl(PPLX_KNOWLEDGE)}
-    model_scored: dict[str, ScoredItem] = {str(r["item_id"]): score_row(r) for r in kept if r["status"] == "scored"}
+    model_scored: dict[str, ScoredItem] = {join[str(r["item_id"])]: score_row(r) for r in kept if r["status"] == "scored"}
     common = [item_id for item_id in model_scored if item_id in pplx]
     candidate = [{"item_id": i, "template_id": model_scored[i].template_id, "correct": model_scored[i].correct} for i in common]
     reference = [{"item_id": i, "template_id": str(pplx[i]["template_id"]), "correct": bool(pplx[i]["correct"])} for i in common]
