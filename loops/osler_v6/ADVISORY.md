@@ -62,3 +62,18 @@ about 24 hours. Gate and reporting: about 6 hours. Total about 50–55 GPU-hours
   knowledge-heavy questions. It cannot close a knowledge gap to the 27B and would change the base (D26, D33 forbid it in a loop).
   Not run. If wanted later, it is a separate additional row, labelled NOT MEASURED until someone runs it.
 - Osler-9B; base, attention or readout changes; new data sources; Nemotron.
+
+## 6. Addendum (2026-10-29): the base is Clef-Flash, not pplx-4B (D59; DRAFT, awaiting operator decision)
+
+Clef-Flash (`Cloudflare/clef-flash`, Apache-2.0) is a 9B post-train of Qwen3.5-9B with a joint schema head. It is the strongest
+≤10B model on our public sets (Z10: panel 0.650, knowledge 0.711), so it is the bar to beat. Two sub-decisions must be made first:
+
+- **(a) Head.** Either our option-code readout and attention-only LoRA on Clef's backbone (the D23/D26 architecture, with the
+  base swapped; needs a port check against Clef's `joint_schema_model.py`), or Clef's joint head fine-tuned through its own protocol.
+- **(b) Bar.** Pre-register the margin over Clef-Flash on the panel and knowledge test (proposal: lower bound above 0 on both, and point
+  estimates at least 2 points above Clef), with the audit suites kept.
+
+Odds, judgement (not measured): the base raises the floor, but every fine-tune so far has lowered general skill against its base.
+A 9B on Clef's backbone is more likely to match Clef than to beat it by a comfortable margin. The 9B training cost is about twice the
+4B run (osler_v4's 63,304 steps took about 21 hours). Before any 9B final, a 13,992-step arm (about 6 hours) must show that our recipe
+keeps Clef's panel and knowledge, with positional health passing.
