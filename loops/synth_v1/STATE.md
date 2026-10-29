@@ -126,3 +126,9 @@ alone. It imports modules that live on other commits:
 
 The GPU-aware stall rule (silence for 15 minutes AND GPU utilisation below 5 %) is my judgement, made after the incident
 above. It was accepted by the coordinator for now (2026-10-29). It is not an operator ruling. The operator may change it.
+
+## Milestone: step 6,330 evaluation (2026-10-29, 21:12Z; pid 33680; intermediate, dev only, no verdict)
+
+Driver line: S 0.8014 (MR 0.9050, MIMIC 0.7200, CG micro 0.7792); knowledge dev 0.7552; positional health original order True, seeds
+1 and 2 both True. Trainer tripwire at the same step (fast dev v4, 17,532 items): accuracy 0.7843, template macro 0.7993. Checkpoint
+saved at outputs/synth_v1/train/checkpoints/step_006330. The run continues toward 63,304 under v1_watchdog_c.sh.
