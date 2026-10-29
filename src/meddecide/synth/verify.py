@@ -1,0 +1,132 @@
+"""Verification of generated text against its facts and banned tokens.
+
+Matching rules (documented, deliberately simple):
+
+1. Text is NFKC-normalised and casefolded. Every character that is not a letter or digit is a separator.
+2. The result is a token sequence. A phrase (a fact value, a label, a banned phrase) matches when its token
+   sequence occurs contiguously in the text's token sequence. So "1.9 mg/dL" matches "1.9 mg/dl" and
+   "1.9 mg / dL", but "15" does not match "5" and "1,9" matches "1.9".
+3. No stemming, no synonyms, no numeric normalisation: a fact is present only if its value text is present.
+
+Every rejection carries reason codes. ``primary_reason`` is the first code in ``REASON_PRIORITY`` that applies,
+so per-family rejection counts by primary reason sum to the number of rejections.
+"""
+
+from __future__ import annotations
+
+import unicodedata
+from dataclasses import dataclass
+
+from meddecide.synth.facts import CaseFacts
+
+REASON_EMPTY = "empty_text"
+REASON_BANNED_LABEL = "banned_label"
+REASON_BANNED_META = "banned_meta_token"
+REASON_MISSING_FACT = "missing_fact"
+REASON_LENGTH = "length_out_of_range"
+
+REASON_PRIORITY: tuple[str, ...] = (
+    REASON_EMPTY,
+    REASON_BANNED_LABEL,
+    REASON_BANNED_META,
+    REASON_MISSING_FACT,
+    REASON_LENGTH,
+)
+
+# Meta-language that must never appear in a clinical item: it signals that the text answers a question, is a
+# generated test item, or quotes the instructions.
+META_BANNED_PHRASES: tuple[str, ...] = (
+    "answer",
+    "correct answer",
+    "label",
+    "gold",
+    "ground truth",
+    "distractor",
+    "distractors",
+    "option",
+    "options",
+    "facts",
+    "synthetic",
+    "as an ai",
+    "language model",
+    "instructions",
+)
+
+
+def tokenize(text: str) -> tuple[str, ...]:
+    """Token sequence used by every match in this module (see the module docstring for the rules)."""
+    folded = unicodedata.normalize("NFKC", text).casefold()
+    cleaned = "".join(ch if ch.isalnum() else " " for ch in folded)
+    return tuple(cleaned.split())
+
+
+def contains_phrase(text: str, phrase: str) -> bool:
+    """True when the token sequence of ``phrase`` occurs contiguously in ``text``. Empty phrases never match."""
+    needle = tokenize(phrase)
+    if not needle:
+        return False
+    haystack = tokenize(text)
+    width = len(needle)
+    return any(haystack[i : i + width] == needle for i in range(len(haystack) - width + 1))
+
+
+@dataclass(frozen=True)
+class Verdict:
+    """Outcome for one generated text. ``reasons`` is empty if and only if the text is kept.
+
+    ``missing_facts`` holds fact values and must never be written to a manifest.
+    """
+
+    family: str
+    case_id: str
+    reasons: tuple[str, ...]
+    primary_reason: str | None
+    missing_facts: tuple[str, ...]
+    banned_hits: tuple[str, ...]
+    word_count: int
+
+    @property
+    def kept(self) -> bool:
+        return not self.reasons
+
+
+def verify_text(
+    text: str,
+    case: CaseFacts,
+    *,
+    word_range: tuple[int, int] | None = None,
+    banned_phrases: tuple[str, ...] = META_BANNED_PHRASES,
+) -> Verdict:
+    """Check ``text`` against the facts and banned tokens of ``case``. Returns a verdict; never drops silently."""
+    words = len(text.split())
+    found: set[str] = set()
+
+    if not tokenize(text):
+        found.add(REASON_EMPTY)
+
+    if contains_phrase(text, case.label):
+        found.add(REASON_BANNED_LABEL)
+
+    banned_hits = tuple(phrase for phrase in banned_phrases if contains_phrase(text, phrase))
+    if banned_hits:
+        found.add(REASON_BANNED_META)
+
+    missing = tuple(fact.value for fact in case.facts if not contains_phrase(text, fact.value))
+    if missing:
+        found.add(REASON_MISSING_FACT)
+
+    if word_range is not None:
+        low, high = word_range
+        if not low <= words <= high:
+            found.add(REASON_LENGTH)
+
+    reasons = tuple(code for code in REASON_PRIORITY if code in found)
+    return Verdict(
+        family=case.family,
+        case_id=case.case_id,
+        reasons=reasons,
+        primary_reason=reasons[0] if reasons else None,
+        missing_facts=missing,
+        banned_hits=banned_hits,
+        word_count=words,
+    )
