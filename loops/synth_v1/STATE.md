@@ -106,3 +106,23 @@ line; 900 s stall rule; max 5 resumes). The watchdog's pid file is `outputs/synt
   evaluation does not. The old watchdog pid 18364 was stopped by pid.
 - Resumed job: pid 33680 (resumed from the step-5,000 full checkpoint), watchdog pid per `ps`, using `v1_watchdog_c.sh`.
 - The run has not yet reached the step-6,330 evaluation line at the time of writing.
+
+## Provenance: what the composer needs (added 2026-10-29; code commits 6c85e73 and 43bb7c6)
+
+The code committed in 6c85e73 (scripts/osler_v5/run_arm.py, scripts/synth/v1_grounded_rows.py) is not runnable on this branch
+alone. It imports modules that live on other commits:
+- `loop/osler_v5` at commit 23a0362: meddecide.train.corrected_mix, meddecide.train.option_augment, meddecide.train.osler_arm,
+  meddecide.eval.composite, the osler_v4 Y8 composer `scripts/osler_v4/y8_final_mix.py` (which `run_arm.py` loads by path),
+  `configs/osler_v5/arm_F2.yaml`, and the rest of the osler_v5 driver tree. The `data/` directory is a symlink in the scratch run.
+- `synth/mimic-grounded` at commit 8c1c7bb: meddecide.synth.mimic_families (MIX_EXCLUSIONS, in_training_mix, HELD_OUT_TEXT)
+  and its dependency meddecide.mr.mimic_items (osler_v4 template question texts, held-out families).
+- The scratch extract that actually ran is `/workspace/tmp/synth_train_code`: `git archive` of 23a0362 with the synth module and
+  tests from 8c1c7bb overlaid, plus the scratch edits that are now committed in 6c85e73. The `outputs` directory is a symlink to
+  the repo's outputs; `PYTHONPATH` points at the scratch `src`.
+- The run's launch command, with the paths, is in `outputs/synth_v1/train/logs/run.log` (first line of each launch) and in
+  section "Relaunch" above.
+
+## Stall judgement (mine, not an operator ruling)
+
+The GPU-aware stall rule (silence for 15 minutes AND GPU utilisation below 5 %) is my judgement, made after the incident
+above. It was accepted by the coordinator for now (2026-10-29). It is not an operator ruling. The operator may change it.
