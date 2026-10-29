@@ -10,9 +10,9 @@
 > ≤5-line entry to the iteration log. Never delete a log entry; append only. Timestamps
 > are `date -u +%FT%TZ`. Never paste item text, predictions, or secrets into this file.
 
-Loop status: `RUNNING`  (re-opened 2026-10-28 for the additional runs Z9 and Z10, ADVISORY §10, operator steer 2026-10-28; Z8 waits for the operator's decision)  <!-- set to STOPPED at the hard stop (Z7 or Z10), or when no PENDING task can proceed without the operator -->
+Loop status: `STOPPED`  (Z10 DONE 2026-10-29; the additional runs Z9 and Z10 ran under ADVISORY §10, operator steer 2026-10-28; Z8 is NOT started and waits for the operator's decision, §6 item 5)  <!-- set to STOPPED at the hard stop (Z7 or Z10), or when no PENDING task can proceed without the operator -->
 Run started (UTC): `2026-10-26T19:24:27Z`
-Last updated (UTC): `2026-10-28T20:05Z` (Z9 and Z10 queued by the operator's steer; Z8 waits for the operator)
+Last updated (UTC): `2026-10-29T12:10Z` (Z10 DONE; Z8 not started; loop STOPPED)
 Iterations so far: `1`
 
 ---
@@ -32,8 +32,8 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | Z6 | Membership audit | small | Z4 | BLOCKED — needs the Z3 final | | |
 | Z7 | Findings and closure — HARD STOP | no | all | DONE — FINDINGS.md and NEXT.md written; the loop is stopped | 2026-10-28T04:01Z | 2026-10-28T04:37Z |
 | Z9 | Additional (labelled, no choice): the osler_v4 final's adapter with pplx's base readout and with its trained readout, both temperature-calibrated on fast dev v4 (ADVISORY §10 Z9; C035 is the base-readout reference) | yes | Z7 | DONE — both settings reproduce C035 and C032 exactly; the base readout does not fix positional health (C078–C087; `loops/osler_v5/z9_z10.md`) | 2026-10-28T20:06Z | 2026-10-28T21:06Z |
-| Z10 | Additional (labelled, no choice): zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the MR suite v1 (verdict and reported), the MIMIC audit suite v1 and its held-out, MedNLI test, the 7-set panel and the knowledge test; D12 gate per cell (ADVISORY §10 Z10) | yes | Z9 | PENDING | | |
-| Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | WAITING FOR OPERATOR DECISION — not started; the operator decides after Z10 using the Z9 and Z10 results (ADVISORY §10; STATE §6.5) | | |
+| Z10 | Additional (labelled, no choice): zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the MR suite v1 (verdict and reported), the MIMIC audit suite v1 and its held-out, MedNLI test, the 7-set panel and the knowledge test; D12 gate per cell (ADVISORY §10 Z10) | yes | Z9 | DONE — the zero-shot Qwen3.5-4B and -9B and Clef-Flash scored on the test-side sets; all 93 cells pass the gate (D12 for Qwen, D21 for Clef); Clef's MIMIC cells measured after its local-only check; knowledge joined on osler_v4's id (C088–C103; `loops/osler_v5/z9_z10.md`) | 2026-10-28T21:11Z | 2026-10-29T12:10Z |
+| Z8 | Additional (labelled): F2 on the corrected mix at 63,304 steps (ADVISORY §9; operator-approved 2026-10-28; no choice) | yes | Z7 | WAITING FOR OPERATOR DECISION — not started; Z10 is DONE, so the operator can decide now using the Z9 and Z10 results (ADVISORY §10; STATE §6.5) | | |
 
 Rules: take the **first** `PENDING` task whose deps are all `DONE` (order exceptions and the GPU sequence in ADVISORY §5).
 Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work. No row may be
@@ -77,7 +77,21 @@ Clear this section and write the new task's checklist when you start the next ta
 completed checklist goes into the iteration-log entry.
 
 ```
-Task in flight: Z10 (queued after Z9; not started). Z9 DONE 2026-10-28T21:06Z. Z8 waits for the operator's decision after Z10 and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
+Task in flight: none. Z10 DONE 2026-10-29T12:10Z. Z9 DONE 2026-10-28T21:06Z. Z8 waits for the operator's decision and is not started. Z2 DONE; Z3 to Z6 BLOCKED; Z7 DONE (closure of the main loop).
+
+Z10 checklist (ADVISORY §10 Z10; steer 2026-10-28; all items done):
+- [x] Z9 DONE and pushed (ba05ceb); GPU at 0 MiB before the launch (2026-10-28T21:11Z). No 2 GB write test is recorded before the chain (deviation 24)
+- [x] Clef-Flash snapshot verified: all 17 files' LFS SHA-256 and git SHA-1 match (`outputs/osler_v5/Z10/logs/clef_blob_check.txt`, all_blobs_match True; fetched 2026-10-28T20:14Z)
+- [x] local-only check (ADVISORY §10 Z10.2) finished 21:12:22Z with local_only True (`outputs/osler_v5/Z10/clef_local_check.json`), before any Clef step ran (C088)
+- [x] chain (`scripts/osler_v5/z10_chain.sh`): Qwen3.5-4B 21:12:22Z to 21:37:59Z, Qwen3.5-9B 21:37:59Z to 22:12:50Z, Clef-Flash 22:12:50Z to 23:24:44Z; all exit 0; "chain complete" 2026-10-28T23:24:44Z; every set has its frozen row count (`outputs/osler_v5/Z10/logs/z10_chain.log`; C100)
+- [x] first report run stopped in the knowledge pairing (`ValueError` in `paired_mean_difference_stratified`: no item in common); cause: the Y9 item ids are not the osler_v4 join ids. No result was written; the second run's log is `outputs/osler_v5/Z10/logs/z10_report.log`
+- [x] join fixed in `scripts/osler_v5/z10_report.py` (osler_v4's `mix_row_to_item` id; deviation 21); ruff check clean; suite with the GPU hidden: 1107 passed, 4 skipped (CUDA-only), 2 deselected, exit 0, 161.68 s (`outputs/osler_v5/Z10/logs/pytest_before_z10_code.log`); committed and pushed as 89711f0
+- [x] `scripts/osler_v5/z10_rederive.py` (fresh-process re-derivation, alignment of every prediction, join check, chance): exit 0, largest difference 4.97 × 10⁻⁵ (`outputs/osler_v5/Z10/logs/z10_rederive.log`; C098)
+- [x] per-cell chance, majority baseline and accuracy in the re-derivation (e12d503; ruff clean; suite 1107 passed, 4 skipped, 2 deselected, exit 0; `outputs/osler_v5/Z10/logs/pytest_before_z10_rederive_cells.log`); C103
+- [x] report regenerated at e12d503: `outputs/osler_v5/Z10/report.json`, `loops/osler_v5/z10.md`
+- [x] CLAIMS C088 to C103 (every recompute command tested); EVIDENCE §5.9; `loops/osler_v5/z9_z10.md` Z10 section; `outputs/osler_v5/Z10/SELF_AUDIT.md`
+- [x] STATE: board, §3, §4 entry, §6 item 5 (Z8 decision note), §7 deviations 21 to 24; loop status STOPPED
+- [x] commit "Z10 DONE" and push (this commit); Z8 not started
 
 Z9 checklist (ADVISORY §10 Z9; steer 2026-10-28 items 2 to 3):
 - [x] GPU free (0 MiB, 0 %) and a 2 GB write succeeded (2026-10-28T20:04Z)
@@ -181,6 +195,15 @@ The completed Z2 checklist is in the Z2 iteration-log entry.
 - Next: Z10 through `scripts/osler_v5/z10_chain.sh` (the Clef local-only check, Qwen3.5-4B, Qwen3.5-9B, Clef-Flash). The Clef snapshot is downloaded and its 17 files verify against their hashes (`outputs/osler_v5/Z10/logs/clef_blob_check.txt`).
 - Checklist (completed): the Z9 checklist in §3 (all items ticked; the suite and commit are the last item, done with this entry).
 
+### Z10 — DONE — 2026-10-29T12:10Z
+- What ran: `scripts/osler_v5/z10_chain.sh` (GPU, one job at a time, detached): the Clef-Flash local-only check (`scripts/osler_v5/z10_clef_local_check.py`), zero-shot Qwen3.5-4B and -9B (`scripts/osler_v5/z10_zeroshot.py`, osler_v4's Y4 readout), and Clef-Flash (`scripts/osler_v5/z10_clef.py`, the authors' `systemone` in `envs/clef`) on the seven Y9 sets. All four steps exited 0 (2026-10-28 21:11Z to 23:24Z). The report (`scripts/osler_v5/z10_report.py`, CPU) and the re-derivation (`scripts/osler_v5/z10_rederive.py`) ran at e12d503. Commits: 89711f0 (the knowledge join key, with the report and the first re-derivation), e12d503 (the re-derivation prints every cell's accuracy and majority baseline).
+- Output: `outputs/osler_v5/Z10/` (predictions, `report.json`, `clef_local_check.json`, logs, `SELF_AUDIT.md`); `loops/osler_v5/z10.md` (aggregates); `loops/osler_v5/z9_z10.md` (Z10 section); CLAIMS C088 to C103; EVIDENCE §5.9.
+- Headline: all 93 cells pass the gate (D12 for the Qwen models, D21 for Clef-Flash); none excluded. Item micro: MR verdict 0.6176 (4B), 0.6315 (9B), 0.6830 (Clef); MIMIC suite 0.5603, 0.6029, 0.6306; MedNLI 0.7862, 0.8361, 0.8636; knowledge 0.6162, 0.6774, 0.6864. Knowledge minus pplx on 5,435 paired items: 4B -0.0670 [-0.0791, -0.0539]; 9B -0.0055 [-0.0186, +0.0070]; Clef +0.0029 [-0.0092, +0.0155].
+- Surprises: the first report run stopped in the knowledge pairing (the Y9 item ids are not osler_v4's join ids). Fixed with osler_v4's id (deviation 21); no gate changed. Three near-chance cells pass the gate and are reported as they are (C097). The 4B model's ED-acuity predictions spread away from the gold distribution; the cause is not measured.
+- Contradicts C035? No. Z10 scores other sets and models, and no Z10 figure bears on C035 or C032.
+- Next: none in the loop. Z8 has not been started; it waits for the operator's decision (§6 item 5). The loop is STOPPED.
+- Checklist (completed): the Z10 checklist in §3 (all items ticked; the commit is the last item).
+
 ## 5. Blocked items
 
 | id | what is blocked | exact reason | what would unblock it |
@@ -222,6 +245,8 @@ repair (option (a) of item 4 above, or NEXT.md item 1) is open for the next loop
    and the positional verdict has flipped between evaluations before (SELF_AUDIT §4.2 of Z2). Z8 is the only measurement of whether F2's
    pass holds over the full length. Options: (a) run Z8 as approved, after Z10; (b) do not run Z8. **Decision: pending, the operator's.**
    Z8 has not started and must not start until this is answered.
+   **Status at Z10 DONE (2026-10-29T12:10Z): the decision is still the operator's, and Z8 has not been started. The Z10 results are in
+   `loops/osler_v5/z9_z10.md` (Z10 section) and CLAIMS C088 to C103.**
 
 ---
 
@@ -301,6 +326,20 @@ deviation — that is a `BLOCKED`.
    2026-10-28T20:23Z, I allowlisted that one hit in `scripts/osler_v5/z10_clef_local_check.py` with its reason. The check still has to
    pass when it runs (the offline load and two panel scores), and the Clef scorer refuses to start without that record. If the operator
    reads the path differently, Clef's cells stay NOT MEASURED.
+21. **Z10 knowledge join (a code fix, not a change of rule).** The first report run stopped in the knowledge pairing with `ValueError:
+   paired_mean_difference_stratified: needs two non-empty 1-D sequences of equal length`. The Y9 knowledge file's `item_id` is not the id
+   any osler_v4 baseline wrote, so no item paired. osler_v4's runners write `mix_row_to_item(row).item_id` (`scripts/osler_v4/y4_pplx_flash.py`).
+   The derived ids match the pplx ids (5,435 of 5,435) and the final model's ids (5,456 of 5,456) exactly (C102). The report now joins on
+   that id (commit 89711f0). No gate, check or threshold changed, and no Z10 figure was reported before the fix.
+22. **Clef-Flash's gate is D21 (ADVISORY §10 Z10.3, "D12 per cell").** AGENTS.md defines D21 for trained readouts that normalise over the
+   offered options, and Clef-Flash's readout does. The D12 label-mass and greedy checks are defined for letter readouts; the greedy check
+   needs a full-vocabulary argmax, which Clef's output does not carry. Its 31 cells carry the D21 checks (C089). Recorded as my reading.
+23. **The Qwen knowledge pairs compare two readouts (ADVISORY §10 Z10.1; labelled).** Qwen3.5-4B and -9B are scored with osler_v4's Y4
+   zero-shot readout; the pplx knowledge baseline is osler_v4's authors'-code run. The Qwen differences (C096) are not a like-for-like
+   readout comparison.
+24. **No 2 GB write test is recorded before the Z10 chain.** The operator's steer asked for one before each GPU job. The Z9 checklist
+   records one; the Z10 logs and this file do not. The GPU read 0 MiB before the launch (2026-10-28T21:11Z), and the chain's outputs
+   (about 71 MB) were written without a write error. No write test was run afterwards, because no job is running.
 
 ## 8. Closure summary feed
 

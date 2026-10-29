@@ -146,6 +146,19 @@ Both settings are calibrated per question type on fast dev v4. The trained reado
 Both settings reproduce the Z1 figures exactly (C035, C032). The base readout alone does not fix positional health, so the adapter is
 the next suspect (ADVISORY §10 Z9.4). These are additional rows; no choice uses them.
 
+### 5.9 Comparator scoring on the test-side sets (additional; no choice) — C088–C103, `loops/osler_v5/z9_z10.md`
+
+| model | MR verdict macro / micro | MR reported macro / micro | MIMIC suite macro / micro | MIMIC held-out (110) macro / micro | MedNLI test | panel macro / micro | knowledge micro | knowledge minus pplx, paired [95 % interval] |
+|---|---|---|---|---|---|---|---|---|
+| Qwen3.5-4B zero-shot | 0.5574 / 0.6176 | 0.9968 / 0.9939 | 0.5697 / 0.5603 | 0.6958 / 0.6364 | 0.7862 | 0.5483 / 0.4831 | 0.6162 | −0.0670 [−0.0791, −0.0539] |
+| Qwen3.5-9B zero-shot | 0.5953 / 0.6315 | 0.9955 / 0.9945 | 0.6116 / 0.6029 | 0.7218 / 0.6727 | 0.8361 | 0.6225 / 0.5419 | 0.6774 | −0.0055 [−0.0186, +0.0070] |
+| Clef-Flash (authors' code) | 0.6830 / 0.6830 | 0.9928 / 0.9953 | 0.6391 / 0.6306 | 0.6954 / 0.7182 | 0.8636 | 0.6502 / 0.5711 | 0.6864 | +0.0029 [−0.0092, +0.0155] |
+
+All 93 cells pass the readout-health gate (D12 for the zero-shot models, D21 for Clef-Flash; C089), so no item is excluded. Three cells
+sit at or near chance and pass the gate; they are reported as they are (C097). On the MIMIC ED-acuity cell all three models score below its majority-gold baseline (0.5567; C103). Clef-Flash's MIMIC cells are measured after its local-only
+check passed (C088). The knowledge pairing is joined on osler_v4's item id (C102); the Qwen pairs compare two readouts and are labelled so.
+These are additional rows; no choice uses them.
+
 ---
 
 ## 6. Defects and corrections (disclose)
