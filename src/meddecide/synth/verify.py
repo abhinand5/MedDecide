@@ -17,7 +17,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 
-from meddecide.synth.facts import CaseFacts, TemplateSpec
+from meddecide.synth.facts import CaseFacts, TemplateSpec, require_token
 
 REASON_EMPTY = "empty_text"
 REASON_BANNED_LABEL = "banned_label"
@@ -33,19 +33,16 @@ REASON_PRIORITY: tuple[str, ...] = (
     REASON_LENGTH,
 )
 
-# Meta-language that must never appear in a clinical item: it signals that the text answers a question, is a
-# generated test item, or quotes the instructions.
+# Purpose: catch generated text that talks about itself as a test item or a prompt (it answers a question, names a
+# distractor, quotes the instructions, speaks as an AI). It must hold only clearly meta terms. Ordinary clinical
+# words ("option", "gold standard", "label", "facts") do not belong here: they occur in real clinical text and
+# would reject good items. Leaks of the gold label are handled by the label rule, not by this list.
 META_BANNED_PHRASES: tuple[str, ...] = (
     "answer",
     "correct answer",
-    "label",
-    "gold",
     "ground truth",
     "distractor",
     "distractors",
-    "option",
-    "options",
-    "facts",
     "synthetic",
     "as an ai",
     "language model",
@@ -77,10 +74,14 @@ def label_phrases(case: CaseFacts, spec: TemplateSpec | None = None) -> tuple[st
     label sentences only (the bare label word is allowed in ordinary text, e.g. "no fever").
     """
     if spec is None or spec.label_match == "token":
-        return (case.label,)
-    if spec.family != case.family:
-        raise ValueError(f"case family {case.family!r} does not match template {spec.family!r}")
-    return spec.label_sentences
+        phrases: tuple[str, ...] = (case.label,)
+    else:
+        if spec.family != case.family:
+            raise ValueError(f"case family {case.family!r} does not match template {spec.family!r}")
+        phrases = spec.label_sentences
+    for phrase in phrases:
+        require_token(phrase, "label phrase")
+    return phrases
 
 
 @dataclass(frozen=True)

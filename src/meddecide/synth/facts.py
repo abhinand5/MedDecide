@@ -7,6 +7,7 @@ machine and in any order. Nothing in this module reads data files or calls a mod
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
@@ -21,6 +22,20 @@ FACT_KINDS: tuple[str, ...] = (
     "demographic",
     "encounter",
 )
+
+
+def has_token(text: str) -> bool:
+    """True when ``text`` has at least one letter or digit (the same rule ``verify.tokenize`` uses).
+
+    A value without one tokenizes to an empty sequence, so it can never be matched or checked.
+    """
+    return any(ch.isalnum() for ch in unicodedata.normalize("NFKC", text))
+
+
+def require_token(text: str, what: str) -> None:
+    """Raise ``ValueError`` if ``text`` has no letter or digit. The message never echoes the value."""
+    if not has_token(text):
+        raise ValueError(f"{what} must contain at least one letter or digit")
 
 
 @dataclass(frozen=True)
@@ -38,6 +53,7 @@ class Fact:
             raise ValueError("fact key must be non-empty")
         if not normalize_text(self.value):
             raise ValueError("fact value must be non-empty")
+        require_token(self.value, "fact value")
 
 
 def fact_list_id(family: str, facts: Iterable[Fact], *, length: int = 16) -> str:
@@ -67,6 +83,7 @@ class CaseFacts:
             raise ValueError("duplicate facts in a case")
         if not normalize_text(self.label):
             raise ValueError("label must be non-empty")
+        require_token(self.label, "label")
 
     @property
     def case_id(self) -> str:
@@ -111,6 +128,10 @@ class TemplateSpec:
             raise ValueError("duplicate labels in a template")
         if any(not normalize_text(label) for label in self.label_set):
             raise ValueError("labels must be non-empty")
+        for label in self.label_set:
+            require_token(label, "label")
+        for sentence in self.label_sentences:
+            require_token(sentence, "label sentence")
 
     def options_for(self, case: CaseFacts) -> tuple[str, ...]:
         """Options offered for ``case``. Checks the family, option count, and that the label is offered."""

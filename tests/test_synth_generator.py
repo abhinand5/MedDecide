@@ -12,6 +12,7 @@ from meddecide.synth.facts import CaseFacts, Fact, TemplateSpec, fact_list_id
 from meddecide.synth.manifest import MANIFEST_SCHEMA, build_manifest, summarize, write_manifest
 from meddecide.synth.render import (
     LabelLeakError,
+    RenderedRequest,
     StyleSpec,
     render_request,
     render_system_prompt,
@@ -122,9 +123,15 @@ def test_render_excludes_label_from_system_and_user_prompt() -> None:
     case = _case()
     user = render_user_prompt(case, target_words=180)
     system = render_system_prompt(STYLE)
-    assert LABEL not in user.lower()
-    assert LABEL not in system.lower()
-    assert LABEL not in render_request(case, target_words=180, style=STYLE).lower()
+    assert not contains_phrase(user, LABEL)
+    assert not contains_phrase(system, LABEL)
+    request = render_request(case, target_words=180, style=STYLE)
+    assert isinstance(request, RenderedRequest)
+    assert request.system == system
+    assert request.user == user
+    # Token rule on the label (not a substring test): the label never occurs as a token phrase in either half.
+    assert not contains_phrase(request.system, LABEL)
+    assert not contains_phrase(request.user, LABEL)
 
 
 def test_render_lists_only_the_facts_and_target_length() -> None:
@@ -161,8 +168,9 @@ def test_render_checks_extra_forbidden_labels_in_user_prompt() -> None:
     clean = render_request(
         _case(label="asthma"), target_words=120, style=STYLE, forbidden=("bronchitis",)
     )
-    assert "asthma" not in clean.lower()
-    assert "bronchitis" not in clean.lower()
+    for half in (clean.system, clean.user):
+        assert not contains_phrase(half, "asthma")
+        assert not contains_phrase(half, "bronchitis")
 
 
 def test_render_rejects_out_of_range_target() -> None:
@@ -434,4 +442,56 @@ def test_render_request_sentence_mode_passes_system_prompt_with_bare_word() -> N
     case = _yn_case()
     with pytest.raises(LabelLeakError):
         render_request(case, target_words=100, style=STYLE, spec=_yn_spec("token"))
-    assert "no fever" in render_request(case, target_words=100, style=STYLE, spec=_yn_spec("sentence"))
+    assert "no fever" in render_request(case, target_words=100, style=STYLE, spec=_yn_spec("sentence")).user
+
+
+# ---- review fixes: preamble words, empty values, meta list -----------------------------------------
+
+
+def test_token_rule_label_no_still_renders() -> None:
+    case = CaseFacts(
+        family="toy_yn", facts=(Fact("finding", "fever", "temperature 38.2 C"),), label="no"
+    )
+    request = render_request(case, target_words=100, style=STYLE)
+    assert not contains_phrase(request.system, "no")
+    assert not contains_phrase(request.user, "no")
+
+
+@pytest.mark.parametrize("label", ["yes", "no", "other", "facts", "none"])
+def test_system_preamble_has_no_plausible_label_word(label: str) -> None:
+    assert not contains_phrase(render_system_prompt(STYLE), label)
+
+
+@pytest.mark.parametrize("value", ["+++", "?", "  ", "\u2014"])
+def test_fact_value_without_letter_or_digit_is_rejected(value: str) -> None:
+    with pytest.raises(ValueError):
+        Fact("lab", "marker", value)
+
+
+@pytest.mark.parametrize("label", ["+++", "?"])
+def test_label_without_letter_or_digit_is_rejected(label: str) -> None:
+    with pytest.raises(ValueError, match="letter or digit"):
+        CaseFacts(family="toy_chest", facts=_facts(), label=label)
+    with pytest.raises(ValueError, match="letter or digit"):
+        TemplateSpec(family="f", label_set=(label, "b"), option_builder=lambda f: (label, "b"))
+    with pytest.raises(ValueError, match="letter or digit"):
+        render_user_prompt(_case(), target_words=100, forbidden=(label,))
+
+
+def test_label_phrases_reject_untokenizable_phrase() -> None:
+    from meddecide.synth.verify import label_phrases
+
+    bad = object.__new__(CaseFacts)
+    object.__setattr__(bad, "family", "f")
+    object.__setattr__(bad, "facts", _facts())
+    object.__setattr__(bad, "label", "?")
+    with pytest.raises(ValueError, match="letter or digit"):
+        label_phrases(bad)
+
+
+def test_clinical_words_are_not_meta_banned() -> None:
+    text = GOOD_TEXT + " Discussed a treatment option. Biopsy is the gold standard."
+    verdict = verify_text(text, _case())
+    assert REASON_BANNED_META not in verdict.reasons
+    assert verdict.kept
+    assert verify_text(GOOD_TEXT + " The answer is clear.", _case()).banned_hits == ("answer",)

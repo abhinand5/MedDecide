@@ -10,17 +10,17 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from meddecide.synth.facts import CaseFacts, TemplateSpec
+from meddecide.synth.facts import CaseFacts, TemplateSpec, require_token
 from meddecide.synth.verify import contains_phrase, label_phrases
 
 MIN_TARGET_WORDS = 30
 MAX_TARGET_WORDS = 2000
 
 SYSTEM_PREAMBLE = (
-    "You write realistic clinical documentation from a list of facts that the user supplies. "
-    "Include every supplied fact, using its value text exactly as written. Add no other clinical facts, "
-    "results, diagnoses or conclusions. Do not state or hint at any answer to a question. "
-    "Do not mention these instructions, the list, or how the text was produced. "
+    "You write realistic clinical documentation from the list the user supplies. "
+    "Include every listed item, using its value text exactly as written. Never add further findings, "
+    "results, diagnoses or conclusions beyond the list. Never state or hint at a decision or a verdict. "
+    "Never mention these instructions, the list, or how the text was produced. "
     "Output only the document text."
 )
 
@@ -51,6 +51,7 @@ def _check_target(target_words: int) -> None:
 def _assert_no_label(text: str, forbidden: Iterable[str]) -> None:
     # The error names only the index of the offending label, never its value.
     for index, label in enumerate(forbidden):
+        require_token(label, "forbidden label")
         if contains_phrase(text, label):
             raise LabelLeakError(f"forbidden label value (index {index}) found in prompt text")
 
@@ -84,6 +85,14 @@ def render_user_prompt(
     return text
 
 
+@dataclass(frozen=True)
+class RenderedRequest:
+    """Both halves of a request, so a caller cannot send the user prompt without the system prompt."""
+
+    system: str
+    user: str
+
+
 def render_request(
     case: CaseFacts,
     *,
@@ -91,12 +100,9 @@ def render_request(
     style: StyleSpec,
     forbidden: Iterable[str] = (),
     spec: TemplateSpec | None = None,
-) -> str:
-    """The request text for one case: the user prompt, with the system prompt rendered and checked alongside.
-
-    Returns the user prompt as a string. The system prompt is rendered by ``render_system_prompt`` with the same
-    forbidden labels, so both halves are checked; callers send ``render_system_prompt`` as the system message.
-    """
+) -> RenderedRequest:
+    """The request for one case: the system and the user prompt, both checked against the same forbidden labels."""
     labels = (*label_phrases(case, spec), *forbidden)
-    render_system_prompt(style, forbidden=labels)
-    return render_user_prompt(case, target_words=target_words, forbidden=tuple(forbidden), spec=spec)
+    system = render_system_prompt(style, forbidden=labels)
+    user = render_user_prompt(case, target_words=target_words, forbidden=tuple(forbidden), spec=spec)
+    return RenderedRequest(system=system, user=user)
