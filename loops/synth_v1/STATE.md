@@ -7,8 +7,8 @@ Loop status: RUNNING (autonomous; operator instruction 2026-10-29: no further qu
 | synthetic pipeline (LLM-only families) | DONE — smoke v2 keep 91/200 (branch synth/driver-fix, 7295 1714) |
 | verifier fixes | DONE — synth/generator-fixed |
 | MIMIC-grounded build | RUNNING (subagent, branch synth/mimic-grounded) |
-| mix composition with the grounded block | DONE 2026-10-29T18:28Z (counts and hashes in claims.md, rows C-S1 to C-S15) |
-| final training, 63,304 steps | RUNNING since 2026-10-29T18:28:49Z (pid 15217; watchdog pid 15539) |
+| mix composition with the grounded block | DONE 2026-10-29T18:28Z (counts and hashes in claims.md, rows C-S1 to C-S22) |
+| final training, 63,304 steps | RUNNING since 2026-10-29T18:38:03Z (pid 17342, rebalanced mix; watchdog pid 18364). The first run (pid 15217, 18:28:49Z, pre-rebalance mix) was stopped by the coordinator |
 | Gate O5 and scoreboard | PENDING |
 | findings | PENDING |
 
@@ -43,8 +43,7 @@ Steps and decisions this session:
   `broad_aqua_rat_v1` at 4.762 % (unchanged from the corrected mix); largest grounded template 2.824 %.
 
 Settled-rule consequences (not changed here; the operator decides; see Questions):
-- Replay share falls from 20.002 % to 19.824 % (replay rows 291,319 unchanged; the top-up rule would need 3,241 more replay
-  rows (computed by the minimal-top-up formula); not added).
+- RESOLVED by the coordinator correction (below): replay share was 19.824 % and the family share 35.584 % in the first mix.
 - MIMIC-family share rises from 35.004 % to 35.584 % (the grounded rows are MIMIC rows; the 35 % family cap is not re-sampled).
 
 Launch (2026-10-29T18:28:49Z): PID 15217 (python, child of the detached launcher). Log:
@@ -60,4 +59,38 @@ from the scratch extract with the synth code at 8c1c7bb). The full suite was not
 1. The replay minimum (D36, 20 %) and the MIMIC-family cap (35 %) are not met after the grounded append (19.824 % and 35.584 %).
    The task's caps were only the 20 % block and 8 % template caps, so the run proceeds without a top-up or re-sample. Say if the
    run should be restarted with a top-up (not started).
+   RESOLVED by the coordinator's correction (2026-10-29): the rebuilt mix meets both settled rules; see the correction section.
 2. The grounded manifest on disk has no `mix_exclusions` key (built before commit 589d2c2). Regenerate it, or accept the code count?
+
+## Correction and relaunch (coordinator, 2026-10-29, after the first launch)
+
+Steps: the watchdog (pid 15539) and the job (pid 15217) were stopped cleanly (SIGTERM, then checked). Their logs are kept:
+`outputs/synth_v1/train/logs/run_stopped_attempt_1.log` and `outputs/synth_v1/train/logs/watchdog.log` (no event). The first
+composition record is kept as `outputs/synth_v1/train/composition_attempt_1.json` (its shares: replay 19.824 %, family 35.584 %).
+
+Rebuild (in the driver's `rebalance`, before the augmentation; the grounded block is appended after the augmentation as before):
+- Drop 11,500 base MIMIC rows (source mimic_iv or mimic_iv_note; the grounded block is not dropped), water-filling from the
+  largest MIMIC template down to a common level of 36,799 rows; ties by template name; the rows inside a
+  template chosen by stable-hash rank (salt synth_v1_family_drop). No held-out or test file is read or written.
+- Add 4,241 replay rows from the broad replay pool rows that are not composed in the mix (pool
+  46,087 rows), chosen by stable-hash rank (salt synth_v1_replay_extra). 3,241 is the minimal top-up for the
+  grounded-inclusive mix; 1,000 is the margin. No id repeats (checked).
+- Grounded block: 13,120 rows, unchanged, appended after the augmentation.
+- Family membership is the template list of the family blocks B1-B3 (15 templates, MedNLI included). The composer's family cap
+  counts those blocks; the check counts the same templates over the final mix.
+
+Shares (rows; before = the corrected mix; after = the final mix):
+| quantity | before (corrected mix, D56a) | after the grounded append (final) | cap / minimum | result |
+|---|---|---|---|---|
+| rows | 1,456,438 | 1,462,299 | | |
+| replay share | 20.002 % | 20.212 % | at least 20 % | pass |
+| MIMIC-family share (family templates, incl. grounded) | 35.004 % | 34.974 % | at most 35 % | pass |
+| grounded share | 0 | 0.897 % | at most 20 % | pass |
+| largest template share (broad_aqua_rat_v1) | 5.001 % (post-rebalance, pre-append) | 4.956 % | at most 8 % | pass |
+
+Hashes: corrected mix (D56a) `78d7e5478060fc828784cb3365569e177c6961270d38a76a9cff144684e9f3be` (equals the recorded value); final mix (after the rebalance and
+the grounded append) `45a6ecec0fc23cbf53ad0e49194c02ec4f9eba9c5dffbb6c78094b86e682ae80`.
+
+Relaunch: pid 17342, process start 2026-10-29T18:38:03Z, same config (`configs/osler_v5/arm_F2.yaml`, seed 0, 63,304 steps,
+ten evaluations at Y8's steps). Watchdog pid 18364 (`scripts/synth/v1_watchdog_b.sh`, pgrep anchored to the driver's command
+line; 900 s stall rule; max 5 resumes). The watchdog's pid file is `outputs/synth_v1/train/logs/run.pid`.
