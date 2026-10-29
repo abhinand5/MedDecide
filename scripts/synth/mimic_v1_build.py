@@ -263,6 +263,9 @@ def write_notes(manifest: dict[str, Any], out_dir: Path) -> None:
         t = tmpl[name]
         rate = "n/a" if t["keep_rate"] is None else f"{t['keep_rate']:.3f}"
         lines.append(f"| {name} | {t['eligible']} | {t['planned']} | {t['generated']} | {t['kept']} | {rate} |")
+    lines += ["", "## Excluded from the training mix", ""]
+    for name, reason in sorted(MIX_EXCLUSIONS.items()):
+        lines.append(f"- `{name}`: reason `{reason}` (items generated and counted; the mix builder skips them via in_training_mix).")
     lines += ["", "## Excluded templates", ""]
     for name, info in manifest["excluded_templates"].items():
         lines.append(f"- `{name}`: reason `{info['reason']}`. Its option names are near variants of one another (exam names of "
