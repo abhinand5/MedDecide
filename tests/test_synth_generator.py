@@ -347,3 +347,91 @@ def test_write_manifest_refuses_text_flag(tmp_path: Path) -> None:
     manifest["item_text_included"] = True
     with pytest.raises(ValueError, match="item_text_included"):
         write_manifest(tmp_path / "bad.json", manifest)
+
+
+# ---- binary families: label_match="sentence" -----------------------------------------------------
+
+_YN_SENTENCES = ("the answer is yes", "the answer is no")
+
+
+def _yn_spec(mode: str) -> TemplateSpec:
+    return TemplateSpec(
+        family="toy_yesno",
+        label_set=("yes", "no"),
+        option_builder=lambda facts: ("yes", "no"),
+        label_match=mode,
+        label_sentences=_YN_SENTENCES if mode == "sentence" else (),
+    )
+
+
+def _yn_case(facts: tuple[Fact, ...] | None = None) -> CaseFacts:
+    return CaseFacts(
+        family="toy_yesno",
+        facts=facts if facts is not None else (Fact("finding", "fever", "no fever"),),
+        label="no",
+    )
+
+
+_YN_TEXT = "The patient reports no fever and has been well since Monday."
+
+
+def test_label_match_defaults_to_token_and_validates() -> None:
+    assert _yn_spec("token").label_match == "token"
+    with pytest.raises(ValueError, match="label_match"):
+        TemplateSpec(family="f", label_set=("a", "b"), option_builder=lambda f: ("a", "b"), label_match="x")
+    with pytest.raises(ValueError, match="at least one label sentence"):
+        TemplateSpec(family="f", label_set=("a", "b"), option_builder=lambda f: ("a", "b"), label_match="sentence")
+    with pytest.raises(ValueError, match="two words"):
+        TemplateSpec(
+            family="f",
+            label_set=("a", "b"),
+            option_builder=lambda f: ("a", "b"),
+            label_match="sentence",
+            label_sentences=("yes",),
+        )
+
+
+def test_no_fever_passes_under_sentence_and_fails_under_token() -> None:
+    case = _yn_case()
+    assert verify_text(_YN_TEXT, case, spec=_yn_spec("sentence")).kept
+    token_verdict = verify_text(_YN_TEXT, case, spec=_yn_spec("token"))
+    assert token_verdict.reasons == (REASON_BANNED_LABEL,)
+    # No spec is the same as the token rule.
+    assert verify_text(_YN_TEXT, case).reasons == (REASON_BANNED_LABEL,)
+
+
+def test_label_sentence_in_text_is_rejected_under_sentence() -> None:
+    case = _yn_case()
+    for sentence in ("The answer is no.", "So THE ANSWER IS YES, clearly."):
+        verdict = verify_text(_YN_TEXT + " " + sentence, case, spec=_yn_spec("sentence"))
+        assert REASON_BANNED_LABEL in verdict.reasons
+
+
+def test_sentence_rule_rejects_spec_for_other_family() -> None:
+    with pytest.raises(ValueError, match="does not match template"):
+        verify_text(_YN_TEXT, _case(), spec=_yn_spec("sentence"))
+
+
+def test_render_allows_bare_label_in_fact_under_sentence_only() -> None:
+    case = _yn_case()
+    prompt = render_user_prompt(case, target_words=100, spec=_yn_spec("sentence"))
+    assert "no fever" in prompt
+    with pytest.raises(LabelLeakError):
+        render_user_prompt(case, target_words=100, spec=_yn_spec("token"))
+
+
+def test_render_refuses_fact_with_label_sentence_under_sentence() -> None:
+    leaky = _yn_case((Fact("finding", "note", "chart says the answer is no"),))
+    with pytest.raises(LabelLeakError) as info:
+        render_user_prompt(leaky, target_words=100, spec=_yn_spec("sentence"))
+    assert "answer is no" not in str(info.value).lower()
+    with pytest.raises(LabelLeakError):
+        render_request(leaky, target_words=100, style=STYLE, spec=_yn_spec("sentence"))
+
+
+def test_render_request_sentence_mode_passes_system_prompt_with_bare_word() -> None:
+    # The fixed system preamble contains the word "no"; the token rule would refuse every request.
+    case = _yn_case()
+    with pytest.raises(LabelLeakError):
+        render_request(case, target_words=100, style=STYLE, spec=_yn_spec("token"))
+    assert "no fever" in render_request(case, target_words=100, style=STYLE, spec=_yn_spec("sentence"))

@@ -73,19 +73,38 @@ class CaseFacts:
         return fact_list_id(self.family, self.facts)
 
 
+# "token": the bare label is banned as a whole-token phrase. "sentence": only the spec's label sentences are banned
+# (for binary families whose labels, such as "yes" and "no", occur in ordinary clinical text).
+LABEL_MATCH_MODES: tuple[str, ...] = ("token", "sentence")
+
 OptionBuilder = Callable[[tuple[Fact, ...]], tuple[str, ...]]
 
 
 @dataclass(frozen=True)
 class TemplateSpec:
-    """A question family: the allowed gold labels and the builder of the options offered for a case."""
+    """A question family: the allowed gold labels and the builder of the options offered for a case.
+
+    ``label_match`` selects the leak rule used by ``verify_text`` and the render functions when given the spec:
+    "token" bans each label as a phrase; "sentence" bans only ``label_sentences`` (exact phrases such as
+    "the answer is yes"), never the bare label word.
+    """
 
     family: str
     label_set: tuple[str, ...]
     option_builder: OptionBuilder
+    label_match: str = "token"
+    label_sentences: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "label_set", tuple(self.label_set))
+        object.__setattr__(self, "label_sentences", tuple(self.label_sentences))
+        if self.label_match not in LABEL_MATCH_MODES:
+            raise ValueError(f"label_match must be one of {LABEL_MATCH_MODES}")
+        if self.label_match == "sentence":
+            if not self.label_sentences:
+                raise ValueError("label_match='sentence' needs at least one label sentence")
+            if any(len(normalize_text(sentence).split()) < 2 for sentence in self.label_sentences):
+                raise ValueError("a label sentence must have at least two words")
         if len(self.label_set) < 2:
             raise ValueError("a template needs at least two labels")
         if len(set(self.label_set)) != len(self.label_set):

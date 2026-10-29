@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from meddecide.synth.facts import CaseFacts
-from meddecide.synth.verify import contains_phrase
+from meddecide.synth.facts import CaseFacts, TemplateSpec
+from meddecide.synth.verify import contains_phrase, label_phrases
 
 MIN_TARGET_WORDS = 30
 MAX_TARGET_WORDS = 2000
@@ -67,15 +67,20 @@ def render_user_prompt(
     *,
     target_words: int,
     forbidden: Iterable[str] = (),
+    spec: TemplateSpec | None = None,
 ) -> str:
-    """User prompt that lists only the case's facts, with the target length. The case label is always forbidden."""
+    """User prompt that lists only the case's facts, with the target length.
+
+    The case label is always forbidden: as a bare phrase by default, or as the spec's label sentences when
+    ``spec.label_match == "sentence"``.
+    """
     _check_target(target_words)
     fact_lines = "\n".join(f"- {fact.kind} | {fact.key}: {fact.value}" for fact in case.facts)
     text = (
         f"Write about {target_words} words.\n\n"
         f"Facts (use each one exactly as written):\n{fact_lines}"
     )
-    _assert_no_label(text, (case.label, *forbidden))
+    _assert_no_label(text, (*label_phrases(case, spec), *forbidden))
     return text
 
 
@@ -85,12 +90,13 @@ def render_request(
     target_words: int,
     style: StyleSpec,
     forbidden: Iterable[str] = (),
+    spec: TemplateSpec | None = None,
 ) -> str:
     """The request text for one case: the user prompt, with the system prompt rendered and checked alongside.
 
     Returns the user prompt as a string. The system prompt is rendered by ``render_system_prompt`` with the same
     forbidden labels, so both halves are checked; callers send ``render_system_prompt`` as the system message.
     """
-    labels = (case.label, *forbidden)
+    labels = (*label_phrases(case, spec), *forbidden)
     render_system_prompt(style, forbidden=labels)
-    return render_user_prompt(case, target_words=target_words, forbidden=labels)
+    return render_user_prompt(case, target_words=target_words, forbidden=tuple(forbidden), spec=spec)

@@ -17,7 +17,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 
-from meddecide.synth.facts import CaseFacts
+from meddecide.synth.facts import CaseFacts, TemplateSpec
 
 REASON_EMPTY = "empty_text"
 REASON_BANNED_LABEL = "banned_label"
@@ -70,6 +70,19 @@ def contains_phrase(text: str, phrase: str) -> bool:
     return any(haystack[i : i + width] == needle for i in range(len(haystack) - width + 1))
 
 
+def label_phrases(case: CaseFacts, spec: TemplateSpec | None = None) -> tuple[str, ...]:
+    """Phrases whose presence in generated text or a prompt leaks the label of ``case``.
+
+    Without a spec, or with ``label_match == "token"``, this is the bare label. With "sentence" it is the spec's
+    label sentences only (the bare label word is allowed in ordinary text, e.g. "no fever").
+    """
+    if spec is None or spec.label_match == "token":
+        return (case.label,)
+    if spec.family != case.family:
+        raise ValueError(f"case family {case.family!r} does not match template {spec.family!r}")
+    return spec.label_sentences
+
+
 @dataclass(frozen=True)
 class Verdict:
     """Outcome for one generated text. ``reasons`` is empty if and only if the text is kept.
@@ -96,6 +109,7 @@ def verify_text(
     *,
     word_range: tuple[int, int] | None = None,
     banned_phrases: tuple[str, ...] = META_BANNED_PHRASES,
+    spec: TemplateSpec | None = None,
 ) -> Verdict:
     """Check ``text`` against the facts and banned tokens of ``case``. Returns a verdict; never drops silently."""
     words = len(text.split())
@@ -104,7 +118,7 @@ def verify_text(
     if not tokenize(text):
         found.add(REASON_EMPTY)
 
-    if contains_phrase(text, case.label):
+    if any(contains_phrase(text, phrase) for phrase in label_phrases(case, spec)):
         found.add(REASON_BANNED_LABEL)
 
     banned_hits = tuple(phrase for phrase in banned_phrases if contains_phrase(text, phrase))
