@@ -94,3 +94,15 @@ the grounded append) `45a6ecec0fc23cbf53ad0e49194c02ec4f9eba9c5dffbb6c78094b86e6
 Relaunch: pid 17342, process start 2026-10-29T18:38:03Z, same config (`configs/osler_v5/arm_F2.yaml`, seed 0, 63,304 steps,
 ten evaluations at Y8's steps). Watchdog pid 18364 (`scripts/synth/v1_watchdog_b.sh`, pgrep anchored to the driver's command
 line; 900 s stall rule; max 5 resumes). The watchdog's pid file is `outputs/synth_v1/train/logs/run.pid`.
+
+## Incident: watchdog stall during the step-6,330 evaluation (2026-10-29, 20:23Z)
+
+- The first watchdog (`v1_watchdog_b.sh`, pid 18364) counted log silence only. The evaluation at step 6,330 runs for more than
+  15 minutes with no log line (the GPU at 99 % and 73 GB), so at 20:23:28Z the watchdog judged the run stalled, killed pid 17342
+  and resumed it from the step-5,000 full checkpoint (`logs/watchdog.log`, resume 1; `logs/resumes.jsonl`). Left unchanged, this
+  would repeat each cycle (a resume to 6,330 then a second evaluation longer than 15 minutes) and never finish the evaluation.
+- Change (coordinator-level judgement, reversible): the stall rule now requires the log silent for 15 minutes AND GPU utilisation
+  below 5 %. The GPU-aware script is `scripts/synth/v1_watchdog_c.sh` (committed). A hung process still gets resumed; a busy
+  evaluation does not. The old watchdog pid 18364 was stopped by pid.
+- Resumed job: pid 33680 (resumed from the step-5,000 full checkpoint), watchdog pid per `ps`, using `v1_watchdog_c.sh`.
+- The run has not yet reached the step-6,330 evaluation line at the time of writing.
