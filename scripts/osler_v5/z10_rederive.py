@@ -4,7 +4,8 @@ Recomputes the Z10 figures from the raw prediction files in a fresh process and 
 1. every prediction's item, gold label and option-key order against its Y9 item, and its scored probabilities normalised;
 2. the item micro and the template macro of each set, with the report's own definitions (meddecide.eval.o2_metrics.score_row);
 3. the knowledge pairing against osler_v4's pplx file, joined on mix_row_to_item's id (as in z10_report.py);
-4. the chance level of every cell (1 / option count, as cell_health uses it), printed beside the cells that sit within 0.02 of it.
+4. the chance level (1 / option count, as cell_health uses it) and the majority-gold baseline of every cell, with the cell's accuracy.
+   A cell within 0.02 of chance, or below its majority baseline, is flagged in the output.
 Exits non-zero if an item is misaligned or a figure differs from report.json by more than the report's rounding.
 
 Usage (CPU):
@@ -15,7 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -91,10 +92,16 @@ def main() -> int:
             for template, items in sorted(cells.items()):
                 options = max(2, round(float(np.mean([len(item.option_keys) for item in items]))))
                 chance = 1.0 / options
+                majority = Counter(item.gold for item in items).most_common(1)[0][1] / len(items)
                 accuracy = float(np.mean([float(item.correct) for item in items]))
+                flags = []
                 if accuracy < chance + 0.02:
-                    print(f"  near or below chance: {template} n {len(items)} options {options} chance {chance:.4f} "
-                          f"accuracy {accuracy:.4f} margin {accuracy - chance:+.4f}")
+                    flags.append("near or below chance")
+                if accuracy < majority:
+                    flags.append("below majority")
+                note = f"  <- {'; '.join(flags)}" if flags else ""
+                print(f"  cell {template} n {len(items)} options {options} chance {chance:.4f} majority {majority:.4f} "
+                      f"accuracy {accuracy:.4f}{note}")
         paired, unpaired, diff = knowledge_pairing(model_dir)
         block = by_slug[slug]["sets"]["knowledge"]["paired_with_pplx"]
         worst = max(worst, abs(diff - block["difference_point"]))
