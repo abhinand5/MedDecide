@@ -132,3 +132,42 @@ above. It was accepted by the coordinator for now (2026-10-29). It is not an ope
 Driver line: S 0.8014 (MR 0.9050, MIMIC 0.7200, CG micro 0.7792); knowledge dev 0.7552; positional health original order True, seeds
 1 and 2 both True. Trainer tripwire at the same step (fast dev v4, 17,532 items): accuracy 0.7843, template macro 0.7993. Checkpoint
 saved at outputs/synth_v1/train/checkpoints/step_006330. The run continues toward 63,304 under v1_watchdog_c.sh.
+
+## Outage 2026-10-30 07:25Z to 18:04Z (about 10.6 h): cause, evidence, fix
+
+Timeline (UTC; from logs/train.jsonl, logs/watchdog.log, logs/resumes.jsonl, logs/watchdog_c.stdout):
+- 07:01Z full checkpoint step_042500 written (COMPLETE). 07:25Z last training record at step 44,300. 07:44:36Z the watchdog
+  (v1_watchdog_c) killed pid 33680 after 1,120 s of silence with the GPU idle. Its log has no traceback; the process was alive.
+  Cause not identified: `dmesg` is not permitted on this host, and nothing in run.log explains the hang. This is an open item.
+- 07:44:56Z to 08:01:17Z: five resumed jobs (pids 130017, 130530, 131147, 131724, 132294), each killed by the watchdog exactly
+  180 s after its start. Cause (a bug in v1_watchdog_c.sh, not in the job): the stall age was taken from the stale mtimes of
+  logs/train.jsonl (07:25Z) and logs/run.log (06:00Z), not from the job's start, and the GPU is idle during the roughly 8 to 10
+  minutes of composition. Each job was therefore killed in its composition phase. None reached its resume record
+  (resumes.jsonl has only the 2026-10-29 line). The resume limit (5) was then reached at 08:01:17Z and the watchdog exited.
+- 17:49Z: logs backed up to logs/backup_before_resume_2026-10-30T1749Z/. 17:50:26Z: v1_watchdog_d.sh started the job (pid 207920)
+  with --resume from step_042500 (checked: COMPLETE, optimizer.pt, rng.pt, trainable.pt, run_state.json present).
+- 17:57:07Z: "resume" record written (from_step 42,500). 17:57 to 18:04:30Z: the job was alive, CPU-bound (main thread running,
+  about 93 % CPU, 209 threads, the worker threads idle in futex waits), GPU 0 %, with 9.4 GB loaded. This is the resume
+  fast-forward: the trainer replays the batch iterator for the 42,500 batches already taken before its first step
+  (src/meddecide/train/trainer.py, `skip_in_epoch`). It is not a lock or a deadlock. The earlier resume from 5,000 took about one
+  minute for the same loop; this one takes about seven.
+- 18:04:30Z: first step after the resume (42,550). 18:06:26Z: step 42,700, rate about 1.36 steps per second, GPU 100 %, 91 GB.
+  This is the first and only check of the resumed run; the 5-minute check passed.
+
+Blocking point, answering the coordinator's question: none at 18:04Z onwards. Between 17:57Z and 18:04Z the process was in the
+resume fast-forward (CPU-bound), not blocked. py-spy is not installed, so no stack dump was taken; the evidence is the process
+state, CPU use and the step records.
+
+Fix (scratch `scripts/synth/v1_watchdog_d.sh`, committed as scripts/synth/v1_watchdog_d.sh):
+1. The stall age is measured from the later of the log mtime and the job's start time (a stale log no longer counts).
+2. A 30-minute grace after each start: no stall check. This covers composition (about 7 to 10 min) and the resume fast-forward
+   (about 7 min at step 42,500, longer at later steps).
+3. MAX_RESUMES 10 (was 5). The kill rule is otherwise unchanged: silent log for more than 15 min AND GPU below 5 %.
+No change to the training config, the mix, the seed or the step budget.
+
+Open items: the cause of the 07:25Z hang is unknown. If it recurs, the watchdog will detect it after 15 min of silence and a
+busy-idle GPU, and the run will resume from the newest full checkpoint.
+
+Restart record: resumed at 17:57:07Z (from step 42,500); first step 18:04:30Z; step 42,700 at 18:06:26Z.
+ETA to 63,304: about 20,600 steps at 1.36 steps per second (about 4.2 h) plus four evaluations (44,313; 50,643; 56,974; 63,304)
+at about 20 min each, about 1.3 h. Total about 5.5 h from 18:06Z, so about 23:40Z on 2026-10-30 (estimate; the rate may vary).
