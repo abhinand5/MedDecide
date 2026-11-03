@@ -2,8 +2,8 @@
 
 Loop status: `RUNNING` (autonomous; operator go 2026-11-04 in chat; hard stop after Gate O7)
 Run started (UTC): `2026-11-03T19:30:00Z`
-Last updated (UTC): `2026-11-03T20:46:00Z`
-Iterations so far: `3`
+Last updated (UTC): `2026-11-03T22:05:00Z`
+Iterations so far: `4`
 
 ---
 
@@ -15,7 +15,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 |---|---|---|---|---|---|---|
 | D0 | Pre-registration: GOAL, ADVISORY, STATE, CLAIMS; AGENTS current-loop pointer | no | — | DONE | 2026-11-03T19:30Z | 2026-11-03T19:40Z |
 | D1 | Teacher ceiling on all frozen sets; labeler, cost ledger, freeze schema | no | D0 | DONE | 2026-11-03T19:38Z | 2026-11-03T19:59Z |
-| D2 | Basket manifest; label run (cap $15); QA; frozen label file | no | D1 | IN_PROGRESS | 2026-11-03T20:02Z | |
+| D2 | Basket manifest; label run (cap $15); QA; frozen label file | no | D1 | DONE | 2026-11-03T20:02Z | 2026-11-03T21:57Z |
 | D3 | Clef-Flash port check (3 h timebox); fallback decision | yes | D0 | DONE | 2026-11-03T20:28Z | 2026-11-03T20:45Z |
 | D4 | Distillation driver + λ calibration + 4B run (63,304 steps) | yes | D2 | PENDING | | |
 | D5 | 9B run (63,304 steps), same labels and recipe | yes | D3, D4 | PENDING | | |
@@ -79,6 +79,20 @@ MIMIC note: on 2026-11-03 the operator wrote in chat that MIMIC-derived datasets
 
 ---
 
+## 3b-2. D2 checklist
+
+Acceptance (GOAL §4): every T row labelled or dropped with a reason; SHA-256; ledger ≤ cap; no test item.
+
+- [x] Pool: 1,268,815 rows = corrected mix (1,456,438) − 187,623 rule-lookup rows, exactly the pre-registered per-template counts; text SHA-256 `11d1a068…` (`composition.json`)
+- [x] Basket T: 494,803 rows / 494,748 unique text keys (pre-registered 508,516; −13,713 from nine stale counts, documented in §6); teacher share 39.00 %, MIMIC 39.34 %
+- [x] Frozen-set exclusion: 0 hits by text key and 0 by item id against 14 frozen files; no MIMIC row outside the operator authorization
+- [x] Label run: 494,748 labels, 0 failures, 0 skipped; nine-field freeze rows (text key added for the Winogrande twins); file SHA-256 `06679bcd…`
+- [x] Spend: D2 $6.628504 over three attempts (label file $6.621052), 157,644,106 input tokens; loop total $7.899430 of the $15 cap
+- [x] QA (11 checks in `label_manifest.json`) and the independent audit (21 checks, `audit.json`, `d2_rederive.py`) all pass
+- [x] SELF_AUDIT.md (R6), CLAIMS C-D2-01…06, STATE, commit
+
+---
+
 ## 3c. D3 checklist
 
 Acceptance (GOAL §4): forward + readout init works, or fallback recorded.
@@ -102,7 +116,8 @@ Acceptance (GOAL §4): forward + readout init works, or fallback recorded.
 - `2026-11-03T19:58Z` — D1 DONE. Ceiling (micro, n): knowledge 0.8167 (5,456), panel 0.6825 (4,353), mr_verdict 0.7387 (13,102), mednli 0.8812 (1,422), mr_reported 1.0000 (6,191), mr_heldout 0.8322 (584), mimic_suite 0.6901 (4,253), pairs 0.9360 (500), mimic_heldout 0.7364 (110). Total spend $1.27091, 30.26M tokens, 1 failure. SELF_AUDIT 20/20 PASS; CLAIMS C-D1-01…13. mr_heldout is below its majority baseline (0.8510) and mr_reported is cue-solvable (1.0000) — both flagged.
 - `2026-11-03T19:59Z` — D1 parity: 37/40 argmax agreement between two identical calls, max |Δp| 0.2083, mean 0.0183.
 - `2026-11-03T20:28Z` — D3 started (Clef port). The first design (convert the text tower to a `Qwen3_5ForCausalLM` checkpoint on disk) hit the workspace quota (18 GB copy, `EDQUOT`); replaced by an in-memory loader (`meddecide.model.clef`) plus a `base_override` path in `MedDecideModel`. Two PEFT attribute probes (`base_model_prefix`, `prepare_inputs_for_generation`) and one output-shape mismatch were fixed; `PORT_OK` at 20:44:39Z (255 codes, readout rows equal lm_head, 20-item smoke, backward grads, 28.1 GB peak).
-- `2026-11-03T20:02Z` — D2 started (basket + label run). Plan found: pool 1,268,815 (matches); rule-lookup drop 187,623 (matches); T basket 494,803 rows (pre-registration says 508,516: nine templates hold fewer rows than listed, two CT templates are below the 10,000 cap; teacher share 39.0 % is inside the 38–45 % band — deviation recorded). Pool has 5,232 duplicated item ids (Winogrande twins, 27,340 rows) so the training basket is keyed by text key (added field `text_key` on D2 freeze rows); 1,826 duplicate text keys / 8,478 rows, of which 71 keys carry conflicting gold (reported, inherited from the mix).
+- `2026-11-03T20:02Z` — D2 started (basket + label run). Plan: pool 1,268,815 (matches); rule-lookup drop 187,623 (matches); T basket 494,803 (pre-registration says 508,516: nine stale counts, documented); 5,232 duplicated item ids (27,340 rows, Winogrande twins) so the basket is keyed by text key; 1,826 duplicate text keys (8,478 rows), 71 with conflicting gold.
+- `2026-11-03T21:57Z` — **D2 DONE.** 494,748 labels, 0 failures, 0 skipped; D2 spend $6.628504 over three attempts (label file $6.621052), 157,644,106 tokens; loop total $7.899430. QA 11/11, independent audit 21/21 PASS. The first attempt was stopped to add the operator's MIMIC authorization (it was skipping 10,618 MedNLI rows); the second was killed by the workspace quota at 90,528 labels and resumed (1,728 labels of the first attempt were discarded by the then-current resume truncation, $0.0079 booked in the ledger). Plan found: pool 1,268,815 (matches); rule-lookup drop 187,623 (matches); T basket 494,803 rows (pre-registration says 508,516: nine templates hold fewer rows than listed, two CT templates are below the 10,000 cap; teacher share 39.0 % is inside the 38–45 % band — deviation recorded). Pool has 5,232 duplicated item ids (Winogrande twins, 27,340 rows) so the training basket is keyed by text key (added field `text_key` on D2 freeze rows); 1,826 duplicate text keys / 8,478 rows, of which 71 keys carry conflicting gold (reported, inherited from the mix).
 
 ---
 
@@ -116,7 +131,7 @@ None. All decisions needed for D0–D7 were answered in chat on 2026-11-04. Anyt
 
 1. **MIMIC and the hosted teacher (2026-11-03, operator instruction in chat).** The operator wrote that MIMIC-derived datasets may be used 100 % and that the provider's email confirmations are in hand. D60 required the operator to confirm the BAA before any MIMIC item is sent; this instruction is that confirmation. The `hosted_guard` gained an explicit `allow_protected` flag (default off); the D1 manifest records `allow_protected: true` and the authorization text. MIMIC content is still never written into a committed file. The **training** basket is unchanged: the audit family stays gold-only on the measured evidence (teacher 0.6901 vs tuned student 0.800 on the MIMIC suite).
 2. **D1 ceiling on 9 sets, not 6 (scope widened by the same authorization).** The pre-registered D1 was "9 sets scored"; the rule as then written allowed only 5. The authorization restored the pre-registered scope rather than changing it.
-3. **D2 basket counts (2026-11-03, recorded, not silent).** The composed pool matches the pre-registered 1,268,815 rows and the 187,623-row rule-lookup drop exactly, but the T basket is **494,803 rows, not 508,516** (delta −13,713). Cause: the GOAL §3.3 per-template counts are stale for nine templates — `ct_intervention_type_choice_v1` holds 6,318 rows and `ct_primary_purpose_choice_v1` 4,237 (below the 10,000/template cap), and seven broad replay templates are smaller than listed (`broad_aqua_rat_v1` 69,980 vs 72,469, etc.). Every available row of every listed template is in the basket; nothing is topped up from other families. Teacher share 39.0 % (band 38–45 %) and MIMIC share 39.3 % (band 37–42 %), so the dose is inside the pre-registered bands.
+3. **D2 basket counts (2026-11-03, recorded, not silent).** The composed pool matches the pre-registered 1,268,815 rows and the 187,623-row rule-lookup drop exactly, but the T basket is **494,803 rows, not 508,516** (delta −13,713: `ct_intervention_type_choice_v1` 6,318 and `ct_primary_purpose_choice_v1` 4,237 are below the 10,000 cap, and seven broad replay templates are smaller than listed; realised teacher share 39.00 % and MIMIC 39.34 %, both inside the pre-registered bands). Cause: the GOAL §3.3 per-template counts are stale for nine templates — `ct_intervention_type_choice_v1` holds 6,318 rows and `ct_primary_purpose_choice_v1` 4,237 (below the 10,000/template cap), and seven broad replay templates are smaller than listed (`broad_aqua_rat_v1` 69,980 vs 72,469, etc.). Every available row of every listed template is in the basket; nothing is topped up from other families. Teacher share 39.0 % (band 38–45 %) and MIMIC share 39.3 % (band 37–42 %), so the dose is inside the pre-registered bands.
 4. **D2 freeze schema adds `text_key`.** Winogrande twins share an `item_id` while their state text differs (5,232 ids / 27,340 pool rows), so an id-keyed label file would collapse distinct rows. D2 rows carry the normalised text key (the repository's existing disambiguator, osler_v4 Y5) and the labels attach by it; D1's ceiling rows keep the eight-field schema where ids are unique.
 5. **D1's resumed ledger.** The MIMIC extension seeded the ledger from the already-frozen labels, so the manifest's cost/token totals are whole-task totals rather than the second run's only. The manifest reports `attempted_this_run: 6,286` separately.
 

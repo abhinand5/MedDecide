@@ -34,7 +34,7 @@ from meddecide.eval.composite import composite, permutation_for, positional_heal
 from meddecide.model.meddecide_model import MedDecideModel, reorder_options
 from meddecide.model.pplx import PplxDecisionModel
 from meddecide.train.config import load_config
-from meddecide.train.distill_mix import POOL_ROWS_EXPECTED
+from meddecide.train.distill_mix import POOL_ROWS_EXPECTED, select_teacher_rows
 from meddecide.train.distill_pool import attach_teacher_probs, compose_pool, load_labels
 from meddecide.train.mix_items import mix_row_to_item
 from meddecide.train.option_augment import augment_rows, build_pools
@@ -99,10 +99,13 @@ def main() -> None:
     if file_sha256(LABELS) != label_manifest["labels_sha256"]:
         raise SystemExit("the frozen label file does not match the D2 manifest's SHA-256")
     labels = load_labels(LABELS)
-    print(f"pool {pool_info['pool_rows']} rows; frozen labels {len(labels)}; attaching ...", flush=True)
-    attach = attach_teacher_probs(pool, keys, labels, model_id=TEACHER_MODEL)
+    teacher_indices, teacher_report = select_teacher_rows(pool)
+    basket_keys = {keys[index] for index in teacher_indices}
+    print(f"pool {pool_info['pool_rows']} rows; frozen labels {len(labels)}; basket keys {len(basket_keys)}; attaching ...",
+          flush=True)
+    attach = attach_teacher_probs(pool, keys, labels, model_id=TEACHER_MODEL, basket_keys=basket_keys)
     print(f"attach: {attach}", flush=True)
-    if (attach["attached"] != len(labels) or attach["missing_label"] or attach["template_mismatch"]
+    if (attach["attached_keys"] != len(labels) or attach["missing_label"] or attach["template_mismatch"]
             or attach["option_order_mismatch"]):
         raise SystemExit(f"the teacher attachment is not complete: {attach}")
     del keys, labels
@@ -120,6 +123,8 @@ def main() -> None:
     n_teacher_items = sum(1 for item in train_items if getattr(item, "teacher_probs", None) is not None)
     if n_teacher_items != attach["attached"]:
         raise SystemExit(f"teacher items in the training set ({n_teacher_items}) != attached rows ({attach['attached']})")
+    if n_teacher_items != teacher_report["selected_total"]:
+        raise SystemExit(f"teacher items ({n_teacher_items}) != the basket's {teacher_report['selected_total']} rows")
 
     fast_rows, cg_rows, know_rows = read_jsonl(DEV), read_jsonl(CG), read_jsonl(KNOW)
     if args.smoke:
@@ -154,7 +159,7 @@ def main() -> None:
     torch.manual_seed(config.seed)
     if config.backbone == "pplx":
         model = PplxDecisionModel(lora=config.lora, dtype=config.dtype, device=config.device,
-                                  max_prompt_tokens=config.max_prompt_tokens)
+                                  max_prompt_tokens=config.max_prompt_tokens, revision=config.revision)
     elif config.backbone == "clef":
         from meddecide.model.clef import load_clef_text_backbone
 

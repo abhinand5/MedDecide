@@ -26,3 +26,14 @@ D3 (Clef-Flash port check; artifact `outputs/distill_v0/D3/port_check.json`)
 | C-D3-01 | Clef-Flash text-tower port verdict | `PORT_OK` (2026-11-03T20:44:39Z; pinned `fde727a2…`) | `outputs/distill_v0/D3/port_check.json` | `source scripts/pod_env.sh && uv run --frozen python scripts/distill_v0/d3_clef_port.py --out outputs/distill_v0/D3` (GPU) | D3 |
 | C-D3-02 | Option-code readout initialised from the Clef `lm_head` | 255 codes; `rows_equal_lm_head: true`; text tower hidden 4096, 32 layers, vocab 248,320; vision tower dropped (456,010,480 parameters) | `outputs/distill_v0/D3/port_check.json` | same as C-D3-01 | D3 |
 | C-D3-03 | Trainable parameters and a gradient pass on the 9B port | 8,908,800 trainable; 20-item smoke probabilities sum to 1 (min 0.99999993); LoRA grad norm 130.2, head grad norm 71.0; peak GPU 28.1 GB | `outputs/distill_v0/D3/port_check.json` | same as C-D3-01 | D3 |
+
+D2 (basket + hosted label run; artifacts in `outputs/distill_v0/D2/`)
+
+| id | claim | value | artifact | recompute command | task |
+|---|---|---|---|---|---|
+| C-D2-01 | Pool: corrected mix minus the rule-lookup templates | 1,268,815 rows (matches the pre-registration); rule-lookup drop 187,623 rows, exactly the recorded per-template counts; text-key SHA-256 `11d1a068d14a04ee…`, item-id SHA-256 `9f3a6faad38f6b4a…` | `outputs/distill_v0/D2/composition.json` | `uv run --frozen python scripts/distill_v0/d2_rederive.py --out outputs/distill_v0/D2` | D2 |
+| C-D2-02 | Teacher basket T | 494,803 rows / 494,748 unique text keys (pre-registered 508,516; deviation −13,713 from nine stale per-template counts, documented); teacher share 39.00 %, MIMIC share 39.34 % | `outputs/distill_v0/D2/composition.json` | same as C-D2-01 | D2 |
+| C-D2-03 | Frozen d1-ultra labels for training | 494,748 rows, 0 failures, 0 skipped; SHA-256 `06679bcd0899eec5…` | `outputs/distill_v0/D2/labels.jsonl`, `label_manifest.json` | same as C-D2-01 (re-checks the hash and the row count) | D2 |
+| C-D2-04 | D2 label-run spend | $6.628504 over three attempts (label-file cost $6.621052); 157,644,106 input tokens; loop spend after D2 $7.899430 of the $15 cap | `outputs/distill_v0/D2/label_manifest.json`, `outputs/distill_v0/cost_ledger.jsonl` | same as C-D2-01 (ledger and label sums) | D2 |
+| C-D2-05 | Pool key structure | 5,232 duplicated item ids / 27,340 rows (Winogrande twins); 1,826 duplicate text keys / 8,478 rows; 71 keys with conflicting gold, 0 with conflicting option keys | `outputs/distill_v0/D2/composition.json` | same as C-D2-01 | D2 |
+| C-D2-06 | Frozen-set exclusion of the training basket | 0 labelled text-key hits and 0 labelled item-id hits against the 14 frozen files | `outputs/distill_v0/D2/composition.json`, `label_manifest.json` | same as C-D2-01 | D2 |

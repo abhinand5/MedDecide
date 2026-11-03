@@ -43,8 +43,8 @@ RECIPE = REPO / "configs" / "distill_v0" / "student_4b.yaml"
 SETS = ("knowledge", "panel", "mr_verdict", "mednli_test", "mr_reported", "mr_heldout_test",
         "mimic_suite", "pairs_test", "mimic_heldout")
 CHECKS = (
-    ("i", "panel", "pplx", 0.0),
-    ("ii", "knowledge", "pplx", -0.02),
+    ("i", "panel", "pplx_flash", 0.0),
+    ("ii", "knowledge", "pplx_flash", -0.02),
     ("iii", "mr_verdict", "final", -0.02),
     ("iv", "mimic_suite", "final", -0.02),
 )
@@ -75,12 +75,14 @@ def load_items(set_name: str) -> list[dict[str, Any]]:
     return items
 
 
-def load_rows(path: Path, items: list[dict[str, Any]], *, key: str = "item_id") -> dict[str, Any]:
-    by_id = {str(item[key]): item for item in items}
+def load_rows(path: Path, items: list[dict[str, Any]]) -> dict[str, Any]:
+    """Rows keyed either by the recomputed item id (trainer-based runners) or by the set file's own id (zero-shot runners)."""
+    by_computed = {str(item["item_id"]): item for item in items}
+    by_raw = {str(item["raw_id"]): item for item in items}
     rows = []
     skipped = 0
     for raw in iter_jsonl(path):
-        item = by_id.get(str(raw["item_id"]))
+        item = by_computed.get(str(raw["item_id"])) or by_raw.get(str(raw["item_id"]))
         if item is None:
             raise ValueError(f"{path}: a prediction outside the set")
         if raw.get("status", "scored") != "scored":
@@ -90,13 +92,29 @@ def load_rows(path: Path, items: list[dict[str, Any]], *, key: str = "item_id") 
     return {"rows": rows, "path": str(path), "skipped_by_runner": skipped}
 
 
+Y4_BASELINES = REPO / "outputs" / "osler_v4" / "Y4" / "baselines"
+Z10_PATHS = {"clef_flash": Z10 / "clef_flash", "qwen4b": Z10 / "zeroshot" / "qwen35_4b",
+             "qwen9b": Z10 / "zeroshot" / "qwen35_9b"}
+# the MIMIC sets were scored before the Y9 grid existed; the Y9 gate reads the Y4 runs for them
+Y4_RUNS = {"pplx_flash": {"mimic_suite": "suite_flash", "mimic_heldout": "heldout_flash"},
+           "md4b": {"mimic_suite": "suite_meddecider4b", "mimic_heldout": "heldout_meddecider4b"},
+           "md9b": {"mimic_suite": "suite_meddecider9b"},
+           "osler_v2": {"mimic_suite": "suite_osler_v2", "mimic_heldout": "heldout_osler_v2"}}
+
+
 def baseline_path(model: str, set_name: str) -> Path | None:
+    if model in Z10_PATHS:
+        path = Z10_PATHS[model] / f"{set_name}.jsonl"
+        return path if path.exists() else None
+    if model == "jev9b":
+        path = BASELINES / f"jev9b_{set_name}" / "jev-9b" / "predictions.jsonl"
+        return path if path.exists() else None
+    if set_name in Y4_RUNS.get(model, {}):
+        path = Y4_BASELINES / Y4_RUNS[model][set_name] / "predictions.jsonl"
+        return path if path.exists() else None
     prefix = FRONTIER_MODELS[model][1]
     if prefix is None:
         return None
-    if model in {"clef_flash", "qwen4b", "qwen9b"}:
-        path = Z10 / prefix / f"{set_name}.jsonl"
-        return path if path.exists() else None
     path = BASELINES / f"{prefix}_{set_name}" / "predictions.jsonl"
     return path if path.exists() else None
 
@@ -231,6 +249,8 @@ def main() -> None:
                 path = out / f"{prefix}_{set_name}" / "predictions.jsonl"
                 if path.exists():
                     rows[set_name] = load_rows(path, items_by_set[set_name])
+                else:
+                    rows[set_name] = {"rows": [], "path": "", "skipped_by_runner": 0}
         else:
             model, _kind = load_model(checkpoints[student])
             score_student(model, prefix, out, SETS)
@@ -241,7 +261,7 @@ def main() -> None:
         scored[student] = rows
 
     baselines: dict[str, dict[str, Any]] = {}
-    for key in ("pplx", "final", "md4b", "md9b", "jev9b", "osler_v2", "pplx27b", "clef_flash", "qwen4b", "qwen9b"):
+    for key in ("pplx_flash", "final", "md4b", "md9b", "jev9b", "osler_v2", "pplx27b", "clef_flash", "qwen4b", "qwen9b"):
         baselines[key] = {}
         for set_name in SETS:
             path = baseline_path(key, set_name)
@@ -264,7 +284,8 @@ def main() -> None:
                         for key, path in checkpoints.items()},
         "students": args.students,
         "gate_o7": gate,
-        "verdict": "PASS" if any(entry["verdict"] == "PASS" for entry in gate.values()) else "FAIL",
+        "verdict": ("PASS" if any(entry["verdict"] == "PASS" for entry in gate.values())
+                    else ("FAIL" if any(entry["verdict"] == "FAIL" for entry in gate.values()) else "NOT MEASURED")),
         "scoreboard": scoreboard,
         "frontier": frontier(scoreboard),
         "sets": list(SETS),

@@ -120,10 +120,16 @@ def load_labels(path: Path) -> dict[str, dict[str, Any]]:
 
 def attach_teacher_probs(rows: Sequence[dict[str, Any]], keys: Sequence[str],
                          labels: Mapping[str, Mapping[str, Any]], *,
-                         model_id: str) -> dict[str, Any]:
-    """Add the teacher distribution to every teacher-template row whose text key has a label (in place)."""
+                         model_id: str, basket_keys: set[str] | None = None) -> dict[str, Any]:
+    """Add the teacher distribution to every basket row whose text key has a label (in place).
+
+    ``basket_keys`` is the selected teacher basket (the CT templates are capped, so a teacher-template
+    row outside the basket is gold-only by design and is counted, not treated as a missing label).
+    """
     attached = 0
+    attached_keys: set[str] = set()
     missing = 0
+    outside_basket = 0
     template_mismatch = 0
     order_mismatch = 0
     renormalised = 0
@@ -131,6 +137,9 @@ def attach_teacher_probs(rows: Sequence[dict[str, Any]], keys: Sequence[str],
     for row, key in zip(rows, keys, strict=True):
         template = str(row["template_id"])
         if not is_teacher_template(template):
+            continue
+        if basket_keys is not None and key not in basket_keys:
+            outside_basket += 1
             continue
         label = labels.get(key)
         if label is None:
@@ -152,6 +161,9 @@ def attach_teacher_probs(rows: Sequence[dict[str, Any]], keys: Sequence[str],
         row["teacher_probs"] = probs
         row["teacher"] = str(label.get("teacher") or model_id)
         attached += 1
-    return {"attached": attached, "missing_label": missing, "template_mismatch": template_mismatch,
+        attached_keys.add(key)
+    return {"attached": attached, "attached_keys": len(attached_keys), "basket_keys": len(basket_keys)
+            if basket_keys is not None else None, "outside_basket_teacher_rows": outside_basket,
+            "missing_label": missing, "template_mismatch": template_mismatch,
             "option_order_mismatch": order_mismatch, "renormalised": renormalised,
             "max_abs_sum_deviation": max_deviation, "model_id": model_id}
