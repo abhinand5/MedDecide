@@ -484,6 +484,7 @@ class Trainer:
         distill_weight = float(config.distill_weight)
         calibration_steps = int(config.distill_calibration_steps or 0)
         calibration_records: list[dict[str, float]] = []
+        calibration_frozen = False
         if calibration_steps and distill_weight <= 0:
             raise ValueError("distillation calibration needs distill_weight > 0")
         # resume (osler_v4 Y8): the state of a full checkpoint, restored before the first batch. The batches the checkpoint already took
@@ -510,6 +511,7 @@ class Trainer:
             consecutive_below = int(run["consecutive_below"])
             distill_weight = float(run.get("distill_weight", distill_weight))
             calibration_records = [dict(record) for record in run.get("distill_calibration") or []]
+            calibration_frozen = bool(run.get("distill_calibration_frozen", False))
             self._log({"event": "resume", "from_step": total_steps, "epoch": epoch, "batches_in_epoch": skip_in_epoch,
                        "distill_weight": distill_weight})
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
@@ -586,7 +588,10 @@ class Trainer:
                                                        teacher_mask, per_item_normaliser=self._per_item_normaliser())
                         distill_value = float(distill_term.detach())
                 params = [p for group in self.optimizer.param_groups for p in group["params"]]
-                calibrating = distill_term is not None and len(calibration_records) < calibration_steps
+                # the pre-registered window is the first ``calibration_steps`` steps; steps without a teacher item
+                # contribute no measurement, and the freeze still happens at the window's end
+                calibrating = (distill_term is not None and not calibration_frozen and calibration_steps > 0
+                               and (total_steps + 1) <= calibration_steps)
                 if calibrating:
                     ce_grad_norm = self._loss_grad_norm(params, breakdown.total)
                     kl_grad_norm = self._loss_grad_norm(params, distill_term)
@@ -594,14 +599,6 @@ class Trainer:
                                                 "kl_grad_norm": kl_grad_norm})
                     self._log({"event": "distill_calibration", "step": total_steps + 1,
                                "ce_grad_norm": ce_grad_norm, "kl_grad_norm": kl_grad_norm})
-                    if len(calibration_records) == calibration_steps:
-                        distill_weight = distill_lambda_for_target(
-                            [record["ce_grad_norm"] for record in calibration_records],
-                            [record["kl_grad_norm"] for record in calibration_records],
-                            float(config.distill_calibration_target))
-                        self._write_lambda_calibration(calibration_records, distill_weight)
-                        self._log({"event": "distill_lambda", "lambda": distill_weight,
-                                   "target": float(config.distill_calibration_target), "steps": calibration_steps})
                 if distill_term is not None:  # total_loss already holds CE + Brier and any KL-to-base term
                     total_loss = total_loss + distill_weight * distill_term
                 self.optimizer.zero_grad(set_to_none=True)
@@ -627,6 +624,20 @@ class Trainer:
                     else 0.0
                 )
                 total_steps += 1
+                if calibration_steps and not calibration_frozen and total_steps >= calibration_steps:
+                    if calibration_records:
+                        distill_weight = distill_lambda_for_target(
+                            [record["ce_grad_norm"] for record in calibration_records],
+                            [record["kl_grad_norm"] for record in calibration_records],
+                            float(config.distill_calibration_target))
+                        self._write_lambda_calibration(calibration_records, distill_weight)
+                        self._log({"event": "distill_lambda", "lambda": distill_weight,
+                                   "target": float(config.distill_calibration_target), "steps": calibration_steps,
+                                   "measured_steps": len(calibration_records)})
+                    else:
+                        self._log({"event": "distill_lambda_unmeasured", "lambda": distill_weight,
+                                   "steps": calibration_steps})
+                    calibration_frozen = True
                 record = StepRecord(
                     step=total_steps,
                     epoch=epoch,
@@ -696,6 +707,7 @@ class Trainer:
                             "best": best, "best_step": best_step, "consecutive_below": consecutive_below,
                             "schedule": schedule, "seed": config.seed,
                             "distill_weight": distill_weight, "distill_calibration": calibration_records,
+                            "distill_calibration_frozen": calibration_frozen,
                             "config_fingerprint": config_fingerprint(config.to_dict()),
                         },
                         keep_last=full_checkpoint_keep_last,

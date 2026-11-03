@@ -65,7 +65,7 @@ def test_load_labels_rejects_a_duplicate_text_key(tmp_path) -> None:
 def test_attach_with_a_basket_leaves_capped_rows_gold_only() -> None:
     rows = [row(), row()]
     labels = {"k1": label("k1"), "k2": label("k2")}
-    report = attach_teacher_probs(rows, ["k1", "k2"], labels, model_id="m", basket_keys={"k1"})
+    report = attach_teacher_probs(rows, ["k1", "k2"], labels, model_id="m", basket_indices={0})
     assert report["attached"] == 1 and report["attached_keys"] == 1
     assert report["outside_basket_teacher_rows"] == 1
     assert "teacher_probs" not in rows[1]

@@ -100,13 +100,13 @@ def main() -> None:
         raise SystemExit("the frozen label file does not match the D2 manifest's SHA-256")
     labels = load_labels(LABELS)
     teacher_indices, teacher_report = select_teacher_rows(pool)
-    basket_keys = {keys[index] for index in teacher_indices}
-    print(f"pool {pool_info['pool_rows']} rows; frozen labels {len(labels)}; basket keys {len(basket_keys)}; attaching ...",
+    print(f"pool {pool_info['pool_rows']} rows; frozen labels {len(labels)}; basket rows {len(teacher_indices)}; attaching ...",
           flush=True)
-    attach = attach_teacher_probs(pool, keys, labels, model_id=TEACHER_MODEL, basket_keys=basket_keys)
+    attach = attach_teacher_probs(pool, keys, labels, model_id=TEACHER_MODEL,
+                                  basket_indices=set(teacher_indices))
     print(f"attach: {attach}", flush=True)
-    if (attach["attached_keys"] != len(labels) or attach["missing_label"] or attach["template_mismatch"]
-            or attach["option_order_mismatch"]):
+    if (attach["attached"] != teacher_report["selected_total"] or attach["attached_keys"] != len(labels)
+            or attach["missing_label"] or attach["template_mismatch"] or attach["option_order_mismatch"]):
         raise SystemExit(f"the teacher attachment is not complete: {attach}")
     del keys, labels
 
@@ -233,7 +233,7 @@ def main() -> None:
     trainer.score = score_and_keep_fast_dev  # type: ignore[method-assign]
 
     dose_path = out / "logs" / "dose.jsonl"
-    dose_handle = dose_path.open("w", encoding="utf-8")
+    dose_handle = dose_path.open("w", encoding="utf-8", buffering=1)  # line-buffered: a killed run keeps its dose log
     first_thousand: list[dict[str, Any]] = []
 
     def on_step(_step: int) -> None:
