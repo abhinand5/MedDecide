@@ -99,6 +99,25 @@ def provenance(config: StudentConfig, model: Any) -> dict[str, Any]:
     return info
 
 
+def distill_lambda_for_target(ce_norms: Sequence[float], kl_norms: Sequence[float], target: float) -> float:
+    """The lambda whose predicted distillation gradient share is ``target`` (distill_v0, ADVISORY §3).
+
+    With ``a`` the mean CE gradient norm and ``b`` the mean KL gradient norm at lambda = 1, the share of the
+    distillation term is modelled as ``lambda b / (a + lambda b)`` (the two gradients add, and the norms are
+    what the calibration measures). Solving for the share to equal ``target`` gives
+    ``lambda = target / (1 - target) * a / b``. It is the pre-registered formula, not fitted on any result.
+    """
+    if not 0.0 < target < 1.0:
+        raise ValueError("the calibration target must be in (0, 1)")
+    if not ce_norms or len(ce_norms) != len(kl_norms):
+        raise ValueError("the calibration needs the same non-zero number of CE and KL norms")
+    ce = float(sum(float(value) for value in ce_norms)) / len(ce_norms)
+    kl = float(sum(float(value) for value in kl_norms)) / len(kl_norms)
+    if ce <= 0.0 or kl <= 0.0:
+        raise ValueError("both mean gradient norms must be positive")
+    return (target / (1.0 - target)) * (ce / kl)
+
+
 @dataclass
 class StepRecord:
     """One optimiser step's numbers."""
@@ -231,6 +250,36 @@ class Trainer:
             return
         with self.log_path.open("a", encoding="utf-8") as fh:
             fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    def _loss_grad_norm(self, params: Sequence[torch.nn.Parameter], loss: torch.Tensor) -> float:
+        """L2 norm of the gradient of one loss term over the trainable parameters (the calibration's measurement)."""
+        self.optimizer.zero_grad(set_to_none=True)
+        loss.backward(retain_graph=True)
+        squares = [float(parameter.grad.detach().pow(2).sum()) for parameter in params
+                   if parameter.grad is not None]
+        self.optimizer.zero_grad(set_to_none=True)
+        return math.sqrt(sum(squares))
+
+    def _write_lambda_calibration(self, records: Sequence[dict[str, float]], weight: float) -> None:
+        """Write the pre-registered calibration table (per-step CE and KL gradient norms, the chosen lambda)."""
+        if self.log_path is None:
+            return
+        ce = [record["ce_grad_norm"] for record in records]
+        kl = [record["kl_grad_norm"] for record in records]
+        payload = {
+            "method": "lambda = target/(1-target) * mean(ce_grad_norm)/mean(kl_grad_norm), measured at lambda = 1.0 "
+                      "with a backward pass on each term (distill_v0 ADVISORY §3)",
+            "target": float(self.config.distill_calibration_target),
+            "lambda": float(weight),
+            "steps": len(records),
+            "mean_ce_grad_norm": float(sum(ce) / len(ce)) if ce else None,
+            "mean_kl_grad_norm": float(sum(kl) / len(kl)) if kl else None,
+            "predicted_share": (float(weight) * (sum(kl) / len(kl)))
+            / ((sum(ce) / len(ce)) + float(weight) * (sum(kl) / len(kl))) if records else None,
+            "records": list(records),
+        }
+        path = Path(self.log_path).parent / "lambda_calibration.json"
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def score(self, items: Sequence[Item], *, batch_size: int | None = None) -> ScoredItems:
         """Per-item probabilities over the offered options (batched inference; no metrics)."""
@@ -430,6 +479,13 @@ class Trainer:
                 "floor": float(config.lr_floor),
                 "peak_lr_by_group": [float(g["base_lr"]) for g in self.optimizer.param_groups],
             }
+        # distill_v0: the distillation weight is a local value, because the pre-registered calibration changes it once
+        # (lambda = 1.0 over the first N steps, then frozen).
+        distill_weight = float(config.distill_weight)
+        calibration_steps = int(config.distill_calibration_steps or 0)
+        calibration_records: list[dict[str, float]] = []
+        if calibration_steps and distill_weight <= 0:
+            raise ValueError("distillation calibration needs distill_weight > 0")
         # resume (osler_v4 Y8): the state of a full checkpoint, restored before the first batch. The batches the checkpoint already took
         # in its epoch are skipped, so the data order continues exactly (the order is a pure function of seed, epoch and batch index)
         skip_in_epoch = 0
@@ -452,7 +508,10 @@ class Trainer:
             best = run["best"]
             best_step = run["best_step"]
             consecutive_below = int(run["consecutive_below"])
-            self._log({"event": "resume", "from_step": total_steps, "epoch": epoch, "batches_in_epoch": skip_in_epoch})
+            distill_weight = float(run.get("distill_weight", distill_weight))
+            calibration_records = [dict(record) for record in run.get("distill_calibration") or []]
+            self._log({"event": "resume", "from_step": total_steps, "epoch": epoch, "batches_in_epoch": skip_in_epoch,
+                       "distill_weight": distill_weight})
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
         # N steps, not "N steps or one pass, whichever comes first" (the overfit test relies on
         # this to see its 64 items many times)
@@ -514,21 +573,39 @@ class Trainer:
                     kl_value = float(kl.detach())
                 distill_value = 0.0
                 n_teacher = 0
-                if config.distill_weight > 0:
+                distill_term = None
+                if distill_weight > 0:
                     teacher_flat, teacher_mask = teacher_reference(
                         [enc.teacher_probs for enc in model_batch.encoded],
                         [int(n) for n in model_batch.n_options.tolist()],
                     )
                     n_teacher = int(teacher_mask.sum())
                     if n_teacher:
-                        distill = kl_to_reference(probs, teacher_flat.to(probs.device, probs.dtype),
-                                                  model_batch.marker_item.to(probs.device), model_batch.batch_size,
-                                                  teacher_mask, per_item_normaliser=self._per_item_normaliser())
-                        total_loss = total_loss + config.distill_weight * distill
-                        distill_value = float(distill.detach())
+                        distill_term = kl_to_reference(probs, teacher_flat.to(probs.device, probs.dtype),
+                                                       model_batch.marker_item.to(probs.device), model_batch.batch_size,
+                                                       teacher_mask, per_item_normaliser=self._per_item_normaliser())
+                        distill_value = float(distill_term.detach())
+                params = [p for group in self.optimizer.param_groups for p in group["params"]]
+                calibrating = distill_term is not None and len(calibration_records) < calibration_steps
+                if calibrating:
+                    ce_grad_norm = self._loss_grad_norm(params, breakdown.total)
+                    kl_grad_norm = self._loss_grad_norm(params, distill_term)
+                    calibration_records.append({"step": float(total_steps + 1), "ce_grad_norm": ce_grad_norm,
+                                                "kl_grad_norm": kl_grad_norm})
+                    self._log({"event": "distill_calibration", "step": total_steps + 1,
+                               "ce_grad_norm": ce_grad_norm, "kl_grad_norm": kl_grad_norm})
+                    if len(calibration_records) == calibration_steps:
+                        distill_weight = distill_lambda_for_target(
+                            [record["ce_grad_norm"] for record in calibration_records],
+                            [record["kl_grad_norm"] for record in calibration_records],
+                            float(config.distill_calibration_target))
+                        self._write_lambda_calibration(calibration_records, distill_weight)
+                        self._log({"event": "distill_lambda", "lambda": distill_weight,
+                                   "target": float(config.distill_calibration_target), "steps": calibration_steps})
+                if distill_term is not None:  # total_loss already holds CE + Brier and any KL-to-base term
+                    total_loss = total_loss + distill_weight * distill_term
                 self.optimizer.zero_grad(set_to_none=True)
                 total_loss.backward()
-                params = [p for group in self.optimizer.param_groups for p in group["params"]]
                 grad_norm = float(torch.nn.utils.clip_grad_norm_(params, config.grad_clip))
                 # osler_v5 D51: under per_item the clipped gradient is multiplied by n_items / batch_size (clip first, then scale)
                 applied_scale = 1.0
@@ -618,6 +695,7 @@ class Trainer:
                             "batches_in_epoch": total_steps - epoch_start_step, "epochs_completed": epochs_completed,
                             "best": best, "best_step": best_step, "consecutive_below": consecutive_below,
                             "schedule": schedule, "seed": config.seed,
+                            "distill_weight": distill_weight, "distill_calibration": calibration_records,
                             "config_fingerprint": config_fingerprint(config.to_dict()),
                         },
                         keep_last=full_checkpoint_keep_last,
