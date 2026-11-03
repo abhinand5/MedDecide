@@ -17,17 +17,19 @@
 
 ## Current loop
 
-- **Loop:** `osler_v5` (loop 1h — fix and max the Osler-4B)
-- **Mission:** per-item loss weighting (D51), option-count augmentation with a positional health check (D52), four short
-  recipe arms on osler_v4's exact mix chosen by a dev composite of MR, MIMIC and CG (D54), a 63,304-step Osler-4B, a
-  weight-space blend toward the base chosen on dev (D53), Gate O5 (D55), a membership audit — then hard-stop for review.
-- **Branch:** `loop/osler_v5` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v5/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v5/STATE.md`
-- **Outputs:** `outputs/osler_v5/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v5/CLAIMS.md`
-- **Style:** advisory
-- **Started:** `2026-10-26T19:24:27Z`
+- **Loop:** `distill_v0` (two-student distillation from Liquid `d1-ultra`; 4B pplx + 9B Clef-Flash)
+- **Mission:** distil the decision distribution of the pinned `liquid/d1-ultra-20261015` teacher (OpenRouter decisions API, $15
+  hard cap) into two Osler students on a curated basket — teacher KL + gold CE only where the teacher leads (panel, knowledge,
+  MedNLI, held-out), gold-only on the audit/MR family — then place both on the measured ≤10B medical Pareto frontier with
+  Gate O7: panel lower bound > 0 against zero-shot pplx-flash, knowledge lower > −0.02, MR and MIMIC within −0.02 of the
+  osler_v4 final. No new synthetic task templates; test items are never trained on. Hard-stop for review after the gate.
+- **Branch:** `loop/distill_v0` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/distill_v0/` (GOAL.md, ADVISORY.md, STATE.md, CLAIMS.md, FINDINGS.md)
+- **Run state:** `loops/distill_v0/STATE.md`
+- **Outputs:** `outputs/distill_v0/<task-id>/` (gitignored)
+- **Claims:** `loops/distill_v0/CLAIMS.md`
+- **Style:** autonomous
+- **Started:** `2026-11-03T19:30:00Z`
 
 ---
 
