@@ -17,7 +17,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | D1 | Teacher ceiling on all frozen sets; labeler, cost ledger, freeze schema | no | D0 | DONE | 2026-11-03T19:38Z | 2026-11-03T19:59Z |
 | D2 | Basket manifest; label run (cap $15); QA; frozen label file | no | D1 | DONE | 2026-11-03T20:02Z | 2026-11-03T21:57Z |
 | D3 | Clef-Flash port check (3 h timebox); fallback decision | yes | D0 | DONE | 2026-11-03T20:28Z | 2026-11-03T20:45Z |
-| D4 | Distillation driver + λ calibration + 4B run (63,304 steps) | yes | D2 | IN_PROGRESS | 2026-11-03T22:27Z | |
+| D4 | Distillation driver + λ calibration + 4B run (63,304 steps) | yes | D2 | DONE | 2026-11-03T22:27Z | 2026-11-04T15:31Z |
 | D5 | 9B run (63,304 steps), same labels and recipe | yes | D3, D4 | PENDING | | |
 | D6 | Gate O7 for both students; scoreboard; SELF_AUDIT | yes | D4, D5 | PENDING | | |
 | D7 | FINDINGS.md; closure; hard stop | no | D6 | PENDING | | |
@@ -119,6 +119,8 @@ Acceptance (GOAL §4): forward + readout init works, or fallback recorded.
 - `2026-11-03T20:02Z` — D2 started (basket + label run). Plan: pool 1,268,815 (matches); rule-lookup drop 187,623 (matches); T basket 494,803 (pre-registration says 508,516: nine stale counts, documented); 5,232 duplicated item ids (27,340 rows, Winogrande twins) so the basket is keyed by text key; 1,826 duplicate text keys (8,478 rows), 71 with conflicting gold.
 - `2026-11-03T22:24Z` — D4 dry-run green: pool 1,268,815; labels 494,748; basket rows 494,803; attached 494,803 with all keys used, 0 missing/order/template mismatches, 0 renormalised; train items 1,268,815, teacher items 494,803 (38.997 %). Two dry-run defects found and fixed first: the attach stage now filters by basket position (the capped-out CT rows are gold-only, counted 161,140) and checks by unique key as well as row count.
 - `2026-11-03T22:27:58Z` — D4 training launched under the watchdog (4B pplx, 63,304 steps, λ calibration 200 steps at λ=1, dose tripwire at 1,000 steps, ten evals at the Y8 grid, full checkpoints every 2,500 kept 2). Expected ~14 h.
+- `2026-11-04T15:31Z` — **D4 DONE.** 63,304 steps, 10 evals at the Y8 grid, positional health passing each; λ 3.2067 frozen at step 200; realised dose teacher 38.94 % / MIMIC 39.35 %, mean 1.455 teacher items per batch (3.115 per 8 slots); final dev S 0.8486, MR 0.9684, MIMIC 0.7851, CG 0.7922, knowledge dev 0.7718; temperatures choice 1.345 / noul 1.709 / score 1.645; audit 22/22 PASS; SELF_AUDIT + CLAIMS C-D4-01…06.
+- `2026-11-04T03:53Z` — D4 eval 3 (step 18,991): S 0.7902, MR 0.9248, MIMIC 0.7214, CG 0.7243, knowledge dev **0.7083** (down from 0.7550 at 12,661; the pre-registered step-13,992 tripwire had already passed at 12,661 with MIMIC 0.7377 and knowledge 0.7550). Recorded as a dev-curve finding; the run continues because the pre-registered stop rule is that step-13,992 check, and the final gate is the arbiter.
 - `2026-11-03T21:57Z` — **D2 DONE.** 494,748 labels, 0 failures, 0 skipped; D2 spend $6.628504 over three attempts (label file $6.621052), 157,644,106 tokens; loop total $7.899430. QA 11/11, independent audit 21/21 PASS. The first attempt was stopped to add the operator's MIMIC authorization (it was skipping 10,618 MedNLI rows); the second was killed by the workspace quota at 90,528 labels and resumed (1,728 labels of the first attempt were discarded by the then-current resume truncation, $0.0079 booked in the ledger). Plan found: pool 1,268,815 (matches); rule-lookup drop 187,623 (matches); T basket 494,803 rows (pre-registration says 508,516: nine templates hold fewer rows than listed, two CT templates are below the 10,000 cap; teacher share 39.0 % is inside the 38–45 % band — deviation recorded). Pool has 5,232 duplicated item ids (Winogrande twins, 27,340 rows) so the training basket is keyed by text key (added field `text_key` on D2 freeze rows); 1,826 duplicate text keys / 8,478 rows, of which 71 keys carry conflicting gold (reported, inherited from the mix).
 
 ---
@@ -156,6 +158,17 @@ None. All decisions needed for D0–D7 were answered in chat on 2026-11-04. Anyt
 ---
 
 ## 8. Next actions (for a resumed/compacted context)
+
+**D4 dev curve so far** (evaluations.json):
+  - step 6330: S 0.7913, MR 0.9117, MIMIC 0.7131, CG 0.7490, knowledge dev 0.7528, positional True
+  - step 12661: S 0.8092, MR 0.9141, MIMIC 0.7377, CG 0.7760, knowledge dev 0.7550, positional True
+  - step 18991: S 0.7902, MR 0.9248, MIMIC 0.7214, CG 0.7243, knowledge dev 0.7083, positional True
+  - step 25322: S 0.8179, MR 0.9425, MIMIC 0.7505, CG 0.7607, knowledge dev 0.7310, positional True
+  - step 31652: S 0.8321, MR 0.9556, MIMIC 0.7610, CG 0.7797, knowledge dev 0.7602, positional True
+  - step 37982: S 0.8309, MR 0.9531, MIMIC 0.7620, CG 0.7775, knowledge dev 0.7615, positional True
+  - step 44313: S 0.8413, MR 0.9664, MIMIC 0.7724, CG 0.7850, knowledge dev 0.7608, positional True
+  - step 50643: S 0.8473, MR 0.9681, MIMIC 0.7755, CG 0.7984, knowledge dev 0.7735, positional True
+  - step 56974: S 0.8471, MR 0.9687, MIMIC 0.7822, CG 0.7905, knowledge dev 0.7705, positional True
 
 1. **D2 label run in progress** (`outputs/distill_v0/D2/logs/run3.log`). Resume command if the process is gone:
    `source /workspace/.secrets.env && setsid nohup uv run --frozen python scripts/distill_v0/d2_basket.py --out outputs/distill_v0/D2 --threads 48 --resume --allow-protected --authorization "operator chat 2026-11-03: MIMIC-derived datasets allowed 100%; provider email confirmations obtained" > outputs/distill_v0/D2/logs/run3.log 2>&1 < /dev/null &`

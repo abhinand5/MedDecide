@@ -37,3 +37,14 @@ D2 (basket + hosted label run; artifacts in `outputs/distill_v0/D2/`)
 | C-D2-04 | D2 label-run spend | $6.628504 over three attempts (label-file cost $6.621052); 157,644,106 input tokens; loop spend after D2 $7.899430 of the $15 cap | `outputs/distill_v0/D2/label_manifest.json`, `outputs/distill_v0/cost_ledger.jsonl` | same as C-D2-01 (ledger and label sums) | D2 |
 | C-D2-05 | Pool key structure | 5,232 duplicated item ids / 27,340 rows (Winogrande twins); 1,826 duplicate text keys / 8,478 rows; 71 keys with conflicting gold, 0 with conflicting option keys | `outputs/distill_v0/D2/composition.json` | same as C-D2-01 | D2 |
 | C-D2-06 | Frozen-set exclusion of the training basket | 0 labelled text-key hits and 0 labelled item-id hits against the 14 frozen files | `outputs/distill_v0/D2/composition.json`, `label_manifest.json` | same as C-D2-01 | D2 |
+
+D4 (Osler-4B distillation run; artifacts in `outputs/distill_v0/D4/`)
+
+| id | claim | value | artifact | recompute command | task |
+|---|---|---|---|---|---|
+| C-D4-01 | 4B distillation run completed | 63,304 steps (step budget), 10 evaluations at the Y8 grid, positional health passing in all 10 | `outputs/distill_v0/D4/arm_result.json` | `uv run --frozen python scripts/distill_v0/d4_rederive.py --out outputs/distill_v0/D4 --steps 63304` | D4 |
+| C-D4-02 | λ calibration (pre-registered) | λ = 3.2067, frozen at step 200, from 72 measured steps; predicted distillation gradient share 0.40 | `outputs/distill_v0/D4/logs/lambda_calibration.json` | same as C-D4-01 | D4 |
+| C-D4-03 | Realised dose | teacher 38.94 % of item slots (band 38–45 %), MIMIC 39.35 % (37–42 %); mean teacher items per batch 1.455 (batches mean 3.74 items; 3.115 per 8 slots); 76.2 % of batches below 3 | `outputs/distill_v0/D4/dose_summary.json`, `logs/dose.jsonl` | same as C-D4-01 | D4 |
+| C-D4-04 | Final dev figures at step 63,304 | S 0.8486, MR 0.9684, MIMIC 0.7851, CG micro 0.7922, knowledge dev 0.7718, positional health pass | `outputs/distill_v0/D4/arm_result.json` | same as C-D4-01 | D4 |
+| C-D4-05 | Dev-fitted temperatures | choice 1.345, noul 1.709, score 1.645 | `outputs/distill_v0/D4/arm_result.json` | same as C-D4-01 | D4 |
+| C-D4-06 | Run provenance | pool text SHA-256 = D2's `11d1a068…`; labels SHA-256 = D2's `06679bcd…`; pplx base revision `6d771ad7…`; wall clock 16 h 41 m | `outputs/distill_v0/D4/arm_result.json`, `run_provenance.json` | same as C-D4-01 | D4 |

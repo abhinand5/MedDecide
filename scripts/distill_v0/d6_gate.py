@@ -232,6 +232,9 @@ def main() -> None:
     parser.add_argument("--student9b", default="outputs/distill_v0/D5/checkpoints/final_step_063304")
     parser.add_argument("--students", nargs="*", default=["student4b", "student9b"])
     parser.add_argument("--reuse", action="store_true", help="score nothing; read existing predictions under --out")
+    parser.add_argument("--validate", action="store_true",
+                        help="wiring check: treat the osler_v4 final's Y9 rows as the student and compare against zero-shot "
+                             "pplx on all four gate sets (must reproduce osler_v4's published Gate O4 numbers)")
     args = parser.parse_args()
     out = (REPO / args.out) if not Path(args.out).is_absolute() else Path(args.out)
     (out / "logs").mkdir(parents=True, exist_ok=True)
@@ -239,6 +242,33 @@ def main() -> None:
     items_by_set = {name: load_items(name) for name in SETS}
     checkpoints = {"student4b": Path(args.student4b), "student9b": Path(args.student9b)}
     checkpoints = {key: (path if path.is_absolute() else REPO / path) for key, path in checkpoints.items()}
+
+    baselines: dict[str, dict[str, Any]] = {}
+    for key in ("pplx_flash", "final", "md4b", "md9b", "jev9b", "osler_v2", "pplx27b", "clef_flash", "qwen4b", "qwen9b"):
+        baselines[key] = {}
+        for set_name in SETS:
+            path = baseline_path(key, set_name)
+            if path is not None:
+                baselines[key][set_name] = load_rows(path, items_by_set[set_name])
+
+
+    if args.validate:
+        student = {"final": baselines["final"]}
+        validation: dict[str, Any] = {}
+        for set_name in ("panel", "knowledge", "mr_verdict", "mimic_suite"):
+            pairing = pair_rows(student["final"][set_name]["rows"], baselines["pplx_flash"][set_name]["rows"],
+                                items_by_set[set_name])
+            paired = comparison(pairing)
+            validation[set_name] = {"point": paired.accuracy.point, "lower": paired.accuracy.lo,
+                                    "upper": paired.accuracy.hi, "items": paired.items,
+                                    "templates": len(paired.templates)}
+        write_json(out / "validate_gate.json", {"task": "D6 wiring validation (osler_v4 final vs pplx)",
+                                                "validation": validation})
+        print(json.dumps(validation, indent=1), flush=True)
+        print("published Gate O4 (osler_v4): panel -0.0421 [-0.058,-0.027]; knowledge -0.0067; "
+              "MR +0.1387; MIMIC +0.1654", flush=True)
+        return
+
 
     scored: dict[str, Any] = {}
     for student in args.students:
@@ -259,14 +289,6 @@ def main() -> None:
             torch.cuda.empty_cache()
             rows = {name: load_rows(out / f"{prefix}_{name}" / "predictions.jsonl", items_by_set[name]) for name in SETS}
         scored[student] = rows
-
-    baselines: dict[str, dict[str, Any]] = {}
-    for key in ("pplx_flash", "final", "md4b", "md9b", "jev9b", "osler_v2", "pplx27b", "clef_flash", "qwen4b", "qwen9b"):
-        baselines[key] = {}
-        for set_name in SETS:
-            path = baseline_path(key, set_name)
-            if path is not None:
-                baselines[key][set_name] = load_rows(path, items_by_set[set_name])
 
     gate: dict[str, Any] = {}
     for student in args.students:
