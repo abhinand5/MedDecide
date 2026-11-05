@@ -20,7 +20,7 @@ Statuses: `PENDING` → `IN_PROGRESS` → `DONE` | `BLOCKED — reason`
 | D4 | Distillation driver + λ calibration + 4B run (63,304 steps) | yes | D2 | DONE | 2026-11-03T22:27Z | 2026-11-04T15:31Z |
 | D5 | 9B run (63,304 steps), same labels and recipe | yes | D3, D4 | DONE | 2026-11-04T15:44Z | 2026-11-05T19:46Z |
 | D6 | Gate O7 for both students; scoreboard; SELF_AUDIT | yes | D4, D5 | DONE | 2026-11-05T20:10Z | 2026-11-05T21:44Z |
-| D7 | FINDINGS.md; closure; hard stop | no | D6 | PENDING | | |
+| D7 | FINDINGS.md; closure; hard stop | no | D6 | DONE | 2026-11-05T21:45Z | 2026-11-05T21:54Z |
 
 Rules: take the **first** `PENDING` task whose dependencies are all `DONE`. Never run two GPU jobs at once. A `BLOCKED` task does not block unrelated work. No row may be left `IN_PROGRESS` at closure.
 
