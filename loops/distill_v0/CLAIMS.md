@@ -48,3 +48,14 @@ D4 (Osler-4B distillation run; artifacts in `outputs/distill_v0/D4/`)
 | C-D4-04 | Final dev figures at step 63,304 | S 0.8486, MR 0.9684, MIMIC 0.7851, CG micro 0.7922, knowledge dev 0.7718, positional health pass | `outputs/distill_v0/D4/arm_result.json` | same as C-D4-01 | D4 |
 | C-D4-05 | Dev-fitted temperatures | choice 1.345, noul 1.709, score 1.645 | `outputs/distill_v0/D4/arm_result.json` | same as C-D4-01 | D4 |
 | C-D4-06 | Run provenance | pool text SHA-256 = D2's `11d1a068…`; labels SHA-256 = D2's `06679bcd…`; pplx base revision `6d771ad7…`; wall clock 16 h 41 m | `outputs/distill_v0/D4/arm_result.json`, `run_provenance.json` | same as C-D4-01 | D4 |
+
+D5 (Osler-9B distillation run; artifacts in `outputs/distill_v0/D5/`)
+
+| id | claim | value | artifact | recompute command | task |
+|---|---|---|---|---|---|
+| C-D5-01 | 9B distillation run completed | 63,304 steps (step budget), 10 evaluations at the Y8 grid, positional health passing in all 10 | `outputs/distill_v0/D5/arm_result.json` | `uv run --frozen python scripts/distill_v0/d4_rederive.py --out outputs/distill_v0/D5 --steps 63304` | D5 |
+| C-D5-02 | λ calibration (pre-registered) | λ = 2.2077, frozen at step 200, from 72 measured steps; predicted distillation gradient share 0.40 | `outputs/distill_v0/D5/logs/lambda_calibration.json` | same as C-D5-01 | D5 |
+| C-D5-03 | Realised dose | teacher 38.94 % of item slots (band 38–45 %), MIMIC 39.35 % (37–42 %); mean teacher items per batch 1.456 (3.115 per 8 slots); 76.2 % of batches below 3 | `outputs/distill_v0/D5/dose_summary.json`, `logs/dose.jsonl` | same as C-D5-01 | D5 |
+| C-D5-04 | Final dev figures at step 63,304 | S 0.8357, MR 0.9560, MIMIC 0.7860, CG micro 0.7651, knowledge dev 0.7360, positional health pass | `outputs/distill_v0/D5/arm_result.json` | same as C-D5-01 | D5 |
+| C-D5-05 | Dev-fitted temperatures | choice 1.389, noul 2.107, score 1.795 | `outputs/distill_v0/D5/arm_result.json` | same as C-D5-01 | D5 |
+| C-D5-06 | Run provenance and the memory fallback | base `Cloudflare/clef-flash` @ `fde727a2…` loaded in memory; pool/label hashes equal D2's; every batch checkpointed (the first attempt OOM'd at 8,192-token batches without checkpointing); wall clock 27 h 49 m | `outputs/distill_v0/D5/arm_result.json`, `run_provenance.json`, `model.json` | same as C-D5-01 | D5 |
