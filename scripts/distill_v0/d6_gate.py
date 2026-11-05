@@ -120,10 +120,12 @@ def baseline_path(model: str, set_name: str) -> Path | None:
 
 
 def load_model(checkpoint: Path) -> tuple[Any, str]:
+    """Load a saved student checkpoint by its recorded backbone (the pplx and qwen/clef saves differ in schema)."""
     from meddecide.model.meddecide_model import MedDecideModel
     from meddecide.model.pplx import PplxDecisionModel
 
-    if (checkpoint / "decision_config.json").exists():
+    meta = json.loads((checkpoint / "model.json").read_text(encoding="utf-8"))
+    if meta.get("backbone") == "pplx":
         return PplxDecisionModel.load(checkpoint, device="cuda:0", dtype="bfloat16"), "pplx"
     return MedDecideModel.load(checkpoint, device="cuda:0", dtype="bfloat16"), "meddecide"
 
