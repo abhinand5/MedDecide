@@ -1,0 +1,62 @@
+{
+ "seed": 0,
+ "sets": {
+  "knowledge": {
+   "file": "data/bench/osler_v4/y9/knowledge.jsonl",
+   "file_sha256": "aa3eb27d637a40dfe3602840565a5a22569cc0d0efb775dda9485d6b2983e082",
+   "set_items": 5456,
+   "method": "simple",
+   "k": 1000,
+   "allocation": null,
+   "by_template": {
+    "medmcqa_4opt_v1": 759,
+    "medqa_usmle4_v1": 241
+   },
+   "ids_sha256": "a2e103c9fb9ea15c6fddc28c121911e82067f14c56dafd54ca42d1fbfbec3445"
+  },
+  "panel": {
+   "file": "data/bench/osler_v4/y9/panel.jsonl",
+   "file_sha256": "84836287043543c864527c9714780622282794be3fc210a30fd1e51aac30be99",
+   "set_items": 4353,
+   "method": "stratified:source",
+   "k": 500,
+   "allocation": {
+    "medconceptsqa_all": 115,
+    "medexpqa_en": 14,
+    "medexqa_test": 108,
+    "medical_question_pairs": 34,
+    "medxpertqa_text": 115,
+    "mmlu_pro_health": 90,
+    "symptom_to_diagnosis": 24
+   },
+   "by_template": {
+    "ext_medconceptsqa_choice_v1": 115,
+    "ext_medexpqa_en_choice_v1": 14,
+    "ext_medexqa_choice_v1": 108,
+    "ext_medical_question_pairs_noul_v1": 34,
+    "ext_medxpertqa_text_choice_v1": 115,
+    "ext_mmlu_pro_health_choice_v1": 90,
+    "ext_symptom_to_diagnosis_choice_v1": 24
+   },
+   "ids_sha256": "a908c3b49702f461d3f3e8deb7ddc0dc2aa181d4854a16742b7f468fc5e5e377"
+  },
+  "mr_verdict": {
+   "file": "data/bench/osler_v4/y9/mr_verdict.jsonl",
+   "file_sha256": "dbb178c64cd1515b00fc8c8678deb3b59a73c708379a8a834116723af5e217e8",
+   "set_items": 13103,
+   "method": "simple",
+   "k": 500,
+   "allocation": null,
+   "by_template": {
+    "codiesp_icd_support_v1": 58,
+    "mkurman_icd_support_v1": 66,
+    "mr_icd_support_template_v2": 19,
+    "mr_indicator_evidence_v1": 15,
+    "mtsamples_page_category_v1": 2,
+    "pmc_similar_patient_v1": 322,
+    "synthea_indicator_evidence_v1": 18
+   },
+   "ids_sha256": "58eeeb1cd8c8818129a25803bb9ccd1774dc5779379aa0977c667c1c3dfd0e8e"
+  }
+ }
+}
