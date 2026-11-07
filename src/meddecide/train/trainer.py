@@ -557,7 +557,9 @@ class Trainer:
                 grad_ce = 0.0
                 grad_kl = 0.0
                 grad_share = 0.0
-                if config.distill_probe and n_teacher > 0:
+                probing = (config.distill_probe and n_teacher > 0
+                           and (config.distill_probe_steps == 0 or total_steps < config.distill_probe_steps))
+                if probing:
                     # osler_v6 D57 (Z2): pre-clip norms of the CE+Brier term and the λ·KL term on this step's batch. The CE
                     # gradients are cloned and added to the KL gradients, so the update is the one `total_loss.backward()`
                     # produces (λ = 1 in the probe; the arm's share is measured at its frozen λ).

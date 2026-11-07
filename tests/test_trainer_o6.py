@@ -265,6 +265,13 @@ def test_d57_dosing_gives_every_step_the_quota_and_the_probe_logs_the_pre_clip_s
         assert 0.0 < record.grad_share < 1.0
 
 
+def test_the_probe_step_limit_stops_the_measurement(tiny_dir) -> None:
+    trainer, _ = _dosing_trainer(tiny_dir, distill_probe_steps=2)
+    result = trainer.train(_dosing_items(), steps=4)
+    assert [record.grad_share > 0 for record in result.history] == [True, True, False, False]
+    assert all(record.n_teacher >= 2 for record in result.history)
+
+
 def test_the_probe_measures_without_changing_the_first_step(tiny_dir) -> None:
     """The probe assembles the same total gradient (CE + λ·KL) as ``total_loss.backward()``; only the summation order differs."""
     items = _dosing_items()

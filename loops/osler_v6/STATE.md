@@ -147,6 +147,12 @@ number already measured.
   process. Z5's G0 inputs were checked in place (17,532 fast-dev, 4,000 knowledge, 8,307 CG rows at step 13,992; S 0.8259,
   knowledge 0.7595, positional pass), so the choice rule's control is intact.
 
+- 2026-11-08T00:02Z — Z1 job healthy at 111,104 new (6.29 items/s, 4.91 h). The D57 arm band check is now fully wired: the
+  trainer's `distill_probe_steps` limits the pre-clip gradient-share measurement to the arm's first 200 steps (the probe run
+  keeps 0 = all steps), `run_arm.py` turns it on with `log_every: 1` for G1, and `scripts/osler_v6/z3_audit.py` re-derives the
+  band ([0.30, 0.50], mean of per-step shares at the frozen λ), the quota of 3 on every step, the step count, the evaluation
+  grid and the loss health, and writes the Z3 SELF_AUDIT. Suite 1137 passed, 4 skipped, 2 deselected, exit 0; ruff clean (C011).
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls

@@ -56,6 +56,7 @@ def probe_config(base: StudentConfig, out: Path) -> StudentConfig:
         distill_weight=1.0,
         distill_min_labelled_per_batch=3,
         distill_probe=True,
+        distill_probe_steps=0,
         eval_every=0,
         eval_steps=(),
     )

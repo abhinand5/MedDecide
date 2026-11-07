@@ -72,6 +72,7 @@ _TOP_LEVEL_KEYS = {
     "distill_weight",
     "distill_min_labelled_per_batch",
     "distill_probe",
+    "distill_probe_steps",
     "loss_weighting",
     "option_augment_probability",
     "option_augment_templates",
@@ -164,6 +165,8 @@ class StudentConfig:
     distill_min_labelled_per_batch: int = 0
     # osler_v6 D57 (Z2 probe): record the CE and KL gradient norms and the distillation share of every step (pre-clip)
     distill_probe: bool = False
+    # osler_v6 D57: measure the probe on the first N steps only (0 = every step; the 200-step calibration run uses 0, the arms 200)
+    distill_probe_steps: int = 0
     # osler_v5 (D51): "per_step" (the osler_v4 behaviour: the loss is a mean over the batch's items) or "per_item" (after clipping,
     # the gradients are multiplied by n_items / batch_size; KL and distillation are sums over the masked items divided by batch_size)
     loss_weighting: str = "per_step"
@@ -247,6 +250,8 @@ class StudentConfig:
             raise ValueError("distill_probe needs a positive distill_weight and the dosing quota")
         if cfg.distill_probe and cfg.kl_to_base > 0:
             raise ValueError("distill_probe measures the CE term against the distillation term; it needs kl_to_base 0")
+        if cfg.distill_probe_steps < 0:
+            raise ValueError("distill_probe_steps must be >= 0")
         if cfg.loss_weighting not in ("per_step", "per_item"):
             raise ValueError(f"loss_weighting must be 'per_step' or 'per_item', got {cfg.loss_weighting!r}")
         if not 0.0 <= cfg.option_augment_probability <= 1.0:

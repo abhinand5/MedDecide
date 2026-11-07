@@ -128,6 +128,9 @@ def main() -> None:
                                  distill_min_labelled_per_batch=int(args.min_labelled), distill_probe=False)
     if config.distill_min_labelled_per_batch > 0 and config.distill_weight <= 0:
         raise SystemExit("the D57 quota needs a positive --distill-weight")
+    if config.distill_weight > 0:
+        # D57 (ADVISORY §2.4/§2.5): the arm's own first 200 steps are the share-band check; record every step's probe values
+        config = dataclasses.replace(config, distill_probe=True, distill_probe_steps=200, log_every=1)
 
     rows, mix_info = compose_rows(config, out, (REPO / args.mix) if not Path(args.mix).is_absolute() else Path(args.mix),
                                   (REPO / args.mix_manifest) if not Path(args.mix_manifest).is_absolute() else Path(args.mix_manifest))
