@@ -131,6 +131,12 @@ number already measured.
   new Z1 records (not a choice): 0 error statuses, probability sums 1.0, teacher argmax vs pool gold choice 0.8403 / noul
   0.802 / score 0.6557 — consistent with the teacher's osler_v4 dev diagnostic (0.8516 union).
 
+- 2026-11-07T20:41Z — Z1 job healthy at 35,328 new (6.25 items/s; 147,456 records total). The Z6 checkpoint-selection rule
+  is committed: `meddecide.eval.osler_v6_select` (highest S among the positional-health passes; no fallback, tie rejected)
+  with 6 tests, and `scripts/osler_v6/z6_select.py` (selects, fits the chosen checkpoint's temperatures on dev fast dev v4
+  only, saves `chosen_step_XXXXXX`). Suite on the full Z2-Z7 CPU code: 1136 passed, 4 skipped, 2 deselected, exit 0 (181 s);
+  ruff clean (C010).
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
