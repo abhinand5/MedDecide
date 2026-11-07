@@ -20,7 +20,7 @@ Task in flight: none.
 ## 2. Operator decisions
 
 - **GO for D57, D58 and the ADVISORY §2 design:** `yes` — 2026-11-07, operator instruction "start osler_v6 with everything intact".
-- **Osler_v5 Z8:** not run; closed by the operator on 2026-11-07. The record is on `loop/osler_v5` at commit `53ba2fe` (STATE board row, FINDINGS addendum). This branch's copy of osler_v5 is older; see §2c.
+- **Osler_v5 Z8:** not run; closed by the operator on 2026-11-07. The record is on `loop/osler_v5` at commit `53ba2fe` (STATE board row, FINDINGS addendum). The copy of osler_v5 on this branch was replaced by the merge in §2c.
 - **Base (ADVISORY §6, D59, Clef-Flash vs pplx-4B):** OPEN. Every run in this loop uses the pplx-decider-flash-v1.2 base (the same as
   osler_v5 F2), because §2 was written for it. §6 is not used until the operator decides.
 - **Teacher:** `perplexity-ai/pplx-decider-v1.2-27b@cce0f3f80033e9d89d80831d5281fd72124aacce` (osler_v4 Y5; parity C072). The
@@ -38,14 +38,18 @@ number already measured.
 - §2.7 checkpoint: "by S" now only among positional-health passes; the final is BLOCKED if none pass.
 - §2.2 expected total about 380,000 (112,128 scored + about 268,000 in 12 GPU-hours).
 - §2.8 Gate O6 is Gate O4's four checks, unchanged.
+- Arm statistic: the same definition as the probe, pre-clip, mean of per-step ‖∇KL‖/(‖∇CE‖+‖∇KL‖) over the arm's first 200 steps. D57 says "applied gradient"; this run reads it as pre-clip, recorded here.
+- Edge cases: s0 → 0 or 1 makes the closed form undefined; that is BLOCKED, not clamped.
+- Z0 CLAIMS and SELF_AUDIT rows are deferred to the first Z1 batch (R1/R6 unmet for Z0 until then).
 - Not changed: the G0′ control (sampler without KL) was not added; the package is the treatment. Operator may request it.
 
-## 2c. Pending operator decision: merge of loop/osler_v5 into this branch
+## 2c. osler_v5 merge (operator-approved 2026-11-07)
 
-The copy of osler_v5's files on this branch is older than `loop/osler_v5` (STATE still says RUNNING with Z8 PENDING). Fixing that
-needs a merge of `loop/osler_v5` (tip `53ba2fe`) into this branch, which changes files under `loops/osler_v5/`, `scripts/osler_v5/`
-and `docs/paper/EVIDENCE.md`. It is an exception to GOAL "Do not" (earlier loops' files). NOT DONE: awaiting the operator's explicit
-yes. Until then, the osler_v5 record on this branch is stale; the authoritative copy is `loop/osler_v5`.
+- Operator instruction: "merge required stuff" (2026-11-07), approving the merge of `loop/osler_v5` into this branch.
+- Merge commit `bdbf32a` (parents `d731ab5` and `53ba2fe`). Changed paths: `loops/osler_v5/*`, `scripts/osler_v5/*`, `docs/paper/EVIDENCE.md`. Nothing under `loops/osler_v6/` changed.
+- Code gate: `uv run --frozen ruff check .` passed. `uv run --frozen pytest -q` on the merge: one failure, `tests/test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant` (strict XPASS, the student_v1 V2 BLOCKED item). The test file is identical to `dev` and the merge does not touch `tests/`, so the failure predates the merge. The merge is NOT pushed until the operator accepts this.
+- Result: the osler_v5 copy on this branch reads `Loop status: STOPPED`; its Z8 row is `BLOCKED — NOT RUN`.
+- Inherited cosmetic line: `loops/osler_v5/STATE.md` line 13 still says Z8 "is NOT started and waits for the operator's decision". The Z8 row is authoritative. Fix it on `loop/osler_v5` and re-merge, not here.
 
 ## 3. Facts found at Z0 (read-only)
 

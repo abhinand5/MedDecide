@@ -28,7 +28,7 @@ Odds, judgement (R10: not measured):
 4. **Calibration of λ (D57), a separate probe (task Z2; no arm weights kept):** 200 steps of G1's recipe at λ = 1, pre-clip.
    Share s = ‖∇KL‖ / (‖∇CE‖ + ‖∇KL‖), averaged over the 200 steps; s0 is that mean. The gradient share is modelled as λk/(1+λk)
    with k = s0/(1−s0), so the λ that gives 0.40 is λ = (0.4/0.6)·(1−s0)/s0 (Z2 writes it down before use). λ is then frozen.
-   The arm (Z3) starts at the frozen λ, so the D57 band applies to the arm's own first 200 steps: the share over those steps must
+   The arm (Z3) starts at the frozen λ, so the D57 band applies to the arm's own first 200 steps: the pre-clip share over those steps (same definition as the probe) must
    lie in 0.30 to 0.50. If it does not, G1 is BLOCKED and reported; λ is not re-tuned inside the arm. The probe log is kept.
 5. **Arms (13,992 steps, the corrected mix of osler_v5 D56a, per-item weighting, augmentation as F2):**
    - G0: F2 without distillation (the reference; F2 seed 0, already run: C062);
