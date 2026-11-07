@@ -17,17 +17,16 @@
 
 ## Current loop
 
-- **Loop:** `osler_v5` (loop 1h — fix and max the Osler-4B)
-- **Mission:** per-item loss weighting (D51), option-count augmentation with a positional health check (D52), four short
-  recipe arms on osler_v4's exact mix chosen by a dev composite of MR, MIMIC and CG (D54), a 63,304-step Osler-4B, a
-  weight-space blend toward the base chosen on dev (D53), Gate O5 (D55), a membership audit — then hard-stop for review.
-- **Branch:** `loop/osler_v5` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v5/` (GOAL.md, ADVISORY.md, STATE.template.md, KICKOFF.md)
-- **Run state:** `loops/osler_v5/STATE.md`
-- **Outputs:** `outputs/osler_v5/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v5/CLAIMS.md`
-- **Style:** advisory
-- **Started:** `2026-10-26T19:24:27Z`
+- **Loop:** `osler_v6` (distillation with a dosing fix: pplx-decider-v1.2-27b teacher, D57 dosing, D58 anchors; Gate O6)
+- **Mission:** distil the 27B's soft labels on general anchor items into the Osler-4B under the pre-registered design in
+  `loops/osler_v6/ADVISORY.md` §2; choose by the dev rule; final at 63,304 steps only if a recipe qualifies; Gate O6 verdict.
+- **Branch:** `loop/osler_v6` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v6/` (GOAL.md, ADVISORY.md, STATE.md, KICKOFF.md, CLAIMS.md, FINDINGS.md)
+- **Run state:** `loops/osler_v6/STATE.md`
+- **Outputs:** `outputs/osler_v6/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v6/CLAIMS.md`
+- **Style:** autonomous
+- **Started:** `2026-11-07T17:40Z`
 
 ---
 

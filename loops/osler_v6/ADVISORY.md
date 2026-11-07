@@ -1,7 +1,6 @@
-# ADVISORY — osler_v6: distillation with a dosing fix (DRAFT; not started)
+# ADVISORY — osler_v6: distillation with a dosing fix (GO recorded 2026-11-07; see STATE §2)
 
-Status: **DRAFT, awaiting the operator's go.** Decisions D57 and D58 (`docs/plans/PROGRAM.md`) are drafted and not in force until
-the go is recorded in STATE §2. Evidence: `docs/paper/EVIDENCE.md` §5.2–5.3 (knowledge and panel scores) and osler_v4 C116 (the A5 dose).
+Status: **GO recorded 2026-11-07** (STATE §2). D57 and D58 are in force; §6 (the base) is still open and is not used for any run. Evidence: `docs/paper/EVIDENCE.md` §5.2–5.3 (knowledge and panel scores) and osler_v4 C116 (the A5 dose).
 
 ## 1. Goal and honest odds
 
@@ -19,7 +18,7 @@ Odds, judgement (R10: not measured):
 
 ## 2. Pre-registered design (fixed before any run)
 
-1. **Teacher:** pplx-decider-v1.1-27b, revision cce0f3f8…, scored through the osler_v4 Y5 path (parity 40 of 40 required again).
+1. **Teacher:** pplx-decider-v1.2-27b, revision cce0f3f80033e9d89d80831d5281fd72124aacce (osler_v4 Y5 teacher; C072), scored through the osler_v4 Y5 path (parity 40 of 40 required again).
 2. **Targets (D58):** 400,000 general anchor items (no domain prefix), eligibility as osler_v4 Y5 §3.3, with the exclusions checked by
    text hash and recorded (overlap must be 0). Scoring is batched; the rate is recorded. If the rate is under 10 items/s, the target
    is cut to what fits in 12 GPU-hours and the cut is recorded.
@@ -54,7 +53,7 @@ Odds, judgement (R10: not measured):
 ## 4. Time and resources (planning estimates; not measured)
 
 Scoring 400,000 anchors: about 12–18 GPU-hours (osler_v4's rate was about 6 items/s). Two arms at 13,992 steps: about 9 hours. Final:
-about 24 hours. Gate and reporting: about 6 hours. Total about 50–55 GPU-hours. Starts after osler_v5's Z8 finishes (one GPU job at a time).
+about 24 hours. Gate and reporting: about 6 hours. Total about 50–55 GPU-hours. Osler_v5's Z8 was not run (closed 2026-11-07), so nothing precedes this loop's first GPU job except the Z1 scoring resume (one GPU job at a time).
 
 ## 5. Out of scope
 
