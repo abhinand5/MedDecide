@@ -124,6 +124,13 @@ number already measured.
   [0.150232, 0.179508]), iii FAIL (−0.042145 [−0.05842, −0.026935]), iv PASS (−0.006691 [−0.01721, 0.004756]); meddecider_4b
   NOT MEASURED; all figures identical. So Gate O6 will be the same code path as Gate O4, with the same limits.
 
+- 2026-11-07T20:16Z — Z1 job healthy at 27,648 new (6.36 items/s). The adapted arm driver's full data path was smoke-tested
+  on a synthetic 600-row mix (200 labelled) in a temporary directory: it reads/verifies the mix manifest, converts every item,
+  loads the dev sets (fast dev 351, CG 416, knowledge 200, positional 50 in `--smoke`) and writes `dry_run.json` with the
+  13,992-step grid [6,996, 13,992]. No arm has run; the temporary data and output were removed. In-flight diagnostic on the
+  new Z1 records (not a choice): 0 error statuses, probability sums 1.0, teacher argmax vs pool gold choice 0.8403 / noul
+  0.802 / score 0.6557 — consistent with the teacher's osler_v4 dev diagnostic (0.8516 union).
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
