@@ -1,12 +1,12 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-07T22:59Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-07T23:55Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
 Task in flight: Z1 anchor scoring; detached, uv PID `301442`, python PID `301463`, log
 `outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12` (ends about 2026-11-08T07:02Z).
 Command: `setsid nohup uv run --frozen --with pillow==12.3.0 --with "torchvision==0.29.0" python
-scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 22:58Z: 89,088 new scored at 6.29 items/s
-(4,115 input tokens/s), GPU 100 %, no errors; 201,216 records, continuous.
+scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 23:54Z: 110,080 new scored at 6.29 items/s
+(4,115 input tokens/s), GPU 100 %, no errors; 222,208 records, continuous.
 Join/summary chain: `setsid nohup bash scripts/osler_v6/z1_chain.sh` (chain PID `503528`), waiting on python PID `301463`;
 it runs `join` then `summary` automatically and logs to `outputs/osler_v6/Z1/logs/chain.log`.
 
@@ -141,6 +141,11 @@ number already measured.
   The Z7 scoring path is committed too: `scripts/osler_v6/z7_score.py` verifies each gate set's SHA-256 against osler_v4's
   `sets_manifest.json`, refuses an uncalibrated checkpoint, and writes `outputs/osler_v6/Z7/baselines/final_<set>/`. All
   Z2-Z7 CPU code is now written; nothing else starts until Z1's audit.
+
+- 2026-11-07T23:55Z — Z1 job healthy at 110,080 new (6.29 items/s, 4.86 h of the 12-hour budget). Z2's future audit is
+  committed too: `scripts/osler_v6/z2_audit.py` re-derives s0, λ and the per-step D57 quota from `steps.jsonl` in a fresh
+  process. Z5's G0 inputs were checked in place (17,532 fast-dev, 4,000 knowledge, 8,307 CG rows at step 13,992; S 0.8259,
+  knowledge 0.7595, positional pass), so the choice rule's control is intact.
 
 ## 6. Deviations from the plan
 
