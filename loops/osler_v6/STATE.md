@@ -5,8 +5,10 @@ Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-07T19:36Z` (Z0 DONE; Z1 IN
 Task in flight: Z1 anchor scoring; detached, uv PID `301442`, python PID `301463`, log
 `outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12` (ends about 2026-11-08T07:02Z).
 Command: `setsid nohup uv run --frozen --with pillow==12.3.0 --with "torchvision==0.29.0" python
-scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 19:31Z: 11,264 new scored at 6.34 items/s
+scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 19:33Z: 11,776 new scored at 6.39 items/s
 (4,115 input tokens/s), GPU 100 %, no errors.
+Join/summary chain: `setsid nohup bash scripts/osler_v6/z1_chain.sh` (chain PID `503528`), waiting on python PID `301463`;
+it runs `join` then `summary` automatically and logs to `outputs/osler_v6/Z1/logs/chain.log`.
 
 ## 1. Task board
 
@@ -109,6 +111,11 @@ number already measured.
   errors). Z5's choice rule is committed ahead of the arms: `meddecide.eval.osler_v6_choice` (the §2.6 checks with their
   strict limits, G0 never a candidate, seed 0 the only candidate) and `scripts/osler_v6/z5_choose.py` (osler_v5's paired
   dev statistics against the F2 seed-0 evaluation). The script fails early until the arm exists, as designed.
+
+- 2026-11-07T19:34Z — Z1's join/summary chain launched detached (`scripts/osler_v6/z1_chain.sh`, chain PID 503528): it
+  waits for the anchor job's python PID and then runs `join` (soft labels + the bench-overlap check) and `summary`, logging
+  exit codes. So the Z1 data artifacts complete even if no session is awake when the 12-hour job ends. The chain does not
+  start Z2 (the mix build waits for Z1 to be audited and marked DONE).
 
 ## 6. Deviations from the plan
 
