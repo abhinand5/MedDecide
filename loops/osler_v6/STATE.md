@@ -1,9 +1,12 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-07T19:08Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-07T19:36Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
 Task in flight: Z1 anchor scoring; detached, uv PID `301442`, python PID `301463`, log
-`outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12`.
+`outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12` (ends about 2026-11-08T07:02Z).
+Command: `setsid nohup uv run --frozen --with pillow==12.3.0 --with "torchvision==0.29.0" python
+scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 19:31Z: 11,264 new scored at 6.34 items/s
+(4,115 input tokens/s), GPU 100 %, no errors.
 
 ## 1. Task board
 
@@ -75,7 +78,7 @@ number already measured.
 - [x] Pool rebuilt with the current bench exclusions (all 73 `data/bench/**/*.jsonl`, including the osler_v4 y9 panel/knowledge/MIMIC sets created after Y5); its sha256 is osler_v4's `a9fab387…`, so no old scored row is excluded (C004).
 - [x] Reuse: all 112,128 osler_v4 records verified against their pool row (item id, template, qtype, option count, probability sum); 0 dropped, positions preserved; written to `outputs/osler_v6/Z1/anchor_probs.jsonl` (C006).
 - [x] Parity re-run: 40 of 40 argmax agreement on both batched paths; chosen path `reference_batched`; numbers bit-identical to osler_v4's (C007).
-- [ ] Anchor scoring detached under `--max-hours 12`; log and PID at the top; polled every 20+ minutes.
+- [ ] Anchor scoring detached under `--max-hours 12`; log and PID at the top; polled every 20+ minutes (running: 11,264 new at 19:31Z).
 - [ ] Join `data/train/osler_v6/z1_anchor_soft.jsonl`; overlap with every bench row re-checked by text hash = 0.
 - [ ] Summary numbers, `SELF_AUDIT.md`, CLAIMS rows, STATE exact, commit and push.
 
@@ -101,6 +104,11 @@ number already measured.
   against the corrected composition hash), `scripts/osler_v6/z2_probe.py` (200 steps at λ = 1, closed form for λ) and
   `scripts/osler_v6/run_arm.py` (the osler_v5 driver reading the prepared mix, with `--distill-weight` and
   `--min-labelled`). Ruff clean; the suite (GPU hidden) exits 0.
+
+- 2026-11-07T19:36Z — Z1 job still healthy (11,264 new at 6.34 items/s; records continuous, last pool index 123,391; no
+  errors). Z5's choice rule is committed ahead of the arms: `meddecide.eval.osler_v6_choice` (the §2.6 checks with their
+  strict limits, G0 never a candidate, seed 0 the only candidate) and `scripts/osler_v6/z5_choose.py` (osler_v5's paired
+  dev statistics against the F2 seed-0 evaluation). The script fails early until the arm exists, as designed.
 
 ## 6. Deviations from the plan
 
