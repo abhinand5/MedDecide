@@ -20,6 +20,8 @@ Task in flight: none.
 ## 2. Operator decisions
 
 - **GO for D57, D58 and the ADVISORY §2 design:** `yes` — 2026-11-07, operator instruction "start osler_v6 with everything intact".
+- **Loop model:** `claude-sonnet-5-5` (operator instruction: no Haiku session; Sonnet 5.5 for mission-critical work). Start: tmux, `claude --model claude-sonnet-5-5`, then `/loop` with the KICKOFF prompt.
+- **Autonomous run:** authorised by the operator on 2026-11-07 ("start osler_v6"); the GPU jobs follow GOAL.md's rules.
 - **Osler_v5 Z8:** not run; closed by the operator on 2026-11-07. The record is on `loop/osler_v5` at commit `53ba2fe` (STATE board row, FINDINGS addendum). The copy of osler_v5 on this branch was replaced by the merge in §2c.
 - **Base (ADVISORY §6, D59, Clef-Flash vs pplx-4B):** OPEN. Every run in this loop uses the pplx-decider-flash-v1.2 base (the same as
   osler_v5 F2), because §2 was written for it. §6 is not used until the operator decides.

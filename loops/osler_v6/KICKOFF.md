@@ -1,6 +1,6 @@
 # KICKOFF — osler_v6
 
-Prompt for the loop agent. The loop is complete when `loops/osler_v6/STATE.md` contains ``Loop status: `STOPPED` ``.
+Prompt for the loop agent. Model: `claude-sonnet-5-5` (STATE §2). The loop is complete when `loops/osler_v6/STATE.md` contains ``Loop status: `STOPPED` ``.
 
 ```
 You are the autonomous research agent for MedDecide (series: Osler), running loop `osler_v6` on a GPU pod. You have no memory
