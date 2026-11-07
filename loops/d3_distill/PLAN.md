@@ -1,4 +1,4 @@
-# d3_distill — distil vllm-sr/d3-ultra into Osler-4B (pplx-flash) and Osler-9B (Clef-Flash)
+# d3_distill — distil vllm-sr/d3-ultra into vllm-sr/d3-mini (4B) and vllm-sr/d3-flash (9B)
 
 Status: PLAN, awaiting the operator's go (rule decision D61 below). Teacher pinned: vllm-sr/d3-ultra, revision
 ccdcfa611649a59e095e0b5e1732a15cedafadd6, Apache-2.0, 26.09B parameters, run locally on the GPU.
@@ -29,8 +29,14 @@ The subsample run measured 3.5 items per second, sequential. Needed: about 200,0
 - Target 200,000 items; labels written to gitignored outputs/d3_distill/, with per-source counts and the file hash.
 
 ## Step 2 — students (same recipe as distill_v0; both students)
-- Osler-4B on pplx-decider-flash-v1.2; Osler-9B on Clef-Flash (text tower in memory; its readout is initialised from lm_head, which
-  is a known confound for the 9B, recorded as such).
+- Students (operator swap, 2026-11-07): vllm-sr/d3-mini (4.54B, Apache-2.0) and vllm-sr/d3-flash (8.39B, Apache-2.0). Both are the
+  same decision architecture as the teacher, so their decision heads are already trained; the readout-from-lm_head confound of the
+  Clef-based plan does not apply. The 4B swap replaces pplx-flash as the student; zero-shot pplx-flash stays the gate baseline
+  (pre-registered, unchanged).
+- Port step (new, required before labelling starts): a training harness for the d3 architecture (text-only path; the vision
+  encoder is frozen and unused). Gate: the loaded student reproduces its own decision probabilities on 40 items within 1e-4, the
+  same parity check as the pplx and Clef ports. Timebox 3 h; if it fails, both students are BLOCKED and the teacher labels still
+  go ahead as a dataset.
 - Dosing (D57): at least 3 labelled items per batch; per-item weighting (D51); λ calibrated on the first 200 steps (30–50 % gradient share).
 - Two arms per student at 13,992 steps, then one final at 63,304 steps for the best arm (the distill_v0 recipe unchanged).
 
@@ -39,7 +45,7 @@ The subsample run measured 3.5 items per second, sequential. Needed: about 200,0
 - The teacher is reported as an additional row. The students are judged on the gate only.
 
 ## Timing (planning estimates; to be replaced by measurements)
-- Step 0: 1–2 h. Labelling 200k items at the gated rate: 3–5 h (16 h if the gate fails and throughput stays at 3.5/s).
+- Port step: up to 3 h. Step 0: 1–2 h. Labelling 200k items at the gated rate: 3–5 h (16 h if the gate fails and throughput stays at 3.5/s).
 - 4B arm + final: about 20 h. 9B arm + final: about 35 h. Gate and findings: 3 h.
 - Total: about 2.5 days, with the 9B running after the 4B. One GPU job at a time.
 
