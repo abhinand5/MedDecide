@@ -109,3 +109,11 @@ removed (C077). The lint and the test suite pass with the GPU hidden: `ruff chec
 Whether the corrected mix alone fixes the collapse is not settled. At seed 0 the corrected control F0 still fails the original order at
 13,992 steps. The per-item arms pass positional health, but they fail the knowledge and MIMIC bounds. A seed-1 run of osler_v4's recipe on
 the corrected mix was not in the plan and was not run.
+
+## Addendum (2026-11-07): what came after closure
+
+- **Z9 and Z10 are reported in** `loops/osler_v5/z9_z10.md` and `loops/osler_v5/z10.md` (CLAIMS C078–C103), not in the sections above. Z9: giving the final the base readout does not restore positional health (two-letter 0.1924 base vs 0.0040 trained, 96/499 vs 2/499). Z10: zero-shot Qwen3.5-4B, Qwen3.5-9B and Clef-Flash on the test-side sets, 93 of 93 cells passing the gate.
+- **Robustness of the verdict:** F2s1's knowledge bound misses its limit by 0.0015 and F2's MIMIC bound by 0.0043, but both arms also fail MIMIC (F2s1 −0.0420 against −0.03). The choice would be "none" even if the knowledge bound had passed.
+- **Caveat on "pass":** the Z10 gate checks label mass, greedy answers and whether the CI is below chance, not whether a cell beats a constant. Five cells sit at or below chance or the majority rate (e.g. Qwen-4B `codiesp_icd_support_v1` 0.1106 vs majority 0.1771; `mimic_ed_acuity_v1` 0.1943 vs 0.5567; C097, C103).
+- **Open items:** Z1 has no SELF_AUDIT.md (R6 gap, not written retroactively). Clef-Flash's local-only allowlist (Deviation 20) is awaiting the operator's ratification.
+- **Z8:** not run. Closed by the operator on 2026-11-07; osler_v6 uses the same F2 seed-0 result as its reference.

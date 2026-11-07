@@ -37,3 +37,5 @@ a verdict of this loop. Claim ids are in `CLAIMS.md`. The loop stopped at Z7 wit
 
 8. **Item-id scheme (operator question 5; STATE §6.2).** Unchanged by this loop: the prediction files carry the id that
    `mix_row_to_item` derives, and every join here checks that id set against the frozen file.
+
+- Z8 (F2 at 63,304 steps) was not run; the loop closed on 2026-11-07. Its proposal moves to osler_v6 only as a pre-registered row, if at all.
