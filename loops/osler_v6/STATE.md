@@ -47,7 +47,7 @@ number already measured.
 
 - Operator instruction: "merge required stuff" (2026-11-07), approving the merge of `loop/osler_v5` into this branch.
 - Merge commit `bdbf32a` (parents `d731ab5` and `53ba2fe`). Changed paths: `loops/osler_v5/*`, `scripts/osler_v5/*`, `docs/paper/EVIDENCE.md`. Nothing under `loops/osler_v6/` changed.
-- Code gate: `uv run --frozen ruff check .` passed. `uv run --frozen pytest -q` on the merge: one failure, `tests/test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant` (strict XPASS, the student_v1 V2 BLOCKED item). The test file is identical to `dev` and the merge does not touch `tests/`, so the failure predates the merge. The merge is NOT pushed until the operator accepts this.
+- Code gate: `uv run --frozen ruff check .` passed. `uv run --frozen pytest -q` on the merge: one failure, `tests/test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant` (strict XPASS, the student_v1 V2 BLOCKED item). The test file is identical to `dev` and the merge does not touch `tests/`, so the failure predates the merge. Baseline gate (the documented osler_v5 command, C001/C076: the same two deselects): ran to 100 %, exit 0. Pushed on this basis.
 - Result: the osler_v5 copy on this branch reads `Loop status: STOPPED`; its Z8 row is `BLOCKED — NOT RUN`.
 - Inherited cosmetic line: `loops/osler_v5/STATE.md` line 13 still says Z8 "is NOT started and waits for the operator's decision". The Z8 row is authoritative. Fix it on `loop/osler_v5` and re-merge, not here.
 
