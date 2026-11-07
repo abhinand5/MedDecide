@@ -19,25 +19,33 @@ Odds, judgement (R10: not measured):
 ## 2. Pre-registered design (fixed before any run)
 
 1. **Teacher:** pplx-decider-v1.2-27b, revision cce0f3f80033e9d89d80831d5281fd72124aacce (osler_v4 Y5 teacher; C072), scored through the osler_v4 Y5 path (parity 40 of 40 required again).
-2. **Targets (D58):** 400,000 general anchor items (no domain prefix), eligibility as osler_v4 Y5 §3.3, with the exclusions checked by
+2. **Targets (D58):** 400,000 general anchor items (no domain prefix), eligibility as the Y5 eligibility steps in `loops/osler_v4/ADVISORY.md` (Y5), with the exclusions checked by
    text hash and recorded (overlap must be 0). Scoring is batched; the rate is recorded. If the rate is under 10 items/s, the target
-   is cut to what fits in 12 GPU-hours and the cut is recorded.
+   is cut to what fits in 12 GPU-hours and the cut is recorded. At osler_v4's measured ~6.2 items/s, 12 GPU-hours on top of the
+   112,128 items already scored (Y5) gives about 380,000 in total; that cut is the expected outcome, not a shortfall.
 3. **Dosing (D57):** each batch of 8 items has at least 3 labelled anchors; labelled items are drawn without replacement per epoch;
    the sampler is seeded and its batch statistics are logged (labelled items per batch, share of batches meeting the minimum).
-4. **Calibration of λ (D57):** on the first 200 steps of the arm, the distillation term's share of the applied gradient must be 0.30 to
-   0.50. λ is set once from that calibration and then frozen. The calibration log is kept.
+4. **Calibration of λ (D57):** share = ‖∇KL‖ / (‖∇CE‖ + ‖∇KL‖) on the applied gradients (before clipping), averaged over the first 200
+   steps of the G1 arm at λ = 1. The target is 0.40. λ is then scaled once by 0.40 / share, rounded to two decimals, and frozen; the
+   measured post-freeze share must land in 0.30 to 0.50 (checked over steps 201–400). The calibration log is kept.
 5. **Arms (13,992 steps, the corrected mix of osler_v5 D56a, per-item weighting, augmentation as F2):**
    - G0: F2 without distillation (the reference; F2 seed 0, already run: C062);
    - G1: F2 + distillation under D57.
    Both at seed 0; G1 also at seed 1 if the seed-0 result is a positional pass (osler_v5 showed seed instability).
 6. **Choice rule (dev only; the panel and the public test sets never select):**
    - a qualifier passes positional health in all three orders at 13,992 steps;
-   - knowledge dev v2 lower bound against G0 > 0 (the distillation must not reduce knowledge on dev);
+   - knowledge dev v2 non-inferiority: lower bound of (G1 − G0) > −0.01 (the distillation must not reduce knowledge on dev by more
+     than one point; a superiority test was not pre-registered);
    - MR and MIMIC lower bounds against G0 > −0.03;
    - CG v2 micro point estimate ≥ G0's.
    The choice is the qualifier with the highest knowledge dev v2; if none qualifies, outcome (4) again: report and stop.
-7. **Final (chosen recipe; 63,304 steps; ten evaluations; positional health per evaluation; checkpoint by S).** Only if a recipe qualifies.
-8. **Gate O6 (new, pre-registered here):** the final against zero-shot pplx-flash on the external panel (lower bound > −0.02, as Gate
+   Seed rule: seed 0 is the candidate for G1. Seed 1 is a stability check reported beside it and never replaces it; a qualifier at seed 1
+   without a seed-0 qualifier is reported, not chosen.
+7. **Final (chosen recipe; 63,304 steps; ten evaluations; positional health per evaluation; checkpoint by S among the evaluations
+   that pass positional health).** Only if a recipe qualifies. If no evaluation passes positional health, the final is BLOCKED and reported.
+   Causal scope: G1 vs G0 tests the package (dosing sampler plus KL). No claim about the KL term alone is made; a G0′ control
+   (sampler without KL) was considered and not pre-registered, because of its cost (about 4.5 GPU-hours).
+8. **Gate O6 (pre-registered here; its four checks are Gate O4's, unchanged, with the same limits):** the final against zero-shot pplx-flash on the external panel (lower bound > −0.02, as Gate
    O4 check iii), knowledge test lower bound > −0.02 against zero-shot, and MR and MIMIC lower bounds > 0 against zero-shot (as O4 i–ii).
    Against MedDecider-4B and MedDecider-9B, knowledge test point estimates are additional rows.
 9. **Teacher and data guards:** the 27B's soft labels are never used on a dev or test set; the knowledge dev v2 items stay out of the

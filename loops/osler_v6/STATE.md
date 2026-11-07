@@ -26,6 +26,19 @@ Task in flight: none.
 - **Teacher:** `perplexity-ai/pplx-decider-v1.2-27b@cce0f3f80033e9d89d80831d5281fd72124aacce` (osler_v4 Y5; parity C072). The
   ADVISORY's earlier "v1.1" was a typo, corrected at Z0.
 
+## 2b. Pre-registration clarifications (2026-11-07, before any run)
+
+Made after an independent plan review (DeepSeek, 2026-11-07), before Z1. Each is a wording fix or a stated default; none changes a
+number already measured.
+- §2.6 knowledge bound: the text said "> 0" but its parenthesis said "must not reduce"; now a non-inferiority bound (> −0.01).
+  Operator may override.
+- §2.4 λ: the share formula, the target 0.40 and the post-freeze check are now written (were undefined).
+- §2.6 seed rule: seed 0 is the candidate; seed 1 is a stability check.
+- §2.7 checkpoint: "by S" now only among positional-health passes; the final is BLOCKED if none pass.
+- §2.2 expected total about 380,000 (112,128 scored + about 268,000 in 12 GPU-hours).
+- §2.8 Gate O6 is Gate O4's four checks, unchanged.
+- Not changed: the G0′ control (sampler without KL) was not added; the package is the treatment. Operator may request it.
+
 ## 3. Facts found at Z0 (read-only)
 
 - The teacher snapshot is present in `HF_HOME` at the pinned revision.
