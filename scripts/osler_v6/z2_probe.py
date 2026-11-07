@@ -70,8 +70,10 @@ def main() -> None:
     out = (REPO_ROOT / args.out) if not Path(args.out).is_absolute() else Path(args.out)
     for directory in (out, out / "logs"):
         directory.mkdir(parents=True, exist_ok=True)
-    if (out / "probe.json").exists():
-        raise SystemExit(f"{out}/probe.json exists: the probe is not run twice (refuse-twice guard)")
+    probe_path = out / ("smoke_probe.json" if args.smoke else "probe.json")
+    provenance_path = out / ("smoke_provenance.json" if args.smoke else "run_provenance.json")
+    if probe_path.exists():
+        raise SystemExit(f"{probe_path} exists: the probe is not run twice (refuse-twice guard)")
     if not MIX.exists() or not MIX_MANIFEST.exists():
         raise SystemExit(f"{MIX} or {MIX_MANIFEST} is missing: run `scripts/osler_v6/build_mix.py build` first")
     manifest = json.loads(MIX_MANIFEST.read_text())
@@ -97,7 +99,7 @@ def main() -> None:
     if labelled < config.distill_min_labelled_per_batch * 2:
         raise SystemExit(f"only {labelled} labelled items for a quota of {config.distill_min_labelled_per_batch}: stop")
 
-    write_json(out / "run_provenance.json", {
+    write_json(provenance_path, {
         "started_utc": started_utc,
         "git_commit": git_commit(REPO_ROOT),
         "command": " ".join(["python", "scripts/osler_v6/z2_probe.py", *([] if not args.smoke else ["--smoke"])]),
@@ -161,7 +163,7 @@ def main() -> None:
     s0 = summary["gradient_share"]["s0_mean"]  # type: ignore[index]
     if args.smoke:
         summary["status"] = "SMOKE — not reported"
-        write_json(out / "probe.json", summary)
+        write_json(probe_path, summary)
         print(f"[{utcnow()}] smoke probe: {summary['gradient_share']}; {summary['labelled_per_step']}")
         return
     if result.steps != STEPS:
@@ -175,11 +177,11 @@ def main() -> None:
         problems.append(f"a step carried {summary['labelled_per_step']['min']} labelled items")
     if problems:
         summary["status"] = "BLOCKED — " + "; ".join(problems)
-        write_json(out / "probe.json", summary)
+        write_json(probe_path, summary)
         raise SystemExit(f"BLOCKED: {'; '.join(problems)}")
     if not 0.0 < s0 < 1.0:
         summary["status"] = f"BLOCKED — s0 {s0} makes the closed form undefined"
-        write_json(out / "probe.json", summary)
+        write_json(probe_path, summary)
         raise SystemExit(f"BLOCKED: s0 = {s0}, the λ closed form is undefined")
     lam = (TARGET_SHARE / (1.0 - TARGET_SHARE)) * (1.0 - s0) / s0
     summary["lambda"] = {
@@ -192,7 +194,7 @@ def main() -> None:
     }
     summary["status"] = "DONE"
     write_jsonl(out / "steps.jsonl", [record.to_dict() for record in result.history])
-    write_json(out / "probe.json", summary)
+    write_json(probe_path, summary)
     print(f"[{utcnow()}] probe done: s0 {s0:.4f} -> λ {lam:.4f}; steps {result.steps}; "
           f"labelled/step {summary['labelled_per_step']['min']}-{summary['labelled_per_step']['max']}; "
           f"wall {wall / 60:.1f} min")
