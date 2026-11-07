@@ -70,6 +70,8 @@ _TOP_LEVEL_KEYS = {
     "kl_to_base",
     "kl_exclude_template_prefixes",
     "distill_weight",
+    "distill_min_labelled_per_batch",
+    "distill_probe",
     "loss_weighting",
     "option_augment_probability",
     "option_augment_templates",
@@ -157,6 +159,11 @@ class StudentConfig:
     # osler_v4 Y6 (D48): + distill_weight * KL(teacher || model) over the batch's items that carry a teacher distribution
     # (SoftItem.teacher_probs, the pplx 27B soft labels); needs no base model. 0.0 = off
     distill_weight: float = 0.0
+    # osler_v6 D57: the dosing quota — every batch starts with at least this many teacher-labelled anchors, drawn without
+    # replacement per epoch by meddecide.train.dosing. 0 = off (osler_v4's batching)
+    distill_min_labelled_per_batch: int = 0
+    # osler_v6 D57 (Z2 probe): record the CE and KL gradient norms and the distillation share of every step (pre-clip)
+    distill_probe: bool = False
     # osler_v5 (D51): "per_step" (the osler_v4 behaviour: the loss is a mean over the batch's items) or "per_item" (after clipping,
     # the gradients are multiplied by n_items / batch_size; KL and distillation are sums over the masked items divided by batch_size)
     loss_weighting: str = "per_step"
@@ -230,6 +237,16 @@ class StudentConfig:
             raise ValueError("kl_to_base needs the option-code readout")
         if cfg.distill_weight < 0:
             raise ValueError("distill_weight must be >= 0")
+        if cfg.distill_min_labelled_per_batch < 0:
+            raise ValueError("distill_min_labelled_per_batch must be >= 0")
+        if cfg.distill_min_labelled_per_batch > cfg.batch_size:
+            raise ValueError("distill_min_labelled_per_batch must not exceed batch_size")
+        if cfg.distill_min_labelled_per_batch > 0 and cfg.distill_weight <= 0:
+            raise ValueError("the dosing quota needs a positive distill_weight")
+        if cfg.distill_probe and (cfg.distill_weight <= 0 or cfg.distill_min_labelled_per_batch <= 0):
+            raise ValueError("distill_probe needs a positive distill_weight and the dosing quota")
+        if cfg.distill_probe and cfg.kl_to_base > 0:
+            raise ValueError("distill_probe measures the CE term against the distillation term; it needs kl_to_base 0")
         if cfg.loss_weighting not in ("per_step", "per_item"):
             raise ValueError(f"loss_weighting must be 'per_step' or 'per_item', got {cfg.loss_weighting!r}")
         if not 0.0 <= cfg.option_augment_probability <= 1.0:

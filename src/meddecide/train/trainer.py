@@ -36,6 +36,7 @@ import torch
 from meddecide.bench.schema import Item
 from meddecide.train.config import StudentConfig
 from meddecide.train.data import iter_batches, shuffled_order
+from meddecide.train.dosing import DosingStats, dosed_batches
 from meddecide.train.losses import (
     ce_plus_brier,
     item_weight,
@@ -131,6 +132,10 @@ class StepRecord:
     n_teacher: int = 0
     # osler_v5 (D51): the factor applied to the clipped gradient (n_items / batch_size under per_item; 1.0 under per_step)
     applied_scale: float = 1.0
+    # osler_v6 D57 probe: pre-clip gradient norms of the CE+Brier term and the (λ-weighted) KL term, and their share
+    grad_ce: float = 0.0
+    grad_kl: float = 0.0
+    grad_share: float = 0.0
 
     @property
     def items_per_s(self) -> float:
@@ -160,6 +165,7 @@ class TrainResult:
     best_dev: dict[str, Any] | None = None
     stopped_early: str | None = None
     schedule: dict[str, Any] | None = None
+    dosing: dict[str, Any] | None = None
 
     def to_dict(self, *, include_history: bool = True) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -170,6 +176,7 @@ class TrainResult:
             "best_dev": self.best_dev,
             "stopped_early": self.stopped_early,
             "schedule": self.schedule,
+            "dosing": self.dosing,
         }
         if include_history:
             out["history"] = [r.to_dict() for r in self.history]
@@ -453,6 +460,10 @@ class Trainer:
             best_step = run["best_step"]
             consecutive_below = int(run["consecutive_below"])
             self._log({"event": "resume", "from_step": total_steps, "epoch": epoch, "batches_in_epoch": skip_in_epoch})
+        dosing_stats: DosingStats | None = None
+        if config.distill_min_labelled_per_batch > 0:
+            # osler_v6 D57: the quota sampler's statistics; the per-step records (n_teacher) remain the realised check
+            dosing_stats = DosingStats(min_labelled=config.distill_min_labelled_per_batch)
         # a step budget keeps going past ``config.epochs`` epochs: "train for N steps" must mean
         # N steps, not "N steps or one pass, whichever comes first" (the overfit test relies on
         # this to see its 64 items many times)
@@ -461,18 +472,33 @@ class Trainer:
         ):
             if skip_in_epoch == 0:
                 epoch_start_step = total_steps
-            order = shuffled_order(len(items), seed=config.seed, epoch=epoch)
-            for _, batch in iter_batches(
-                self.model,
-                items,
-                batch_size=config.batch_size,
-                max_batch_tokens=config.max_batch_tokens,
-                max_prompt_tokens=config.max_prompt_tokens,
-                order=order,
-                augment_options=config.shuffle_options,
-                epoch=epoch,
-                seed=config.seed,
-            ):
+            if dosing_stats is not None:
+                batch_stream = dosed_batches(
+                    self.model,
+                    items,
+                    batch_size=config.batch_size,
+                    min_labelled=config.distill_min_labelled_per_batch,
+                    max_batch_tokens=config.max_batch_tokens,
+                    max_prompt_tokens=config.max_prompt_tokens,
+                    augment_options=config.shuffle_options,
+                    epoch=epoch,
+                    seed=config.seed,
+                    stats=dosing_stats,
+                )
+            else:
+                order = shuffled_order(len(items), seed=config.seed, epoch=epoch)
+                batch_stream = iter_batches(
+                    self.model,
+                    items,
+                    batch_size=config.batch_size,
+                    max_batch_tokens=config.max_batch_tokens,
+                    max_prompt_tokens=config.max_prompt_tokens,
+                    order=order,
+                    augment_options=config.shuffle_options,
+                    epoch=epoch,
+                    seed=config.seed,
+                )
+            for _, batch in batch_stream:
                 if skip_in_epoch > 0:
                     skip_in_epoch -= 1  # a batch the checkpoint already took: its step is not repeated
                     continue
@@ -527,8 +553,33 @@ class Trainer:
                         total_loss = total_loss + config.distill_weight * distill
                         distill_value = float(distill.detach())
                 self.optimizer.zero_grad(set_to_none=True)
-                total_loss.backward()
                 params = [p for group in self.optimizer.param_groups for p in group["params"]]
+                grad_ce = 0.0
+                grad_kl = 0.0
+                grad_share = 0.0
+                if config.distill_probe and n_teacher > 0:
+                    # osler_v6 D57 (Z2): pre-clip norms of the CE+Brier term and the λ·KL term on this step's batch. The CE
+                    # gradients are cloned and added to the KL gradients, so the update is the one `total_loss.backward()`
+                    # produces (λ = 1 in the probe; the arm's share is measured at its frozen λ).
+                    breakdown.total.backward(retain_graph=True)
+                    ce_sq = sum(
+                        float(param.grad.detach().pow(2).sum()) for param in params if param.grad is not None
+                    )
+                    ce_grads = [None if param.grad is None else param.grad.detach().clone() for param in params]
+                    self.optimizer.zero_grad(set_to_none=True)
+                    (config.distill_weight * distill).backward()
+                    kl_sq = sum(
+                        float(param.grad.detach().pow(2).sum()) for param in params if param.grad is not None
+                    )
+                    for param, ce_grad in zip(params, ce_grads, strict=True):
+                        if ce_grad is None:
+                            continue
+                        param.grad = ce_grad if param.grad is None else param.grad.add_(ce_grad)
+                    grad_ce = math.sqrt(ce_sq)
+                    grad_kl = math.sqrt(kl_sq)
+                    grad_share = grad_kl / (grad_ce + grad_kl) if (grad_ce + grad_kl) > 0 else 0.0
+                else:
+                    total_loss.backward()
                 grad_norm = float(torch.nn.utils.clip_grad_norm_(params, config.grad_clip))
                 # osler_v5 D51: under per_item the clipped gradient is multiplied by n_items / batch_size (clip first, then scale)
                 applied_scale = 1.0
@@ -576,6 +627,9 @@ class Trainer:
                     distill=distill_value,
                     n_teacher=n_teacher,
                     applied_scale=applied_scale,
+                    grad_ce=grad_ce,
+                    grad_kl=grad_kl,
+                    grad_share=grad_share,
                 )
                 self.history.append(record)
                 if on_step is not None:
@@ -637,7 +691,10 @@ class Trainer:
             best_dev=best,
             stopped_early=stopped_early,
             schedule=schedule,
+            dosing=dosing_stats.to_dict() if dosing_stats is not None else None,
         )
+        if dosing_stats is not None:
+            self._log({"event": "dosing", **dosing_stats.to_dict()})
         self._log({"event": "end", **result.to_dict(include_history=False)})
         self.model.eval_mode()
         return result

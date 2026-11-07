@@ -17,6 +17,7 @@ sys.modules["fla"] = None
 import pytest  # noqa: E402
 import torch  # noqa: E402
 
+from meddecide.bench.schema import Item, SoftItem  # noqa: E402
 from meddecide.model.meddecide_model import LoraSettings, MedDecideModel  # noqa: E402
 from meddecide.model.readout_checks import synthetic_choice_item  # noqa: E402
 from meddecide.train.config import StudentConfig  # noqa: E402
@@ -228,3 +229,51 @@ def test_kl_exclusion_prefixes_select_the_anchors(tiny_dir) -> None:
     trainer2, _ = _kl_trainer(tiny_dir, kl_to_base=1.0)
     trainer2.train(items, steps=1)
     assert trainer2.history[-1].n_anchor == 2
+
+# --------------------------------------------------------------------------- osler_v6 D57 dosing and probe
+def _teacher_item(n_options: int, seed: int) -> SoftItem:
+    item = synthetic_choice_item(n_options, seed)
+    n = len(item.options)
+    return SoftItem.model_validate({**item.model_dump(), "teacher_probs": [1.0 / n] * n, "teacher": "test"})
+
+
+def _dosing_trainer(tiny_dir: Path, **overrides) -> tuple[Trainer, MedDecideModel]:
+    model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                           readout="option_code")
+    settings = {"device": "cpu", "dtype": "float32", "batch_size": 4, "log_every": 0, "lr": 1e-2,
+                "lora_lr": 1e-2, "distill_weight": 1.0, "distill_min_labelled_per_batch": 2,
+                "distill_probe": True, "max_batch_tokens": 100_000, "max_prompt_tokens": 4096}
+    settings.update(overrides)
+    return Trainer(model, StudentConfig(**settings)), model
+
+
+def _dosing_items() -> list[SoftItem | Item]:
+    return [_teacher_item(3, i) for i in range(8)] + [synthetic_choice_item(3, 100 + i) for i in range(8)]
+
+
+def test_d57_dosing_gives_every_step_the_quota_and_the_probe_logs_the_pre_clip_share(tiny_dir) -> None:
+    trainer, _ = _dosing_trainer(tiny_dir)
+    result = trainer.train(_dosing_items(), steps=3)
+    assert result.steps == 3
+    assert [record.n_teacher for record in result.history] == [2, 2, 2]
+    assert result.dosing is not None
+    assert result.dosing["batches_meeting_minimum"] == result.dosing["batches"]
+    assert result.dosing["share_batches_meeting_minimum"] == 1.0
+    for record in result.history:
+        assert record.grad_ce > 0 and record.grad_kl > 0
+        assert record.grad_share == pytest.approx(record.grad_kl / (record.grad_ce + record.grad_kl))
+        assert 0.0 < record.grad_share < 1.0
+
+
+def test_the_probe_measures_without_changing_the_first_step(tiny_dir) -> None:
+    """The probe assembles the same total gradient (CE + λ·KL) as ``total_loss.backward()``; only the summation order differs."""
+    items = _dosing_items()
+    torch.manual_seed(0)
+    plain, _ = _dosing_trainer(tiny_dir, distill_probe=False)
+    plain.train(items, steps=1)
+    torch.manual_seed(0)
+    probed, _ = _dosing_trainer(tiny_dir, distill_probe=True)
+    result = probed.train(items, steps=1)
+    assert result.history[0].loss == pytest.approx(plain.history[0].loss, rel=1e-6)
+    assert result.history[0].grad_norm == pytest.approx(plain.history[0].grad_norm, rel=1e-5)
+    assert result.history[0].grad_share > 0.0

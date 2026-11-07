@@ -93,6 +93,15 @@ number already measured.
   `reference_batched`. Anchor job launched detached (uv 301442, python 301463) with a 12 GPU-hour budget; first flush 512 scored at
   7.07 items/s, 4,095 input tokens/s. Ruff clean; suite 1107 passed, 4 skipped, 2 deselected, exit 0 (168 s).
 
+- 2026-11-07T19:32Z — Z1 anchor job healthy: 8,704 new items at 6.47 items/s (4,115 input tokens/s), GPU 100 %. While it
+  runs (CPU work only), the Z2/Z3 code is written and committed: `meddecide.train.dosing` (D57 quota sampler: 3 labelled
+  anchors per formed batch, per-epoch permutation without replacement, soft cap for a long first fill item, realised
+  statistics), the trainer's pre-clip share probe (`distill_probe`; CE and λ·KL gradient norms recorded per step without
+  changing the update), `scripts/osler_v6/build_mix.py` (osler_v5's corrected F2 mix + Z1 teacher labels attached, checked
+  against the corrected composition hash), `scripts/osler_v6/z2_probe.py` (200 steps at λ = 1, closed form for λ) and
+  `scripts/osler_v6/run_arm.py` (the osler_v5 driver reading the prepared mix, with `--distill-weight` and
+  `--min-labelled`). Ruff clean; the suite (GPU hidden) exits 0.
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
