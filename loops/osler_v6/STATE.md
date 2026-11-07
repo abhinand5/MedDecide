@@ -10,8 +10,8 @@ Task in flight: none.
 |---|---|---|---|
 | Z0 | Setup: GO recorded, teacher revision checked, Z8 closure noted, AGENTS current loop | — | DONE 2026-11-07T17:40Z |
 | Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | PENDING |
-| Z2 | Dosing sampler (D57): 8 items per batch, ≥3 labelled anchors, seeded; λ calibration on first 200 steps (30–50 % gradient share), then frozen | Z1 | PENDING |
-| Z3 | Arm G1 (F2 + distillation, seed 0), 13,992 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | PENDING |
+| Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | PENDING |
+| Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | PENDING |
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | PENDING |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | PENDING |
 | Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | PENDING |
@@ -20,7 +20,7 @@ Task in flight: none.
 ## 2. Operator decisions
 
 - **GO for D57, D58 and the ADVISORY §2 design:** `yes` — 2026-11-07, operator instruction "start osler_v6 with everything intact".
-- **Osler_v5 Z8:** not run; closed by the operator on 2026-11-07 (see osler_v5 FINDINGS addendum).
+- **Osler_v5 Z8:** not run; closed by the operator on 2026-11-07. The record is on `loop/osler_v5` at commit `53ba2fe` (STATE board row, FINDINGS addendum). This branch's copy of osler_v5 is older; see §2c.
 - **Base (ADVISORY §6, D59, Clef-Flash vs pplx-4B):** OPEN. Every run in this loop uses the pplx-decider-flash-v1.2 base (the same as
   osler_v5 F2), because §2 was written for it. §6 is not used until the operator decides.
 - **Teacher:** `perplexity-ai/pplx-decider-v1.2-27b@cce0f3f80033e9d89d80831d5281fd72124aacce` (osler_v4 Y5; parity C072). The
@@ -32,12 +32,20 @@ Made after an independent plan review (DeepSeek, 2026-11-07), before Z1. Each is
 number already measured.
 - §2.6 knowledge bound: the text said "> 0" but its parenthesis said "must not reduce"; now a non-inferiority bound (> −0.01).
   Operator may override.
-- §2.4 λ: the share formula, the target 0.40 and the post-freeze check are now written (were undefined).
+- §2.4 λ: the share formula and target are defined; the scaling is the closed form (0.4/0.6)·(1−s0)/s0. Calibration is a separate 200-step probe (Z2), so the D57 band applies to the arm's own first 200 steps. A miss blocks G1; λ is not re-tuned.
+- §2.5/2.6 G0 is the reference, not a candidate.
 - §2.6 seed rule: seed 0 is the candidate; seed 1 is a stability check.
 - §2.7 checkpoint: "by S" now only among positional-health passes; the final is BLOCKED if none pass.
 - §2.2 expected total about 380,000 (112,128 scored + about 268,000 in 12 GPU-hours).
 - §2.8 Gate O6 is Gate O4's four checks, unchanged.
 - Not changed: the G0′ control (sampler without KL) was not added; the package is the treatment. Operator may request it.
+
+## 2c. Pending operator decision: merge of loop/osler_v5 into this branch
+
+The copy of osler_v5's files on this branch is older than `loop/osler_v5` (STATE still says RUNNING with Z8 PENDING). Fixing that
+needs a merge of `loop/osler_v5` (tip `53ba2fe`) into this branch, which changes files under `loops/osler_v5/`, `scripts/osler_v5/`
+and `docs/paper/EVIDENCE.md`. It is an exception to GOAL "Do not" (earlier loops' files). NOT DONE: awaiting the operator's explicit
+yes. Until then, the osler_v5 record on this branch is stale; the authoritative copy is `loop/osler_v5`.
 
 ## 3. Facts found at Z0 (read-only)
 
