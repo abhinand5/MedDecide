@@ -117,6 +117,13 @@ number already measured.
   exit codes. So the Z1 data artifacts complete even if no session is awake when the 12-hour job ends. The chain does not
   start Z2 (the mix build waits for Z1 to be audited and marked DONE).
 
+- 2026-11-07T19:56Z — Z1 job still healthy (20,480 new at 6.37 items/s). Z7's gate code is written ahead of the final and
+  **validated against Gate O4**: `scripts/osler_v6/z7_gate.py` imports osler_v4's `y9_gate.py` unmodified and points only the
+  final-model key at `outputs/osler_v6/Z7/baselines`; run on osler_v4's own predictions it reproduces
+  `outputs/osler_v4/Y9/gate.json` exactly — pplx_flash FAIL with i PASS (+0.13871 [0.124266, 0.152998]), ii PASS (+0.165424
+  [0.150232, 0.179508]), iii FAIL (−0.042145 [−0.05842, −0.026935]), iv PASS (−0.006691 [−0.01721, 0.004756]); meddecider_4b
+  NOT MEASURED; all figures identical. So Gate O6 will be the same code path as Gate O4, with the same limits.
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
