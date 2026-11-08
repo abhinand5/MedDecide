@@ -6,8 +6,10 @@ Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.24
 fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
 started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0.355474 in [0.30, 0.50]; 3 labelled on
 every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 13,992 steps land about 19:50Z; then the
-two evaluations and the audit. First evaluation at step 6,996 (~14:15Z). Last poll 12:34Z: step 4,955, last-500 mean
-2.91 s/step, no evaluation yet; full checkpoint `full/step_002500` written (82 MB, resume works).
+two evaluations and the audit. First evaluation (6,996) is DONE (C026): G1 S 0.8163 / MR 0.9330 / MIMIC 0.7342 / CG 0.7818
+/ knowledge 0.7680 / positional PASS, against G0's same-step S 0.8064 / knowledge 0.7500 — G1 ahead on every dev component
+at the halfway point, but the choice is at 13,992. Eval checkpoint `checkpoints/step_006996` (31 MB) saved. Last poll
+14:42Z: step 7,097, 2.89 s/step; second evaluation at 13,992 about 20:10Z.
 
 ## 1. Task board
 
@@ -227,6 +229,13 @@ number already measured.
 - 2026-11-08T10:14Z — Z3 at step 2,098 (2.77 s/step); first evaluation still ahead at 6,996. While it runs, the **seed-1
   mix for Z4** was built ahead of time (CPU only): `data/train/osler_v6/mix_f2_distill_s1.jsonl`, 1,456,438 rows / 368,221
   labelled, augmentation seed 1, sha `fc8e6d04…` (C025). It is not used unless Z3's positional health passes and Z4 starts.
+
+- 2026-11-08T14:42Z — Z3's first evaluation (step 6,996) completed and written: S 0.8163 (MR 0.9330, MIMIC 0.7342, CG v2
+  0.7818), knowledge dev 0.7680, positional health in all three orders PASS; the same-step G0 record is S 0.8064 (0.9233 /
+  0.7242 / 0.7718), knowledge 0.7500, so G1 leads on every dev component at the halfway point (C026). This is an interim dev
+  measurement, not the choice: the pre-registered rule reads the 13,992 evaluation with paired bootstrap bounds. The eval
+  took 177 s and its checkpoint is saved in `checkpoints/step_006996`; the arm continues at ~2.9 s/step toward 13,992
+  (~20:10Z), then the second evaluation and the Z3 audit.
 
 ## 6. Deviations from the plan
 
