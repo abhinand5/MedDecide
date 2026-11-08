@@ -1,8 +1,8 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:34Z` (Z0-Z3 DONE; Z4 starting).
-Task in flight: none — Z3 finished at 21:26Z and passed its audit; Z4 (G1 seed 1) starts now.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
+Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; launching detached now.
 
 ## 1. Task board
 
@@ -12,7 +12,7 @@ Task in flight: none — Z3 finished at 21:26Z and passed its audit; Z4 (G1 seed
 | Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | DONE 2026-11-08T07:13Z — 385,536 scored (96.38 %), 14,464 cut by the 12-hour budget, audit PASS |
 | Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | DONE 2026-11-08T08:26Z — final probe s0 0.170491, λ = 3.243598 frozen; audit PASS (probe #1, random fill, superseded) |
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | DONE 2026-11-08T21:31Z — 13,992 steps, band 0.355474 PASS, final S 0.825891 / knowledge 0.775 / positional PASS; audit PASS |
-| Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | PENDING |
+| Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | IN_PROGRESS 2026-11-08T21:36Z |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | PENDING |
 | Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | PENDING |
 | Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | PENDING |
@@ -94,6 +94,13 @@ number already measured.
 - [x] First-200-step band: mean pre-clip share 0.355474 in [0.30, 0.50] (`z3_audit.py`), 3 labelled on every step (C024).
 - [x] Evaluations: positional health all three orders at 13,992 PASS; knowledge dev 0.775000; MR 0.928969, MIMIC 0.754192, CG 0.794511 for the choice rule (C027).
 - [x] `SELF_AUDIT.md` (PASS), CLAIMS rows, STATE exact, commit and push (C028).
+
+## 4e. Checklist — Z4 (in progress)
+
+- [ ] Disk headroom 2 GB write before the job.
+- [ ] G1 seed 1 launched at the frozen λ on `mix_f2_distill_s1.jsonl` (augmentation seed 1), quota 3, 13,992 steps, evaluations at 6,996 and 13,992; detached with PID/log.
+- [ ] First-200-step band check (`z3_audit.py --arm-dir outputs/osler_v6/Z4/G1s1`): mean share in [0.30, 0.50]; a miss blocks the stability arm and is reported.
+- [ ] Seed-1 evaluation at 13,992 (positional, knowledge, MR/MIMIC/CG) reported beside seed 0 and never replacing it; `SELF_AUDIT.md`, CLAIMS, STATE, commit/push.
 
 ## 5. Log
 
