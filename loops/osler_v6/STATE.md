@@ -3,8 +3,9 @@
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
 Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
-`777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z (expected ~12 h
-training + ~1 h post-processing, finish ~2026-11-09T10:30Z).
+`777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
+band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Post-probe rate ~2.1 s/step → finish about
+2026-11-09T06:30Z including post-processing.
 
 ## 1. Task board
 
@@ -246,6 +247,10 @@ number already measured.
   (C027). Against G0 at the same step: knowledge +0.0155, CG +0.0101, MR -0.0086, MIMIC -0.0016, S -0.00003 — the paired
   bounds are Z5's job, but no component is near its pre-registered margin. Because the seed-0 result is a positional pass,
   ADVISORY §2.5 requires the seed-1 stability arm: **Z4 starts now** on the seed-1 mix (C025), same frozen λ and quota.
+
+- 2026-11-08T21:50Z — Z4 (seed 1) is training: at step 224, its own first-200-step D57 band passes (mean share 0.365937;
+  3 labelled on every step, C029), and the post-probe rate is ~2.1 s/step, so it should finish about 06:30Z (earlier than
+  the 10:30Z planning estimate). The seed-1 result will be reported beside seed 0 and never replaces it.
 
 ## 6. Deviations from the plan
 
