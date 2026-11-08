@@ -2,7 +2,8 @@
 
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T07:14Z` (Z0, Z1 DONE; Z2 IN_PROGRESS).
-Task in flight: Z2 — the distilled mix build (CPU) then the 200-step λ probe (GPU).
+Task in flight: Z2 — the 200-step λ probe (GPU) on the built mix; detached, uv PID `667812`, python PID `667815`, log
+`outputs/osler_v6/Z2/logs/probe.log`; started 2026-11-08T07:22Z.
 
 ## 1. Task board
 
@@ -82,7 +83,7 @@ number already measured.
 
 - [x] D57 dosing sampler and its tests (committed before Z1 closed): 3 labelled anchors in every formed batch, per-epoch permutation without replacement, seeded, statistics logged.
 - [x] Pre-clip share probe in the trainer (`distill_probe`, `distill_probe_steps`), leaving the update unchanged.
-- [ ] Build `data/train/osler_v6/mix_f2_distill.jsonl`: osler_v5's corrected F2 mix (composition 78d7e547…) + the Z1 teacher labels attached; manifest with the counts and sha.
+- [x] Build `data/train/osler_v6/mix_f2_distill.jsonl`: 1,456,438 rows, 368,221 labelled by text (25.28 %; anchor 855,532), composition 78d7e547…, sha `91ff5362…`; the augmentation matches osler_v5's (37,844 + 37,843).
 - [ ] 200-step probe at λ = 1 on the mix, budget: every step carries ≥3 labelled anchors, finite; s0 = mean per-step share; λ = (0.4/0.6)·(1-s0)/s0 frozen (no re-tune).
 - [ ] `SELF_AUDIT.md` (fresh-process re-derivation, `z2_audit.py`), CLAIMS rows, STATE exact, commit and push.
 
@@ -162,6 +163,11 @@ number already measured.
   (`scripts/osler_v6/z1_audit.py`) re-derived every number and returned PASS: pool sha equals osler_v4's, 112,128 reused with
   0 field/position mismatches, 0 argmax mismatches, probability sums off by 1.1e-16, parity identical to osler_v4, 0 problems.
   Z2 starts next: build the distilled mix, then the 200-step λ probe.
+
+- 2026-11-08T07:22Z — Z2's mix built: `data/train/osler_v6/mix_f2_distill.jsonl` (8.5 GB, private), 1,456,438 rows, of which
+  368,221 carry a Z1 teacher distribution (25.28 %); 855,532 anchor rows, 600,906 domain rows; composition `78d7e547…` (the
+  D56a-corrected F2 mix), augmentation counts identical to osler_v5's. The 200-step λ probe was launched detached
+  (uv PID 667812, python PID 667815, log `outputs/osler_v6/Z2/logs/probe.log`) on the now-idle GPU.
 
 ## 6. Deviations from the plan
 
