@@ -2,7 +2,8 @@
 
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:01Z` (Z0, Z1, Z2 DONE; Z3 IN_PROGRESS).
-Task in flight: Z3 — G1 seed 0 at the frozen λ 3.437525, 13,992 steps; launching detached now.
+Task in flight: Z3 — G1 seed 0 at the frozen λ 3.437525, 13,992 steps; detached, uv PID `673265`, python PID `673269`,
+log `outputs/osler_v6/Z3/G1s0/logs/run.log`; started 2026-11-08T08:00Z.
 
 ## 1. Task board
 
@@ -184,6 +185,11 @@ number already measured.
   this same pre-registered sampler (no change after a run); the expected consequence is an arm much longer than F2's ~4.5 h,
   and the final longer than the ADVISORY's ~24 h planning estimate. This is recorded as a measured planning fact, not a
   design change; the ADVISORY §4 estimates are explicitly not measured.
+
+- 2026-11-08T08:01Z — Z3 launched. The first launcher attempt passed an empty λ to the driver (a shell one-liner exited before
+  printing it); the driver refused the empty float immediately and no arm started. The launcher is fixed (`assert` + non-empty
+  check) and the arm relaunched with λ = 3.4375248931943583, uv PID 673265 / python PID 673269. The arm's first 200 steps are
+  the D57 band check; the step log is per-step, so the band can be read at step 200 and the arm stopped early if it misses.
 
 ## 6. Deviations from the plan
 

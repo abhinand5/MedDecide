@@ -12,7 +12,8 @@ cd /workspace/MedDecide
 NAME=$1; CONFIG=$2; MIX=$3; MIX_MANIFEST=$4; OUT=$5; STEPS=$6; EVALUATIONS=$7
 PROBE=outputs/osler_v6/Z2/probe/probe.json
 if [ ! -f "$PROBE" ]; then echo "no Z2 probe at $PROBE: run the probe first" >&2; exit 1; fi
-LAMBDA=$(uv run --frozen python -c "import json, sys; d = json.load(open('$PROBE')); sys.exit(0) if d.get('status') == 'DONE' else sys.exit('the probe is not DONE: ' + str(d.get('status'))); print(d['lambda']['value'])")
+LAMBDA=$(uv run --frozen python -c "import json; d = json.load(open('$PROBE')); assert d.get('status') == 'DONE', 'the probe is not DONE: ' + str(d.get('status')); print(d['lambda']['value'])")
+test -n "$LAMBDA"
 echo "arm $NAME: frozen lambda $LAMBDA; config $CONFIG; mix $MIX; steps $STEPS; evaluations $EVALUATIONS"
 if [ -e "$OUT/arm_result.json" ]; then echo "refuse: $OUT/arm_result.json exists; an arm is not run twice" >&2; exit 1; fi
 if [ ! -f "$MIX" ] || [ ! -f "$MIX_MANIFEST" ]; then echo "the mix or its manifest is missing" >&2; exit 1; fi
