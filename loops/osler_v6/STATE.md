@@ -9,7 +9,8 @@ every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 
 two evaluations and the audit. First evaluation (6,996) is DONE (C026): G1 S 0.8163 / MR 0.9330 / MIMIC 0.7342 / CG 0.7818
 / knowledge 0.7680 / positional PASS, against G0's same-step S 0.8064 / knowledge 0.7500 — G1 ahead on every dev component
 at the halfway point, but the choice is at 13,992. Eval checkpoint `checkpoints/step_006996` (31 MB) saved; full checkpoints
-step_005000 and step_007500 exist. Last poll 16:37Z: step 9,445, 2.98 s/step; second evaluation at 13,992 about 20:20Z.
+step_005000, step_007500 and step_010000 exist. Last poll 18:17Z: step 11,433, 3.08 s/step; second evaluation at 13,992
+about 20:30Z.
 
 ## 1. Task board
 
