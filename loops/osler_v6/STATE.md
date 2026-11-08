@@ -1,21 +1,16 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T05:32Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
-Task in flight: Z1 anchor scoring; detached, uv PID `301442`, python PID `301463`, log
-`outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12` (ends about 2026-11-08T07:02Z).
-Command: `setsid nohup uv run --frozen --with pillow==12.3.0 --with "torchvision==0.29.0" python
-scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 05:31Z: 238,592 new scored at 6.32 items/s
-(4,115 input tokens/s), GPU 100 %, no errors; 350,720 records, continuous. About 1.5 h of budget left.
-Join/summary chain: `setsid nohup bash scripts/osler_v6/z1_chain.sh` (chain PID `503528`), waiting on python PID `301463`;
-it runs `join` then `summary` automatically and logs to `outputs/osler_v6/Z1/logs/chain.log`.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T07:13Z` (Z0, Z1 DONE; Z2 starting).
+Task in flight: none. The Z1 job finished at the 12-hour budget (07:03:12Z) and the join/summary chain completed
+(07:05:20Z); the GPU is idle.
 
 ## 1. Task board
 
 | id | task | depends | status |
 |---|---|---|---|
 | Z0 | Setup: GO recorded, teacher revision checked, Z8 closure noted, AGENTS current loop | — | DONE 2026-11-07T17:40Z |
-| Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | IN_PROGRESS 2026-11-07T18:42Z |
+| Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | DONE 2026-11-08T07:13Z — 385,536 scored (96.38 %), 14,464 cut by the 12-hour budget, audit PASS |
 | Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | PENDING |
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | PENDING |
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | PENDING |
@@ -74,15 +69,15 @@ number already measured.
 - [x] AGENTS.md Current loop section updated to osler_v6 (Started field set).
 - [x] GOAL.md, STATE.md, KICKOFF.md committed.
 
-## 4b. Checklist — Z1 (in progress)
+## 4b. Checklist — Z1 (done)
 
 - [x] Script `scripts/osler_v6/z1_anchor_scoring.py`: the osler_v4 Y5 path, Z1 output dir, reuse by id + text hash; `uv run --frozen ruff check .` and the pytest suite pass before its commit (C009).
 - [x] Pool rebuilt with the current bench exclusions (all 73 `data/bench/**/*.jsonl`, including the osler_v4 y9 panel/knowledge/MIMIC sets created after Y5); its sha256 is osler_v4's `a9fab387…`, so no old scored row is excluded (C004).
 - [x] Reuse: all 112,128 osler_v4 records verified against their pool row (item id, template, qtype, option count, probability sum); 0 dropped, positions preserved; written to `outputs/osler_v6/Z1/anchor_probs.jsonl` (C006).
 - [x] Parity re-run: 40 of 40 argmax agreement on both batched paths; chosen path `reference_batched`; numbers bit-identical to osler_v4's (C007).
-- [ ] Anchor scoring detached under `--max-hours 12`; log and PID at the top; polled every 20+ minutes (running: 11,264 new at 19:31Z).
-- [ ] Join `data/train/osler_v6/z1_anchor_soft.jsonl`; overlap with every bench row re-checked by text hash = 0.
-- [ ] Summary numbers, `SELF_AUDIT.md`, CLAIMS rows, STATE exact, commit and push.
+- [x] Anchor scoring detached under `--max-hours 12`, polled every 20+ minutes: stopped at the budget with 385,536 scored (112,128 reused + 273,408 new), 14,464 pool rows cut (rate 6.32 items/s < 10/s; the pre-registered cut, C012).
+- [x] Join `data/train/osler_v6/z1_anchor_soft.jsonl`: 385,536 rows, sha `edd4c207…`, overlap with every bench row 0 (C013).
+- [x] Summary numbers, `SELF_AUDIT.md` (PASS, `scripts/osler_v6/z1_audit.py`), CLAIMS rows, STATE exact, commit and push.
 
 ## 5. Log
 
@@ -152,6 +147,14 @@ number already measured.
   keeps 0 = all steps), `run_arm.py` turns it on with `log_every: 1` for G1, and `scripts/osler_v6/z3_audit.py` re-derives the
   band ([0.30, 0.50], mean of per-step shares at the frozen λ), the quota of 3 on every step, the step count, the evaluation
   grid and the loss health, and writes the Z3 SELF_AUDIT. Suite 1137 passed, 4 skipped, 2 deselected, exit 0; ruff clean (C011).
+
+- 2026-11-08T07:13Z — **Z1 DONE.** The anchor job scored to the 12 GPU-hour budget and stopped: 385,536 of the 400,000 pool
+  rows scored (96.38 %), 112,128 reused from osler_v4 + 273,408 new, 14,464 rows cut by the budget (rate 6.32 items/s, under
+  the pre-registered 10 items/s threshold — the cut is the expected outcome, not a shortfall). The join wrote 385,536 soft
+  labels (choice 269,282 / noul 97,974 / score 18,280), sha `edd4c207…`, benchmark overlap 0. The fresh-process audit
+  (`scripts/osler_v6/z1_audit.py`) re-derived every number and returned PASS: pool sha equals osler_v4's, 112,128 reused with
+  0 field/position mismatches, 0 argmax mismatches, probability sums off by 1.1e-16, parity identical to osler_v4, 0 problems.
+  Z2 starts next: build the distilled mix, then the 200-step λ probe.
 
 ## 6. Deviations from the plan
 
