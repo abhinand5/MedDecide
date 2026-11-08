@@ -1,12 +1,12 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T00:26Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T01:37Z` (Z0 DONE; Z1 IN_PROGRESS, anchor job running).
 Task in flight: Z1 anchor scoring; detached, uv PID `301442`, python PID `301463`, log
 `outputs/osler_v6/Z1/logs/anchor.log`; started 2026-11-07T19:02Z, `--max-hours 12` (ends about 2026-11-08T07:02Z).
 Command: `setsid nohup uv run --frozen --with pillow==12.3.0 --with "torchvision==0.29.0" python
-scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 00:24Z: 121,344 new scored at 6.28 items/s
-(4,115 input tokens/s), GPU 100 %, no errors; 233,472 records, continuous.
+scripts/osler_v6/z1_anchor_scoring.py anchor --max-hours 12`. Last poll 01:36Z: 148,992 new scored at 6.30 items/s
+(4,115 input tokens/s), GPU 100 %, no errors; 261,120 records, continuous.
 Join/summary chain: `setsid nohup bash scripts/osler_v6/z1_chain.sh` (chain PID `503528`), waiting on python PID `301463`;
 it runs `join` then `summary` automatically and logs to `outputs/osler_v6/Z1/logs/chain.log`.
 
