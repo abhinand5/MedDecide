@@ -5,8 +5,8 @@ Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:27Z` (Z0, Z1, Z2 DON
 Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.243597720934029), 13,992 steps, on the
 fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
 started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0.355474 in [0.30, 0.50]; 3 labelled on
-every step, C024). Rate after the probe: ~2.8 s/step (step 1,064 at 09:23Z), so 13,992 steps land about 19:20Z; then the
-two evaluations and the audit.
+every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 13,992 steps land about 19:50Z; then the
+two evaluations and the audit. First evaluation at step 6,996 (~14:00Z).
 
 ## 1. Task board
 
