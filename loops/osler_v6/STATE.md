@@ -2,7 +2,9 @@
 
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
-Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; launching detached now.
+Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
+`777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z (expected ~12 h
+training + ~1 h post-processing, finish ~2026-11-09T10:30Z).
 
 ## 1. Task board
 
