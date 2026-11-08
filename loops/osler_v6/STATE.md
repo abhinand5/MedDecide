@@ -4,7 +4,9 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:27Z` (Z0, Z1, Z2 DONE; Z3 relaunching).
 Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.243597720934029), 13,992 steps, on the
 fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
-started 2026-11-08T08:28Z.
+started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0.355474 in [0.30, 0.50]; 3 labelled on
+every step, C024). Probe-step rate 3.48 s/step; after step 200 the probe stops, expected ~7.5 h to 13,992 steps (about
+16:00Z).
 
 ## 1. Task board
 
@@ -210,6 +212,12 @@ number already measured.
 - 2026-11-08T08:28Z — Z3 relaunched on the final sampler: λ = 3.243597720934029, uv PID 723838 / python PID 723842. The
   earlier arm (random fill, λ = 3.4375) is stopped and preserved under `outputs/osler_v6/Z3/G1s0_aborted_padding/`; it
   produced no evaluation, checkpoint or result.
+
+- 2026-11-08T08:42Z — Z3 healthy at step 206 and the pre-registered D57 band check passes: the arm's own first 200 steps
+  give a mean pre-clip share of **0.355474** (band [0.30, 0.50]), with 3 labelled anchors on every step (C024). The frozen
+  λ is vindicated by the arm's own measurement; no re-tune. The probe's extra backward stops after step 200, so the rate
+  should improve from 3.48 s/step to about 1.9 s/step; the arm should reach 13,992 steps in ~7.5 h (about 16:00Z), then
+  the two evaluations and the Z3 audit.
 
 ## 6. Deviations from the plan
 
