@@ -6,7 +6,8 @@ Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.24
 fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
 started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0.355474 in [0.30, 0.50]; 3 labelled on
 every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 13,992 steps land about 19:50Z; then the
-two evaluations and the audit. First evaluation at step 6,996 (~14:00Z).
+two evaluations and the audit. First evaluation at step 6,996 (~14:00Z). Last poll 10:13Z: step 2,098, last-300 mean
+2.77 s/step, no evaluation yet.
 
 ## 1. Task board
 
@@ -222,6 +223,10 @@ number already measured.
 - 2026-11-08T09:23Z — Z3 at step 1,064, post-probe step time ~2.8 s (1,064 steps in 56 min including load), GPU 79 GB,
   loss finite, 3 labelled on every step, no evaluations yet (first at 6,996). Revised finish ~19:20Z; then the two
   evaluations, the positional-health check and the Z3 audit.
+
+- 2026-11-08T10:14Z — Z3 at step 2,098 (2.77 s/step); first evaluation still ahead at 6,996. While it runs, the **seed-1
+  mix for Z4** was built ahead of time (CPU only): `data/train/osler_v6/mix_f2_distill_s1.jsonl`, 1,456,438 rows / 368,221
+  labelled, augmentation seed 1, sha `fc8e6d04…` (C025). It is not used unless Z3's positional health passes and Z4 starts.
 
 ## 6. Deviations from the plan
 
