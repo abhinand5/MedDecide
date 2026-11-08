@@ -5,7 +5,9 @@ Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4
 Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
 `777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
 band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Post-probe rate ~2.1 s/step → finish about
-2026-11-09T06:30Z including post-processing.
+2026-11-09T06:30Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
+knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
+≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
 
 ## 1. Task board
 
@@ -251,6 +253,13 @@ number already measured.
 - 2026-11-08T21:50Z — Z4 (seed 1) is training: at step 224, its own first-200-step D57 band passes (mean share 0.365937;
   3 labelled on every step, C029), and the post-probe rate is ~2.1 s/step, so it should finish about 06:30Z (earlier than
   the 10:30Z planning estimate). The seed-1 result will be reported beside seed 0 and never replaces it.
+
+- 2026-11-08T21:52Z — **Z5 preliminary: G1 seed 0 qualifies.** Running the pre-registered rule on the step-13,992 dev
+  predictions gives no failed check: the knowledge paired lower bound is +0.006244 (limit −0.01), MR −0.020692 and MIMIC
+  −0.010395 (limit −0.03), CG v2 micro 0.794511 against G0's 0.784399, positional health PASS; the highest-knowledge-dev
+  qualifier is G1s0 (C030). The seed-1 stability arm is still training, so Z5 will be finalised (with the stability row
+  reported beside seed 0) once Z4 completes. A bug in `z5_choose.py` (it looked for the seed-1 arm under Z3 instead of Z4)
+  was found and fixed before this run.
 
 ## 6. Deviations from the plan
 

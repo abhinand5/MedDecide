@@ -114,7 +114,7 @@ def main() -> None:
     stats: dict[str, Any] = {}
     choice, stats[CANDIDATE] = arm_choice(CANDIDATE, candidate_arm, control_arm)
     candidates.append(choice)
-    stability = load_arm(V6 / "Z3" / STABILITY)
+    stability = load_arm(V6 / "Z4" / STABILITY)  # the seed-1 stability arm runs under Z4
     if stability is not None:
         _, stats[STABILITY] = arm_choice(STABILITY, stability, control_arm)
         if int(stability["config"].get("seed", -1)) != 1:
