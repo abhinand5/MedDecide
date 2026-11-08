@@ -6,8 +6,8 @@ Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.24
 fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
 started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0.355474 in [0.30, 0.50]; 3 labelled on
 every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 13,992 steps land about 19:50Z; then the
-two evaluations and the audit. First evaluation at step 6,996 (~14:00Z). Last poll 10:13Z: step 2,098, last-300 mean
-2.77 s/step, no evaluation yet.
+two evaluations and the audit. First evaluation at step 6,996 (~13:55Z). Last poll 11:54Z: step 4,135, last-500 mean
+2.76 s/step, no evaluation yet; full checkpoint `full/step_002500` written (82 MB, resume works).
 
 ## 1. Task board
 
