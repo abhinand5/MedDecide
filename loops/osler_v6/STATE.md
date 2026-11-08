@@ -2,7 +2,9 @@
 
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:27Z` (Z0, Z1, Z2 DONE; Z3 relaunching).
-Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598, 13,992 steps, on the fill-bucketed sampler.
+Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598 (exact 3.243597720934029), 13,992 steps, on the
+fill-bucketed sampler; detached, uv PID `723838`, python PID `723842`, log `outputs/osler_v6/Z3/G1s0/logs/run.log`;
+started 2026-11-08T08:28Z.
 
 ## 1. Task board
 
@@ -204,6 +206,10 @@ number already measured.
   λ = **3.243598**, frozen; 200 steps, 3 labelled each, audit PASS, mean step 3.53 s and padding 2.39x (C019-C021). No
   pre-registered number (D57, D58, the frozen sets, the choice rule, Gate O6) was changed; the operator may review the
   clarification in §7.
+
+- 2026-11-08T08:28Z — Z3 relaunched on the final sampler: λ = 3.243597720934029, uv PID 723838 / python PID 723842. The
+  earlier arm (random fill, λ = 3.4375) is stopped and preserved under `outputs/osler_v6/Z3/G1s0_aborted_padding/`; it
+  produced no evaluation, checkpoint or result.
 
 ## 6. Deviations from the plan
 
