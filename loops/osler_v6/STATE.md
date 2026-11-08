@@ -1,9 +1,8 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T07:13Z` (Z0, Z1 DONE; Z2 starting).
-Task in flight: none. The Z1 job finished at the 12-hour budget (07:03:12Z) and the join/summary chain completed
-(07:05:20Z); the GPU is idle.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T07:14Z` (Z0, Z1 DONE; Z2 IN_PROGRESS).
+Task in flight: Z2 — the distilled mix build (CPU) then the 200-step λ probe (GPU).
 
 ## 1. Task board
 
@@ -11,7 +10,7 @@ Task in flight: none. The Z1 job finished at the 12-hour budget (07:03:12Z) and 
 |---|---|---|---|
 | Z0 | Setup: GO recorded, teacher revision checked, Z8 closure noted, AGENTS current loop | — | DONE 2026-11-07T17:40Z |
 | Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | DONE 2026-11-08T07:13Z — 385,536 scored (96.38 %), 14,464 cut by the 12-hour budget, audit PASS |
-| Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | PENDING |
+| Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | IN_PROGRESS 2026-11-08T07:14Z |
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | PENDING |
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | PENDING |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | PENDING |
@@ -78,6 +77,14 @@ number already measured.
 - [x] Anchor scoring detached under `--max-hours 12`, polled every 20+ minutes: stopped at the budget with 385,536 scored (112,128 reused + 273,408 new), 14,464 pool rows cut (rate 6.32 items/s < 10/s; the pre-registered cut, C012).
 - [x] Join `data/train/osler_v6/z1_anchor_soft.jsonl`: 385,536 rows, sha `edd4c207…`, overlap with every bench row 0 (C013).
 - [x] Summary numbers, `SELF_AUDIT.md` (PASS, `scripts/osler_v6/z1_audit.py`), CLAIMS rows, STATE exact, commit and push.
+
+## 4c. Checklist — Z2 (in progress)
+
+- [x] D57 dosing sampler and its tests (committed before Z1 closed): 3 labelled anchors in every formed batch, per-epoch permutation without replacement, seeded, statistics logged.
+- [x] Pre-clip share probe in the trainer (`distill_probe`, `distill_probe_steps`), leaving the update unchanged.
+- [ ] Build `data/train/osler_v6/mix_f2_distill.jsonl`: osler_v5's corrected F2 mix (composition 78d7e547…) + the Z1 teacher labels attached; manifest with the counts and sha.
+- [ ] 200-step probe at λ = 1 on the mix, budget: every step carries ≥3 labelled anchors, finite; s0 = mean per-step share; λ = (0.4/0.6)·(1-s0)/s0 frozen (no re-tune).
+- [ ] `SELF_AUDIT.md` (fresh-process re-derivation, `z2_audit.py`), CLAIMS rows, STATE exact, commit and push.
 
 ## 5. Log
 
