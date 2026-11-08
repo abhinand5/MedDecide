@@ -8,8 +8,8 @@ started 2026-11-08T08:28Z. **First-200-step D57 band check: PASS** (mean share 0
 every step, C024). Rate after the probe: ~2.9 s/step (step 1,884 at 10:03Z), so 13,992 steps land about 19:50Z; then the
 two evaluations and the audit. First evaluation (6,996) is DONE (C026): G1 S 0.8163 / MR 0.9330 / MIMIC 0.7342 / CG 0.7818
 / knowledge 0.7680 / positional PASS, against G0's same-step S 0.8064 / knowledge 0.7500 — G1 ahead on every dev component
-at the halfway point, but the choice is at 13,992. Eval checkpoint `checkpoints/step_006996` (31 MB) saved. Last poll
-14:42Z: step 7,097, 2.89 s/step; second evaluation at 13,992 about 20:10Z.
+at the halfway point, but the choice is at 13,992. Eval checkpoint `checkpoints/step_006996` (31 MB) saved; full checkpoints
+step_005000 and step_007500 exist. Last poll 16:37Z: step 9,445, 2.98 s/step; second evaluation at 13,992 about 20:20Z.
 
 ## 1. Task board
 
