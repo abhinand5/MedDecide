@@ -16,13 +16,22 @@ from meddecide.train.config import StudentConfig
 from meddecide.train.dosing import DosingStats, dosed_batches, labelled_positions
 
 
-def make_items(n_labelled: int, n_fill: int, *, tokens: int = 10) -> list[SimpleNamespace]:
-    """Items with a teacher distribution (``L*``) and without (``F*``); the fake encoder reads ``n_tokens``."""
-    items = []
-    for i in range(n_labelled):
-        items.append(SimpleNamespace(item_id=f"L{i}", teacher_probs=[0.5, 0.5], n_options=2, n_tokens=tokens))
-    for i in range(n_fill):
-        items.append(SimpleNamespace(item_id=f"F{i}", teacher_probs=None, n_options=2, n_tokens=tokens))
+def make_items(n_labelled: int, n_fill: int, *, tokens: int = 10, fill_tokens: list[int] | None = None,
+               labelled_tokens: int | None = None) -> list[SimpleNamespace]:
+    """Items with a teacher distribution (``L*``) and without (``F*``); the fake encoder reads ``n_tokens``.
+
+    ``state``/``question``/``options`` exist so the sampler's length proxy (char_proxy) can read them; the proxy is
+    proportional to ``n_tokens`` so a length-bucketed batch is also a padding-efficient one.
+    """
+
+    def item(item_id: str, n_tokens: int, teacher: bool) -> SimpleNamespace:
+        return SimpleNamespace(item_id=item_id, teacher_probs=([0.5, 0.5] if teacher else None), n_options=2,
+                               n_tokens=n_tokens, state="x" * n_tokens, question="q?",
+                               options=[SimpleNamespace(label="a"), SimpleNamespace(label="b")])
+
+    items = [item(f"L{i}", tokens if labelled_tokens is None else labelled_tokens, True) for i in range(n_labelled)]
+    fill = fill_tokens if fill_tokens is not None else [tokens] * n_fill
+    items.extend(item(f"F{i}", fill[i], False) for i in range(n_fill))
     return items
 
 
@@ -98,6 +107,20 @@ def test_batches_respect_the_token_cap_and_fill_until_it_binds() -> None:
     for _, batch in batches:
         assert len(batch) == 5
         assert sum(encoded.n_tokens for encoded in batch) == 500
+
+
+def test_fill_is_length_bucketed_within_a_batch() -> None:
+    """The block sort groups similar fill lengths, so a batch is never padded to a much longer neighbour.
+
+    A random fill order would mix 10-token and 2,000-token fill in one batch and pad the whole batch to 2,000
+    (the measured Z2 defect: mean padded/real 3.54). The bucketed stream keeps each batch's fill homogeneous.
+    """
+    lengths = [10] * 50 + [2_000] * 50
+    items = make_items(30, 100, fill_tokens=lengths, labelled_tokens=50)
+    batches = run_batches(items, max_batch_tokens=8_192)
+    fill_lengths = [[encoded.n_tokens for encoded in batch if encoded.item_id.startswith("F")] for _, batch in batches]
+    assert all(len(set(fill)) == 1 for fill in fill_lengths), fill_lengths
+    assert any(fill and fill[0] == 2_000 for fill in fill_lengths)  # the long fill is trained too, not all skipped
 
 
 def test_first_fill_item_that_does_not_fit_is_trained_under_the_soft_cap() -> None:

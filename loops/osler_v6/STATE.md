@@ -1,9 +1,8 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:01Z` (Z0, Z1, Z2 DONE; Z3 IN_PROGRESS).
-Task in flight: Z3 — G1 seed 0 at the frozen λ 3.437525, 13,992 steps; detached, uv PID `673265`, python PID `673269`,
-log `outputs/osler_v6/Z3/G1s0/logs/run.log`; started 2026-11-08T08:00Z.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T08:27Z` (Z0, Z1, Z2 DONE; Z3 relaunching).
+Task in flight: Z3 — G1 seed 0 at the **final** frozen λ 3.243598, 13,992 steps, on the fill-bucketed sampler.
 
 ## 1. Task board
 
@@ -11,7 +10,7 @@ log `outputs/osler_v6/Z3/G1s0/logs/run.log`; started 2026-11-08T08:00Z.
 |---|---|---|---|
 | Z0 | Setup: GO recorded, teacher revision checked, Z8 closure noted, AGENTS current loop | — | DONE 2026-11-07T17:40Z |
 | Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | DONE 2026-11-08T07:13Z — 385,536 scored (96.38 %), 14,464 cut by the 12-hour budget, audit PASS |
-| Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | DONE 2026-11-08T08:00Z — s0 0.162436, λ = 3.437525 frozen; audit PASS |
+| Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | DONE 2026-11-08T08:26Z — final probe s0 0.170491, λ = 3.243598 frozen; audit PASS (probe #1, random fill, superseded) |
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | IN_PROGRESS 2026-11-08T08:01Z |
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | PENDING |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | PENDING |
@@ -84,8 +83,9 @@ number already measured.
 - [x] D57 dosing sampler and its tests (committed before Z1 closed): 3 labelled anchors in every formed batch, per-epoch permutation without replacement, seeded, statistics logged.
 - [x] Pre-clip share probe in the trainer (`distill_probe`, `distill_probe_steps`), leaving the update unchanged.
 - [x] Build `data/train/osler_v6/mix_f2_distill.jsonl`: 1,456,438 rows, 368,221 labelled by text (25.28 %; anchor 855,532), composition 78d7e547…, sha `91ff5362…`; the augmentation matches osler_v5's (37,844 + 37,843).
-- [x] 200-step probe at λ = 1 on the mix: 3 labelled anchors on every step, all finite; s0 = 0.162436; λ = 3.437525 frozen (no re-tune) (C016).
-- [x] `SELF_AUDIT.md` (fresh-process re-derivation, `z2_audit.py`, PASS), CLAIMS rows, STATE exact, commit and push (C017).
+- [x] Fill order fixed before any arm result: length-bucketed inside blocks (D57's strata, quota and labelled draw unchanged); probe #1 (random fill) preserved and superseded (C022, C023).
+- [x] 200-step probe at λ = 1 on the final sampler: 3 labelled anchors on every step, all finite; s0 = 0.170491; λ = 3.243598 frozen (no re-tune) (C019).
+- [x] `SELF_AUDIT.md` (fresh-process re-derivation, `z2_audit.py`, PASS), CLAIMS rows, STATE exact, commit and push (C020).
 
 ## 4d. Checklist — Z3 (in progress)
 
@@ -191,6 +191,20 @@ number already measured.
   check) and the arm relaunched with λ = 3.4375248931943583, uv PID 673265 / python PID 673269. The arm's first 200 steps are
   the D57 band check; the step log is per-step, so the band can be read at step 200 and the arm stopped early if it misses.
 
+- 2026-11-08T08:27Z — **Z2 corrected and re-closed.** The first arm launch exposed a padding defect in the sampler as first
+  implemented: with the fill drawn uniformly at random, three short anchors beside one long record padded whole batches to
+  the record (probe #1: mean padded/real 3.54; the arm's 42 logged steps: 3.70 and 7.70 s/step with the probe's extra
+  backward). The extrapolated arm (~17 h) and final (~75 h) were far outside the ADVISORY's planning estimates. The arm was
+  stopped at step 42 — **before any evaluation, checkpoint or result**; its logs are preserved in
+  `outputs/osler_v6/Z3/G1s0_aborted_padding/` (C022). D57 does not pin the fill order (only the quota of 3 labelled
+  anchors, the without-replacement labelled draw, the seeding and the logged statistics), so the unlabelled fill stream is
+  now length-bucketed inside blocks of 32 batches and the batches are shuffled inside the block — the same anti-padding,
+  anti-curriculum mechanism as `iter_batches`; the strata, quota, draw and coverage are unchanged (C023). The calibration
+  probe was re-run on the final sampler (probe #1 preserved in `Z2/probe_random_fill/`, its λ not used): s0 = 0.170491 →
+  λ = **3.243598**, frozen; 200 steps, 3 labelled each, audit PASS, mean step 3.53 s and padding 2.39x (C019-C021). No
+  pre-registered number (D57, D58, the frozen sets, the choice rule, Gate O6) was changed; the operator may review the
+  clarification in §7.
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
@@ -205,5 +219,7 @@ number already measured.
 
 ## 7. Questions for the operator
 
-- None at Z1 start.
+- None blocking. For review: the fill-order clarification (2026-11-08T08:27Z, above and §6) — D57's quota, labelled draw
+  and seeding are unchanged, but the unlabelled fill order was made length-bucketed before any arm result existed, and the
+  λ probe was re-run on the final sampler. The random-fill probe and the aborted arm's logs are kept as evidence.
 
