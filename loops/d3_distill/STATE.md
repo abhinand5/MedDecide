@@ -1,6 +1,6 @@
 # d3_distill — STATE
 
-Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T16:40Z`.
+Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T18:25Z`.
 Operator: goal round 1 — do PLAN.md steps 0–3 in order, commit to `distill/d3_distill` only, no push, no branch deletion,
 no MIMIC data.
 
@@ -20,7 +20,7 @@ no MIMIC data.
 | step | status | note |
 |---|---|---|
 | 0 — teacher throughput gate (≥ 25 items/s on 1,000 items; probability check every item) | **DONE 2026-11-09T16:05Z — PASS** | batched path 29.056 items/s end to end (34.417 s for 1,000), 0 invalid, 0 constant; `outputs/d3_distill/step0/throughput_batched.json`; SELF_AUDIT PASS |
-| 1 — label set (CPU build, GPU label) | **IN_PROGRESS** | pool built (200,000; C007–C010); labelling running as PID 23702 (26.9 rows/s, ETA ~18:20Z) |
+| 1 — label set (CPU build, GPU label) | **DONE 2026-11-09T18:18Z** | 200,000 labels, **0 invalid**, 0 constant, sums within 2e-7, 26.5 rows/s (7,548 s); `labels.jsonl` sha256 `76a67a50…`; audit PASS (C018–C020) |
 | 2 — students (port parity, arms, finals) | PENDING | harness + pre-registration written (ADVISORY.md); parity waits for the GPU (one job at a time) |
 | 3 — Gate O7 | PENDING — frozen sets now present (operator update) | panel/knowledge/mr_verdict against a locally scored pplx-flash baseline; MIMIC BLOCKED (operator); MR vs osler_v4 final NOT MEASURED (no weights) |
 
@@ -39,6 +39,24 @@ no MIMIC data.
 - Why batch 8: probe sweep on 256 items gave 26.9 (rows 4), 28.4 (8), 27.0 (16), 10.1 (32), 13.3 (64) items/s.
 - Implication for step 1: 200,000 labels ≈ 1.9 h of GPU plus loader overhead. Gate margin is 16 %, so the 60,000 fallback
   is not needed.
+
+## Step 1 — label run result (posted to STATE 2026-11-09T18:25Z, as requested)
+
+- **200,000 of 200,000 pool rows labelled; 0 invalid; 0 constant.** 50 windows of 4,000, length-sorted batches of 8,
+  teacher temperature 1.046; 26.5 rows/s; 7,547.8 s (2 h 06 m); peak 54.73 GB; teacher revision `ccdcfa61…`.
+- Every answer is a distribution over exactly the row's options: sums in [0.9999997983, 1.0000002007], 0 non-finite or
+  negative. Pools option counts: 2 → 9,546; 3 → 2,168; 4 → 182,929; 5 → 4,130; 9 → 128; 10 → 178; 12 → 921.
+- `labels.jsonl` sha256 `76a67a505ba9f406b2015baaaa4631fb70b10524c02c82b494e21e340aa0e361`; pool sha256
+  `2b41be76ea414ea346f57aefe7b8667666362bef1434c4587ee482e7f3ff895b` (C018).
+- Per source: medmcqa 182,777; gen:code_assignment 1,842; gen:code_family 1,842; gen:criterion_eligibility 1,840;
+  gen:note_allergy_med 1,844; gen:note_negation 1,844; gen:note_subject 1,844; gen:note_timing 1,844;
+  mr:mr_icd_support_template_v2 1,672; mr:mr_indicator_evidence 1,730; mr:mr_page_category 921. Splits: train
+  189,995 / dev 10,005 (never trained on).
+- Teacher top-1 gold accuracy (diagnostic, in-distribution, not a benchmark): 0.9330 overall; MedMCQA 0.9354 (170,965 /
+  182,777); synthetic families 0.742–1.000 (code_family 0.7416 and code_assignment 0.8040 are the hard ones) (C019).
+- Independent audit (`scripts/d3_distill/step1_audit.py`, fresh process): counts close on both sides (0 duplicate ids,
+  0 labels without a pool row, 0 pool rows without a label); 0 text matches with the three frozen Y9 sets (C016, C020).
+- No MIMIC anywhere in the pool or the labels.
 
 ## Step 1 — pool (built 2026-11-09T16:11Z)
 

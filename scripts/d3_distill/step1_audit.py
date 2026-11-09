@@ -14,11 +14,13 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 POOL = REPO / "data" / "train" / "d3_distill" / "pool_200k.jsonl"
 LABELS = REPO / "outputs" / "d3_distill" / "step1" / "labels.jsonl"
 Y9 = REPO / "data" / "bench" / "osler_v4" / "y9"
