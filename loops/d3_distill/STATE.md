@@ -96,6 +96,17 @@ no MIMIC data.
    on a train-side dev carve of the label pool (never a test set) by knowledge-dev accuracy + teacher KL; then one final at
    63,304 steps on the selected arm. Say if you want a different rule.
 
+## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
+
+One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
+1. the pplx-decider-flash-v1.2 baseline on the three frozen Y9 sets (authors' code, snapshot pinned; the Gate O7 baseline);
+2. per student (mini first, then flash): port parity (1e-4, 40 items) → λ probe (200 steps at λ=1) → arms seeds 0/1
+   (13,992 steps) → selection on the dev carve → final (63,304 steps) → scores on the Y9 sets and the public splits;
+3. the Gate O7 report (`loops/d3_distill/GATE_O7.md`, aggregates only).
+
+Stamp per run: config.json (data hashes, sampler, band), steps.jsonl, evals/, checkpoints/, arm_result.json, and a
+`step2_audit.py` SELF_AUDIT after the chain returns. One GPU job at a time; every stage skips when its result exists.
+
 ## Step 2 — pre-registration
 
 - `loops/d3_distill/ADVISORY.md`, written 2026-11-09T16:15Z before any student forward: port parity (1e-4 on 40 items),

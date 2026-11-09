@@ -116,4 +116,6 @@ done
 
 student mini "$MINI"
 student flash "$FLASH"
+log "=== Gate O7 report ==="
+"$PY" scripts/d3_distill/step3_gate.py --out loops/d3_distill/GATE_O7.md
 log "chain done"
