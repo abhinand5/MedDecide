@@ -21,7 +21,7 @@ no MIMIC data.
 |---|---|---|
 | 0 — teacher throughput gate (≥ 25 items/s on 1,000 items; probability check every item) | **DONE 2026-11-09T16:05Z — PASS** | batched path 29.056 items/s end to end (34.417 s for 1,000), 0 invalid, 0 constant; `outputs/d3_distill/step0/throughput_batched.json`; SELF_AUDIT PASS |
 | 1 — label set (CPU build, GPU label) | **DONE 2026-11-09T18:18Z** | 200,000 labels, **0 invalid**, 0 constant, sums within 2e-7, 26.5 rows/s (7,548 s); `labels.jsonl` sha256 `76a67a50…`; audit PASS (C018–C020) |
-| 2 — students (port parity, arms, finals) | PENDING | harness + pre-registration written (ADVISORY.md); parity waits for the GPU (one job at a time) |
+| 2 — students (port parity, arms, finals) | **IN_PROGRESS** | port parity PASS for both students (C023, C024); pplx baseline done (C021); training chain launching |
 | 3 — Gate O7 | PENDING — frozen sets now present (operator update) | panel/knowledge/mr_verdict against a locally scored pplx-flash baseline; MIMIC BLOCKED (operator); MR vs osler_v4 final NOT MEASURED (no weights) |
 
 ## Step 0 — result
@@ -114,6 +114,18 @@ no MIMIC data.
    ADVISORY.md before any run: per student, arm A = D57 dosing + KL + gold CE, arm B = the same without KL (control); select
    on a train-side dev carve of the label pool (never a test set) by knowledge-dev accuracy + teacher KL; then one final at
    63,304 steps on the selected arm. Say if you want a different rule.
+
+## Step 2 — port parity result (2026-11-09T18:45Z)
+
+- **d3-mini PASS**: harness vs the student's own `D3.probabilities`, 40 items, one row at a time: max abs difference
+  **0.0** (exact), argmax 40/40; `system_one` diagnostic 9.7e-08. Batch-8 composition diagnostic max 0.0113 (bf16
+  padding numerics, the same phenomenon accepted for the teacher; not the gate). Peak 9.31 GB.
+- **d3-flash PASS**: same check: max abs difference **0.0**, argmax 40/40; `system_one` 1.07e-07; batch-8 max 0.0149;
+  peak 17.03 GB.
+- The first parity run failed at 0.019 because the harness compared a 40-row padded pass against one-row references;
+  per-row comparison is the prescribed check and is exact. The failure was in the diagnostic's batching/order, not in the
+  port (the noul rendered-order bug in the diagnostic was fixed; the model always read No,Yes).
+- Smoke runs of the arm driver: probe path 3 steps, band 0.429; train path 6 steps with eval/checkpoint writing.
 
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 

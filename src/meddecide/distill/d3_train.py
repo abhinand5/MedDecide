@@ -17,8 +17,10 @@ which is exactly what ``D3.logits`` does without ``torch.inference_mode``.
 
 from __future__ import annotations
 
+import contextlib
 import math
 import random
+import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -71,7 +73,8 @@ def inject_lora(
 ) -> dict[str, LoRALinear]:
     """Replace the attention projections of every full-attention layer; returns the adapters by dotted name."""
     language_model = backbone.language_model
-    types = list(backbone.config.layer_types)
+    # The composite (multimodal-style) config nests the text config, whose layer_types the runtime's PromptEncoder reads.
+    types = list(language_model.config.layer_types)
     adapters: dict[str, LoRALinear] = {}
     for index, layer in enumerate(language_model.layers):
         if types[index] != "full_attention":
@@ -212,6 +215,10 @@ class D3Student(nn.Module):
         super().__init__()
         self.runtime = runtime
         self.backbone = runtime.backbone
+        # The runtime's inference path picks its SDPA backends explicitly (no cuDNN SDPA on CUDA); the training forward
+        # must use the same selection or bf16 attention numerics drift between the harness and the model's own path.
+        module = sys.modules.get(type(runtime).__module__)
+        self._sdpa_backends = getattr(module, "sdpa_backends", None)
         self.pad_id = int(runtime.pad_id)
         self.temperature = float(runtime.temperature)
         self.device = runtime.device
@@ -229,10 +236,16 @@ class D3Student(nn.Module):
             params[f"{name}.B"] = adapter.B
         return params
 
+    def _sdpa(self):
+        if self._sdpa_backends is None:
+            return contextlib.nullcontext()
+        return self._sdpa_backends(self.device)
+
     def forward_logits(self, ids: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """The runtime's reference forward, without ``inference_mode``: embeds -> encoder -> FP32 readout."""
-        embeds = self.backbone.get_input_embeddings()(ids)
-        hidden = self.runtime.encoder(embeds, mask)[:, -1]
+        with self._sdpa():
+            embeds = self.backbone.get_input_embeddings()(ids)
+            hidden = self.runtime.encoder(embeds, mask)[:, -1]
         return hidden.float() @ self.readout.T
 
     def loss_terms(

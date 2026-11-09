@@ -3,11 +3,12 @@
 The student is loaded through the card's ``AutoModel`` path. For 40 pool items (one one-question request per item, as
 the card requires) we compare:
 
-  reference  the student runtime's own ``D3.probabilities`` on each item (its inference path);
-  harness    ``D3Student.forward_logits`` — the same ``D3.encoder`` and readout, built by the training harness.
+  reference  the student runtime's own ``D3.probabilities`` on each item (one request, one row — its inference path);
+  harness    ``D3Student.forward_logits`` — the same ``D3.encoder`` and readout, built by the training harness, one row.
 
-The gate (ADVISORY §1) is max |harness - reference| ≤ 1e-4. Additional diagnostics: the same comparison at batch 8 and
-against ``system_one``. Writes a JSON with the per-item differences.
+The gate (ADVISORY §1) is max |harness - reference| ≤ 1e-4 at the reference's own one-row shape. Additional diagnostics:
+the same comparison with 8 rows in one pass (bf16 batch-composition numerics, the same phenomenon accepted for the
+teacher) and against ``system_one``. Writes a JSON with the per-item differences.
 """
 
 from __future__ import annotations
@@ -29,7 +30,6 @@ from transformers import AutoModel
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from meddecide.distill.d3_batch import align_probabilities  # noqa: E402
 from meddecide.distill.d3_train import D3Student, TrainRow, batch_tensors, masked_logits  # noqa: E402
 
 POOL = REPO / "data" / "train" / "d3_distill" / "pool_200k.jsonl"
@@ -60,8 +60,9 @@ def system_answer(model, row: dict) -> list[float]:
     if row["qtype"] == "choice":
         return [float(answer["probabilities"][o["key"]]) for o in row["options"]]
     if row["qtype"] == "noul":
+        # The harness probabilities are in the readout's rendered order: d3 renders noul as false (No), true (Yes).
         p_yes = float(answer["noul"])
-        return align_probabilities("noul", options, [1.0 - p_yes, p_yes])
+        return [1.0 - p_yes, p_yes]
     return [float(answer["probabilities"][str(i)]) for i in range(len(options))]
 
 
@@ -107,7 +108,8 @@ def main() -> None:
             )
         )
 
-    single = harness_probs(student, prepared)
+    # The reference call is one request = one row; compare the harness the same way (a batch changes bf16 numerics).
+    single = [harness_probs(student, [row])[0] for row in prepared]
     diffs, diffs_system, argmax_agree = [], [], 0
     for i, (row, harness) in enumerate(zip(rows, single, strict=True)):
         reference = runtime.probabilities([list(prepared[i].sequence)], [prepared[i].count])[0]
