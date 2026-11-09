@@ -142,6 +142,14 @@ no MIMIC data.
 - **mini arm s0 DONE 2026-11-09T19:26Z**: band mean 0.4015 PASS; dev 0.8241 / 0.8254 / 0.8432 / 0.8432 at
   3.5k/7k/10.5k/13,992 steps (zero-shot 0.8141; best at 10,500); audit 8/8 PASS (C028). Arm s1 started 19:26Z.
 
+## Step 2 — mini arms and final (2026-11-09T20:08Z)
+
+- Arm s0: dev 0.843178 at 13,992 (best step 10,500), band 0.4015 PASS.
+- Arm s1: dev 0.842379 at 13,992 (best step 10,500), band 0.4066 PASS.
+- Both qualify; the pre-registered rule selects **seed 0** (higher final dev). Final (63,304 steps, seed 0, λ 0.8774)
+  started 20:04:04Z; ten evaluations every 6,330 steps; `best.pt` by dev accuracy among them.
+- Zero-shot mini dev on the same carve: 0.814093; the arms add +2.9 points.
+
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
 One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
