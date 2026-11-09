@@ -55,8 +55,21 @@ NOT MEASURED (files absent).
 Port parity: the trainable harness (the student's own `D3.prepare`/`D3.encoder` + readout, attention-only LoRA r=32 at
 zero) reproduces the student's own `D3.probabilities` exactly (0.0 max abs difference, argmax 40/40) for both students at
 the reference's one-row shape. Recipe: CE(gold) + λ·KL(teacher ‖ student), batch 8, AdamW (LoRA 1e-4, readout 1e-3),
-cosine 3 % warmup, λ calibrated by a 200-step probe (4B: s0 = 0.4317, λ = 0.8774; the arm's first 200 steps must be in the
-0.30–0.50 share band). Two arms = seeds 0/1 at 13,992 steps, selection on the train-side dev carve, final at 63,304 steps.
+cosine 3 % warmup, λ calibrated by a 200-step probe (4B: s0 = 0.4317, λ = 0.8774; 9B: s0 = 0.4173, λ = 0.9310; the arm's
+first 200 steps must be in the 0.30–0.50 share band). Two arms = seeds 0/1 at 13,992 steps, selection on the train-side
+dev carve, final at 63,304 steps.
+
+Measured so far (dev = the train-side 10,005-row carve; the final's Gate O7 rows are pending):
+
+| student | zero-shot dev | arm s0 (band) | arm s1 (band) | final dev (best step) | arms/final band |
+|---|---:|---|---|---|---|
+| d3-mini (4.54B) | 0.8141 | 0.8432 (0.4015) | 0.8424 (0.4066) | **0.8759** (63,300) | final 0.3977 PASS |
+| d3-flash (8.39B) | 0.8417 | 0.8687 (0.4009) | in flight | in flight | s0 PASS |
+
+The mini final's public-split diagnostics: MedMCQA validation 0.694, MedQA test 0.7541, knowledge subsample 0.701 micro /
+0.7167 template macro (the locally scored pplx baseline is 0.7105 macro on the same 1,000 items). The MR/panel rows need
+the Y9 scoring that follows the chain (the chain's own scoring block ran the pre-update set list; the scores are produced
+separately and the gate report re-run).
 
 ## 5. Step 3 — Gate O7 (baseline ready, students pending)
 
