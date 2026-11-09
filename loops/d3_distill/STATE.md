@@ -160,6 +160,17 @@ no MIMIC data.
 5. Commit; `git status` clean except gitignored outputs; branch `distill/d3_distill`; no push.
 6. Report to the operator: gate verdict, which checks are NOT MEASURED and why, and the measured numbers.
 
+## Step 2 — mini final DONE (2026-11-09T22:40Z)
+
+- 63,304 steps in 9,364.5 s (0.148 s/step), band 0.3977 PASS. Dev accuracy by evaluation: 0.8231 / 0.8324 / 0.8415 /
+  0.8552 / 0.8645 / 0.8648 / 0.8706 / 0.8757 / **0.8758** (best at step 63,300); zero-shot 0.814093 → **+6.18 points**.
+- Public-split diagnostics of the final: MedMCQA validation 0.694, MedQA test 0.7541, knowledge subsample 0.701 micro /
+  0.7167 template macro (vs locally scored pplx 0.7105 macro); readout gate PASS.
+- **Deviation caught:** the chain's scoring block used the pre-operator-update set list, so the Y9 knowledge/panel/
+  mr_verdict scores are missing for the mini final. They will be produced separately after the chain, and the Gate O7
+  report re-run (C032). The flash student's scores will be handled the same way. The chain itself was not stopped.
+- Flash: port parity already PASS (C024); the chain is in the flash probe/arms stage.
+
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
 One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
