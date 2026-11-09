@@ -22,10 +22,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "src"))
 Y9 = REPO / "data" / "bench" / "osler_v4" / "y9"
 STEP2 = REPO / "outputs" / "d3_distill" / "step2"
 BASELINES = REPO / "outputs" / "d3_distill" / "step3" / "baselines"
@@ -132,6 +134,8 @@ def own_figures(rows: list[dict], items: list[dict]) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--out", type=Path, default=REPO / "loops" / "d3_distill" / "GATE_O7.md")
+    ap.add_argument("--step2", type=Path, default=STEP2, help="root of the student score directories")
+    ap.add_argument("--baselines", type=Path, default=BASELINES, help="root of the pplx baseline predictions")
     args = ap.parse_args()
     STEP3.mkdir(parents=True, exist_ok=True)
 
@@ -145,13 +149,13 @@ def main() -> None:
     }
     for student in STUDENTS:
         base_rows = {
-            name: normalised(BASELINES / f"pplx_{name}" / "predictions.jsonl", items_by_set[name]) for name in SETS
+            name: normalised(args.baselines / f"pplx_{name}" / "predictions.jsonl", items_by_set[name]) for name in SETS
         }
         final = {
-            name: normalised(STEP2 / student / "final_score" / f"{name}.jsonl", items_by_set[name]) for name in SETS
+            name: normalised(args.step2 / student / "final_score" / f"{name}.jsonl", items_by_set[name]) for name in SETS
         }
         zero = {
-            name: normalised(STEP2 / student / "zero_shot_score" / f"{name}.jsonl", items_by_set[name]) for name in SETS
+            name: normalised(args.step2 / student / "zero_shot_score" / f"{name}.jsonl", items_by_set[name]) for name in SETS
         }
         per_student: dict = {"sets": {}, "checks": {}}
         for name in SETS:
@@ -231,6 +235,10 @@ def main() -> None:
               "  pplx-flash is additional (the operator's 2026-11-09 instruction), not the PLAN's MR check.",
               "- MIMIC is NOT MEASURED: the operator forbids MIMIC data on this machine.",
               "- The d3_bench 500/1,000-item subsamples are not used as the gate; results.md says they cannot stand in for it.",
+              "- Teacher row (additional, d3_bench seeded subsamples only, not the full sets): d3-ultra knowledge 0.805 (1,000),",
+              "  panel 0.638 (500), mr_verdict 0.842 (500); d3_bench also has d1-ultra, Clef-Flash and pplx-flash rows there.",
+              "- Majority (most frequent gold) baselines of the full sets (osler_v4 C231): mr_verdict 0.4177, panel 0.1941,",
+              "  knowledge 0.3118.",
               ""]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines), encoding="utf-8")
