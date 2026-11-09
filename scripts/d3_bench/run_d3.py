@@ -39,7 +39,7 @@ from meddecide.bench.quick_bench import probs_from_answer
 
 REPO = Path(__file__).resolve().parents[2]
 Y9 = REPO / "data" / "bench" / "osler_v4" / "y9"
-if not Y9.exists():  # a git worktree shares data/ with the main checkout
+if not Y9.exists() and len(REPO.parents) > 2:  # a git worktree shares data/ with the main checkout
     Y9 = REPO.parents[2] / "data" / "bench" / "osler_v4" / "y9"
 SETS = ("knowledge", "panel", "mr_verdict")  # never a MIMIC-derived set
 
