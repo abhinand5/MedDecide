@@ -150,6 +150,16 @@ no MIMIC data.
   started 20:04:04Z; ten evaluations every 6,330 steps; `best.pt` by dev accuracy among them.
 - Zero-shot mini dev on the same carve: 0.814093; the arms add +2.9 points.
 
+## Closure checklist (for when the chain's "chain done" line appears)
+
+1. Read `outputs/d3_distill/step3/gate_o7.json` and `loops/d3_distill/GATE_O7.md`; check both students' verdicts, the
+   unpaired shares, the readout-gate status and the `baseline_reproduces_published` deltas.
+2. Run `scripts/d3_distill/step2_audit.py` on all four arms and both finals; record the pass/fail.
+3. Fill `loops/d3_distill/FINDINGS.md` §4–§5 with the measured step 2/3 results (only CLAIMS-backed numbers).
+4. Post the gate result to STATE (operator's instruction) and append the CLAIMS rows for the arms/finals/gate.
+5. Commit; `git status` clean except gitignored outputs; branch `distill/d3_distill`; no push.
+6. Report to the operator: gate verdict, which checks are NOT MEASURED and why, and the measured numbers.
+
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
 One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
