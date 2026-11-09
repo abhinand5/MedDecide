@@ -2,7 +2,9 @@
 
 Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-09T10:52Z` (Z0-Z5 DONE; Z6 starting).
-Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe, launching detached now.
+Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe (seed-0 config/mix, frozen λ, quota 3, ten evaluations);
+detached, uv PID `830482`, python PID `830492`, log `outputs/osler_v6/Z6/final/logs/run.log`; started 2026-11-09T10:50Z
+(expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T18:00Z; resumes from full checkpoints).
 
 ## 1. Task board
 
@@ -278,6 +280,11 @@ number already measured.
   positional PASS); G0 is not a candidate and the seed-1 arm is reported beside it (knowledge +0.01125 [+0.00274, +0.02025],
   MR −0.00670, MIMIC +0.00125) and never replaces it (C034). **Z6 starts now**: the 63,304-step final on G1s0's recipe, ten
   evaluations, checkpoint by S among positional passes.
+
+- 2026-11-09T10:53Z — Z6 launched: the 63,304-step final at the frozen λ with the D57 quota, ten evaluations, on the
+  seed-0 mix (uv PID 830482 / python PID 830492). At the arms' measured ~2.9 s/step the steps alone are ~51 h; with the ten
+  evaluations (~20 min each) and post-processing the expected completion is about 2026-11-11T18:00Z. Full checkpoints every
+  2,500 steps allow a resume if the pod interrupts.
 
 ## 6. Deviations from the plan
 
