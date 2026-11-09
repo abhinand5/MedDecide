@@ -50,9 +50,10 @@ no MIMIC data.
   2,440 patient ids outside the train split. No MedMCQA train question appears in the validation (test) split (0).
 - Enforced exclusions: MedMCQA validation texts (the knowledge test side), within-pool duplicates, held-out families
   (`note_lab_range_v1`, `policy_triage_v1`, AKI, heart-failure) and non-train generator patients.
-- NOT MEASURED overlap: the Y9 knowledge/panel/mr_verdict frozen files, the MR suites, the MIMIC audit suite, MedNLI
-  test and CG v2 are absent (`data/` does not exist). The d3_bench run rows hold predictions without item text, so a
-  text-hash check against them is impossible. D61's "never a test-side item" is enforced only where the text exists.
+- Enforced overlap: with the three frozen Y9 sets now on the machine, the pool was checked against all 22,912 of their
+  items by exact normalised text key: **0 matches** (C016). Still NOT MEASURED (files absent): the MIMIC audit suite,
+  MIMIC held-out, MedNLI test, the CG v2 dev proxy (needs the bench v0.2 manifest and osler_v1 B0-B3). The d3_bench run
+  rows hold predictions without item text and cannot be hash-checked.
 
 ## Constraints and deviations (recorded before step 1 runs)
 

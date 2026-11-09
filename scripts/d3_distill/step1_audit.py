@@ -21,6 +21,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 POOL = REPO / "data" / "train" / "d3_distill" / "pool_200k.jsonl"
 LABELS = REPO / "outputs" / "d3_distill" / "step1" / "labels.jsonl"
+Y9 = REPO / "data" / "bench" / "osler_v4" / "y9"
+Y9_SETS = ("knowledge", "panel", "mr_verdict")
 TOL = 1e-3
 
 
@@ -31,6 +33,33 @@ def utcnow() -> str:
 def read_jsonl(path: Path) -> list[dict]:
     with path.open(encoding="utf-8") as fh:
         return [json.loads(line) for line in fh if line.strip()]
+
+
+def y9_overlap(pool: Path) -> dict:
+    """Exact normalised-text overlap between the pool and the frozen Y9 sets that are now on this machine."""
+    from meddecide.panel.overlap import text_key
+
+    ykeys: dict[str, set[str]] = {}
+    items = 0
+    for name in Y9_SETS:
+        path = Y9 / f"{name}.jsonl"
+        if not path.exists():
+            continue
+        for line in path.open(encoding="utf-8"):
+            row = json.loads(line)
+            items += 1
+            key = text_key(row["state"], row["question"], [o["label"] for o in row["options"]])
+            ykeys.setdefault(key, set()).add(name)
+    matches, by_set = 0, Counter()
+    for line in pool.open(encoding="utf-8"):
+        row = json.loads(line)
+        key = text_key(row["state"], row["question"], [o["label"] for o in row["options"]])
+        if key in ykeys:
+            matches += 1
+            for name in ykeys[key]:
+                by_set[name] += 1
+    return {"items": items, "unique_keys": len(ykeys), "matches": matches, "by_set": dict(sorted(by_set.items())),
+            "note": "exact normalised text key; the MIMIC suite, MedNLI test and CG v2 are still absent"}
 
 
 def main() -> None:
@@ -92,6 +121,7 @@ def main() -> None:
         },
         "per_source": dict(sorted(by_source.items())),
         "per_split": dict(sorted(by_split.items())),
+        "y9_overlap": y9_overlap(args.pool),
         "pool_sha256": hashlib.sha256(args.pool.read_bytes()).hexdigest(),
         "labels_sha256": hashlib.sha256(args.labels.read_bytes()).hexdigest(),
         "finished_utc": utcnow(),
@@ -112,6 +142,8 @@ def main() -> None:
         f"- teacher top-1 gold accuracy (diagnostic): {audit['teacher_top1_gold_accuracy']}",
         f"- per source: {audit['per_source']}",
         f"- per split: {audit['per_split']}",
+        f"- frozen Y9 text overlap: {audit['y9_overlap']['matches']} matches over "
+        f"{audit['y9_overlap']['items']} items ({audit['y9_overlap']['by_set']})",
         f"- pool sha256: `{audit['pool_sha256']}`; labels sha256: `{audit['labels_sha256']}`",
         "",
         "Suspicious/limits: the labels are the teacher's answers on train-side items only; the teacher's top-1 accuracy",
