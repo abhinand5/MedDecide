@@ -169,7 +169,9 @@ no MIMIC data.
 - **Deviation caught:** the chain's scoring block used the pre-operator-update set list, so the Y9 knowledge/panel/
   mr_verdict scores are missing for the mini final. They will be produced separately after the chain, and the Gate O7
   report re-run (C032). The flash student's scores will be handled the same way. The chain itself was not stopped.
-- Flash: port parity already PASS (C024); the chain is in the flash probe/arms stage.
+- Flash: port parity already PASS (C024). λ probe: s0 = 0.417263 → **λ = 0.931047** (C033); zero-shot dev accuracy
+  **0.8417** (8,421/10,005) (C034). Arm s0 started 22:49Z; expected ~0.3 s/step, so the flash arms/final should finish
+  around 07:00–08:00Z, with the gate scores after.
 
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
