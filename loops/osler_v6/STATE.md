@@ -6,8 +6,8 @@ Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-
 `777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
 band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). First evaluation (6,996) is DONE (C031):
 G1s1 S 0.8114 / MR 0.9216 / MIMIC 0.7365 / CG 0.7761 / knowledge 0.7640 / positional PASS — about 0.005 below seed 0 on
-S and knowledge, above G0 (S 0.8064 / knowledge 0.7500). Last poll 2026-11-09T03:42Z: step 7,022, ~3.0 s/step → finish
-about 2026-11-09T10:40Z. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
+S and knowledge, above G0 (S 0.8064 / knowledge 0.7500). Last poll 2026-11-09T05:42Z: step 9,407, last-500 mean 3.11 s/step
+(full checkpoints 5,000 and 7,500 written) → finish about 2026-11-09T10:40Z. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
 knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
 ≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
 
