@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import subprocess
 import sys
@@ -42,6 +41,7 @@ from meddecide.distill.d3_train import (  # noqa: E402
     TrainRow,
     batch_tensors,
     gradient_norm,
+    lr_at,
     prepare_rows,
 )
 from meddecide.utils.hashing import file_sha256  # noqa: E402
@@ -96,15 +96,6 @@ def load_pool(pool: Path, labels: Path, *, max_train: int = 0, max_dev: int = 0)
         "dev_source_counts": dict(sorted(Counter(r["source"] for r in dev).items())),
     }
     return train, dev, summary
-
-
-def lr_at(step: int, total: int, base: float, *, warmup_fraction: float = 0.03, floor: float = 0.1) -> float:
-    """Linear warm-up then cosine decay to ``floor * base``."""
-    warmup = max(1, int(total * warmup_fraction))
-    if step < warmup:
-        return base * (step + 1) / warmup
-    progress = min(1.0, (step - warmup) / max(1, total - warmup))
-    return base * max(floor, 0.5 * (1.0 + math.cos(math.pi * progress)))
 
 
 def accuracy(probs: list[list[float]], rows: list[TrainRow]) -> tuple[int, dict[str, int], dict[str, int]]:
@@ -187,6 +178,8 @@ def main() -> None:
     ap.add_argument("--labels", type=Path, default=LABELS)
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--steps", type=int, required=True)
+    ap.add_argument("--schedule-steps", type=int, default=0,
+                    help="length of the LR schedule (default: --steps); a probe passes the arm's 13,992")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lam", type=float, default=0.0, help="frozen λ; ignored with --probe")
     ap.add_argument("--probe", action="store_true", help="200 steps at λ=1; no weights are kept")
@@ -210,6 +203,7 @@ def main() -> None:
         args.max_train_rows = args.max_train_rows or 512
         args.max_dev_rows = args.max_dev_rows or 256
         args.eval_every = min(args.eval_every, max(1, args.steps))
+    schedule_steps = args.schedule_steps or args.steps
     out = args.out if args.out.is_absolute() else REPO / args.out
     if (out / "arm_result.json").exists() and not args.resume:
         raise SystemExit(f"{out}: arm_result.json exists; the arm is not run twice (refuse-twice guard)")
@@ -257,6 +251,13 @@ def main() -> None:
         raise SystemExit("a training arm needs --lam > 0 (run --probe first); λ=0 is not a distill arm")
 
     start_step = 0
+    best_accuracy, best_step = None, None
+    evals_path = out / "evals.jsonl"
+    if args.resume and evals_path.exists():
+        prior = [json.loads(line) for line in evals_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if prior:
+            best = max(prior, key=lambda e: e["accuracy"])
+            best_accuracy, best_step = best["accuracy"], best["step"]
     steps_path = out / "steps.jsonl"
     if args.resume:
         checkpoints = sorted((out / "checkpoints").glob("step_*.pt"))
@@ -269,6 +270,7 @@ def main() -> None:
     cfg = {
         "student": str(args.snapshot), "revision": args.snapshot.name, "steps": args.steps, "seed": args.seed,
         "lam": lam, "probe": args.probe, "batch": args.batch, "window": args.window,
+        "schedule_steps": schedule_steps,
         "lora": {"r": args.lora_r, "alpha": args.lora_alpha, "targets": ["q_proj", "k_proj", "v_proj", "o_proj"],
                  "lr": args.lora_lr},
         "head_lr": args.head_lr, "grad_clip": args.grad_clip, "temperature": student.temperature,
@@ -278,11 +280,10 @@ def main() -> None:
 
     shares, band_shares = [], []
     log_every = 1 if args.probe else 10
-    best_accuracy, best_step = None, None
     for step in range(start_step, args.steps):
         t_step = time.time()
         for group, base in ((optimizer.param_groups[0], args.lora_lr), (optimizer.param_groups[1], args.head_lr)):
-            group["lr"] = lr_at(step, args.steps, base)
+            group["lr"] = lr_at(step, schedule_steps, base)
         rows = [train_rows[i] for i in plan.batch(step)]
         labelled = sum(1 for r in rows if r.teacher is not None)
         if labelled < 3:

@@ -110,6 +110,29 @@ class TrainRow:
         return len(self.sequence)
 
 
+def render_order(qtype: str, option_keys: Sequence[str]) -> list[int]:
+    """The option index at each position of the *rendered* prompt, which is the readout's code order.
+
+    ``choice`` and ``score`` render the options in the row's order. ``noul`` always renders its fixed
+    ``false`` / ``true`` options (d3_format.NOUL_DESCRIPTIONS), i.e. ``no`` then ``yes``, whatever order the row
+    stores them in, so the readout's first code is "No" even for a row whose options are ``[yes, no]``.
+    """
+    if qtype == "noul":
+        if sorted(option_keys) != ["no", "yes"]:
+            raise ValueError(f"a noul row needs the keys yes and no, got {list(option_keys)}")
+        return [list(option_keys).index("no"), list(option_keys).index("yes")]
+    return list(range(len(option_keys)))
+
+
+def render_targets(
+    qtype: str, option_keys: Sequence[str], gold_key: str, teacher: Sequence[float] | None
+) -> tuple[int, tuple[float, ...] | None]:
+    """Gold index and teacher distribution in the rendered (readout) code order."""
+    order = render_order(qtype, option_keys)
+    gold = next(i for i, key in enumerate(option_keys) if key == gold_key)
+    return order.index(gold), None if teacher is None else tuple(float(teacher[i]) for i in order)
+
+
 def prepare_rows(runtime: Any, rows: Sequence[dict[str, Any]]) -> list[TrainRow]:
     """Prepare pool rows through the student's own ``D3.prepare``; a row the runtime refuses raises, never drops."""
     out: list[TrainRow] = []
@@ -119,14 +142,16 @@ def prepare_rows(runtime: Any, rows: Sequence[dict[str, Any]]) -> list[TrainRow]
         ready = runtime.prepare(row["state"], {"q": request})
         if "q" in ready.errors:
             raise ValueError(f"{row['row_id']}: {ready.errors['q']['message']}")
-        gold = next(i for i, (key, _) in enumerate(options) if key == row["gold"])
+        gold, teacher = render_targets(
+            row["qtype"], [key for key, _ in options], row["gold"], row.get("teacher_probs")
+        )
         out.append(
             TrainRow(
                 row_id=row["row_id"],
                 sequence=tuple(ready.sequences["q"]),
                 count=len(options),
                 gold=gold,
-                teacher=None if row.get("teacher_probs") is None else tuple(float(p) for p in row["teacher_probs"]),
+                teacher=teacher,
                 split=row["split"],
                 source=row["source"],
             )
@@ -295,6 +320,17 @@ class BatchPlan:
         chunk = order[window_index * self.window : (window_index + 1) * self.window]
         chunk = sorted(chunk, key=lambda i: self.lengths[i])
         return chunk[batch_index * self.batch_size : (batch_index + 1) * self.batch_size]
+
+
+def lr_at(step: int, total: int, base: float, *, warmup_fraction: float = 0.03, floor: float = 0.1) -> float:
+    """Linear warm-up then cosine decay to ``floor * base`` (the D33 schedule)."""
+    if total < 1:
+        raise ValueError("the schedule needs at least one step")
+    warmup = max(1, int(total * warmup_fraction))
+    if step < warmup:
+        return base * (step + 1) / warmup
+    progress = min(1.0, (step - warmup) / max(1, total - warmup))
+    return base * max(floor, 0.5 * (1.0 + math.cos(math.pi * progress)))
 
 
 def gradient_norm(parameters: Sequence[nn.Parameter], grads: Sequence[torch.Tensor | None]) -> float:

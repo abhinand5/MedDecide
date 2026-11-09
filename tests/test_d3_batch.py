@@ -165,3 +165,44 @@ def test_batch_plan_is_deterministic_resumable_and_length_sorted() -> None:
     # Within a batch the lengths are nondecreasing (length-sorted window).
     batch_lengths = [lengths[i] for i in plan.batch(3)]
     assert batch_lengths == sorted(batch_lengths)
+
+
+def test_lr_schedule_warmup_cosine_and_floor() -> None:
+    from meddecide.distill.d3_train import lr_at
+
+    total = 10_000
+    assert lr_at(0, total, 1e-4) == pytest.approx(1e-4 / max(1, int(total * 0.03)))
+    assert lr_at(total - 1, total, 1e-4) <= 1e-5 + 1e-12  # floor 0.1 * base
+    assert lr_at(total - 1, total, 1e-4) >= 0.1 * 1e-4 - 1e-12
+    mid = lr_at(total // 2, total, 1e-4)
+    assert 0.1 * 1e-4 <= mid <= 1e-4
+    assert lr_at(0, 200, 1e-4) < lr_at(1, 200, 1e-4)  # warm-up is monotone
+
+
+def test_gradient_norm_handles_missing_grads() -> None:
+    import torch
+    from torch import nn
+
+    from meddecide.distill.d3_train import gradient_norm
+
+    p = nn.Parameter(torch.zeros(2))
+    g = torch.tensor([3.0, 4.0])
+    assert gradient_norm([p], [g]) == pytest.approx(5.0)
+    assert gradient_norm([p], [None]) == 0.0
+
+
+def test_render_order_and_targets_put_noul_into_the_readout_order() -> None:
+    from meddecide.distill.d3_train import render_order, render_targets
+
+    keys = ["yes", "no"]
+    assert render_order("choice", ["A", "B", "C"]) == [0, 1, 2]
+    assert render_order("score", ["0", "1", "2"]) == [0, 1, 2]
+    assert render_order("noul", keys) == [1, 0]  # rendered: No (index 1 of the row), Yes (index 0)
+    gold, teacher = render_targets("noul", keys, "yes", [0.8, 0.2])
+    assert gold == 1 and teacher == pytest.approx((0.2, 0.8))
+    gold, teacher = render_targets("noul", ["no", "yes"], "no", [0.3, 0.7])
+    assert gold == 0 and teacher == pytest.approx((0.3, 0.7))
+    gold, teacher = render_targets("choice", ["A", "B"], "B", [0.4, 0.6])
+    assert gold == 1 and teacher == pytest.approx((0.4, 0.6))
+    with pytest.raises(ValueError):
+        render_order("noul", ["A", "B"])

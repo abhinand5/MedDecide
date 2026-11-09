@@ -26,7 +26,7 @@ from transformers import AutoModel
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from meddecide.distill.d3_train import D3Student, TrainRow  # noqa: E402
+from meddecide.distill.d3_train import D3Student, TrainRow, render_order, render_targets  # noqa: E402
 
 SETS = {
     "medmcqa_val": REPO / "data" / "bench" / "d3_distill" / "medmcqa_val.jsonl",
@@ -55,7 +55,7 @@ def prepare_item(runtime, item: dict, index: int) -> TrainRow:
     ready = runtime.prepare(item["state"], {"q": request})
     if "q" in ready.errors:
         raise SystemExit(f"{item.get('eval_id', index)}: {ready.errors['q']['message']}")
-    gold = next(i for i, (key, _) in enumerate(options) if key == item["gold"])
+    gold, _ = render_targets(item["qtype"], [key for key, _ in options], item["gold"], None)
     return TrainRow(row_id=str(item.get("eval_id", index)), sequence=tuple(ready.sequences["q"]),
                     count=len(options), gold=gold, teacher=None, split="eval", source=str(item.get("source", "")))
 
@@ -98,7 +98,8 @@ def main() -> None:
         predictions = []
         for item, row, value in zip(items, rows, probs, strict=True):
             best = max(range(len(value)), key=value.__getitem__)
-            keys = [o["key"] for o in item["options"]]
+            order = render_order(item["qtype"], [o["key"] for o in item["options"]])
+            keys = [item["options"][i]["key"] for i in order]
             predictions.append(
                 {
                     "eval_id": item.get("eval_id"), "source": item.get("source"),
