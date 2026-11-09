@@ -4,8 +4,8 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
 Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
 `777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
-band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Last poll 22:28Z: step 1,126, last-500
-mean 2.82 s/step → finish about 2026-11-09T09:30Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
+band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Last poll 2026-11-09T00:28Z: step 3,580,
+last-500 mean 2.90 s/step → finish about 2026-11-09T10:00Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
 knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
 ≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
 
@@ -261,6 +261,9 @@ number already measured.
   reported beside seed 0) once Z4 completes. A bug in `z5_choose.py` (it looked for the seed-1 arm under Z3 instead of Z4)
   was found and fixed before this run.
 
+- 2026-11-09T00:29Z — Z4 at step 3,580 (2.90 s/step), no evaluation yet (first at 6,996, ~03:00Z); expected finish ~10:00Z.
+  The exact Z5/Z6/Z7 commands are recorded in §8 so a later session can continue without re-deriving them.
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
@@ -272,6 +275,16 @@ number already measured.
   the verified reuse seed only.
 - **Bench set grew.** 73 bench files at Z1 vs 55 in the Y5 manifest; 13 of them were created after Y5. The rebuild shows they add
   no exclusion to the eligible anchor pool (C004), so the reuse is exact rather than a re-mapping.
+
+## 8. Next commands (after Z4)
+
+- Z5: `uv run --frozen python scripts/osler_v6/z5_choose.py` (reads both arms' step-13,992 predictions, writes
+  `outputs/osler_v6/Z5/choice.json`; the seed-1 arm is reported beside seed 0 and never replaces it).
+- Z6 (only if Z5 chose a recipe): `bash scripts/osler_v6/launch_arm.sh G1final configs/osler_v5/arm_F2.yaml
+  data/train/osler_v6/mix_f2_distill.jsonl outputs/osler_v6/Z2/mix_manifest.json outputs/osler_v6/Z6/final 63304 10`,
+  then `uv run --frozen python scripts/osler_v6/z6_select.py --arm-dir outputs/osler_v6/Z6/final`.
+- Z7: `uv run --frozen python scripts/osler_v6/z7_score.py --checkpoint outputs/osler_v6/Z6/final/checkpoints/chosen_step_<step>`,
+  then `uv run --frozen python scripts/osler_v6/z7_gate.py`.
 
 ## 7. Questions for the operator
 
