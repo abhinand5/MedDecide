@@ -84,12 +84,12 @@ EOF
 
   log "=== $name: scores (zero-shot and final on the public test splits) ==="
   if [ ! -f "$dir/zero_shot_score/aggregate.json" ]; then
-    "$PY" scripts/d3_distill/score_students.py --snapshot "$snap" --sets medmcqa_val,medqa_test \
+    "$PY" scripts/d3_distill/score_students.py --snapshot "$snap" --sets medmcqa_val,medqa_test,knowledge_subsample \
         --out "$dir/zero_shot_score"
   fi
   if [ ! -f "$dir/final_score/aggregate.json" ]; then
     "$PY" scripts/d3_distill/score_students.py --snapshot "$snap" --checkpoint "$dir/final/best.pt" \
-        --sets medmcqa_val,medqa_test --out "$dir/final_score"
+        --sets medmcqa_val,medqa_test,knowledge_subsample --out "$dir/final_score"
   fi
 }
 

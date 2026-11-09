@@ -237,6 +237,15 @@ def main() -> None:
     prepare_s = time.time() - t_prepare
     print(f"[{utcnow()}] prepared {len(train_rows)} train + {len(dev_rows)} dev rows in {prepare_s:.1f}s", flush=True)
     plan = BatchPlan([r.length for r in train_rows], batch=args.batch, window=args.window, seed=args.seed)
+    used = plan.windows * plan.window
+    plan_info = {
+        "steps_per_epoch": plan.steps_per_epoch,
+        "rows_used_per_epoch": used,
+        "rows_unused_per_epoch": len(train_rows) - used,
+        "epochs_needed": args.steps / plan.steps_per_epoch,
+    }
+    print(f"[{utcnow()}] sampler: {plan.steps_per_epoch} steps/epoch, {used} rows/epoch used, "
+          f"{len(train_rows) - used} unused tail rows, {args.steps / plan.steps_per_epoch:.2f} epochs", flush=True)
 
     # Zero-shot dev reference (the frozen student, before any step).
     with torch.inference_mode():
@@ -274,12 +283,15 @@ def main() -> None:
         "lora": {"r": args.lora_r, "alpha": args.lora_alpha, "targets": ["q_proj", "k_proj", "v_proj", "o_proj"],
                  "lr": args.lora_lr},
         "head_lr": args.head_lr, "grad_clip": args.grad_clip, "temperature": student.temperature,
+        "sampler": plan_info,
         "started_utc": started_utc, "prepare_s": round(prepare_s, 1), **data_summary,
     }
     (out / "config.json").write_text(json.dumps(cfg, indent=1), encoding="utf-8")
 
     shares, band_shares = [], []
     log_every = 1 if args.probe else 10
+    band_failed = False
+    steps_done = 0
     for step in range(start_step, args.steps):
         t_step = time.time()
         for group, base in ((optimizer.param_groups[0], args.lora_lr), (optimizer.param_groups[1], args.head_lr)):
@@ -294,6 +306,7 @@ def main() -> None:
         )
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
+        steps_done = step + 1 - start_step
         if probe_this:
             shares.append(share)
             band_shares.append(share)
@@ -310,6 +323,14 @@ def main() -> None:
             }
             with steps_path.open("a", encoding="utf-8") as fh:
                 fh.write(json.dumps(entry) + "\n")
+        if probe_this and not args.probe and step + 1 == probe_steps:
+            mean_band = sum(band_shares) / len(band_shares)
+            if not (SHARE_BAND[0] <= mean_band <= SHARE_BAND[1]):
+                band_failed = True
+                print(f"[{utcnow()}] D57 band FAIL at step {step + 1}: mean share {mean_band:.4f} "
+                      f"outside {SHARE_BAND}; the arm stops (lambda is not re-tuned)", flush=True)
+        if band_failed:
+            break
         if (step + 1) % 250 == 0 or step == args.steps - 1:
             print(f"[{utcnow()}] step {step + 1}/{args.steps} ce {ce:.4f} kl {kl:.4f} "
                   f"share {'-' if share is None else f'{share:.3f}'} preclip {pre_clip:.2f} "
@@ -351,11 +372,13 @@ def main() -> None:
     result = {
         "mode": "probe" if args.probe else "arm",
         "out": str(out),
-        "steps_run": args.steps - start_step,
+        "steps_run": steps_done,
+        "steps_planned": args.steps - start_step,
         "start_step": start_step,
         "wall_s": round(wall, 1),
-        "s_per_step": round(wall / max(1, args.steps - start_step), 3),
+        "s_per_step": round(wall / max(1, steps_done), 3),
         "band": band,
+        "band_failed": band_failed,
         "probe_share": probe_share,
         "best_dev_accuracy": best_accuracy,
         "best_dev_step": best_step,

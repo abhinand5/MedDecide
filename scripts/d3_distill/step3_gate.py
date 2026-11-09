@@ -21,7 +21,9 @@ REPO = Path(__file__).resolve().parents[2]
 STEP2 = REPO / "outputs" / "d3_distill" / "step2"
 STEP3 = REPO / "outputs" / "d3_distill" / "step3"
 STUDENTS = ("mini", "flash")
-SETS = ("medmcqa_val", "medqa_test")
+SETS = ("medmcqa_val", "medqa_test", "knowledge_subsample")
+# The d3_bench knowledge-subsample rows (same 1,000 items, seed 0), from outputs/d3_bench/aggregate.json.
+D3_BENCH_KNOWLEDGE = {"d3_ultra": 0.805, "d1_ultra": 0.823, "pplx_flash": 0.6773547094188377, "clef_flash": 0.697}
 BOOTSTRAP = 1000
 SEED = 0
 
@@ -139,10 +141,24 @@ def main() -> None:
         )
     if not diagnostics:
         lines.append("| — | — | — | — | — | no final scores yet |")
-    lines += ["", "## Why the subsample rows in `outputs/d3_bench` do not close the gap", "",
-              "`loops/d3_bench/results.md` states that the 500-to-1,000-item subsamples cannot stand in for any gate, and the",
-              "run files store predictions without item text, so a paired comparison against zero-shot pplx-flash on the",
-              "same items is impossible here.", ""]
+    lines += ["", "## Additional: the exact d3_bench knowledge subsample (rebuilt, all 1,000 ids matched)", "",
+              "The frozen Y9 file is absent, but the item ids in `outputs/d3_bench/subsamples.json` are deterministic",
+              "functions of the public records, so the 1,000 items were rebuilt exactly (759 MedMCQA + 241 MedQA; all ids",
+              "matched). This is the same item set as the d3_bench rows below, but it is a subsample and is **not** the",
+              "gate (loops/d3_bench/results.md).", "",
+              "| model | items | accuracy |", "|---|---:|---:|"]
+    subsample = {key: d for key, d in diagnostics.items() if key.endswith("/knowledge_subsample")}
+    for key, d in sorted(subsample.items()):
+        lines.append(f"| {key} | {d['items']} | {d['final_accuracy']:.4f} |")
+    lines.append(f"| zero-shot pplx-decider-flash-v1.2 (d3_bench row) | 998 | {D3_BENCH_KNOWLEDGE['pplx_flash']:.4f} |")
+    lines.append(f"| Clef-Flash (d3_bench row) | 1,000 | {D3_BENCH_KNOWLEDGE['clef_flash']:.4f} |")
+    lines.append(f"| d3-ultra teacher (d3_bench row) | 1,000 | {D3_BENCH_KNOWLEDGE['d3_ultra']:.4f} |")
+    lines.append(f"| d1-ultra teacher (d3_bench row) | 1,000 | {D3_BENCH_KNOWLEDGE['d1_ultra']:.4f} |")
+    lines += ["", "## Why the panel and MR subsamples are not reconstructed", "",
+              "The panel builder excludes every item whose text equals a bench v0.2 item, and that manifest is absent, so",
+              "the accepted 4,353-item population (and thus the 500-item subsample) cannot be rebuilt. The MR verdict",
+              "subsample is drawn from the frozen osler_v1 MR suite's patient ids, which are not in this checkout.",
+              "MIMIC is out of scope by the operator's instruction.", ""]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines), encoding="utf-8")
     print(json.dumps({"gate_verdict": report["gate_verdict"], "diagnostics": diagnostics}, indent=1))

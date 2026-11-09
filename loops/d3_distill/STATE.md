@@ -109,3 +109,6 @@ no MIMIC data.
 - 2026-11-09T16:19Z — public test splits rebuilt for step-3 diagnostics (MedMCQA validation, MedQA test); step-3 gate
   recorded BLOCKED on the missing frozen sets.
 - 2026-11-09T16:25Z — step 2 pre-registration and harness written and unit-tested; parity/arms wait for the GPU.
+- 2026-11-09T16:29Z — the exact 1,000-item d3_bench knowledge subsample was rebuilt from public test splits (all ids
+  matched; C013), so step 3 can at least compare the students to the d3_bench rows on the same items. Panel/MR remain
+  unreconstructible (v0.2 exclusion manifest and frozen MR pids absent); the gate stays NOT MEASURED.
