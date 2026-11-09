@@ -137,9 +137,10 @@ no MIMIC data.
 - **d3-mini zero-shot dev accuracy = 0.8141 (8,145/10,005)** on the train-side dev carve; this is the arm's reference.
 - Sampler: 23,744 steps/epoch, 189,952 of 189,995 train rows used per epoch (43 tail rows unused, logged), so the
   13,992-step arm sees 0.59 epochs and the 63,304-step final 2.67 epochs.
-- Timing measured before launch: 60 steady-state mini steps at 0.11 s/step (peak 33.6 GB on a 4,096-row corpus); the
-  probe's three backward passes peak at 46.8 GB. Expected chain wall clock ~12–15 h for both students including
-  evaluations and scoring, subject to the long synthetic pages.
+- Timing: 0.162 s/step on arm s0 (2,264.9 s for 13,992 steps), probe peak 46.8 GB. Expected chain wall clock ~12–15 h
+  for both students including evaluations and scoring.
+- **mini arm s0 DONE 2026-11-09T19:26Z**: band mean 0.4015 PASS; dev 0.8241 / 0.8254 / 0.8432 / 0.8432 at
+  3.5k/7k/10.5k/13,992 steps (zero-shot 0.8141; best at 10,500); audit 8/8 PASS (C028). Arm s1 started 19:26Z.
 
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
