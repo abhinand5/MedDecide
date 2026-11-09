@@ -1,6 +1,6 @@
 # d3_distill — STATE
 
-Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T16:20Z`.
+Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T16:25Z`.
 Operator: goal round 1 — do PLAN.md steps 0–3 in order, commit to `distill/d3_distill` only, no push, no branch deletion,
 no MIMIC data.
 
@@ -20,9 +20,9 @@ no MIMIC data.
 | step | status | note |
 |---|---|---|
 | 0 — teacher throughput gate (≥ 25 items/s on 1,000 items; probability check every item) | **DONE 2026-11-09T16:05Z — PASS** | batched path 29.056 items/s end to end (34.417 s for 1,000), 0 invalid, 0 constant; `outputs/d3_distill/step0/throughput_batched.json`; SELF_AUDIT PASS |
-| 1 — label set (CPU build, GPU label) | PENDING | pool build next; 200,000 target |
-| 2 — students (port parity, arms, finals) | PENDING | depends on step 1 labels |
-| 3 — Gate O7 | PENDING | depends on step 2 |
+| 1 — label set (CPU build, GPU label) | **IN_PROGRESS** | pool built (200,000; C007–C010); labelling running as PID 23702 (26.9 rows/s, ETA ~18:20Z) |
+| 2 — students (port parity, arms, finals) | PENDING | harness + pre-registration written (ADVISORY.md); parity waits for the GPU (one job at a time) |
+| 3 — Gate O7 | **BLOCKED — frozen sets absent** (see constraint 2); diagnostics only | the gate's four checks need the Y9 knowledge/panel/mr_verdict files, the osler_v4 final's rows and MIMIC; none are on this machine |
 
 ## Step 0 — result
 
@@ -38,6 +38,20 @@ no MIMIC data.
 - Implication for step 1: 200,000 labels ≈ 1.9 h of GPU plus loader overhead. Gate margin is 16 %, so the 60,000 fallback
   is not needed.
 
+## Step 1 — pool (built 2026-11-09T16:11Z)
+
+- `data/train/d3_distill/pool_200k.jsonl`: 200,000 rows, sha256 in `outputs/d3_distill/step1/pool_manifest.json`.
+  182,777 MedMCQA official train + 17,223 code-generated: 12,900 from the 7 non-held-out `meddecide.gen` families and
+  4,323 from the 3 `meddecide.mr` audit generators; 189,995 train / 10,005 train-side dev (5 % by row hash);
+  190,894 choice + 9,106 noul.
+- Drops, all counted: 45 duplicate MedMCQA texts, 4 cross-source duplicate texts, 296 held-out generator items,
+  2,440 patient ids outside the train split. No MedMCQA train question appears in the validation (test) split (0).
+- Enforced exclusions: MedMCQA validation texts (the knowledge test side), within-pool duplicates, held-out families
+  (`note_lab_range_v1`, `policy_triage_v1`, AKI, heart-failure) and non-train generator patients.
+- NOT MEASURED overlap: the Y9 knowledge/panel/mr_verdict frozen files, the MR suites, the MIMIC audit suite, MedNLI
+  test and CG v2 are absent (`data/` does not exist). The d3_bench run rows hold predictions without item text, so a
+  text-hash check against them is impossible. D61's "never a test-side item" is enforced only where the text exists.
+
 ## Constraints and deviations (recorded before step 1 runs)
 
 1. **MIMIC is out of scope on this machine (operator instruction: "don't … touch MIMIC data").** The plan's MIMIC-grounded
@@ -46,9 +60,12 @@ no MIMIC data.
    `data/physionet` and MIMIC trees are not present in this checkout in any case.
 2. **Frozen benchmark files are absent from this checkout.** `data/` does not exist; `data/bench/osler_v4/y9/*.jsonl`, the
    MR-suite files, the MIMIC audit suite, MedNLI test and `data/bench/osler_v4/cg_v2.jsonl` are not on this machine. The
-   only frozen benchmark text here is the d3_bench subsample extract (`outputs/d3_bench/run/{knowledge,panel,mr_verdict}.jsonl`).
-   Overlap checks will be run against every available frozen text and against the MedMCQA validation split (the knowledge
-   test side); the absent files are recorded as NOT MEASURED with the reason, and no row drops silently.
+   d3_bench run files hold predictions only (no item text), so they cannot be hash-checked either. Network is reachable
+   (checked 2026-11-09T16:18Z), so the public test splits that *are* regenerable were rebuilt for diagnostics:
+   `data/bench/d3_distill/medmcqa_val.jsonl` (4,183; sha `f1b85296…`) and `medqa_test.jsonl` (1,273; sha `0190a547…`),
+   manifest in `outputs/d3_distill/step3/eval_sets_manifest.json`. They are not the frozen Y9 knowledge set and cannot
+   stand in for Gate O7 (the d3_bench results.md says the same); they are additional diagnostics only.
+   The absent files are recorded as NOT MEASURED with the reason, and no row drops silently.
 3. **The CG v2 dev-proxy exclusion cannot be exact** without `cg_v2.jsonl` and osler_v1 B0–B3. The MedMCQA share of CG v2 is
    the knowledge dev v2 carve (3,000 of 182,822 train rows); any such overlap can only bias dev-side arm selection, never a
    reported gate, and Gate O7 does not use CG v2. Recorded as NOT MEASURED with that mitigation.
@@ -71,7 +88,24 @@ no MIMIC data.
    on a train-side dev carve of the label pool (never a test set) by knowledge-dev accuracy + teacher KL; then one final at
    63,304 steps on the selected arm. Say if you want a different rule.
 
+## Step 2 — pre-registration
+
+- `loops/d3_distill/ADVISORY.md`, written 2026-11-09T16:15Z before any student forward: port parity (1e-4 on 40 items),
+  recipe (attention-only LoRA r=32/alpha=32 on q/k/v/o + trained readout; CE + λ·KL; batch 8; AdamW 1e-4/1e-3; cosine
+  3 % warmup), D57 dosing and λ calibration, arms = seeds 0/1 at 13,992 steps, selection on the train-side dev carve,
+  final at 63,304 steps, and the Gate O7 table with the checks that are NOT MEASURED here.
+- Harness: `src/meddecide/distill/d3_train.py` reuses the student's own `D3.prepare` / `D3.encoder` / readout; the
+  adapters start at zero so step 0 is exactly the frozen model. Unit tests in `tests/test_d3_batch.py` (12 pass).
+- Drivers: `scripts/d3_distill/step2_parity.py`, `step2_arm.py` (probe/arm/final, resume, evals, checkpoints),
+  `step2_select.py`. Scoring: `scripts/d3_distill/score_students.py`, eval sets: `build_eval_sets.py`.
+
 ## Iteration log
 
 - 2026-11-09T15:44Z — session start; PLAN/STATE read. `data/` absent, snapshots for all three models present.
 - 2026-11-09T16:05Z — step 0 gate PASS (29.056 items/s batched, 0 invalid); SELF_AUDIT written; CLAIMS C001–C005.
+- 2026-11-09T16:11Z — step 1 pool built: 200,000 rows (C007–C010).
+- 2026-11-09T16:12Z — step 1 labelling launched detached (PID 23702, log `outputs/d3_distill/step1/logs/label.log`);
+  26.9 rows/s on the first 4,000-row window, 0 invalid; ETA ~18:20Z.
+- 2026-11-09T16:19Z — public test splits rebuilt for step-3 diagnostics (MedMCQA validation, MedQA test); step-3 gate
+  recorded BLOCKED on the missing frozen sets.
+- 2026-11-09T16:25Z — step 2 pre-registration and harness written and unit-tested; parity/arms wait for the GPU.

@@ -92,17 +92,83 @@ def argmax_index(probabilities: Sequence[float]) -> int:
     return best
 
 
-def prepare_choice(runtime: Any, index: int, state: str, instructions: str, criteria: dict[str, str]) -> PreparedQuestion:
+def criteria_for(qtype: str, options: Sequence[Any]) -> Any:
+    """The d3 request's criteria for a row, from its ``(key, label)`` options in order.
+
+    ``choice``: ``{key: label}`` in row order (the answer comes back in the same order). ``noul``: omitted, the
+    runtime supplies ``false`` / ``true``; the row's keys must be ``yes`` / ``no``. ``score``: the labels in level
+    order (lowest first); the answer comes back one entry per level.
+    """
+    keys = [str(key) for key, _ in options]
+    labels = [str(label) for _, label in options]
+    if qtype == "choice":
+        return dict(zip(keys, labels, strict=True))
+    if qtype == "noul":
+        if sorted(keys) != ["no", "yes"]:
+            raise ValueError(f"a noul row needs the keys yes and no, got {keys}")
+        return None
+    if qtype == "score":
+        if len(labels) < 2:
+            raise ValueError("a score row needs at least two levels")
+        return labels
+    raise ValueError(f"unsupported qtype {qtype!r}")
+
+
+def question_request(qtype: str, instructions: str, options: Sequence[Any]) -> dict[str, Any]:
+    """The question object of one d3 request for a pool row (one question per request)."""
+    criteria = criteria_for(qtype, options)
+    spec: dict[str, Any] = {"type": qtype, "instructions": instructions}
+    if criteria is not None:
+        spec["criteria"] = criteria
+    return spec
+
+
+def align_probabilities(qtype: str, options: Sequence[Any], values: Sequence[float]) -> list[float]:
+    """The runtime's option probabilities in the row's option order.
+
+    ``choice``: the runtime answers in criteria order, which is the row's order. ``noul``: the runtime's two
+    entries are ``false`` then ``true``. ``score``: one entry per level, in level order.
+    """
+    keys = [str(key) for key, _ in options]
+    if qtype == "choice":
+        if len(values) != len(keys):
+            raise ValueError(f"expected {len(keys)} choice probabilities, got {len(values)}")
+        return [float(v) for v in values]
+    if qtype == "noul":
+        if len(values) != 2 or sorted(keys) != ["no", "yes"]:
+            raise ValueError("a noul row needs the keys yes and no and two probabilities")
+        p_false, p_true = float(values[0]), float(values[1])
+        return [p_true if key == "yes" else p_false for key in keys]
+    if qtype == "score":
+        if len(values) != len(keys):
+            raise ValueError(f"expected {len(keys)} score probabilities, got {len(values)}")
+        return [float(v) for v in values]
+    raise ValueError(f"unsupported qtype {qtype!r}")
+
+
+def prepare_request(
+    runtime: Any,
+    index: int,
+    state: str,
+    instructions: str,
+    qtype: str,
+    options: Sequence[Any],
+) -> PreparedQuestion:
     """Prepare one one-question request through the runtime's own render/tokenize path."""
-    prepared = runtime.prepare(state, {"q": {"type": "choice", "instructions": instructions, "criteria": criteria}})
+    prepared = runtime.prepare(state, {"q": question_request(qtype, instructions, options)})
     if "q" in prepared.errors:
         raise ValueError(f"row {index}: {prepared.errors['q']['message']}")
     return PreparedQuestion(
         index=index,
         sequence=tuple(prepared.sequences["q"]),
-        count=len(criteria),
+        count=len(options),
         state=prepared.states.get("q"),
     )
+
+
+def prepare_choice(runtime: Any, index: int, state: str, instructions: str, criteria: dict[str, str]) -> PreparedQuestion:
+    """Prepare one one-question choice request through the runtime's own render/tokenize path."""
+    return prepare_request(runtime, index, state, instructions, "choice", list(criteria.items()))
 
 
 def score_batch(runtime: Any, batch: Sequence[PreparedQuestion]) -> list[list[float]]:
