@@ -7,8 +7,11 @@ detached, uv PID `830482`, python PID `830492`, log `outputs/osler_v6/Z6/final/l
 (expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T21:00Z; resumes from full checkpoints).
 First evaluation (6,330) is DONE: S 0.796776, MR 0.899795, MIMIC 0.720461, CG 0.770073, knowledge 0.761500, positional
 PASS (C036). The sampler's determinism was checked against G1s0: the batch composition and n_teacher are identical on all
-6,467 common logged steps; only the bf16 numerical trajectory differs (C037). Last poll 2026-11-09T16:32Z: step ~6,500,
-~2.9 s/step; remaining evaluations every 6,330 steps; ETA ~2026-11-11T21:00Z.
+6,467 common logged steps; only the bf16 numerical trajectory differs (C037). Second evaluation (12,661, C038): S
+0.791281, MR 0.894419, MIMIC 0.704173, CG 0.775250, knowledge 0.758500, positional PASS — below the first eval's S 0.796776,
+which is expected because the final's LR schedule is laid out over 63,304 steps (the arms' over 13,992), so early-schedule dev
+figures are not comparable to the arms' at matched steps. Last poll 2026-11-09T22:23Z: step 13,106, ~3.0 s/step; ETA
+~2026-11-11T20:00Z.
 
 ## 1. Task board
 
@@ -299,6 +302,12 @@ number already measured.
   is read. A reproducibility check shows the final's sampler stream is identical to G1s0's (same batch composition and
   n_teacher on all 6,467 common steps); losses differ from step 2 because bf16 GPU training is not bitwise deterministic
   (C037) — the final is a statistical replica of the chosen recipe, which is what it is designed to be.
+
+- 2026-11-09T22:24Z — Z6's second evaluation (step 12,661): S 0.791281 (MR 0.894419, MIMIC 0.704173, CG 0.775250,
+  knowledge 0.758500), positional PASS. S is below the first evaluation's 0.796776; this is not a defect: the driver lays the
+  cosine schedule over the run's own length, so the final's schedule spans 63,304 steps while the arms' spanned 13,992, and
+  the final's early evaluations sit at a much higher LR than the arms' same-step figures. Selection by S happens among the
+  final's own ten evaluations, and the last ones (low LR) are the likely candidates.
 
 ## 6. Deviations from the plan
 
