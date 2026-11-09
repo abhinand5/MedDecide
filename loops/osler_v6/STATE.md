@@ -5,8 +5,10 @@ Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-09T10:52Z` (Z0-Z5 DONE; Z6
 Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe (seed-0 config/mix, frozen λ, quota 3, ten evaluations);
 detached, uv PID `830482`, python PID `830492`, log `outputs/osler_v6/Z6/final/logs/run.log`; started 2026-11-09T10:50Z
 (expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T21:00Z; resumes from full checkpoints).
-Last poll 2026-11-09T13:00Z: step 2,572, last-500 mean 3.09 s/step; first-200 diagnostic share 0.351422 with 3 labelled on
-every step (C035); first evaluation at 6,330 due ~16:15Z.
+First evaluation (6,330) is DONE: S 0.796776, MR 0.899795, MIMIC 0.720461, CG 0.770073, knowledge 0.761500, positional
+PASS (C036). The sampler's determinism was checked against G1s0: the batch composition and n_teacher are identical on all
+6,467 common logged steps; only the bf16 numerical trajectory differs (C037). Last poll 2026-11-09T16:32Z: step ~6,500,
+~2.9 s/step; remaining evaluations every 6,330 steps; ETA ~2026-11-11T21:00Z.
 
 ## 1. Task board
 
@@ -291,6 +293,12 @@ number already measured.
 - 2026-11-09T13:00Z — Z6 at step 2,572 (3.09 s/step), no evaluation yet (first at 6,330, ~16:15Z). Diagnostic: the final's
   own first-200-step mean share is 0.351422 with 3 labelled anchors on every step — the same dose the arms ran at (C035);
   the band rule is pre-registered for the arms, so this is a health check, not a gate.
+
+- 2026-11-09T16:32Z — Z6's first evaluation (step 6,330) is in: S 0.796776, MR 0.899795, MIMIC 0.720461, CG 0.770073,
+  knowledge 0.761500, positional PASS (C036). It is an earlier step than the arm's 6,996 evaluation, so no cross-arm claim
+  is read. A reproducibility check shows the final's sampler stream is identical to G1s0's (same batch composition and
+  n_teacher on all 6,467 common steps); losses differ from step 2 because bf16 GPU training is not bitwise deterministic
+  (C037) — the final is a statistical replica of the chosen recipe, which is what it is designed to be.
 
 ## 6. Deviations from the plan
 
