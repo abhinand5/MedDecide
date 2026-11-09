@@ -4,8 +4,8 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
 Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
 `777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
-band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Last poll 2026-11-09T00:28Z: step 3,580,
-last-500 mean 2.90 s/step → finish about 2026-11-09T10:00Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
+band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Last poll 2026-11-09T02:28Z: step 5,993,
+last-500 mean 3.02 s/step → first eval ~03:20Z, finish about 2026-11-09T10:10Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
 knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
 ≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
 
