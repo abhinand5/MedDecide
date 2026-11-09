@@ -4,7 +4,9 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-09T10:52Z` (Z0-Z5 DONE; Z6 starting).
 Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe (seed-0 config/mix, frozen λ, quota 3, ten evaluations);
 detached, uv PID `830482`, python PID `830492`, log `outputs/osler_v6/Z6/final/logs/run.log`; started 2026-11-09T10:50Z
-(expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T18:00Z; resumes from full checkpoints).
+(expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T21:00Z; resumes from full checkpoints).
+Last poll 2026-11-09T13:00Z: step 2,572, last-500 mean 3.09 s/step; first-200 diagnostic share 0.351422 with 3 labelled on
+every step (C035); first evaluation at 6,330 due ~16:15Z.
 
 ## 1. Task board
 
@@ -285,6 +287,10 @@ number already measured.
   seed-0 mix (uv PID 830482 / python PID 830492). At the arms' measured ~2.9 s/step the steps alone are ~51 h; with the ten
   evaluations (~20 min each) and post-processing the expected completion is about 2026-11-11T18:00Z. Full checkpoints every
   2,500 steps allow a resume if the pod interrupts.
+
+- 2026-11-09T13:00Z — Z6 at step 2,572 (3.09 s/step), no evaluation yet (first at 6,330, ~16:15Z). Diagnostic: the final's
+  own first-200-step mean share is 0.351422 with 3 labelled anchors on every step — the same dose the arms ran at (C035);
+  the band rule is pre-registered for the arms, so this is a health check, not a gate.
 
 ## 6. Deviations from the plan
 
