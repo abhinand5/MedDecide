@@ -1,6 +1,6 @@
 # d3_distill — STATE
 
-Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T16:25Z`.
+Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T16:40Z`.
 Operator: goal round 1 — do PLAN.md steps 0–3 in order, commit to `distill/d3_distill` only, no push, no branch deletion,
 no MIMIC data.
 
@@ -22,7 +22,7 @@ no MIMIC data.
 | 0 — teacher throughput gate (≥ 25 items/s on 1,000 items; probability check every item) | **DONE 2026-11-09T16:05Z — PASS** | batched path 29.056 items/s end to end (34.417 s for 1,000), 0 invalid, 0 constant; `outputs/d3_distill/step0/throughput_batched.json`; SELF_AUDIT PASS |
 | 1 — label set (CPU build, GPU label) | **IN_PROGRESS** | pool built (200,000; C007–C010); labelling running as PID 23702 (26.9 rows/s, ETA ~18:20Z) |
 | 2 — students (port parity, arms, finals) | PENDING | harness + pre-registration written (ADVISORY.md); parity waits for the GPU (one job at a time) |
-| 3 — Gate O7 | **BLOCKED — frozen sets absent** (see constraint 2); diagnostics only | the gate's four checks need the Y9 knowledge/panel/mr_verdict files, the osler_v4 final's rows and MIMIC; none are on this machine |
+| 3 — Gate O7 | PENDING — frozen sets now present (operator update) | panel/knowledge/mr_verdict against a locally scored pplx-flash baseline; MIMIC BLOCKED (operator); MR vs osler_v4 final NOT MEASURED (no weights) |
 
 ## Step 0 — result
 
@@ -33,7 +33,9 @@ no MIMIC data.
   0.945 (identical to the single-request run). Gate basis: steady state after a 24-row warm-up that pays Triton autotune
   once; `TRITON_CACHE_AUTOTUNING=1`.
 - The prior single-request figure 6.734 items/s (`outputs/d3_distill/step0/throughput.json`) is kept as a fact, not a
-  verdict. Batched/single parity on 40 items: argmax 40/40, max abs difference 0.0354 (numerics, not 1e-4).
+  verdict. Batched/single parity on 40 items: argmax 40/40, max abs difference 0.0354, mean 0.0028. **Operator decision
+  2026-11-09: the batched path stands as the teacher; the 1e-4 bar applies to the students' port only.** Recorded in
+  CLAIMS C003 and in the step 0 self-audit.
 - Why batch 8: probe sweep on 256 items gave 26.9 (rows 4), 28.4 (8), 27.0 (16), 10.1 (32), 13.3 (64) items/s.
 - Implication for step 1: 200,000 labels ≈ 1.9 h of GPU plus loader overhead. Gate margin is 16 %, so the 60,000 fallback
   is not needed.
@@ -66,14 +68,20 @@ no MIMIC data.
    manifest in `outputs/d3_distill/step3/eval_sets_manifest.json`. They are not the frozen Y9 knowledge set and cannot
    stand in for Gate O7 (the d3_bench results.md says the same); they are additional diagnostics only.
    The absent files are recorded as NOT MEASURED with the reason, and no row drops silently.
-3. **The CG v2 dev-proxy exclusion cannot be exact** without `cg_v2.jsonl` and osler_v1 B0–B3. The MedMCQA share of CG v2 is
+3. **Frozen sets present (operator update, 2026-11-09).** `data/bench/osler_v4/y9/{knowledge,panel,mr_verdict}.jsonl`
+   are now on this machine and their SHA-256 matches the originals (CLAIMS C014). They are evaluation inputs only, never
+   committed, and never trained on. The MIMIC sets and every MIMIC-derived output stay off this machine (operator
+   instruction), so the MIMIC part of Gate O7 stays BLOCKED. Gate O7 will be computed on the full frozen sets against a
+   zero-shot pplx-decider-flash-v1.2 baseline scored here with the authors' code (snapshot present, CLAIMS C015); the MR
+   check against the osler_v4 final stays NOT MEASURED (its predictions and weights are not on this machine).
+4. **The CG v2 dev-proxy exclusion cannot be exact** without `cg_v2.jsonl` and osler_v1 B0–B3. The MedMCQA share of CG v2 is
    the knowledge dev v2 carve (3,000 of 182,822 train rows); any such overlap can only bias dev-side arm selection, never a
    reported gate, and Gate O7 does not use CG v2. Recorded as NOT MEASURED with that mitigation.
-4. **No distill_v0 artifacts exist on this branch or in this repo's history.** `loops/` has no `distill_v0`; the "same
+5. **No distill_v0 artifacts exist on this branch or in this repo's history.** `loops/` has no `distill_v0`; the "same
    recipe as distill_v0" is therefore reconstructed from the osler_v6 pre-registration (D57/D51) and the d3_distill PLAN
    bullets, and written into a `loops/d3_distill/ADVISORY.md` before any arm starts. Where the plan is silent (arm
    definition, dev-selection rule, LoRA target), the conservative reading is pre-registered and flagged for the operator.
-5. PROVENANCE GAP carried from the hand-over: the d3_bench `results.md` says d3-ultra was not scored (disk quota), but
+6. PROVENANCE GAP carried from the hand-over: the d3_bench `results.md` says d3-ultra was not scored (disk quota), but
    `outputs/d3_bench/run/` now holds 1000 knowledge + 1000 panel + 500 mr_verdict rows. The PLAN's "3.5 items/s" and its
    benchmark comparison still have no committed CLAIMS row on this branch. Step 0 does not rely on them (it measures the
    teacher directly); steps 1–3 will cite the d3_bench aggregate only after it is committed as aggregates.
@@ -109,6 +117,9 @@ no MIMIC data.
 - 2026-11-09T16:19Z — public test splits rebuilt for step-3 diagnostics (MedMCQA validation, MedQA test); step-3 gate
   recorded BLOCKED on the missing frozen sets.
 - 2026-11-09T16:25Z — step 2 pre-registration and harness written and unit-tested; parity/arms wait for the GPU.
+- 2026-11-09T16:33Z — operator update: the three frozen Y9 sets were placed on the machine (hashes match); the teacher
+  batched path is accepted; MIMIC stays off the machine; step 3 is to run the panel/knowledge/mr_verdict checks against
+  zero-shot pplx-flash. The pplx-decider-flash-v1.2 snapshot (pinned revision) was downloaded for that baseline.
 - 2026-11-09T16:29Z — the exact 1,000-item d3_bench knowledge subsample was rebuilt from public test splits (all ids
   matched; C013), so step 3 can at least compare the students to the d3_bench rows on the same items. Panel/MR remain
   unreconstructible (v0.2 exclusion manifest and frozen MR pids absent); the gate stays NOT MEASURED.

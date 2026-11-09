@@ -2,8 +2,14 @@
 
 The student is loaded with the card's ``AutoModel`` path, the checkpoint's LoRA/readout are loaded through
 ``D3Student``, and every item is scored as one one-question request by ``D3Student.probabilities`` (the runtime's own
-``D3.probabilities`` with the adapter and trained readout in place). Writes per-item predictions (gitignored) and an
-aggregate with accuracy by template and source. Evaluation only: no gradient, no training.
+``D3.probabilities`` with the adapter and trained readout in place).
+
+Prediction rows use the Gate O4 common shape (``item_id``, ``template_id``, ``gold_key``, ``predicted_key``,
+``correct``, ``probs``), with probabilities in the item's own option order. For the frozen Y9 sets the ``item_id`` is the
+trainer's recomputed id (``mix_row_to_item(row).item_id``), which is what the pplx and trainer-based runners write and
+what the gate pairs on.
+
+Evaluation only: no gradient, no training. Writes per-item predictions (gitignored) and an aggregate.
 """
 
 from __future__ import annotations
@@ -13,7 +19,6 @@ import json
 import os
 import sys
 import time
-from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -27,11 +32,19 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
 from meddecide.distill.d3_train import D3Student, TrainRow, render_order, render_targets  # noqa: E402
+from meddecide.eval.gate_o4 import readout_failures  # noqa: E402
+from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 
+Y9 = REPO / "data" / "bench" / "osler_v4" / "y9"
 SETS = {
     "medmcqa_val": REPO / "data" / "bench" / "d3_distill" / "medmcqa_val.jsonl",
     "medqa_test": REPO / "data" / "bench" / "d3_distill" / "medqa_test.jsonl",
+    "knowledge_subsample": REPO / "data" / "bench" / "d3_distill" / "knowledge_subsample.jsonl",
+    "knowledge": Y9 / "knowledge.jsonl",
+    "panel": Y9 / "panel.jsonl",
+    "mr_verdict": Y9 / "mr_verdict.jsonl",
 }
+Y9_SETS = ("knowledge", "panel", "mr_verdict")
 
 
 def utcnow() -> str:
@@ -54,10 +67,16 @@ def prepare_item(runtime, item: dict, index: int) -> TrainRow:
         request = {"type": "score", "instructions": item["question"], "criteria": [o["label"] for o in item["options"]]}
     ready = runtime.prepare(item["state"], {"q": request})
     if "q" in ready.errors:
-        raise SystemExit(f"{item.get('eval_id', index)}: {ready.errors['q']['message']}")
+        raise SystemExit(f"{item.get('item_id', index)}: {ready.errors['q']['message']}")
     gold, _ = render_targets(item["qtype"], [key for key, _ in options], item["gold"], None)
-    return TrainRow(row_id=str(item.get("eval_id", index)), sequence=tuple(ready.sequences["q"]),
+    return TrainRow(row_id=str(item.get("item_id", index)), sequence=tuple(ready.sequences["q"]),
                     count=len(options), gold=gold, teacher=None, split="eval", source=str(item.get("source", "")))
+
+
+def pairing_id(item: dict, is_y9: bool, index: int) -> str:
+    if is_y9:
+        return mix_row_to_item(item).item_id
+    return str(item.get("eval_id", item.get("item_id", index)))
 
 
 def main() -> None:
@@ -77,18 +96,20 @@ def main() -> None:
     )
     runtime = model.runtime
     student = D3Student(runtime, lora_r=32, lora_alpha=32).to(runtime.device)
+    step = None
     if args.checkpoint is not None:
         payload = torch.load(args.checkpoint, map_location=student.device, weights_only=False)
         student.load_checkpoint_state(payload["model"])
-        print(f"[{utcnow()}] loaded checkpoint step {payload['step']} from {args.checkpoint}", flush=True)
+        step = int(payload["step"])
+        print(f"[{utcnow()}] loaded checkpoint step {step} from {args.checkpoint}", flush=True)
     runtime.readout = student.readout.detach()
 
     aggregate = {"snapshot": str(args.snapshot), "revision": args.snapshot.name,
                  "checkpoint": None if args.checkpoint is None else str(args.checkpoint),
-                 "checkpoint_step": None if args.checkpoint is None else int(payload["step"]),
-                 "finished_utc": utcnow(), "sets": {}}
+                 "checkpoint_step": step, "finished_utc": utcnow(), "sets": {}}
     for name in [s.strip() for s in args.sets.split(",") if s.strip()]:
         path = SETS.get(name, Path(name))
+        is_y9 = name in Y9_SETS
         items = read_jsonl(path)
         if args.max_rows:
             items = items[: args.max_rows]
@@ -96,42 +117,53 @@ def main() -> None:
         rows = [prepare_item(runtime, item, i) for i, item in enumerate(items)]
         probs = student.probabilities([r.sequence for r in rows], [r.count for r in rows], batch_size=args.batch)
         predictions = []
-        for item, row, value in zip(items, rows, probs, strict=True):
-            best = max(range(len(value)), key=value.__getitem__)
+        for index, (item, value) in enumerate(zip(items, probs, strict=True)):
             order = render_order(item["qtype"], [o["key"] for o in item["options"]])
-            keys = [item["options"][i]["key"] for i in order]
+            # rendered position pos holds item option order[pos]; put the probabilities back in item order
+            item_probs = [value[order.index(i)] for i in range(len(order))]
+            keys = [o["key"] for o in item["options"]]
+            best = max(range(len(item_probs)), key=item_probs.__getitem__)
             predictions.append(
                 {
-                    "eval_id": item.get("eval_id"), "source": item.get("source"),
-                    "template_id": item.get("template_id"), "gold": item["gold"],
-                    "option_keys": keys, "probs": value, "answer": keys[best],
-                    "correct": int(best == row.gold),
+                    "item_id": pairing_id(item, is_y9, index),
+                    "raw_id": str(item.get("item_id", item.get("eval_id", index))),
+                    "source": item.get("source"),
+                    "template_id": item.get("template_id"),
+                    "qtype": item["qtype"],
+                    "gold_key": item["gold"],
+                    "predicted_key": keys[best],
+                    "correct": int(keys[best] == item["gold"]),
+                    "probs": item_probs,
+                    "status": "scored",
                 }
             )
         pred_path = out / f"{name}.jsonl"
         with pred_path.open("w", encoding="utf-8") as fh:
             for row in predictions:
                 fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-        correct = sum(r["correct"] for r in predictions)
-        by_template: Counter[str] = Counter()
-        by_template_total: Counter[str] = Counter()
+        by_template: dict[str, list[int]] = {}
+        by_source: dict[str, list[int]] = {}
         for r in predictions:
-            by_template[str(r["template_id"])] += r["correct"]
-            by_template_total[str(r["template_id"])] += 1
+            by_template.setdefault(str(r["template_id"]), []).append(r["correct"])
+            by_source.setdefault(str(r["source"]), []).append(r["correct"])
+        failing = readout_failures(predictions)
         aggregate["sets"][name] = {
             "file": str(path),
             "items": len(predictions),
-            "correct": correct,
-            "accuracy": correct / len(predictions),
-            "per_template": {
-                t: {"items": by_template_total[t], "correct": by_template[t],
-                    "accuracy": by_template[t] / by_template_total[t]}
-                for t in sorted(by_template_total)
-            },
+            "correct": sum(r["correct"] for r in predictions),
+            "accuracy": sum(r["correct"] for r in predictions) / len(predictions),
+            "template_macro_accuracy": sum(sum(v) / len(v) for v in by_template.values()) / len(by_template),
+            "per_template": {t: {"items": len(v), "correct": sum(v), "accuracy": sum(v) / len(v)}
+                             for t, v in sorted(by_template.items())},
+            "per_source": {s: {"items": len(v), "correct": sum(v), "accuracy": sum(v) / len(v)}
+                           for s, v in sorted(by_source.items())},
+            "readout_failures": failing,
             "predictions": str(pred_path.relative_to(REPO)),
             "wall_s": round(time.time() - started, 1),
         }
-        print(f"[{utcnow()}] {name}: {correct}/{len(predictions)} = {correct / len(predictions):.4f}", flush=True)
+        print(f"[{utcnow()}] {name}: {sum(r['correct'] for r in predictions)}/{len(predictions)} = "
+              f"{sum(r['correct'] for r in predictions) / len(predictions):.4f}"
+              f"{' READOUT_FAIL ' + str(failing) if failing else ''}", flush=True)
     aggregate["peak_gpu_gb"] = round(torch.cuda.max_memory_allocated() / 1e9, 2)
     (out / "aggregate.json").write_text(json.dumps(aggregate, indent=1), encoding="utf-8")
     print(json.dumps({s: v["accuracy"] for s, v in aggregate["sets"].items()}, indent=1), flush=True)

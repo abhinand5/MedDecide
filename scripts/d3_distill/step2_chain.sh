@@ -106,6 +106,14 @@ assert m["invalid_rate"] is not None and m["invalid_rate"] <= 0.02, m["invalid_r
 print(f"labels OK: {m['labels_rows']} rows, invalid rate {m['invalid_rate']:.4%}, sha256 {m['labels_sha256'][:16]}...")
 EOF
 
+log "=== Gate O7 baseline: zero-shot pplx-decider-flash-v1.2 on the frozen Y9 sets ==="
+RUNS=outputs/d3_distill/step3/baselines
+for s in knowledge panel mr_verdict; do
+  if [ ! -f "$RUNS/pplx_$s/manifest.json" ]; then
+    "$PY" scripts/osler_v4/y4_pplx_flash.py --items "data/bench/osler_v4/y9/$s.jsonl" --name "pplx_$s" --out-root "$RUNS"
+  fi
+done
+
 student mini "$MINI"
 student flash "$FLASH"
 log "chain done"
