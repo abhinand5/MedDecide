@@ -127,6 +127,20 @@ no MIMIC data.
   port (the noul rendered-order bug in the diagnostic was fixed; the model always read No,Yes).
 - Smoke runs of the arm driver: probe path 3 steps, band 0.429; train path 6 steps with eval/checkpoint writing.
 
+## Step 2 — run in flight (2026-11-09T18:51Z)
+
+- Chain PID **58940**, log `outputs/d3_distill/step2/logs/chain.log`, started 18:45:28Z. Stages: mini probe → mini arms
+  (s0, s1) → selection → mini final → mini scores → flash probe → flash arms → selection → flash final → flash scores →
+  Gate O7 report. One GPU job; every stage skips when its result exists.
+- **λ calibration (mini)**: probe s0 = 0.431749 over 200 steps at λ=1 → **λ = 0.877441**, frozen. The arm's first 200
+  steps must show a pre-clip share in 0.30–0.50 or the arm stops (D57).
+- **d3-mini zero-shot dev accuracy = 0.8141 (8,145/10,005)** on the train-side dev carve; this is the arm's reference.
+- Sampler: 23,744 steps/epoch, 189,952 of 189,995 train rows used per epoch (43 tail rows unused, logged), so the
+  13,992-step arm sees 0.59 epochs and the 63,304-step final 2.67 epochs.
+- Timing measured before launch: 60 steady-state mini steps at 0.11 s/step (peak 33.6 GB on a 4,096-row corpus); the
+  probe's three backward passes peak at 46.8 GB. Expected chain wall clock ~12–15 h for both students including
+  evaluations and scoring, subject to the long synthetic pages.
+
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
 One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
