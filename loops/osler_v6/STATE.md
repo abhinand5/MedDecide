@@ -1,15 +1,8 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
-Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
-`777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
-band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). First evaluation (6,996) is DONE (C031):
-G1s1 S 0.8114 / MR 0.9216 / MIMIC 0.7365 / CG 0.7761 / knowledge 0.7640 / positional PASS — about 0.005 below seed 0 on
-S and knowledge, above G0 (S 0.8064 / knowledge 0.7500). Last poll 2026-11-09T07:42Z: step 11,797, last-500 mean 3.06 s/step
-(full checkpoints 7,500 and 10,000 written) → finish about 2026-11-09T10:35Z. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
-knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
-≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-09T10:52Z` (Z0-Z5 DONE; Z6 starting).
+Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe, launching detached now.
 
 ## 1. Task board
 
@@ -19,9 +12,9 @@ knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIM
 | Z1 | Anchor scoring to 400,000 items with the osler_v4 Y5 path (resume from 112,128; parity 40 of 40 re-run); outputs to `outputs/osler_v6/Z1/` | Z0 | DONE 2026-11-08T07:13Z — 385,536 scored (96.38 %), 14,464 cut by the 12-hour budget, audit PASS |
 | Z2 | Dosing sampler (D57, 8 per batch, ≥3 labelled anchors, seeded) and the λ calibration probe (200 steps at λ = 1; λ then frozen; ADVISORY §2.4) | Z1 | DONE 2026-11-08T08:26Z — final probe s0 0.170491, λ = 3.243598 frozen; audit PASS (probe #1, random fill, superseded) |
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | DONE 2026-11-08T21:31Z — 13,992 steps, band 0.355474 PASS, final S 0.825891 / knowledge 0.775 / positional PASS; audit PASS |
-| Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | IN_PROGRESS 2026-11-08T21:36Z |
-| Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | PENDING |
-| Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | PENDING |
+| Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | DONE 2026-11-09T10:52Z — 13,992 steps, band 0.365937 PASS, final S 0.826311 / knowledge 0.7708 / positional PASS; audit PASS |
+| Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | DONE 2026-11-09T10:52Z — chosen G1s0 (knowledge lower +0.006244, MR −0.0207, MIMIC −0.0104, CG 0.7945, positional PASS); seed-1 stability reported |
+| Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | IN_PROGRESS 2026-11-09T10:52Z |
 | Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | PENDING |
 
 ## 2. Operator decisions
@@ -102,12 +95,19 @@ number already measured.
 - [x] Evaluations: positional health all three orders at 13,992 PASS; knowledge dev 0.775000; MR 0.928969, MIMIC 0.754192, CG 0.794511 for the choice rule (C027).
 - [x] `SELF_AUDIT.md` (PASS), CLAIMS rows, STATE exact, commit and push (C028).
 
-## 4e. Checklist — Z4 (in progress)
+## 4e. Checklist — Z4 (done)
+
+- [x] Disk headroom 2 GB write before the job (2.0 s, 1.1 GB/s).
+- [x] G1 seed 1 launched at the frozen λ on `mix_f2_distill_s1.jsonl` (augmentation seed 1), quota 3, 13,992 steps, evaluations at 6,996 and 13,992; detached (PIDs 777164/777168, log `outputs/osler_v6/Z4/G1s1/logs/run.log`).
+- [x] First-200-step band: mean 0.365937 in [0.30, 0.50] (C029).
+- [x] Seed-1 evaluation at 13,992: S 0.826311, knowledge 0.770750, positional PASS, reported beside seed 0 (C032); audit PASS (C033).
+
+## 4f. Checklist — Z6 (in progress)
 
 - [ ] Disk headroom 2 GB write before the job.
-- [ ] G1 seed 1 launched at the frozen λ on `mix_f2_distill_s1.jsonl` (augmentation seed 1), quota 3, 13,992 steps, evaluations at 6,996 and 13,992; detached with PID/log.
-- [ ] First-200-step band check (`z3_audit.py --arm-dir outputs/osler_v6/Z4/G1s1`): mean share in [0.30, 0.50]; a miss blocks the stability arm and is reported.
-- [ ] Seed-1 evaluation at 13,992 (positional, knowledge, MR/MIMIC/CG) reported beside seed 0 and never replacing it; `SELF_AUDIT.md`, CLAIMS, STATE, commit/push.
+- [ ] Final launched on G1s0's recipe (seed-0 config/mix, frozen λ 3.243597720934029, quota 3), 63,304 steps, 10 evaluations; detached with PID/log; resumes from full checkpoints if interrupted.
+- [ ] Checkpoint selection by S among the evaluations that pass positional health (`z6_select.py`), with dev-only recalibration of the chosen checkpoint; BLOCKED if none passes.
+- [ ] `SELF_AUDIT.md`, CLAIMS, STATE exact, commit/push.
 
 ## 5. Log
 
@@ -270,6 +270,14 @@ number already measured.
   knowledge 0.7640, positional PASS. Seed 0 at the same step: S 0.8163, knowledge 0.7680; G0: S 0.8064, knowledge 0.7500.
   The seed difference is small (about half a point on S and knowledge, 1.1 points on MR) and does not change the seed-0
   candidate; the stability row is reported beside it, never instead of it (C031). Z4 continues to 13,992 (~10:40Z).
+
+- 2026-11-09T10:52Z — **Z4 DONE and Z5 DONE.** The seed-1 stability arm finished 13,992 steps (band 0.365937 PASS, audit
+  PASS) with final dev S 0.826311 / MR 0.930845 / MIMIC 0.757068 / CG 0.791020 / knowledge 0.770750 / positional PASS — within
+  ~0.5 points of seed 0 on every component (C032, C033). With both arms in, the pre-registered choice rule was run for real:
+  **G1s0 is the chosen recipe** (knowledge paired lower bound +0.006244, MR −0.020692, MIMIC −0.010395, CG 0.794511 ≥ 0.784399,
+  positional PASS); G0 is not a candidate and the seed-1 arm is reported beside it (knowledge +0.01125 [+0.00274, +0.02025],
+  MR −0.00670, MIMIC +0.00125) and never replaces it (C034). **Z6 starts now**: the 63,304-step final on G1s0's recipe, ten
+  evaluations, checkpoint by S among positional passes.
 
 ## 6. Deviations from the plan
 
