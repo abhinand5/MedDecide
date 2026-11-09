@@ -4,8 +4,10 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-08T21:36Z` (Z0-Z3 DONE; Z4 IN_PROGRESS).
 Task in flight: Z4 — G1 seed 1 (stability check) at the frozen λ on the seed-1 mix, 13,992 steps; detached, uv PID
 `777164`, python PID `777168`, log `outputs/osler_v6/Z4/G1s1/logs/run.log`; started 2026-11-08T21:33Z. **First-200-step D57
-band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). Last poll 2026-11-09T02:28Z: step 5,993,
-last-500 mean 3.02 s/step → first eval ~03:20Z, finish about 2026-11-09T10:10Z including post-processing. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
+band PASS**: mean share 0.365937 in [0.30, 0.50], 3 labelled every step (C029). First evaluation (6,996) is DONE (C031):
+G1s1 S 0.8114 / MR 0.9216 / MIMIC 0.7365 / CG 0.7761 / knowledge 0.7640 / positional PASS — about 0.005 below seed 0 on
+S and knowledge, above G0 (S 0.8064 / knowledge 0.7500). Last poll 2026-11-09T03:42Z: step 7,022, ~3.0 s/step → finish
+about 2026-11-09T10:40Z. **Z5 preliminary (C030)**: G1 seed 0 qualifies under the pre-registered rule —
 knowledge paired lower bound +0.006244 (> −0.01), MR lower −0.020692 and MIMIC lower −0.010395 (both > −0.03), CG 0.794511
 ≥ G0's 0.784399, positional PASS; the choice is G1s0, to be confirmed with the seed-1 stability row after Z4.
 
@@ -263,6 +265,11 @@ number already measured.
 
 - 2026-11-09T00:29Z — Z4 at step 3,580 (2.90 s/step), no evaluation yet (first at 6,996, ~03:00Z); expected finish ~10:00Z.
   The exact Z5/Z6/Z7 commands are recorded in §8 so a later session can continue without re-deriving them.
+
+- 2026-11-09T03:42Z — Z4's first evaluation (step 6,996) is in: G1s1 S 0.8114 (MR 0.9216, MIMIC 0.7365, CG 0.7761),
+  knowledge 0.7640, positional PASS. Seed 0 at the same step: S 0.8163, knowledge 0.7680; G0: S 0.8064, knowledge 0.7500.
+  The seed difference is small (about half a point on S and knowledge, 1.1 points on MR) and does not change the seed-0
+  candidate; the stability row is reported beside it, never instead of it (C031). Z4 continues to 13,992 (~10:40Z).
 
 ## 6. Deviations from the plan
 
