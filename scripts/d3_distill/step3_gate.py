@@ -37,6 +37,10 @@ SETS = ("panel", "knowledge", "mr_verdict")
 PANEL_LIMIT = 0.0  # Gate O7 (iii): the lower bound must be above 0
 KNOWLEDGE_LIMIT = -0.02  # Gate O7 (iv)
 UNPAIRED_LIMIT = 0.01
+# The osler_v4 Y9 scoreboard's zero-shot pplx-decider-flash-v1.2 row (loops/osler_v4/FINDINGS.md section 6), template macro
+# accuracy on the same frozen sets. Our freshly scored baseline should reproduce it; a mismatch means the pipeline is off.
+PPPLX_PUBLISHED = {"knowledge": 0.7097, "panel": 0.6390, "mr_verdict": 0.7044}
+PPPLX_TOLERANCE = 5e-4
 
 
 def utcnow() -> str:
@@ -157,7 +161,17 @@ def main() -> None:
         zero = {
             name: normalised(args.step2 / student / "zero_shot_score" / f"{name}.jsonl", items_by_set[name]) for name in SETS
         }
-        per_student: dict = {"sets": {}, "checks": {}}
+        per_student: dict = {"sets": {}, "checks": {}, "baseline_reproduces_published": {}}
+        for name in SETS:
+            if base_rows[name]:
+                figures = own_figures(base_rows[name], items_by_set[name])
+                if figures.get("template_macro_accuracy") is not None:
+                    published = PPPLX_PUBLISHED[name]
+                    per_student["baseline_reproduces_published"][name] = {
+                        "ours": figures["template_macro_accuracy"], "published": published,
+                        "delta": figures["template_macro_accuracy"] - published,
+                        "matches": abs(figures["template_macro_accuracy"] - published) <= PPPLX_TOLERANCE,
+                    }
         for name in SETS:
             per_student["sets"][name] = {
                 "student": own_figures(final[name], items_by_set[name]) if final[name] else {"status": "NOT RUN"},
@@ -239,6 +253,9 @@ def main() -> None:
               "  panel 0.638 (500), mr_verdict 0.842 (500); d3_bench also has d1-ultra, Clef-Flash and pplx-flash rows there.",
               "- Majority (most frequent gold) baselines of the full sets (osler_v4 C231): mr_verdict 0.4177, panel 0.1941,",
               "  knowledge 0.3118.",
+              "- Baseline reproduction check: our zero-shot pplx run is compared with the osler_v4 Y9 scoreboard row (template",
+              "  macro: knowledge 0.7097, panel 0.6390, mr_verdict 0.7044; tolerance 5e-4), recorded under",
+              "  `baseline_reproduces_published` in gate_o7.json.",
               ""]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text("\n".join(lines), encoding="utf-8")
