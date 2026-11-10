@@ -170,8 +170,11 @@ no MIMIC data.
   mr_verdict scores are missing for the mini final. They will be produced separately after the chain, and the Gate O7
   report re-run (C032). The flash student's scores will be handled the same way. The chain itself was not stopped.
 - Flash: port parity PASS (C024). λ probe: s0 = 0.417263 → **λ = 0.931047** (C033); zero-shot dev accuracy
-  **0.8417** (8,421/10,005) (C034). Arm s0 DONE 23:39Z: dev **0.868666** (+2.70), band 0.40094 PASS, 0.224 s/step
-  (C035). Arm s1 running since 23:40Z; final after that (~4 h at 0.22 s/step, ten evals).
+  **0.8417** (8,421/10,005) (C034).
+- Flash arm s0: dev **0.868666** (+2.70), band 0.40094 PASS, 0.224 s/step (C035).
+- Flash arm s1: dev **0.872664** (+3.10), band 0.405784 PASS → **seed 1 selected** (0.872664 vs 0.868666) (C036).
+- Flash final (63,304 steps, seed 1, λ 0.9310) started 00:30:25Z; ten evaluations; expected ~4.5 h. After it: the chain's
+  public-split scores, then the separate Y9 scores for **both** students and the Gate O7 report (C032).
 
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
