@@ -126,7 +126,7 @@ number already measured.
 
 - [ ] Disk headroom 2 GB write before the job.
 - [ ] Final launched on G1s0's recipe (seed-0 config/mix, frozen λ 3.243597720934029, quota 3), 63,304 steps, 10 evaluations; detached with PID/log; resumes from full checkpoints if interrupted.
-- [ ] Checkpoint selection by S among the evaluations that pass positional health (`z6_select.py`), with dev-only recalibration of the chosen checkpoint; BLOCKED if none passes.
+- [ ] **A1**: the final checkpoint is step 63,304 only (no other), eligible only if it passes positional health in all three orders; `z6_select.py` calibrates it on dev fast dev v4 and writes `chosen_step_063304`, or writes BLOCKED and exits non-zero; the intermediate evaluations are reported as a dev trajectory (never candidates).
 - [ ] `SELF_AUDIT.md`, CLAIMS, STATE exact, commit/push.
 
 ## 5. Log
@@ -352,15 +352,19 @@ number already measured.
 - **Bench set grew.** 73 bench files at Z1 vs 55 in the Y5 manifest; 13 of them were created after Y5. The rebuild shows they add
   no exclusion to the eligible anchor pool (C004), so the reuse is exact rather than a re-mapping.
 
-## 8. Next commands (after Z4)
+## 8. Next commands (after Z4; amended by A1)
 
 - Z5: `uv run --frozen python scripts/osler_v6/z5_choose.py` (reads both arms' step-13,992 predictions, writes
   `outputs/osler_v6/Z5/choice.json`; the seed-1 arm is reported beside seed 0 and never replaces it).
 - Z6 (only if Z5 chose a recipe): `bash scripts/osler_v6/launch_arm.sh G1final configs/osler_v5/arm_F2.yaml
   data/train/osler_v6/mix_f2_distill.jsonl outputs/osler_v6/Z2/mix_manifest.json outputs/osler_v6/Z6/final 63304 10`,
   then `uv run --frozen python scripts/osler_v6/z6_select.py --arm-dir outputs/osler_v6/Z6/final`.
-- Z7: `uv run --frozen python scripts/osler_v6/z7_score.py --checkpoint outputs/osler_v6/Z6/final/checkpoints/chosen_step_<step>`,
-  then `uv run --frozen python scripts/osler_v6/z7_gate.py`.
+  **A1 (2026-11-10):** the only candidate is the step-63,304 evaluation; it is eligible only on a positional pass in all
+  three orders. On a pass the script writes `checkpoints/chosen_step_063304`; on a failure it writes BLOCKED and exits
+  non-zero. The intermediate evaluations are reported in the table, never chosen.
+- Z7: `uv run --frozen python scripts/osler_v6/z7_score.py --checkpoint
+  outputs/osler_v6/Z6/final/checkpoints/chosen_step_063304`, then `uv run --frozen python scripts/osler_v6/z7_gate.py`.
+  If Z6 is BLOCKED, Z7 reports the final as BLOCKED against Gate O6 and does not substitute another checkpoint.
 
 ## 7. Questions for the operator
 

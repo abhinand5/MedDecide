@@ -1,17 +1,18 @@
-"""Z6 (ADVISORY §2.7): choose the final's checkpoint by S among the evaluations that pass positional health, calibrate it on
-dev (fast dev v4 only) and record the choice.
+"""Z6 (ADVISORY §2.7, as amended by A1 on 2026-11-10): take the final checkpoint at step 63,304 — the only candidate — and
+calibrate it on dev.
 
 The final's driver writes `evaluations.json` at every evaluation (the S composite, the positional-health result in all three
-orders and the knowledge-dev accuracy) and saves a checkpoint per evaluation. This script applies the pre-registered rule
-(`meddecide.eval.osler_v6_select`), then:
+orders and the knowledge-dev accuracy) and saves a checkpoint per evaluation. **A1**: the checkpoint is the final at 63,304
+and no other; it is chosen only if that evaluation passes positional health in all three orders. The intermediate
+evaluations are reported in the table as a dev trajectory, never as candidates. The script:
 
-* verifies the chosen checkpoint's directory exists;
-* loads it with `PplxDecisionModel.load`, fits its per-question-type temperatures on **dev fast dev v4 only** (never a test,
-  panel, MIMIC audit-suite or held-out item) and saves it as `checkpoints/chosen_step_XXXXXX` with the calibration;
-* writes `selection.json` (the full S/positional table, the chosen step, the temperatures and the command).
-
-If no evaluation passes positional health, the script writes the table with a BLOCKED outcome and exits non-zero; no
-checkpoint is chosen by any fallback, and Z7 then reports the final as BLOCKED.
+* applies `meddecide.eval.osler_v6_select.select_final_step`;
+* on a positional pass, verifies `checkpoints/step_063304`, loads it with `PplxDecisionModel.load`, fits its per-question-type
+  temperatures on **dev fast dev v4 only** (never a test, panel, MIMIC audit-suite or held-out item) and saves it as
+  `checkpoints/chosen_step_063304` with the calibration;
+* writes `selection.json` with every evaluation, the rule, the temperatures and the command;
+* on a positional failure (or a missing final evaluation), writes `selection.json` with outcome BLOCKED and exits non-zero —
+  no other checkpoint is substituted, and Z7 reports the final as BLOCKED.
 
 Usage (GPU; one job; after the final's run):
     source scripts/pod_env.sh && setsid nohup uv run --frozen python scripts/osler_v6/z6_select.py \
@@ -25,7 +26,7 @@ import dataclasses
 import json
 from pathlib import Path
 
-from meddecide.eval.osler_v6_select import select_by_s
+from meddecide.eval.osler_v6_select import FINAL_STEP, select_final_step
 from meddecide.model.pplx import PplxDecisionModel
 from meddecide.train.config import load_config
 from meddecide.train.mix_items import mix_row_to_item
@@ -49,10 +50,12 @@ def main() -> None:
     if not evaluations_path.exists():
         raise SystemExit(f"{evaluations_path} is missing: the final's run has not produced evaluations")
     evaluations = json.loads(evaluations_path.read_text())
-    selection = select_by_s(evaluations)
+    selection = select_final_step(evaluations)
     payload = {
         "task": "Z6",
-        "rule": "ADVISORY §2.7: highest S among the evaluations that pass positional health in all three orders",
+        "rule": "ADVISORY §2.7 Amendment A1: the final checkpoint at step 63,304 only, eligible only if it passes positional "
+                "health in all three orders; the intermediate evaluations are a dev trajectory, never candidates",
+        "candidate_step": FINAL_STEP,
         "arm_dir": str(arm_dir.relative_to(REPO)) if arm_dir.is_relative_to(REPO) else str(arm_dir),
         "selection": selection.to_dict(),
         "generated_utc": utcnow(),
@@ -60,6 +63,7 @@ def main() -> None:
     }
     out.mkdir(parents=True, exist_ok=True)
     if selection.chosen_step is None:
+        payload["outcome"] = "BLOCKED"
         write_json(out / "selection.json", payload)
         raise SystemExit(f"BLOCKED: {selection.outcome}")
     checkpoint = arm_dir / "checkpoints" / f"step_{selection.chosen_step:06d}"
