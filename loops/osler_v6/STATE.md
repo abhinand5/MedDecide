@@ -4,6 +4,8 @@ Loop status: `RUNNING`
 Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-10T11:46Z` (Z0-Z5 DONE; Z6 IN_PROGRESS, resumed).
 Task in flight: Z6 — resumed from full checkpoint step 20,000 at 11:37Z after a CUDA OOM; detached, uv PID `1046221`,
 python PID `1046224`, log `outputs/osler_v6/Z6/final/logs/run_resume.log`; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
+The resumed run **passed the former crash point** (step 22,317) at ~13:48Z — the log is at step 22,406 with no OOM and the GPU
+footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Fourth evaluation (25,322) due ~16:15Z.
 
 ## 1. Task board
 
@@ -315,6 +317,11 @@ number already measured.
   53691b4). The pre-crash log is kept as `logs/train_until_crash.log`. The deterministic stream will re-reach the crash
   point in ~2.3 h; with the fresh allocator and expandable segments it should pass, and if it does not, the next mitigation
   is to pre-warm the autotuner for the long-sequence shape in a low-memory process before resuming.
+
+- 2026-11-10T13:51Z — the resumed Z6 **passed the former crash point**: the log reached step 22,406 (past 22,317) with no OOM,
+  100 % GPU and ~58 GB resident (the pre-crash run sat at 97 GB). The deterministic stream replayed through the 54k-token
+  batch safely; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is the change that made the difference. The run continues
+  toward 63,304; the fourth evaluation (25,322) is due ~16:15Z.
 
 ## 6. Deviations from the plan
 
