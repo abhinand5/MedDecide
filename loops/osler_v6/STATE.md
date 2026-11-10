@@ -7,8 +7,9 @@ python PID `1046224`, log `outputs/osler_v6/Z6/final/logs/run_resume.log`; `PYTO
 The resumed run **passed the former crash point** (step 22,317) at ~13:48Z — the log is at step 22,406 with no OOM and the GPU
 footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Four evaluations are now in (6,330 / 12,661 /
 18,991 / 25,322; C036, C038, C039, C042), the last with positional PASS; under **A1** all of them are dev trajectory, and the
-only candidate is the evaluation at step 63,304. Last poll 2026-11-10T16:52Z: step 25,514, ~3.1 s/step; fifth evaluation
-(31,652) about 22:10Z; ETA ~2026-11-12T05:30Z.
+only candidate is the evaluation at step 63,304. Five evaluations are in (C036, C038, C039, C042, C043): S 0.796776,
+0.791281, 0.818523 (positional FAIL), 0.822039, 0.827817 — the trajectory is rising. Last poll 2026-11-10T22:37Z: step
+31,716 (~50%), ~3.1 s/step; sixth evaluation (37,982) about 04:05Z; ETA ~2026-11-12T05:30Z.
 
 ## 1. Task board
 
@@ -346,6 +347,10 @@ number already measured.
 - 2026-11-10T16:52Z — Z6's fourth evaluation (step 25,322): S 0.822039 (MR 0.941014, MIMIC 0.750818, CG 0.774287),
   knowledge 0.751750, positional PASS (original 0.5351 against 0.8244). The positional check recovered after the step-18,991
   miss. Under A1 none of these is a candidate: the evaluation at step 63,304 is the only one, and it is positional-gated.
+
+- 2026-11-10T22:38Z — Z6's fifth evaluation (step 31,652): S 0.827817 (MR 0.956085, MIMIC 0.747782, CG 0.779583),
+  knowledge 0.754750, positional PASS. It is the highest S in the trajectory so far and above G1s0's 13,992-step S 0.825891,
+  but under A1 only step 63,304 is a candidate. The run is at step 31,716 (~50% of 63,304).
 
 ## 6. Deviations from the plan
 
