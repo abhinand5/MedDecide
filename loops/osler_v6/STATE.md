@@ -10,8 +10,10 @@ PASS (C036). The sampler's determinism was checked against G1s0: the batch compo
 6,467 common logged steps; only the bf16 numerical trajectory differs (C037). Second evaluation (12,661, C038): S
 0.791281, MR 0.894419, MIMIC 0.704173, CG 0.775250, knowledge 0.758500, positional PASS — below the first eval's S 0.796776,
 which is expected because the final's LR schedule is laid out over 63,304 steps (the arms' over 13,992), so early-schedule dev
-figures are not comparable to the arms' at matched steps. Last poll 2026-11-09T22:23Z: step 13,106, ~3.0 s/step; ETA
-~2026-11-11T20:00Z.
+figures are not comparable to the arms' at matched steps. Third evaluation (18,991, C039): S 0.818523 (highest so far) but
+**positional health FAILS on the original order** (0.388778 vs the 0.410180 threshold; the two permuted orders pass), so
+that checkpoint is **not eligible** for selection (ADVISORY §2.7). Last poll 2026-11-10T04:04Z: step 19,337, ~3.1 s/step;
+ETA ~2026-11-11T21:30Z.
 
 ## 1. Task board
 
@@ -308,6 +310,12 @@ number already measured.
   cosine schedule over the run's own length, so the final's schedule spans 63,304 steps while the arms' spanned 13,992, and
   the final's early evaluations sit at a much higher LR than the arms' same-step figures. Selection by S happens among the
   final's own ten evaluations, and the last ones (low LR) are the likely candidates.
+
+- 2026-11-10T04:05Z — Z6's third evaluation (step 18,991) shows the positional-health instability the rule anticipates: it
+  has the highest S so far (0.818523; MR 0.947022, MIMIC 0.740762) but fails the original-order check narrowly (two-letter
+  0.388778 against 0.410180 = 0.5 × single-letter 0.820359), while both permuted orders pass. Per ADVISORY §2.7 it is **not
+  eligible** for the final checkpoint; selection by S is among the passes only, and if no evaluation passes the final is
+  BLOCKED and reported (C039). The remaining seven evaluations will show whether the model settles into a passing region.
 
 ## 6. Deviations from the plan
 
