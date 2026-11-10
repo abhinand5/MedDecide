@@ -176,6 +176,10 @@ def main() -> None:
         model.enable_gradient_checkpointing()
     trainer = Trainer(model, config, log_path=out / "logs" / "train.jsonl")
     evaluations: dict[int, dict[str, Any]] = {}
+    if args.resume and (out / "evaluations.json").exists():
+        # a resumed process starts with an empty in-memory table; merge the evaluations already written by the interrupted
+        # run instead of overwriting them (the file would otherwise hold only the post-resume evaluations)
+        evaluations = {int(key): value for key, value in json.loads((out / "evaluations.json").read_text()).items()}
 
     def evaluate_dev(step: int, _metrics: dict[str, Any]) -> None:
         """Every dev set at one evaluation: rows saved, composite and positional health recorded; the model's checkpoint kept."""
