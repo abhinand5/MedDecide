@@ -1,19 +1,9 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-09T10:52Z` (Z0-Z5 DONE; Z6 starting).
-Task in flight: Z6 — the final at 63,304 steps on G1s0's recipe (seed-0 config/mix, frozen λ, quota 3, ten evaluations);
-detached, uv PID `830482`, python PID `830492`, log `outputs/osler_v6/Z6/final/logs/run.log`; started 2026-11-09T10:50Z
-(expected ~51 h of steps + ten evaluations + post-processing, finish about 2026-11-11T21:00Z; resumes from full checkpoints).
-First evaluation (6,330) is DONE: S 0.796776, MR 0.899795, MIMIC 0.720461, CG 0.770073, knowledge 0.761500, positional
-PASS (C036). The sampler's determinism was checked against G1s0: the batch composition and n_teacher are identical on all
-6,467 common logged steps; only the bf16 numerical trajectory differs (C037). Second evaluation (12,661, C038): S
-0.791281, MR 0.894419, MIMIC 0.704173, CG 0.775250, knowledge 0.758500, positional PASS — below the first eval's S 0.796776,
-which is expected because the final's LR schedule is laid out over 63,304 steps (the arms' over 13,992), so early-schedule dev
-figures are not comparable to the arms' at matched steps. Third evaluation (18,991, C039): S 0.818523 (highest so far) but
-**positional health FAILS on the original order** (0.388778 vs the 0.410180 threshold; the two permuted orders pass), so
-that checkpoint is **not eligible** for selection (ADVISORY §2.7). Last poll 2026-11-10T09:35Z: step 22,317, ~3.1 s/step
-(variable 2.7-3.3); the fourth evaluation (25,322) is due ~12:20Z; ETA ~2026-11-12T00:00Z.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-10T11:46Z` (Z0-Z5 DONE; Z6 IN_PROGRESS, resumed).
+Task in flight: Z6 — resumed from full checkpoint step 20,000 at 11:37Z after a CUDA OOM; detached, uv PID `1046221`,
+python PID `1046224`, log `outputs/osler_v6/Z6/final/logs/run_resume.log`; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
 
 ## 1. Task board
 
@@ -316,6 +306,15 @@ number already measured.
   0.388778 against 0.410180 = 0.5 × single-letter 0.820359), while both permuted orders pass. Per ADVISORY §2.7 it is **not
   eligible** for the final checkpoint; selection by S is among the passes only, and if no evaluation passes the final is
   BLOCKED and reported (C039). The remaining seven evaluations will show whether the model settles into a passing region.
+
+- 2026-11-10T11:46Z — **Z6 was interrupted and resumed.** At 06:37Z, after step 22,317, the final died with a CUDA OOM
+  raised inside a Triton autotune benchmark (`fla` l2norm backward) on the step following a 54,272-padded-token batch; the
+  GPU was idle from then until the resume. Full checkpoints at 17,500 and 20,000 exist, so the run resumed from **step
+  20,000** at 11:37Z with `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` (allocator setting only). The earlier three
+  evaluations were preserved (`evaluations.json` backed up, and the driver fixed to merge pre-resume evaluations — commit
+  53691b4). The pre-crash log is kept as `logs/train_until_crash.log`. The deterministic stream will re-reach the crash
+  point in ~2.3 h; with the fresh allocator and expandable segments it should pass, and if it does not, the next mitigation
+  is to pre-warm the autotuner for the long-sequence shape in a low-memory process before resuming.
 
 ## 6. Deviations from the plan
 
