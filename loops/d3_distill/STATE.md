@@ -236,6 +236,18 @@ Stamp per run: config.json (data hashes, sampler, band), steps.jsonl, evals/, ch
 - Drivers: `scripts/d3_distill/step2_parity.py`, `step2_arm.py` (probe/arm/final, resume, evals, checkpoints),
   `step2_select.py`. Scoring: `scripts/d3_distill/score_students.py`, eval sets: `build_eval_sets.py`.
 
+## Verification and limits (closure, 2026-11-10T05:55Z)
+
+- `tests/test_d3_batch.py` 15/15 pass; `ruff check .` on the whole repo passes. Full `pytest` in the model venv: one
+  pre-existing failure outside this loop's files (`tests/test_model_pointer.py::test_overfit_64_items`, 0.25 < 0.95);
+  the three other errors in that file were a missing `peft` and disappear after installing `peft 0.21.2` into the venv.
+  The d3 venv is not the repo's uv environment (torch 2.14.0/transformers 5.17.0); `uv sync` was not run per the operator.
+- Gate O7's MR-vs-osler_v4-final and MIMIC checks are NOT MEASURED: the osler_v4 final's predictions and weights and any
+  MIMIC data are not on this machine (operator instruction). No other number is substituted for them.
+- No push, no branch deletion; branch `distill/d3_distill`; all loop artifacts committed; raw outputs and item text stay
+  in the gitignored `outputs/`/`data/`.
+- This loop is complete for PLAN steps 0–3; it stops here for operator review.
+
 ## Iteration log
 
 - 2026-11-09T15:44Z — session start; PLAN/STATE read. `data/` absent, snapshots for all three models present.
@@ -249,6 +261,10 @@ Stamp per run: config.json (data hashes, sampler, band), steps.jsonl, evals/, ch
 - 2026-11-10T04:06Z — training chain done: mini final dev 0.875862, flash final 0.893253; all bands PASS.
 - 2026-11-10T05:05Z — Gate O7 computed on the frozen sets vs the locally scored pplx baseline: **FAIL** (panel) both;
   knowledge PASS both; MR/MIMIC NOT MEASURED. Report `loops/d3_distill/GATE_O7.md`.
+- 2026-11-10T05:45Z — zero-shot students scored on the same frozen sets (additional): the 9B base would have passed the
+  panel check (+0.0232 [+0.0087, +0.0380]); the final fails. Recipe is the binding constraint.
+- 2026-11-10T05:55Z — closure: tests/lint run, artifacts verified (pool/labels hashes, 200,000 rows, 0 invalid), gate
+  table and FINDINGS final; loop stops for operator review.
 - 2026-11-09T16:33Z — operator update: the three frozen Y9 sets were placed on the machine (hashes match); the teacher
   batched path is accepted; MIMIC stays off the machine; step 3 is to run the panel/knowledge/mr_verdict checks against
   zero-shot pplx-flash. The pplx-decider-flash-v1.2 snapshot (pinned revision) was downloaded for that baseline.
