@@ -262,15 +262,41 @@ class D3Student(nn.Module):
         )
 
     @torch.inference_mode()
-    def probabilities(self, sequences: Sequence[Sequence[int]], counts: Sequence[int], *, batch_size: int = 32, length_sorted: bool = True) -> list[list[float]]:
-        """The model's own probability path (``D3.probabilities``) with the current adapter and readout."""
+    def probabilities(
+        self,
+        sequences: Sequence[Sequence[int]],
+        counts: Sequence[int],
+        *,
+        batch_size: int = 32,
+        max_tokens: int = 16384,
+        length_sorted: bool = True,
+    ) -> list[list[float]]:
+        """The model's own probability path (``D3.probabilities``) with the current adapter and readout.
+
+        Batches are length-sorted and capped by both ``batch_size`` and padded tokens (``max_tokens``): long items (the
+        frozen MR pages) otherwise make the linear-attention kernel allocate multiple GB per pass.
+        """
         self.runtime.readout = self.readout.detach()
         order = list(range(len(sequences)))
-        if length_sorted:
+        if not length_sorted:
+            order.sort()
+        else:
             order.sort(key=lambda i: len(sequences[i]))
+        batches: list[list[int]] = []
+        current: list[int] = []
+        longest = 0
+        for i in order:
+            width = max(longest, len(sequences[i]))
+            if current and (len(current) >= batch_size or width * (len(current) + 1) > max_tokens):
+                batches.append(current)
+                current, longest = [], 0
+                width = len(sequences[i])
+            current.append(i)
+            longest = width
+        if current:
+            batches.append(current)
         out: list[list[float]] = [[] for _ in sequences]
-        for start in range(0, len(order), batch_size):
-            chunk = order[start : start + batch_size]
+        for chunk in batches:
             values = self.runtime.probabilities([sequences[i] for i in chunk], [counts[i] for i in chunk])
             for i, value in zip(chunk, values, strict=True):
                 out[i] = value

@@ -176,6 +176,18 @@ no MIMIC data.
 - Flash final (63,304 steps, seed 1, λ 0.9310) started 00:30:25Z; ten evaluations; expected ~4.5 h. After it: the chain's
   public-split scores, then the separate Y9 scores for **both** students and the Gate O7 report (C032).
 
+## Step 3 — scores in progress (2026-11-10T04:45Z)
+
+- The chain finished at 04:06:27Z (mini final 0.875862 dev at step 63,300; flash final **0.893253** dev at step 44,310;
+  both bands PASS; flash 0.202 s/step).
+- Its own Gate O7 step ran before the Y9 scores existed (the scoring block ran the pre-update set list), so the Y9 scores
+  are being produced now with a token-budgeted scorer (the first attempt OOMed on the longest MR pages at batch 32; the
+  fix caps each pass at 16,384 padded tokens). The gate report is re-run afterwards.
+- **mini final on the frozen sets**: knowledge 0.7260 macro (0.7093 micro), panel 0.5900 macro (0.5373 micro), mr_verdict
+  0.7281 macro (0.7530 micro); readout gate PASS on all templates. Against the locally scored pplx: knowledge +1.55
+  macro points, panel −4.62, mr_verdict +2.31 (C037).
+- Flash scores running (checkpoint step 44,309); the Gate O7 report follows.
+
 ## Step 2 — execution plan (frozen 2026-11-09T16:40Z)
 
 One detached chain, `scripts/d3_distill/step2_chain.sh` (log `outputs/d3_distill/step2/logs/chain.log`), runs:
