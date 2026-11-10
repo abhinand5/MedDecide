@@ -5,7 +5,10 @@ Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-10T11:46Z` (Z0-Z5 DONE; Z6
 Task in flight: Z6 — resumed from full checkpoint step 20,000 at 11:37Z after a CUDA OOM; detached, uv PID `1046221`,
 python PID `1046224`, log `outputs/osler_v6/Z6/final/logs/run_resume.log`; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
 The resumed run **passed the former crash point** (step 22,317) at ~13:48Z — the log is at step 22,406 with no OOM and the GPU
-footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Fourth evaluation (25,322) due ~16:15Z.
+footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Four evaluations are now in (6,330 / 12,661 /
+18,991 / 25,322; C036, C038, C039, C042), the last with positional PASS; under **A1** all of them are dev trajectory, and the
+only candidate is the evaluation at step 63,304. Last poll 2026-11-10T16:52Z: step 25,514, ~3.1 s/step; fifth evaluation
+(31,652) about 22:10Z; ETA ~2026-11-12T05:30Z.
 
 ## 1. Task board
 
@@ -339,6 +342,10 @@ number already measured.
   100 % GPU and ~58 GB resident (the pre-crash run sat at 97 GB). The deterministic stream replayed through the 54k-token
   batch safely; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` is the change that made the difference. The run continues
   toward 63,304; the fourth evaluation (25,322) is due ~16:15Z.
+
+- 2026-11-10T16:52Z — Z6's fourth evaluation (step 25,322): S 0.822039 (MR 0.941014, MIMIC 0.750818, CG 0.774287),
+  knowledge 0.751750, positional PASS (original 0.5351 against 0.8244). The positional check recovered after the step-18,991
+  miss. Under A1 none of these is a candidate: the evaluation at step 63,304 is the only one, and it is positional-gated.
 
 ## 6. Deviations from the plan
 
