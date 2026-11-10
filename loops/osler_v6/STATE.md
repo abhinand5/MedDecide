@@ -12,8 +12,8 @@ PASS (C036). The sampler's determinism was checked against G1s0: the batch compo
 which is expected because the final's LR schedule is laid out over 63,304 steps (the arms' over 13,992), so early-schedule dev
 figures are not comparable to the arms' at matched steps. Third evaluation (18,991, C039): S 0.818523 (highest so far) but
 **positional health FAILS on the original order** (0.388778 vs the 0.410180 threshold; the two permuted orders pass), so
-that checkpoint is **not eligible** for selection (ADVISORY §2.7). Last poll 2026-11-10T04:04Z: step 19,337, ~3.1 s/step;
-ETA ~2026-11-11T21:30Z.
+that checkpoint is **not eligible** for selection (ADVISORY §2.7). Last poll 2026-11-10T09:35Z: step 22,317, ~3.1 s/step
+(variable 2.7-3.3); the fourth evaluation (25,322) is due ~12:20Z; ETA ~2026-11-12T00:00Z.
 
 ## 1. Task board
 
