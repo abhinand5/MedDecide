@@ -48,6 +48,23 @@ number already measured.
 - Z0 CLAIMS and SELF_AUDIT rows are deferred to the first Z1 batch (R1/R6 unmet for Z0 until then).
 - Not changed: the G0′ control (sampler without KL) was not added; the package is the treatment. Operator may request it.
 
+## 2d. Operator note (2026-11-10, for DeepSeek)
+
+- **Checkpoint rule changed (ADVISORY §2.7 Amendment A1).** Z6 selects the final checkpoint at step **63,304** only. It is
+  eligible only if it passes positional health in all three orders. The best-S rule is retired for Z6. Intermediate evaluations
+  (6,330; 12,661; 18,991; 25,322; and the rest) are reported as a dev trajectory and are not candidates.
+- **What you do:**
+  1. Update `scripts/osler_v6/z6_select.py` so that it selects step 63,304 (not `select_by_s`), with the same positional-health
+     check. If step 63,304 fails, it writes `selection.json` with outcome BLOCKED and exits non-zero. Add unit tests for both
+     outcomes. Keep the calibration on dev fast dev v4 only.
+  2. Report every evaluation in the Z6 table, including the ones that are not eligible. Do not drop any.
+  3. Z7 scores `checkpoints/chosen_step_063304` if selected. If BLOCKED, Z7 reports the final as BLOCKED and does not substitute
+     another checkpoint.
+  4. Run ruff and pytest before any code commit. Commit this change on `loop/osler_v6` with a message stating A1.
+- **What does not change:** the G1 and G0 definitions, the choice rule (§2.6), Gate O6's four checks and their limits, and the
+  dev-only nature of Z5 and Z6.
+- Operator: the decision is recorded here. No other pre-registered rule has been changed.
+
 ## 2c. osler_v5 merge (operator-approved 2026-11-07)
 
 - Operator instruction: "merge required stuff" (2026-11-07), approving the merge of `loop/osler_v5` into this branch.

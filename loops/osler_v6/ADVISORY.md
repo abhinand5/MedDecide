@@ -47,6 +47,11 @@ Odds, judgement (R10: not measured):
    without a seed-0 qualifier is reported, not chosen.
 7. **Final (chosen recipe; 63,304 steps; ten evaluations; positional health per evaluation; checkpoint by S among the evaluations
    that pass positional health).** Only if a recipe qualifies. If no evaluation passes positional health, the final is BLOCKED and reported.
+   **Amendment A1 (operator, 2026-11-10, recorded before the final's last evaluation; supersedes the checkpoint rule above):** the
+   checkpoint is the final at step 63,304, and no other step. It is chosen only if it passes positional health in all three orders
+   (same check as before); otherwise the final is BLOCKED and reported. Intermediate evaluations (6,330; 12,661; 18,991; 25,322; ...)
+   are reported as a dev trajectory and are never candidates. Reason: the cosine schedule spans 63,304 steps, so intermediate S values
+   come from an unfinished schedule, and the evaluations so far are noisy (S 0.791–0.819). Every other rule in §2 is unchanged.
    Causal scope: G1 vs G0 tests the package (dosing sampler plus KL). No claim about the KL term alone is made; a G0′ control
    (sampler without KL) was considered and not pre-registered, because of its cost (about 4.5 GPU-hours).
 8. **Gate O6 (pre-registered here; its four checks are Gate O4's, unchanged, with the same limits):** the final against zero-shot pplx-flash on the external panel (lower bound > −0.02, as Gate
