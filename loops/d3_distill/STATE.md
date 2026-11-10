@@ -1,6 +1,6 @@
 # d3_distill — STATE
 
-Branch `distill/d3_distill`. Loop status: `RUNNING`. Last updated `2026-11-09T18:25Z`.
+Branch `distill/d3_distill`. Loop status: `PLAN STEPS 0–3 COMPLETE — awaiting operator review`. Last updated `2026-11-10T05:15Z`.
 Operator: goal round 1 — do PLAN.md steps 0–3 in order, commit to `distill/d3_distill` only, no push, no branch deletion,
 no MIMIC data.
 
@@ -21,8 +21,8 @@ no MIMIC data.
 |---|---|---|
 | 0 — teacher throughput gate (≥ 25 items/s on 1,000 items; probability check every item) | **DONE 2026-11-09T16:05Z — PASS** | batched path 29.056 items/s end to end (34.417 s for 1,000), 0 invalid, 0 constant; `outputs/d3_distill/step0/throughput_batched.json`; SELF_AUDIT PASS |
 | 1 — label set (CPU build, GPU label) | **DONE 2026-11-09T18:18Z** | 200,000 labels, **0 invalid**, 0 constant, sums within 2e-7, 26.5 rows/s (7,548 s); `labels.jsonl` sha256 `76a67a50…`; audit PASS (C018–C020) |
-| 2 — students (port parity, arms, finals) | **IN_PROGRESS** | port parity PASS for both students (C023, C024); pplx baseline done (C021); training chain launching |
-| 3 — Gate O7 | PENDING — frozen sets now present (operator update) | panel/knowledge/mr_verdict against a locally scored pplx-flash baseline; MIMIC BLOCKED (operator); MR vs osler_v4 final NOT MEASURED (no weights) |
+| 2 — students (port parity, arms, finals) | **DONE 2026-11-10T04:06Z** | port parity PASS both; mini final dev 0.875862, flash 0.893253; all bands PASS; six runs audit 8/8 (C023–C036, C042) |
+| 3 — Gate O7 | **DONE 2026-11-10T05:05Z — FAIL** | panel FAIL both (mini −4.62, flash −1.51 points); knowledge PASS both (+1.54, +5.15); MR vs osler_v4 final and MIMIC NOT MEASURED (C038–C041) |
 
 ## Step 0 — result
 
@@ -176,6 +176,27 @@ no MIMIC data.
 - Flash final (63,304 steps, seed 1, λ 0.9310) started 00:30:25Z; ten evaluations; expected ~4.5 h. After it: the chain's
   public-split scores, then the separate Y9 scores for **both** students and the Gate O7 report (C032).
 
+## Step 3 — GATE O7 RESULT (posted 2026-11-10T05:15Z, as requested)
+
+**Verdict: FAIL for both students**, on the pre-registered panel check. The MR-against-osler_v4-final and MIMIC
+checks are NOT MEASURED (no osler_v4 final and no MIMIC data on this machine); the measured checks decide the verdict.
+
+| student | panel (lower bound > 0) | knowledge (lower > −0.02) | mr_verdict vs pplx (additional) | MR vs osler_v4 final | MIMIC |
+|---|---|---|---|---|---|
+| d3-mini | **FAIL** −0.04622 [−0.06522, −0.02808] | **PASS** +0.01543 [+0.00096, +0.02907] | +0.02314 [+0.01072, +0.03676] | NOT MEASURED | NOT MEASURED |
+| d3-flash | **FAIL** −0.01513 [−0.03212, +0.00149] | **PASS** +0.05153 [+0.03769, +0.06486] | +0.00339 [−0.01063, +0.01778] | NOT MEASURED | NOT MEASURED |
+
+Template macro (full frozen sets; paired differences vs the locally scored zero-shot pplx-flash): mini panel 0.5900 vs
+0.6362, knowledge 0.7260 vs 0.7105, mr_verdict 0.7281 vs 0.7050; flash panel 0.6210 vs 0.6362, knowledge 0.7620 vs
+0.7105, mr_verdict 0.7084 vs 0.7050. Readout gate (D12) passes on every template for both students and the baseline.
+Unpaired knowledge items: 21 of 5,456 (0.38 %, under the 1 % rule). The baseline reproduces the published osler_v4 Y9
+row within 0.003 (C041).
+
+Reading: the distillation transferred to knowledge strongly (especially the 9B: +5.2 points, CI clear of zero) and
+slightly to the MR verdict, but it did not close the external-panel gap — the same failure the osler_v4 final had
+(−4.2 points there). The flash's panel point estimate is −1.5 with a CI that just crosses zero; the pre-registered rule
+is the lower bound, so it is a FAIL, not a near-pass to be re-labelled (R4).
+
 ## Step 3 — scores in progress (2026-11-10T04:45Z)
 
 - The chain finished at 04:06:27Z (mini final 0.875862 dev at step 63,300; flash final **0.893253** dev at step 44,310;
@@ -220,6 +241,9 @@ Stamp per run: config.json (data hashes, sampler, band), steps.jsonl, evals/, ch
 - 2026-11-09T16:19Z — public test splits rebuilt for step-3 diagnostics (MedMCQA validation, MedQA test); step-3 gate
   recorded BLOCKED on the missing frozen sets.
 - 2026-11-09T16:25Z — step 2 pre-registration and harness written and unit-tested; parity/arms wait for the GPU.
+- 2026-11-10T04:06Z — training chain done: mini final dev 0.875862, flash final 0.893253; all bands PASS.
+- 2026-11-10T05:05Z — Gate O7 computed on the frozen sets vs the locally scored pplx baseline: **FAIL** (panel) both;
+  knowledge PASS both; MR/MIMIC NOT MEASURED. Report `loops/d3_distill/GATE_O7.md`.
 - 2026-11-09T16:33Z — operator update: the three frozen Y9 sets were placed on the machine (hashes match); the teacher
   batched path is accepted; MIMIC stays off the machine; step 3 is to run the panel/knowledge/mr_verdict checks against
   zero-shot pplx-flash. The pplx-decider-flash-v1.2 snapshot (pinned revision) was downloaded for that baseline.

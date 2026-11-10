@@ -1,21 +1,22 @@
 # d3_distill — FINDINGS
 
-Status: **in flight** (2026-11-09T19:05Z). Steps 0 and 1 are complete; step 2 is training and step 3 will be computed on
-the full frozen sets once both students' finals exist. This file is updated at closure; numbers are only those with a
-CLAIMS row and a gitignored artifact.
+Status: **plan steps 0–3 complete, gate reported, awaiting operator review** (2026-11-10T05:20Z). Numbers are only those
+with a CLAIMS row and a gitignored artifact.
 
-## Summary (to be completed at closure)
+## Summary
 
 - Step 0: the teacher's batched path passes the throughput gate at **29.056 items/s** on 1,000 MedMCQA-train items with
   the probability check passing for every item (the single-request path measured 6.734 items/s; the operator accepted the
   batched path, and the batched-vs-single difference of up to 0.035 / mean 0.003 / argmax 40/40 as a teacher fact).
 - Step 1: **200,000 labels, 0 invalid, 0 constant**, from 182,777 MedMCQA-train rows and 17,223 code-generated rows
   (7 clinical-decision families + 3 MR audit generators), with 0 text overlap against the 22,912 frozen Y9 items.
-- Step 2: port parity PASS for both students (max difference 0.0, argmax 40/40); λ(4B) probe s0 = 0.4317 → λ = 0.8774
-  (arms in flight).
-- Step 3: the Gate O7 baseline (zero-shot pplx-decider-flash-v1.2, authors' code) was scored locally on the frozen sets:
-  knowledge 0.7105, panel 0.6362, mr_verdict 0.7050 (template macro; D12 PASS; within 0.003 of the published osler_v4
-  row). The students' gate rows are pending their finals.
+- Step 2: port parity PASS for both students (max difference 0.0, argmax 40/40). λ probes: 4B s0 = 0.4317 → λ = 0.8774;
+  9B s0 = 0.4173 → λ = 0.9310. Four arms trained, all bands PASS; finals at 63,304 steps: d3-mini dev 0.875862
+  (zero-shot 0.8141), d3-flash dev 0.893253 (zero-shot 0.8417).
+- Step 3: the Gate O7 baseline (zero-shot pplx-decider-flash-v1.2, authors' code) scored locally on the frozen sets:
+  knowledge 0.7105, panel 0.6362, mr_verdict 0.7050 (template macro; D12 PASS; within 0.003 of the published osler_v4 row).
+  **Gate O7: FAIL for both students on the panel check** (−4.62 points [−6.52, −2.81] for mini; −1.51 [−3.21, +0.15] for
+  flash); knowledge PASS (+1.54 [0.10, 2.91]; +5.15 [3.77, 6.49]); MR-vs-osler_v4-final and MIMIC NOT MEASURED.
 
 ## 1. What was asked, and what was possible here
 
@@ -61,10 +62,14 @@ dev carve, final at 63,304 steps.
 
 Measured so far (dev = the train-side 10,005-row carve; the final's Gate O7 rows are pending):
 
-| student | zero-shot dev | arm s0 (band) | arm s1 (band) | final dev (best step) | arms/final band |
-|---|---:|---|---|---|---|
-| d3-mini (4.54B) | 0.8141 | 0.8432 (0.4015) | 0.8424 (0.4066) | **0.8759** (63,300) | final 0.3977 PASS |
-| d3-flash (8.39B) | 0.8417 | 0.8687 (0.4009) | in flight | in flight | s0 PASS |
+| student | zero-shot dev | arm s0 (band) | arm s1 (band) | final dev (best step) | final band | final time |
+|---|---:|---|---|---|---|---:|
+| d3-mini (4.54B) | 0.8141 | 0.8432 (0.4015) | 0.8424 (0.4066) | **0.8759** (63,300) | 0.3977 PASS | 9,364.5 s |
+| d3-flash (8.39B) | 0.8417 | 0.8687 (0.4009) | 0.8727 (0.4058) | **0.8933** (44,310) | 0.3951 PASS | 12,783.0 s |
+
+Seeds: mini chose seed 0 (0.843178 vs 0.842379); flash chose seed 1 (0.872664 vs 0.868666). The finals' dev curves rise
+monotonically to the plateau (mini 0.8231 → 0.8759; flash 0.8475 → 0.8933) and every run's fresh-process audit passed
+8/8 (steps, losses, band, evals, checkpoint, step count).
 
 The mini final's public-split diagnostics: MedMCQA validation 0.694, MedQA test 0.7541, knowledge subsample 0.701 micro /
 0.7167 template macro (the locally scored pplx baseline is 0.7105 macro on the same 1,000 items). The MR/panel rows need
@@ -75,9 +80,25 @@ separately and the gate report re-run).
 
 The PLAN's gate: panel lower bound > 0 against zero-shot pplx-decider-flash-v1.2; knowledge lower bound > −0.02; MR and
 MIMIC within −0.02 of the osler_v4 final. The baseline was scored on this machine with the authors' code on the frozen
-sets (readout gate PASS everywhere): knowledge 0.7105, panel 0.6362, mr_verdict 0.7050 (template macro). The osler_v4
-final's predictions/weights are not on this machine, so the MR-vs-osler and MIMIC checks will be NOT MEASURED; the
-mr_verdict row against pplx is reported as additional.
+sets (readout gate PASS everywhere): knowledge 0.7105, panel 0.6362, mr_verdict 0.7050 (template macro), reproducing the
+published osler_v4 Y9 row within 0.003. The osler_v4 final's predictions/weights are not on this machine, so the MR-vs-
+osler and MIMIC checks are NOT MEASURED, and no other number is substituted for them.
+
+| student | panel (limit > 0) | knowledge (limit > −0.02) | mr_verdict vs pplx (additional) | MR vs osler_v4 final | MIMIC |
+|---|---|---|---|---|---|
+| d3-mini | **FAIL** −0.04622 [−0.06522, −0.02808] | **PASS** +0.01543 [+0.00096, +0.02907] | +0.02314 [+0.01072, +0.03676] | NOT MEASURED | NOT MEASURED |
+| d3-flash | **FAIL** −0.01513 [−0.03212, +0.00149] | **PASS** +0.05153 [+0.03769, +0.06486] | +0.00339 [−0.01063, +0.01781] | NOT MEASURED | NOT MEASURED |
+
+Own template-macro accuracies on the full sets (paired items; knowledge 5,435 of 5,456, 21 repeated-label items unpaired
+at 0.38 %): mini panel 0.5900 / knowledge 0.7260 / mr_verdict 0.7281; flash panel 0.6210 / knowledge 0.7620 / mr_verdict
+0.7084; pplx 0.6362 / 0.7105 / 0.7050.
+
+Reading. The distillation moved knowledge clearly (the 9B by 5.2 points with a CI clear of zero) and left the MR verdict
+flat-to-slightly-positive, but it did not close the external-panel gap: both students lose the panel to zero-shot pplx,
+and the 4B by about as much as the osler_v4 final did. The 9B's panel interval just crosses zero (−3.2 to +0.15) but the
+pre-registered rule is the lower bound, so it is a FAIL, not a near-pass to relabel (R4). The teacher itself scores 0.638
+on the 500-item d3_bench panel subsample, so this is not a teacher-quality artefact alone; the panel is a
+general-medical-reasoning set that the MedMCQA/synthetic mixture does not target.
 
 ## 6. Claims index
 
