@@ -1,6 +1,6 @@
 # d3_distill — Gate O7
 
-Written `2026-11-10T05:05:36Z` by `scripts/d3_distill/step3_gate.py`. Aggregates only; no item text.
+Written `2026-11-10T05:44:09Z` by `scripts/d3_distill/step3_gate.py`. Aggregates only; no item text.
 
 ## Rule (PLAN.md step 3, unchanged from distill_v0)
 
@@ -23,13 +23,21 @@ Verdict: **FAIL**
 | mr_verdict_vs_osler_v4_final | NOT MEASURED | the osler_v4 final's predictions and weights are not on this machine (operator instruction 2026-11-09) | — | — | — |
 | mimic | NOT MEASURED | no MIMIC data on this machine (operator instruction: do not touch MIMIC) | — | — | — |
 
+Additional: the frozen (zero-shot) student against the same baseline — separates the base from the recipe:
+
+| set | status | accuracy delta [95 %] | Brier delta | paired |
+|---|---|---|---|---|
+| panel | ADDITIONAL (no verdict) | -0.0108 [-0.0249, +0.0029] | -0.0576 [-0.0689, -0.0456] | 4353 |
+| knowledge | ADDITIONAL (no verdict) | +0.0017 [-0.0110, +0.0137] | -0.0595 [-0.0709, -0.0476] | 5435 |
+| mr_verdict | NOT MEASURED | — | — | 13103 |
+
 Own figures (template macro accuracy / item-mean Brier):
 
 | set | final student | zero-shot student | pplx-flash |
 |---|---|---|---|
-| panel | 0.5900 / 0.7093 (4353) | NOT RUN | 0.6362 / 0.6418 (4353) |
-| knowledge | 0.7260 / 0.4455 (5456) | NOT RUN | 0.7105 / 0.4670 (5435) |
-| mr_verdict | 0.7281 / 0.3800 (13103) | NOT RUN | 0.7050 / 0.3777 (13103) |
+| panel | 0.5900 / 0.7093 (4353) | 0.6253 / 0.5842 (4353) | 0.6362 / 0.6418 (4353) |
+| knowledge | 0.7260 / 0.4455 (5456) | 0.7119 / 0.4079 (5456) | 0.7105 / 0.4670 (5435) |
+| mr_verdict | 0.7281 / 0.3800 (13103) | 0.6036 / 0.4517 (13103) | 0.7050 / 0.3777 (13103) |
 
 ### flash
 
@@ -43,13 +51,21 @@ Verdict: **FAIL**
 | mr_verdict_vs_osler_v4_final | NOT MEASURED | the osler_v4 final's predictions and weights are not on this machine (operator instruction 2026-11-09) | — | — | — |
 | mimic | NOT MEASURED | no MIMIC data on this machine (operator instruction: do not touch MIMIC) | — | — | — |
 
+Additional: the frozen (zero-shot) student against the same baseline — separates the base from the recipe:
+
+| set | status | accuracy delta [95 %] | Brier delta | paired |
+|---|---|---|---|---|
+| panel | ADDITIONAL (no verdict) | +0.0232 [+0.0087, +0.0380] | -0.1032 [-0.1171, -0.0886] | 4353 |
+| knowledge | ADDITIONAL (no verdict) | +0.0425 [+0.0291, +0.0558] | -0.1153 [-0.1290, -0.1016] | 5435 |
+| mr_verdict | ADDITIONAL (no verdict) | -0.0175 [-0.0277, -0.0070] | -0.0062 [-0.0108, -0.0014] | 13103 |
+
 Own figures (template macro accuracy / item-mean Brier):
 
 | set | final student | zero-shot student | pplx-flash |
 |---|---|---|---|
-| panel | 0.6210 / 0.6536 (4353) | NOT RUN | 0.6362 / 0.6418 (4353) |
-| knowledge | 0.7620 / 0.3722 (5456) | NOT RUN | 0.7105 / 0.4670 (5435) |
-| mr_verdict | 0.7084 / 0.4048 (13103) | NOT RUN | 0.7050 / 0.3777 (13103) |
+| panel | 0.6210 / 0.6536 (4353) | 0.6593 / 0.5385 (4353) | 0.6362 / 0.6418 (4353) |
+| knowledge | 0.7620 / 0.3722 (5456) | 0.7527 / 0.3521 (5456) | 0.7105 / 0.4670 (5435) |
+| mr_verdict | 0.7084 / 0.4048 (13103) | 0.6875 / 0.3715 (13103) | 0.7050 / 0.3777 (13103) |
 
 ## Notes
 

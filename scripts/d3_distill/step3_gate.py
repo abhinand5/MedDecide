@@ -178,6 +178,14 @@ def main() -> None:
                 "zero_shot": own_figures(zero[name], items_by_set[name]) if zero[name] else {"status": "NOT RUN"},
                 "pplx_flash": own_figures(base_rows[name], items_by_set[name]) if base_rows[name] else {"status": "NOT RUN"},
             }
+        # Additional: the frozen students (no training) against the same baseline, to separate the base from the recipe.
+        per_student["zero_shot_checks"] = {}
+        for set_name, limit in (("panel", PANEL_LIMIT), ("knowledge", KNOWLEDGE_LIMIT), ("mr_verdict", float("-inf"))):
+            if zero[set_name] and base_rows[set_name]:
+                per_student["zero_shot_checks"][set_name] = compare(
+                    zero[set_name], base_rows[set_name], items_by_set[set_name], limit=limit,
+                    name=f"zero_shot_{set_name}", verdict=False,
+                )
         if final["panel"] and base_rows["panel"]:
             per_student["checks"]["panel"] = compare(final["panel"], base_rows["panel"], items_by_set["panel"],
                                                      limit=PANEL_LIMIT, name="panel")
@@ -233,6 +241,18 @@ def main() -> None:
             bs = "—" if not brier else f"{brier['point']:+.4f} [{brier['lower']:+.4f}, {brier['upper']:+.4f}]"
             pair = "—" if "paired" not in check else f"{check['paired']} / {sum(check['unpaired'].values())}"
             lines.append(f"| {name} | {check.get('status')} | {check.get('rule', check.get('reason', ''))} | {accs} | {bs} | {pair} |")
+        zs = data.get("zero_shot_checks", {})
+        if zs:
+            lines += ["", "Additional: the frozen (zero-shot) student against the same baseline — separates the base from the recipe:", "",
+                      "| set | status | accuracy delta [95 %] | Brier delta | paired |", "|---|---|---|---|---|"]
+            for name in ("panel", "knowledge", "mr_verdict"):
+                check = zs.get(name)
+                if not check:
+                    continue
+                acc, brier = check.get("accuracy"), check.get("brier")
+                accs = "—" if not acc else f"{acc['point']:+.4f} [{acc['lower']:+.4f}, {acc['upper']:+.4f}]"
+                bs = "—" if not brier else f"{brier['point']:+.4f} [{brier['lower']:+.4f}, {brier['upper']:+.4f}]"
+                lines.append(f"| {name} | {check.get('status')} | {accs} | {bs} | {check.get('paired', '—')} |")
         lines += ["", "Own figures (template macro accuracy / item-mean Brier):", "",
                   "| set | final student | zero-shot student | pplx-flash |", "|---|---|---|---|"]
         for name in SETS:

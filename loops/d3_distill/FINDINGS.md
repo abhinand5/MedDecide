@@ -100,6 +100,20 @@ pre-registered rule is the lower bound, so it is a FAIL, not a near-pass to rela
 on the 500-item d3_bench panel subsample, so this is not a teacher-quality artefact alone; the panel is a
 general-medical-reasoning set that the MedMCQA/synthetic mixture does not target.
 
+Training effect on the frozen sets (additional; same paired rule, frozen student vs pplx):
+
+| student | panel, zero-shot → final | knowledge, zero-shot → final | mr_verdict, zero-shot → final |
+|---|---|---|---|
+| d3-mini | −0.01083 [−0.02486, +0.00288] → **−0.04622** [−0.06522, −0.02808] | +0.00173 → **+0.01543** | READOUT_FAIL → **+0.02314** |
+| d3-flash | **+0.02316** [+0.00870, +0.03802] → **−0.01513** [−0.03212, +0.00149] | +0.04247 → **+0.05153** | −0.01755 → **+0.00339** |
+
+The 9B's frozen base would have satisfied the panel check (+2.3 points with the CI clear of zero); the 63,304-step
+distillation cost it 3.8 panel points and flipped the check to FAIL. On the 4B the panel was already below pplx before
+training and the recipe cost another 3.5 points. Knowledge and the MR verdict improved on both sizes. So the binding
+constraint is the recipe's objective/mixture, not the base or the teacher: the CL/CE mixture is MedMCQA-heavy (91 % of
+the pool) and teaches the knowledge and audit templates while moving the model away from the external panel's
+general-reasoning calibration (panel Brier also rises sharply after training, e.g. 0.54 → 0.65 for the 9B).
+
 ## 6. Claims index
 
 C001–C006 (step 0), C007–C010 and C014–C020 (step 1), C021–C027 (step 2/3 infrastructure and baseline). See

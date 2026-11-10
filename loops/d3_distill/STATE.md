@@ -197,6 +197,11 @@ slightly to the MR verdict, but it did not close the external-panel gap — the 
 (−4.2 points there). The flash's panel point estimate is −1.5 with a CI that just crosses zero; the pre-registered rule
 is the lower bound, so it is a FAIL, not a near-pass to be re-labelled (R4).
 
+Zero-shot students on the same sets (additional, C043): the **d3-flash base would have passed the panel check**
+(+0.02316 [+0.00870, +0.03802] vs pplx) and the 63,304-step distillation moved it to −0.01513 (FAIL); mini's base was
+already below pplx (−0.01083) and final −0.04622. Knowledge and MR improved on both sizes. Panel Brier rose after training
+(mini 0.5842 → 0.7093; flash 0.5385 → 0.6536). The recipe, not the base or the teacher, is the binding constraint.
+
 ## Step 3 — scores in progress (2026-11-10T04:45Z)
 
 - The chain finished at 04:06:27Z (mini final 0.875862 dev at step 63,300; flash final **0.893253** dev at step 44,310;
