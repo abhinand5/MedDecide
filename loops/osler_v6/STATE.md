@@ -9,7 +9,9 @@ footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Four
 18,991 / 25,322; C036, C038, C039, C042), the last with positional PASS; under **A1** all of them are dev trajectory, and the
 only candidate is the evaluation at step 63,304. Five evaluations are in (C036, C038, C039, C042, C043): S 0.796776,
 0.791281, 0.818523 (positional FAIL), 0.822039, 0.827817 — the trajectory is rising. Last poll 2026-11-10T22:37Z: step
-31,716 (~50%), ~3.1 s/step; sixth evaluation (37,982) about 04:05Z; ETA ~2026-11-12T05:30Z.
+31,716 (~50%), ~3.1 s/step. Sixth evaluation (37,982, C044): S 0.837467 (new high) but **positional FAIL** on the original
+order (the second miss after 18,991; under A1 it is trajectory only). Last poll 2026-11-11T04:28Z: step 38,002 (~60%),
+~3.3 s/step; seventh evaluation (44,313) about 09:40Z; ETA ~2026-11-12T06:30Z.
 
 ## 1. Task board
 
@@ -351,6 +353,11 @@ number already measured.
 - 2026-11-10T22:38Z — Z6's fifth evaluation (step 31,652): S 0.827817 (MR 0.956085, MIMIC 0.747782, CG 0.779583),
   knowledge 0.754750, positional PASS. It is the highest S in the trajectory so far and above G1s0's 13,992-step S 0.825891,
   but under A1 only step 63,304 is a candidate. The run is at step 31,716 (~50% of 63,304).
+
+- 2026-11-11T04:29Z — Z6's sixth evaluation (step 37,982): S 0.837467 (MR 0.963514, MIMIC 0.769906, CG 0.778982),
+  knowledge 0.764000, but positional health **fails on the original order** again (0.388778 against 0.431138; both permutations
+  pass). The trajectory's S is rising while the positional check oscillates (fails at 18,991 and 37,982, passes at the other
+  four). Under A1 this is trajectory evidence only: the final at 63,304 must itself pass all three orders to be selected.
 
 ## 6. Deviations from the plan
 
