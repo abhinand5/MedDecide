@@ -13,8 +13,9 @@ only candidate is the evaluation at step 63,304. Five evaluations are in (C036, 
 order (the second miss after 18,991; under A1 it is trajectory only). Seventh evaluation (44,313, C045): S 0.840188 (new
 high) but positional **FAIL** again (0.364730 vs 0.395210; the third original-order miss); a readout diagnostic (C046) shows
 a strong key/position bias in the original order (BJ 128 of 499 two-letter-gold items) that the permutations remove. Under A1
-the step-63,304 evaluation must pass or the final is BLOCKED. Last poll 2026-11-11T10:24Z: step 44,390 (~70%), ~3.0 s/step;
-eighth evaluation (50,643) about 15:20Z; ETA ~2026-11-12T05:30Z.
+the step-63,304 evaluation must pass or the final is BLOCKED. Eighth evaluation (50,643, C047): S 0.841495 (new high),
+positional **PASS** again — the check has alternated (fails at 18,991 / 37,982 / 44,313, passes at the other five). Last poll
+2026-11-11T16:15Z: step 50,759 (~80%), ~3.4 s/step; ninth evaluation (56,973) about 22:10Z; ETA ~2026-11-12T06:00Z.
 
 ## 1. Task board
 
@@ -369,6 +370,11 @@ number already measured.
   orders break it and pass. This is the D52b check doing its job. Under A1 the final checkpoint at 63,304 must itself pass all
   three orders; the intermediate misses are trajectory evidence only. The trend is a real risk that the final is BLOCKED, and
   if so Z7 will report the final as BLOCKED without substitution.
+
+- 2026-11-11T16:16Z — Z6's eighth evaluation (step 50,643): S 0.841495 (MR 0.959522, MIMIC 0.781889, CG 0.783075),
+  knowledge 0.763750, positional health **PASS** in all three orders. The check has alternated across the trajectory (fails at
+  18,991, 37,982, 44,313; passes at the other five), so the step-63,304 outcome remains genuinely uncertain. Two evaluations
+  remain (56,973 ~22:10Z; 63,304 ~04:00Z); under A1 the last one alone decides whether the final can be scored for Gate O6.
 
 ## 6. Deviations from the plan
 
