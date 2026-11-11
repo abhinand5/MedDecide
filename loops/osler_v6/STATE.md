@@ -10,8 +10,11 @@ footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Four
 only candidate is the evaluation at step 63,304. Five evaluations are in (C036, C038, C039, C042, C043): S 0.796776,
 0.791281, 0.818523 (positional FAIL), 0.822039, 0.827817 — the trajectory is rising. Last poll 2026-11-10T22:37Z: step
 31,716 (~50%), ~3.1 s/step. Sixth evaluation (37,982, C044): S 0.837467 (new high) but **positional FAIL** on the original
-order (the second miss after 18,991; under A1 it is trajectory only). Last poll 2026-11-11T04:28Z: step 38,002 (~60%),
-~3.3 s/step; seventh evaluation (44,313) about 09:40Z; ETA ~2026-11-12T06:30Z.
+order (the second miss after 18,991; under A1 it is trajectory only). Seventh evaluation (44,313, C045): S 0.840188 (new
+high) but positional **FAIL** again (0.364730 vs 0.395210; the third original-order miss); a readout diagnostic (C046) shows
+a strong key/position bias in the original order (BJ 128 of 499 two-letter-gold items) that the permutations remove. Under A1
+the step-63,304 evaluation must pass or the final is BLOCKED. Last poll 2026-11-11T10:24Z: step 44,390 (~70%), ~3.0 s/step;
+eighth evaluation (50,643) about 15:20Z; ETA ~2026-11-12T05:30Z.
 
 ## 1. Task board
 
@@ -358,6 +361,14 @@ number already measured.
   knowledge 0.764000, but positional health **fails on the original order** again (0.388778 against 0.431138; both permutations
   pass). The trajectory's S is rising while the positional check oscillates (fails at 18,991 and 37,982, passes at the other
   four). Under A1 this is trajectory evidence only: the final at 63,304 must itself pass all three orders to be selected.
+
+- 2026-11-11T10:26Z — Z6's seventh evaluation (step 44,313): S 0.840188 (MR 0.966014, MIMIC 0.780263, CG 0.774287),
+  knowledge 0.765250, but the original-order positional check fails a third time (two-letter 0.364730 against 0.395210; both
+  permutations pass). Investigation (C046): on the 499 two-letter-gold DDX items the model predicts 407 two-letter keys but
+  concentrates on BJ (128), BM (42), BC (38), BG (33), BD (31) — a key/position bias, not a constant answer; the permuted
+  orders break it and pass. This is the D52b check doing its job. Under A1 the final checkpoint at 63,304 must itself pass all
+  three orders; the intermediate misses are trajectory evidence only. The trend is a real risk that the final is BLOCKED, and
+  if so Z7 will report the final as BLOCKED without substitution.
 
 ## 6. Deviations from the plan
 
