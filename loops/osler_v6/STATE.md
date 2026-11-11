@@ -15,7 +15,9 @@ high) but positional **FAIL** again (0.364730 vs 0.395210; the third original-or
 a strong key/position bias in the original order (BJ 128 of 499 two-letter-gold items) that the permutations remove. Under A1
 the step-63,304 evaluation must pass or the final is BLOCKED. Eighth evaluation (50,643, C047): S 0.841495 (new high),
 positional **PASS** again — the check has alternated (fails at 18,991 / 37,982 / 44,313, passes at the other five). Last poll
-2026-11-11T16:15Z: step 50,759 (~80%), ~3.4 s/step; ninth evaluation (56,973) about 22:10Z; ETA ~2026-11-12T06:00Z.
+2026-11-11T16:15Z: step 50,759 (~80%). Ninth evaluation (56,974, C048): S 0.845382 (new high), positional **PASS** — the last
+two evaluations pass. Last poll 2026-11-11T22:05Z: step 57,048 (~90%), ~3.2 s/step; the final evaluation at 63,304 is due
+about 04:00Z on Nov 12, the A1 decision follows, then post-processing (~1 h).
 
 ## 1. Task board
 
@@ -375,6 +377,11 @@ number already measured.
   knowledge 0.763750, positional health **PASS** in all three orders. The check has alternated across the trajectory (fails at
   18,991, 37,982, 44,313; passes at the other five), so the step-63,304 outcome remains genuinely uncertain. Two evaluations
   remain (56,973 ~22:10Z; 63,304 ~04:00Z); under A1 the last one alone decides whether the final can be scored for Gate O6.
+
+- 2026-11-11T22:06Z — Z6's ninth evaluation (step 56,974): S 0.845382 (MR 0.963445, MIMIC 0.787942, CG 0.784760),
+  knowledge 0.767250, positional **PASS** in all three orders. Two evaluations pass in a row now; the trajectory's S is at its
+  highest and comfortably above the arms' final 0.8259. The A1 decision rests on the last evaluation, at step 63,304
+  (~04:00Z on Nov 12): a positional pass selects `chosen_step_063304`; a failure BLOCKS the final with no substitution.
 
 ## 6. Deviations from the plan
 
