@@ -69,6 +69,7 @@ _TOP_LEVEL_KEYS = {
     "backbone",
     "kl_to_base",
     "kl_exclude_template_prefixes",
+    "kl_include_template_prefixes",
     "distill_weight",
     "distill_min_labelled_per_batch",
     "distill_probe",
@@ -157,6 +158,9 @@ class StudentConfig:
     # kl_exclude_template_prefixes (the domain templates the model is meant to move on). 0.0 = off
     kl_to_base: float = 0.0
     kl_exclude_template_prefixes: tuple[str, ...] = ()
+    # osler_v7 T6: the v7 KL-to-base pool is *only* the C1-C4 cells (template ids `v7_c*`). When non-empty this include
+    # list wins over the exclude list; the two cannot both be set.
+    kl_include_template_prefixes: tuple[str, ...] = ()
     # osler_v4 Y6 (D48): + distill_weight * KL(teacher || model) over the batch's items that carry a teacher distribution
     # (SoftItem.teacher_probs, the pplx 27B soft labels); needs no base model. 0.0 = off
     distill_weight: float = 0.0
@@ -210,6 +214,8 @@ class StudentConfig:
         kwargs = {k: v for k, v in data.items() if k not in {"lora", "head"}}
         if "kl_exclude_template_prefixes" in kwargs:
             kwargs["kl_exclude_template_prefixes"] = tuple(kwargs["kl_exclude_template_prefixes"] or ())
+        if "kl_include_template_prefixes" in kwargs:
+            kwargs["kl_include_template_prefixes"] = tuple(kwargs["kl_include_template_prefixes"] or ())
         if "option_augment_templates" in kwargs:
             kwargs["option_augment_templates"] = validate_templates(kwargs["option_augment_templates"] or ())
         if "drop_mix_templates" in kwargs:
@@ -236,6 +242,8 @@ class StudentConfig:
             raise ValueError("checkpoint_above_tokens needs gradient_checkpointing and a positive token count")
         if cfg.kl_to_base < 0:
             raise ValueError("kl_to_base must be >= 0")
+        if cfg.kl_include_template_prefixes and cfg.kl_exclude_template_prefixes:
+            raise ValueError("kl_include_template_prefixes and kl_exclude_template_prefixes cannot both be set")
         if cfg.kl_to_base > 0 and cfg.readout != "option_code":
             raise ValueError("kl_to_base needs the option-code readout")
         if cfg.distill_weight < 0:

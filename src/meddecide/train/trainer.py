@@ -204,6 +204,24 @@ def evaluation_grid(steps: int, count: int) -> tuple[int, ...]:
     return tuple(round(steps * k / count) for k in range(1, count + 1))
 
 
+def kl_anchor_mask(
+    template_ids: Sequence[str], *, include: tuple[str, ...] = (), exclude: tuple[str, ...] = ()
+) -> torch.Tensor:
+    """Boolean mask of the rows the KL-to-base penalty applies to.
+
+    osler_v7 T6 adds the include form: the penalty is on the C1-C4 cells only (template ids ``v7_c*``). Include wins when
+    set; the exclude form is osler_v3's (anchors are rows whose template starts with none of the prefixes); neither set
+    means every row.
+    """
+    if include and exclude:
+        raise ValueError("the KL mask cannot use both an include and an exclude prefix list")
+    if include:
+        return torch.tensor([str(t).startswith(include) for t in template_ids], dtype=torch.bool)
+    if exclude:
+        return torch.tensor([not str(t).startswith(exclude) for t in template_ids], dtype=torch.bool)
+    return torch.ones(len(template_ids), dtype=torch.bool)
+
+
 class Trainer:
     """Trains the pointer head and LoRA adapter of a :class:`MedDecideModel`."""
 
@@ -518,9 +536,11 @@ class Trainer:
                 anchor = None
                 ref_probs = None
                 if config.kl_to_base > 0:
-                    prefixes = tuple(config.kl_exclude_template_prefixes)
-                    anchor = torch.tensor([not str(e.template_id).startswith(prefixes) if prefixes else True
-                                           for e in model_batch.encoded], dtype=torch.bool)
+                    anchor = kl_anchor_mask(
+                        [str(e.template_id) for e in model_batch.encoded],
+                        include=tuple(config.kl_include_template_prefixes),
+                        exclude=tuple(config.kl_exclude_template_prefixes),
+                    )
                     if bool(anchor.any()):
                         ref_probs = self.model.reference_option_probs(model_batch)
                 _logits, probs = self.model.batch_logits(model_batch)

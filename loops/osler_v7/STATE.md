@@ -118,6 +118,12 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-12T21:00Z — T5 labelling is running on the GPU (reference_batched path, 512 prompts in 95.3 s =
+  5.375 items/s, 4,520 input tokens/s; ETA ~3.6 h for the 69,967 prompts). T6 code prepared while it runs: the
+  trainer/config gain `kl_include_template_prefixes`, so the KL-to-base penalty applies only to the v7_c* pool;
+  `configs/osler_v7/arm_4b.yaml` sets kl_to_base 0.1, the v6-frozen distill weight 3.243598 with the 3-labelled
+  quota, per-item weighting and no double augmentation; `scripts/osler_v7/t6_build_mix.py` will append the
+  labelled C1-C4 pool to the v6 mix once T5 joins. The v7 arm driver is still to be written.
 - 2026-11-12T20:40Z — **T4 DONE.** Nine cells, 9,404.4 s on one GPU. Trained cell (1,1): item 0.788872, macro
   0.807105, two-letter 0.651. Base readout + trained LoRA (1,0): item 0.772739, two-letter 0.519 — the base readout
   does not recover the two-letter loss, so the damage sits in the LoRA, not the readout; the 0.75-scale cells give

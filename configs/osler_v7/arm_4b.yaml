@@ -1,0 +1,58 @@
+# osler_v7 T6 — 4B arm on pplx-decider-flash-v1.2 (ADVISORY §2, §3; STATE T6).
+
+# The recipe is the v6 arm's (attention-only LoRA, per-item weighting, D57 distillation at the v6-frozen
+# lambda 3.243598 with the 3-labelled quota, D52a augmentation already realised inside the v6 mix) on the v6 mix
+# plus the labelled C1-C4 pool, with the new Lever-1 term: kl_to_base = 0.1 (operator-accepted ADVISORY §0.2)
+# applied ONLY to the C1-C4 prompts (`v7_c*` templates), which are the unlabelled format-diverse pool.
+# Option augmentation is off here because the v6 mix already carries the D52a augmentation and the C1-C4 rows are
+# built at their final option counts.
+kl_to_base: 0.1
+kl_include_template_prefixes: [v7_c]
+distill_weight: 3.243598
+distill_min_labelled_per_batch: 3
+loss_weighting: per_item
+option_augment_probability: 0.0
+option_augment_templates: []
+output_dir: outputs/osler_v7/T6/arm
+readout: option_code
+bidirectional_full_attention: false
+base_model: Qwen/Qwen3.5-4B
+revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+train_path: composed-in-memory:osler_v7_mix
+dev_path: data/bench/osler_v7/dev_format_matched.jsonl
+seed: 0
+dtype: bfloat16
+device: cuda:0
+variant: bare
+lora:
+  r: 32
+  alpha: 32
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj]  # D33: attention only
+lambda_brier: 1.0
+lr: 0.001
+lora_lr: 0.0001
+weight_decay: 0.0
+grad_clip: 1.0
+batch_size: 8
+max_batch_tokens: 8192
+max_prompt_tokens: 16384
+epochs: 1
+shuffle_options: true
+eval_every: 3500
+eval_items: 12000
+eval_batch_size: 32
+log_every: 50
+lr_schedule: cosine
+warmup_fraction: 0.03
+lr_floor: 0.1
+fit_temperature: true
+temperature_per_qtype: true
+tripwire_grad_norm: 5000.0
+tripwire_macro_floor: 0.5
+tripwire_consecutive_evals: 2
+selection_metric: template_macro_accuracy
+gradient_checkpointing: true
+checkpoint_above_tokens: 8192  # D40
+backbone: pplx
+drop_mix_templates: []
