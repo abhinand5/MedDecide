@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T2 DONE 2026-11-12; T4 and T5 are next (GPU approved); T1 and T3 DONE
+Loop status: IN PROGRESS — T4 started 2026-11-12T16:58Z (GPU grid on the v6 final); T1–T3 DONE
 
 ## 1. Task board
 
@@ -10,7 +10,7 @@ Loop status: IN PROGRESS — T2 DONE 2026-11-12; T4 and T5 are next (GPU approve
 | T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (6 of 7 panel sources lose, macro −0.024486 repeats Gate O6; yes and last-position bias measured; audit PASS, C001–C007) |
 | T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | DONE 2026-11-12 (dev 22,934 rows / 7 shapes; confirmation 5,988 fresh general + 13,103+4,253 audit + 5,456 knowledge; all hashes, 0 training overlap; audit PASS 39 checks; peft declared; C014–C019) |
 | T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (parity PASS, 9 rows exact 0.0; 3 longest MIMIC forwards NOT MEASURED over the CPU timebox; d3_batch scoring helper not portable to this runtime; audit PASS, C008–C013) |
-| T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | PENDING |
+| T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | IN_PROGRESS 2026-11-12T16:58Z |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | PENDING |
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | PENDING |
 | T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | PENDING |
@@ -87,6 +87,16 @@ Loop status: IN PROGRESS — T2 DONE 2026-11-12; T4 and T5 are next (GPU approve
       SELF_AUDIT.md; CLAIMS rows; no raw items committed.
 - [x] Declare `peft` in `pyproject.toml` (§0.4) and update `uv.lock`; `uv run ruff check .` and `uv run pytest`;
       commit and push.
+
+## 3e. Checklist — T4 (in progress)
+- [ ] Verify the v6 63,304-step checkpoint and the T2 dev file hashes; record provenance (GPU, dtype, batch).
+- [ ] Run the 9-cell LoRA × readout grid on the frozen dev set, one detached GPU job, log under
+      `outputs/osler_v7/T4/logs/`; check the output file completeness, not only the exit code.
+- [ ] Analyse the grid: item/macro accuracy overall and in the MR, MIMIC, CG and knowledge partitions, per qtype
+      and option-count group, and the two-letter positional check; state whether the base readout + trained LoRA
+      cell recovers the losses. Diagnostic only — no selection, no gate.
+- [ ] Aggregate-only results committed (`grid.json`); per-item predictions stay gitignored; SELF_AUDIT.md; CLAIMS.
+- [ ] `uv run ruff check .` and `uv run pytest`; commit and push.
 
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
