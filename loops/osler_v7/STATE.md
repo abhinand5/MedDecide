@@ -173,6 +173,17 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
   run count; the exit code was 0 either way.)
 
 ## 5. Questions for the operator
+- **T6 distillation weight:** ADVISORY §3 writes the loss as CE + λ_KL·KL-to-base only, while §2 attaches pplx-27B
+  teacher labels to C1–C4. The v7 arm config reuses osler_v6's frozen distillation weight 3.243598 with the
+  3-labelled quota (the "v6 mix + C1–C4" reading). If another teacher weight is intended, it must be named
+  before T6 starts.
+- **KL direction:** ADVISORY §3 writes KL(student ‖ zero-shot base); the existing D41 `kl_to_base` term computes
+  KL(base ‖ model) (base as the distillation target), which is where the proposed λ = 0.1 comes from (osler_v3).
+  T6 uses the existing term and records this interpretation; naming the opposite direction would need a new loss.
+- **Family-share cap:** ADVISORY §2 caps each family's loss-gradient share at 25 %. The mix manifest reports the
+  measured row shares (C0 is ~95 % of rows); no per-family reweighting is applied because the plan does not say
+  which grouping the cap refers to. Clarify before T6 if a reweight is required.
+
 - **T2 confirmation source (§0.3):** T2's approval row requires the confirmation-set source decision, which is
   still open in §2. ADVISORY §8 proposes records dated after 2026-03-01 with gold from structured source fields,
   built and manifested before any arm trains, reviewed by the operator before first use. Confirm or name another
