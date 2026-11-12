@@ -1,13 +1,13 @@
 # STATE — osler_v7
 
-Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in §2)
+Loop status: IN PROGRESS — T1 DONE 2026-11-12; T2 waits on the §0.3 confirmation-source decision; T3 approved (CPU) and next; GPU tasks still need their own approval
 
 ## 1. Task board
 
 | id | task | depends | approval | status |
 |---|---|---|---|---|
 | T0 | Setup: merge to dev (osler_v4–v6 fast-forward; d3_distill merge; lint fix), branch `loop/osler_v7`, AGENTS Current loop, this plan | — | operator instruction 2026-11-12 | DONE 2026-11-12 (dev at 64de99a; gate ruff clean, pytest exit 0 with data linked) |
-| T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | PENDING |
+| T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (6 of 7 panel sources lose, macro −0.024486 repeats Gate O6; yes and last-position bias measured; audit PASS, C001–C007) |
 | T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | PENDING |
 | T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | PENDING |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | PENDING |
@@ -26,7 +26,7 @@ Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in �
 - **Open decisions (ADVISORY §0):** 1 gate limits; 2 KL weight; 3 confirmation-set source; 4 declared `peft` dependency; 5 teacher
   (proposed: pplx-27B; confirm).
 - **Bases (settled by the operator in chat, 2026-11-12):** 4B = pplx-decider-flash-v1.2; 9B = d3-flash.
-- Shared decision (not part of this loop): what to do with the local-only branches and dirty worktrees (see §5).
+- Shared decision (not part of this loop): what to do with the local-only branches and dirty worktrees (see §6).
 
 ## 3. Checklist — T0 (done)
 - [x] Fast-forward dev to `loop/osler_v6` (e875834), pushed.
@@ -37,11 +37,42 @@ Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in �
 - [x] Branch `loop/osler_v7` created from dev; this loop's files and the AGENTS Current loop section.
 - Declared dependency gap: `peft` is missing from `pyproject.toml` (ADVISORY §0.4).
 
+## 3b. Checklist — T1 (done)
+- [x] Verify inputs and counts: v6 mix 1,456,438 rows (sha `91ff5362…`), anchors 385,536 rows (sha `edd4c207…`), panel 4,353 rows
+      (sha from Y9 manifest), v6 final and zero-shot pplx panel predictions (4,353 scored each), join by recomputed item id.
+- [x] Composition: qtype, template/source, option-count, label-balance (noul yes share, choice gold-position prior, score level)
+      and text-length distributions for mix, anchors and panel; share gaps and total-variation distance; panel date fields absent
+      (record-window comparison NOT MEASURED and labelled).
+- [x] Prior shift on the panel: per-dataset final vs zero-shot accuracy/Brier; predicted-yes rate and yes/no confusion on the noul
+      items; predicted option-position and gold-position distributions, accuracy by gold position, choice items; list the losing
+      sources (point estimate < 0).
+- [x] Aggregate-only outputs in `outputs/osler_v7/T1/` (`composition.json`, `prior_shift.json`, `run_provenance.json`); no item
+      text or predictions committed; `SELF_AUDIT.md` with fresh-process re-derivation.
+- [x] CLAIMS rows; note in §4 that T1 is diagnostic only and feeds no v7 selection or gate.
+- [x] `uv run ruff check .` and `uv run pytest` (code added: `scripts/osler_v7/t1_diagnose.py`, `scripts/osler_v7/t1_audit.py` + unit tests); commit and push.
+
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
+- 2026-11-12T12:52Z — **T1 DONE.** Composition and prior shift measured on CPU. Composition: the mix and anchors
+  differ from the panel sharply in question type (TVD 0.332 / 0.234), option count (TVD 0.705 / 0.633; the panel's
+  10- and 22-option items are rare in training) and text length (+4,177 / +2,050 mean state chars), with 0 shared
+  sources or templates; label balance is close (noul yes 0.522 mix / 0.525 panel; gold relative position 0.491 /
+  0.518). Prior shift: the v6 final loses 6 of 7 panel sources (macro −0.024486, reproducing Gate O6); on the noul
+  source it over-predicts yes (argmax 0.580 vs gold 0.525 and base 0.498; FP 25 vs 6) and on the 4-option
+  medconceptsqa source it over-predicts the last position (0.359 vs gold 0.238). Diagnostic only: no v7 recipe,
+  selection or gate input reads T1 (ADVISORY §7 selects on the format-matched dev set).
+  SELF_AUDIT PASS (96 checks, 0 problems); CLAIMS C001–C007. Item-mean Brier on the panel also matches Gate O6
+  (−0.033914): five sources better, medical_question_pairs and symptom_to_diagnosis worse.
 
-## 5. Cleanup (not done; needs the operator's decision)
+## 5. Questions for the operator
+- **T2 confirmation source (§0.3):** T2's approval row requires the confirmation-set source decision, which is
+  still open in §2. ADVISORY §8 proposes records dated after 2026-03-01 with gold from structured source fields,
+  built and manifested before any arm trains, reviewed by the operator before first use. Confirm or name another
+  source; T2 does not start until then.
+- **GPU approvals:** still NOT GIVEN for T4, T5, T6, T8, T10, T11.
+
+## 6. Cleanup (not done; needs the operator's decision)
 - Local-only branches with work not on GitHub: `bench/d1-2b`, `bench/d3-ultra`, `loop/knowledge_v1`, `loop/synth_v1`,
   `synth/driver`, `synth/driver-fix`, `synth/generator-code`, `synth/generator-fixed`, `synth/mimic-grounded`, `synth/train-v1`,
   and the `worktree-agent-*` branches.
