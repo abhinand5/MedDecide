@@ -107,6 +107,11 @@ Loop status: IN PROGRESS — T4 started 2026-11-12T16:58Z (GPU grid on the v6 fi
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-12T18:40Z — T5 pool built on CPU while the T4 GPU job runs: C1 20,000 rows (sha `a27a26f4…`),
+  C2 10,000 rows (sha `8f5cfe14…`, 5,000 yes / 5,000 no), C3 20,000 rows (sha `5e2e50ab…`; ATC and procedure
+  descriptions are NOT MEASURED, no dictionary on disk), C4 20,000 rows (sha `fcde88fa…`); merged pool 69,967
+  rows (sha `1767bc85…`), 0 text overlap with the T2 dev/confirmation sets. `t5_label_pool.py` is ready; its
+  GPU parity + labelling run is queued behind T4 (at the Y5 rate, ~3.2 h for the 70k prompts).
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
 - 2026-11-12 — operator gave blanket GPU approval and accepted the ADVISORY §0 proposals (§2). T2 is unblocked; T4 onward
