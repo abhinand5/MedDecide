@@ -1,24 +1,9 @@
 # STATE — osler_v6
 
 Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-10T11:46Z` (Z0-Z5 DONE; Z6 IN_PROGRESS, resumed).
-Task in flight: Z6 — resumed from full checkpoint step 20,000 at 11:37Z after a CUDA OOM; detached, uv PID `1046221`,
-python PID `1046224`, log `outputs/osler_v6/Z6/final/logs/run_resume.log`; `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`.
-The resumed run **passed the former crash point** (step 22,317) at ~13:48Z — the log is at step 22,406 with no OOM and the GPU
-footprint is ~58 GB (against 97 GB before); the allocator setting fixed it. Four evaluations are now in (6,330 / 12,661 /
-18,991 / 25,322; C036, C038, C039, C042), the last with positional PASS; under **A1** all of them are dev trajectory, and the
-only candidate is the evaluation at step 63,304. Five evaluations are in (C036, C038, C039, C042, C043): S 0.796776,
-0.791281, 0.818523 (positional FAIL), 0.822039, 0.827817 — the trajectory is rising. Last poll 2026-11-10T22:37Z: step
-31,716 (~50%), ~3.1 s/step. Sixth evaluation (37,982, C044): S 0.837467 (new high) but **positional FAIL** on the original
-order (the second miss after 18,991; under A1 it is trajectory only). Seventh evaluation (44,313, C045): S 0.840188 (new
-high) but positional **FAIL** again (0.364730 vs 0.395210; the third original-order miss); a readout diagnostic (C046) shows
-a strong key/position bias in the original order (BJ 128 of 499 two-letter-gold items) that the permutations remove. Under A1
-the step-63,304 evaluation must pass or the final is BLOCKED. Eighth evaluation (50,643, C047): S 0.841495 (new high),
-positional **PASS** again — the check has alternated (fails at 18,991 / 37,982 / 44,313, passes at the other five). Last poll
-2026-11-11T16:15Z: step 50,759 (~80%). Ninth evaluation (56,974, C048): S 0.845382 (new high), positional **PASS** — the last
-two evaluations pass. **Final evaluation (63,304) is in and A1 PASSES**: S 0.844190, positional health in all three orders (original two-letter
-0.448898 against the 0.428144 threshold), C049 — the checkpoint is eligible. The driver is in post-processing (calibration
-and final scores); when it exits, run `z6_select.py` (it will choose step 63,304 and write `chosen_step_063304`), then Z7.
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-12T05:40Z` (Z0-Z6 DONE; Z7 IN_PROGRESS).
+Task in flight: Z7 — Gate O6 scoring on `chosen_step_063304` running (uv PID `1429221`, python PID `1429230`, log
+`outputs/osler_v6/Z7/logs/score.log`); then the gate verdict, FINDINGS.md and the closure.
 
 ## 1. Task board
 
@@ -30,8 +15,8 @@ and final scores); when it exits, run `z6_select.py` (it will choose step 63,304
 | Z3 | Arm G1 (F2 + distillation, seed 0) at the frozen λ, 13,992 steps; check the 30–50 % band over its first 200 steps; G0 is the existing F2 seed-0 result C062 (checked, not re-scored) | Z2 | DONE 2026-11-08T21:31Z — 13,992 steps, band 0.355474 PASS, final S 0.825891 / knowledge 0.775 / positional PASS; audit PASS |
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | DONE 2026-11-09T10:52Z — 13,992 steps, band 0.365937 PASS, final S 0.826311 / knowledge 0.7708 / positional PASS; audit PASS |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | DONE 2026-11-09T10:52Z — chosen G1s0 (knowledge lower +0.006244, MR −0.0207, MIMIC −0.0104, CG 0.7945, positional PASS); seed-1 stability reported |
-| Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | IN_PROGRESS 2026-11-09T10:52Z |
-| Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | PENDING |
+| Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | DONE 2026-11-12T05:12Z — 63,304 steps; final eval S 0.844190, positional PASS; **A1** chose step 63,304 (`chosen_step_063304`, calibrated on dev) |
+| Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | IN_PROGRESS 2026-11-12T05:40Z |
 
 ## 2. Operator decisions
 
@@ -135,14 +120,27 @@ number already measured.
 - [x] First-200-step band: mean 0.365937 in [0.30, 0.50] (C029).
 - [x] Seed-1 evaluation at 13,992: S 0.826311, knowledge 0.770750, positional PASS, reported beside seed 0 (C032); audit PASS (C033).
 
-## 4f. Checklist — Z6 (in progress)
+## 4f. Checklist — Z6 (done)
 
-- [ ] Disk headroom 2 GB write before the job.
-- [ ] Final launched on G1s0's recipe (seed-0 config/mix, frozen λ 3.243597720934029, quota 3), 63,304 steps, 10 evaluations; detached with PID/log; resumes from full checkpoints if interrupted.
-- [ ] **A1**: the final checkpoint is step 63,304 only (no other), eligible only if it passes positional health in all three orders; `z6_select.py` calibrates it on dev fast dev v4 and writes `chosen_step_063304`, or writes BLOCKED and exits non-zero; the intermediate evaluations are reported as a dev trajectory (never candidates).
-- [ ] `SELF_AUDIT.md`, CLAIMS, STATE exact, commit/push.
+- [x] Disk headroom 2 GB write before the job (1.9 s, 1.1 GB/s).
+- [x] Final launched on G1s0's recipe (seed-0 config/mix, frozen λ 3.243597720934029, quota 3), 63,304 steps, 10 evaluations; ran detached (PIDs 830482/830492, resumed as 1046221/1046224 after the OOM at step 22,317); full checkpoints every 2,500 steps.
+- [x] **A1**: the final checkpoint is step 63,304 only; its positional health passes in all three orders (C049), so `z6_select.py` calibrated it on dev fast dev v4 and wrote `chosen_step_063304`; all ten evaluations are in `selection.json` as the trajectory (C050). No best-S selection was made.
+- [x] Run completion recorded (C051); the crash and OOM resume are C040.
+
+## 4g. Checklist — Z7 (in progress)
+
+- [ ] Score `chosen_step_063304` on the four Gate O6 sets with set hashes verified (GPU; `z7_score.py`).
+- [ ] Run the Gate O6 verdict (`z7_gate.py`, osler_v4's y9_gate unchanged): four checks against zero-shot pplx-flash with the O4 limits; additional knowledge rows vs MedDecider-4B/9B.
+- [ ] Readout gate (D12) per set; every claim; `SELF_AUDIT.md`; five-claim spot-check; `FINDINGS.md` (Summary first); STATE `Loop status: STOPPED`; commit and push.
 
 ## 5. Log
+
+- 2026-11-12T05:40Z — **Z6 DONE.** The final ran 63,304 steps (started 2026-11-09T10:50Z, crashed at step 22,317, resumed from
+  20,000, finished 04:25Z on Nov 12; ~65.5 h wall including the outage) and its ten evaluations are all in the record: S rose to
+  0.844190 at the final step, and the final evaluation's positional health **passes** in all three orders (0.448898 two-letter
+  against the 0.428144 threshold). **A1** therefore selected step 63,304 (the only candidate) and calibrated it on dev fast dev
+  v4 (choice 1.227721, noul 1.384522, score 1.217728), saving `chosen_step_063304`; no best-S selection was made and every
+  evaluation is reported (C050, C051). **Z7 started**: the Gate O6 scoring is running on the chosen checkpoint.
 
 - 2026-11-07T17:40Z — Z0 DONE. Z1 is the next task. It needs its own output directory, so the Y5 script is run from a copy that
   writes to `outputs/osler_v6/Z1/` (no append to osler_v4 outputs). That copy is a code change: ruff and the suite run before its
