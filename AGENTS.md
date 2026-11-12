@@ -17,16 +17,18 @@
 
 ## Current loop
 
-- **Loop:** `osler_v6` (distillation with a dosing fix: pplx-decider-v1.2-27b teacher, D57 dosing, D58 anchors; Gate O6)
-- **Mission:** distil the 27B's soft labels on general anchor items into the Osler-4B under the pre-registered design in
-  `loops/osler_v6/ADVISORY.md` §2; choose by the dev rule; final at 63,304 steps only if a recipe qualifies; Gate O6 verdict.
-- **Branch:** `loop/osler_v6` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v6/` (GOAL.md, ADVISORY.md, STATE.md, KICKOFF.md, CLAIMS.md, FINDINGS.md)
-- **Run state:** `loops/osler_v6/STATE.md`
-- **Outputs:** `outputs/osler_v6/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v6/CLAIMS.md`
-- **Style:** autonomous
-- **Started:** `2026-11-07T17:40Z`
+- **Loop:** `osler_v7` (data-engineered recipe for the Pareto frontier: format-matched training cells, KL-to-base, scale
+  interpolation; 4B on pplx-decider-flash-v1.2, 9B on d3-flash)
+- **Mission:** the pre-registered plan in `loops/osler_v7/ADVISORY.md`. Measure each lever on non-panel dev first, then train
+  one arm per base, then gate each model against its own zero-shot base. Report the frontier only with a fresh confirmation set.
+- **Branch:** `loop/osler_v7` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_v7/` (GOAL.md, ADVISORY.md, STATE.md, KICKOFF.md, CLAIMS.md, FINDINGS.md)
+- **Run state:** `loops/osler_v7/STATE.md`
+- **Outputs:** `outputs/osler_v7/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_v7/CLAIMS.md`
+- **Style:** autonomous, with GPU steps gated by the operator (see STATE.md §2)
+- **Status:** `PLANNED — not started`. Tasks with no GPU use may start after the operator's GO; GPU steps need the operator's
+  explicit approval.
 
 ---
 
