@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from meddecide.eval.composite import positional_health, template_macro_accuracy  # noqa: E402
+from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 from meddecide.utils.provenance import git_commit, utcnow  # noqa: E402
 
 OUT = ROOT / "outputs" / "osler_v7" / "T4"
@@ -116,8 +117,13 @@ def main() -> None:
 
     dev_path = ROOT / grid["dev"]["path"]
     dev_rows = read_jsonl(dev_path)
-    dev_ids = {str(row["item_id"]) for row in dev_rows}
-    meta = {str(row["item_id"]): {"dev_origin": str(row["dev_origin"])} for row in dev_rows}
+    # the scoring path writes the recomputed item id, not the dev file's own id
+    dev_ids = set()
+    meta = {}
+    for row in dev_rows:
+        item_id = mix_row_to_item(row).item_id
+        dev_ids.add(item_id)
+        meta[item_id] = {"dev_origin": str(row["dev_origin"])}
     check("dev.sha256", dev_manifest["sha256"], sha256_file(dev_path))
     check("dev.items", grid["dev"]["items"], len(dev_rows))
     expected_cells = [(lora, readout) for lora in LORA_SCALES for readout in READOUT_SCALES]
@@ -130,7 +136,9 @@ def main() -> None:
         path = args.out_dir / "predictions" / f"{label}.jsonl"
         rows = read_jsonl(path)
         check(f"cell{index}.rows", cell["overall"]["items"], len(rows))
-        check(f"cell{index}.ids", dev_ids, {str(row["item_id"]) for row in rows})
+        predicted_ids = {str(row["item_id"]) for row in rows}
+        check(f"cell{index}.ids_equal", True, predicted_ids == dev_ids)
+        check(f"cell{index}.ids_count", len(dev_ids), len(predicted_ids))
         check(f"cell{index}.correct_flags", 0,
               sum(1 for row in rows if bool(row["correct"]) != (int(row["predicted_index"]) == int(row["gold_index"]))))
         recomputed = recompute(rows, meta)
