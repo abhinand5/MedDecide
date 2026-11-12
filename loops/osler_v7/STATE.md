@@ -85,6 +85,9 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
   untruncated. Finding: `d3_batch.prepare_request`/`score_batch` target a runtime with a `states` block and a
   three-argument `probabilities`; d3-flash exposes neither, so the 9B path must use `D3Student` (as `d3_train`
   does). SELF_AUDIT PASS (24 checks); CLAIMS C008–C013.
+- 2026-11-12T13:39Z — T3 code-gate arithmetic correction: 1,185 tests collected; 2 deselected and 4 CUDA
+  skipped leave 1,179 passed of 1,183 run. (The T3 commit message's '1,179 run' was the passed count, not the
+  run count; the exit code was 0 either way.)
 
 ## 5. Questions for the operator
 - **T2 confirmation source (§0.3):** T2's approval row requires the confirmation-set source decision, which is
