@@ -16,8 +16,9 @@ a strong key/position bias in the original order (BJ 128 of 499 two-letter-gold 
 the step-63,304 evaluation must pass or the final is BLOCKED. Eighth evaluation (50,643, C047): S 0.841495 (new high),
 positional **PASS** again — the check has alternated (fails at 18,991 / 37,982 / 44,313, passes at the other five). Last poll
 2026-11-11T16:15Z: step 50,759 (~80%). Ninth evaluation (56,974, C048): S 0.845382 (new high), positional **PASS** — the last
-two evaluations pass. Last poll 2026-11-11T22:05Z: step 57,048 (~90%), ~3.2 s/step; the final evaluation at 63,304 is due
-about 04:00Z on Nov 12, the A1 decision follows, then post-processing (~1 h).
+two evaluations pass. **Final evaluation (63,304) is in and A1 PASSES**: S 0.844190, positional health in all three orders (original two-letter
+0.448898 against the 0.428144 threshold), C049 — the checkpoint is eligible. The driver is in post-processing (calibration
+and final scores); when it exits, run `z6_select.py` (it will choose step 63,304 and write `chosen_step_063304`), then Z7.
 
 ## 1. Task board
 
@@ -382,6 +383,12 @@ number already measured.
   knowledge 0.767250, positional **PASS** in all three orders. Two evaluations pass in a row now; the trajectory's S is at its
   highest and comfortably above the arms' final 0.8259. The A1 decision rests on the last evaluation, at step 63,304
   (~04:00Z on Nov 12): a positional pass selects `chosen_step_063304`; a failure BLOCKS the final with no substitution.
+
+- 2026-11-12T03:56Z — **Z6's final evaluation (step 63,304) passes the A1 gate.** S 0.844190 (MR 0.964278, MIMIC 0.785818,
+  CG 0.782473), knowledge dev 0.763500; the original-order positional check passes at 0.448898 two-letter against 0.5 × 0.856287
+  = 0.428144 (both permutations pass). The final checkpoint is eligible; the driver is running the post-training calibration
+  and final scores. Next: `z6_select.py` (A1: choose step 63,304, calibrate on dev fast dev v4, write `chosen_step_063304`),
+  then Z7's Gate O6 scoring and verdict.
 
 ## 6. Deviations from the plan
 
