@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T1 DONE 2026-11-12; T2 waits on the §0.3 confirmation-source decision; T3 approved (CPU) and next; GPU tasks still need their own approval
+Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 confirmation-source decision; T4+ wait on GPU approval
 
 ## 1. Task board
 
@@ -9,7 +9,7 @@ Loop status: IN PROGRESS — T1 DONE 2026-11-12; T2 waits on the §0.3 confirmat
 | T0 | Setup: merge to dev (osler_v4–v6 fast-forward; d3_distill merge; lint fix), branch `loop/osler_v7`, AGENTS Current loop, this plan | — | operator instruction 2026-11-12 | DONE 2026-11-12 (dev at 64de99a; gate ruff clean, pytest exit 0 with data linked) |
 | T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (6 of 7 panel sources lose, macro −0.024486 repeats Gate O6; yes and last-position bias measured; audit PASS, C001–C007) |
 | T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | PENDING |
-| T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | PENDING |
+| T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (parity PASS, 9 rows exact 0.0; 3 longest MIMIC forwards NOT MEASURED over the CPU timebox; d3_batch scoring helper not portable to this runtime; audit PASS, C008–C013) |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | PENDING |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | PENDING |
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | PENDING |
@@ -51,6 +51,18 @@ Loop status: IN PROGRESS — T1 DONE 2026-11-12; T2 waits on the §0.3 confirmat
 - [x] CLAIMS rows; note in §4 that T1 is diagnostic only and feeds no v7 selection or gate.
 - [x] `uv run ruff check .` and `uv run pytest` (code added: `scripts/osler_v7/t1_diagnose.py`, `scripts/osler_v7/t1_audit.py` + unit tests); commit and push.
 
+## 3c. Checklist — T3 (done)
+- [x] Acquire the pinned d3-flash snapshot (`vllm-sr/d3-flash@67e03e1b…`, 16.8 GB) into `$HF_HOME`; record the path,
+      manifest/config hash, readout shape and context length. If the runtime cannot run on CPU, record the exact
+      failure and mark the model-dependent parity NOT MEASURED rather than substituting a number.
+- [x] Port check, CPU where possible: `score` items (2–10 ordered levels), long MIMIC notes (longest mix states),
+      and the 255-row readout at the last prompt position; harness (`D3Student.forward_logits`) vs the runtime's own
+      `D3.probabilities` on the same prepared rows, 1e-4 bar as d3_distill step 2.
+- [x] Structural checks that need no model forward: `render_order`/`render_targets` and `align_probabilities` for
+      score; mask/left-padding last-position selection; option counts above and below 255; length vs context window.
+- [x] Aggregate-only output in `outputs/osler_v7/T3/` + logs; SELF_AUDIT.md; CLAIMS rows; no item text committed.
+- [x] `uv run ruff check .` and `uv run pytest`; commit and push.
+
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
@@ -64,6 +76,15 @@ Loop status: IN PROGRESS — T1 DONE 2026-11-12; T2 waits on the §0.3 confirmat
   selection or gate input reads T1 (ADVISORY §7 selects on the format-matched dev set).
   SELF_AUDIT PASS (96 checks, 0 problems); CLAIMS C001–C007. Item-mean Brier on the panel also matches Gate O6
   (−0.033914): five sources better, medical_question_pairs and symptom_to_diagnosis worse.
+- 2026-11-12T13:36Z — **T3 DONE.** Pinned d3-flash (`67e03e1b…`, 8.39B loaded) fetched and manifest-verified; the
+  runtime answers CPU with torch-reference kernels (no fla/causal-conv1d). Structural checks pass on 12 rows
+  (score/noul/choice order, gold mapping, criteria, ≤255 options). Parity on CPU: 9 rows (score, noul, choice,
+  long MIMIC) are **bit-identical** to the runtime's own probabilities (max diff 0.0, argmax 9/9; 1e-4 gate PASS);
+  readout [255, 4096] at the last prompt position. Three longest MIMIC forwards (6,176–6,182 tokens) are NOT
+  MEASURED over the 6,000-token CPU timebox — reported, not substituted; tokenisation/prepare accepted them
+  untruncated. Finding: `d3_batch.prepare_request`/`score_batch` target a runtime with a `states` block and a
+  three-argument `probabilities`; d3-flash exposes neither, so the 9B path must use `D3Student` (as `d3_train`
+  does). SELF_AUDIT PASS (24 checks); CLAIMS C008–C013.
 
 ## 5. Questions for the operator
 - **T2 confirmation source (§0.3):** T2's approval row requires the confirmation-set source decision, which is
