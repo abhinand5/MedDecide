@@ -399,6 +399,9 @@ number already measured.
   and final scores. Next: `z6_select.py` (A1: choose step 63,304, calibrate on dev fast dev v4, write `chosen_step_063304`),
   then Z7's Gate O6 scoring and verdict.
 
+- 2026-11-12T06:26Z — Final code gate after the Z7 scripts: ruff clean; suite 1144 passed, 4 skipped, 2 deselected, exit 0
+  (186 s; `outputs/osler_v6/Z7/logs/pytest_final.log`, C057). The working tree is clean and the branch is pushed.
+
 ## 6. Deviations from the plan
 
 - **Environment pin (torchvision).** The osler_v4 Y5 command's `--with "torchvision==0.29.*"` now resolves 0.29.2, which pulls
