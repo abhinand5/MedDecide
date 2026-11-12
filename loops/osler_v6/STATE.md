@@ -1,9 +1,9 @@
 # STATE — osler_v6
 
-Loop status: `RUNNING`
-Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-12T05:40Z` (Z0-Z6 DONE; Z7 IN_PROGRESS).
-Task in flight: Z7 — Gate O6 scoring on `chosen_step_063304` running (uv PID `1429221`, python PID `1429230`, log
-`outputs/osler_v6/Z7/logs/score.log`); then the gate verdict, FINDINGS.md and the closure.
+Loop status: `STOPPED`
+Branch: `loop/osler_v6`. Last updated (UTC): `2026-11-12T06:20Z`. All tasks DONE; the loop is closed.
+Final outcome: **Gate O6 FAIL** (the external-panel check); the final at 63,304 steps passes MR, MIMIC and knowledge against
+zero-shot pplx-flash. See `loops/osler_v6/FINDINGS.md`.
 
 ## 1. Task board
 
@@ -16,7 +16,7 @@ Task in flight: Z7 — Gate O6 scoring on `chosen_step_063304` running (uv PID `
 | Z4 | Arm G1 seed 1, only if G1 seed 0 passes positional health | Z3 | DONE 2026-11-09T10:52Z — 13,992 steps, band 0.365937 PASS, final S 0.826311 / knowledge 0.7708 / positional PASS; audit PASS |
 | Z5 | Choice rule (ADVISORY §2.6), dev only. None qualifies → outcome (4): report and stop | Z3, Z4 | DONE 2026-11-09T10:52Z — chosen G1s0 (knowledge lower +0.006244, MR −0.0207, MIMIC −0.0104, CG 0.7945, positional PASS); seed-1 stability reported |
 | Z6 | Final at 63,304 steps, positional health at each evaluation, checkpoint by S (only if Z5 chose a recipe) | Z5 | DONE 2026-11-12T05:12Z — 63,304 steps; final eval S 0.844190, positional PASS; **A1** chose step 63,304 (`chosen_step_063304`, calibrated on dev) |
-| Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | IN_PROGRESS 2026-11-12T05:40Z |
+| Z7 | Gate O6 verdict, audit, FINDINGS.md, five-claim spot-check, closure | Z6 or Z5 | DONE 2026-11-12T06:20Z — Gate O6 **FAIL** (panel −0.024486 [−0.038358, −0.011460]; MR/MIMIC/knowledge PASS); audit + spot-check PASS; FINDINGS.md written |
 
 ## 2. Operator decisions
 
@@ -127,13 +127,24 @@ number already measured.
 - [x] **A1**: the final checkpoint is step 63,304 only; its positional health passes in all three orders (C049), so `z6_select.py` calibrated it on dev fast dev v4 and wrote `chosen_step_063304`; all ten evaluations are in `selection.json` as the trajectory (C050). No best-S selection was made.
 - [x] Run completion recorded (C051); the crash and OOM resume are C040.
 
-## 4g. Checklist — Z7 (in progress)
+## 4g. Checklist — Z7 (done)
 
-- [ ] Score `chosen_step_063304` on the four Gate O6 sets with set hashes verified (GPU; `z7_score.py`).
-- [ ] Run the Gate O6 verdict (`z7_gate.py`, osler_v4's y9_gate unchanged): four checks against zero-shot pplx-flash with the O4 limits; additional knowledge rows vs MedDecider-4B/9B.
-- [ ] Readout gate (D12) per set; every claim; `SELF_AUDIT.md`; five-claim spot-check; `FINDINGS.md` (Summary first); STATE `Loop status: STOPPED`; commit and push.
+- [x] Score `chosen_step_063304` on the four Gate O6 sets with set hashes verified (GPU; `z7_score.py`; 13,103 + 4,253 + 4,353 + 5,456 items).
+- [x] Gate O6 verdict (`z7_gate.py`, osler_v4's y9_gate unchanged): i MR PASS, ii MIMIC PASS, **iii panel FAIL**, iv knowledge PASS → **FAIL**; additional knowledge rows vs MedDecider-4B/9B (C052–C054).
+- [x] Readout gate (D12) per set: no failures; `SELF_AUDIT.md` (audit PASS); five-claim spot-check (PASS); `FINDINGS.md` (Summary first); STATE `Loop status: STOPPED`; commit and push (C055).
 
 ## 5. Log
+
+- 2026-11-12T06:20Z — **Z7 DONE; loop closed.** The calibrated A1 checkpoint (`chosen_step_063304`) was scored on the four
+  frozen Gate O6 sets and judged with osler_v4's gate code unchanged: **FAIL**, on the external panel only
+  (−0.024486 [−0.038358, −0.011460], limit −0.02). MR PASS (+0.148622 [0.133258, 0.163411], Brier −0.232221), MIMIC PASS
+  (+0.136241 [0.121585, 0.149646], Brier −0.161882), knowledge PASS (−0.001270 [−0.011213, 0.008543]; additional vs
+  MedDecider-4B +0.011469 [−0.000075, 0.023782], vs MedDecider-9B −0.018113 [−0.031772, −0.003857]). No readout failures; the
+  knowledge set has 21 unpaired items (0.38 %). The self-audit re-derived the gate in a fresh process (identical), reproduced
+  Gate O4 exactly with the same wrapper, verified every set hash and every prediction's probability health, and the
+  five-claim spot-check passed (C052–C056). `FINDINGS.md` carries the summary, the gate, the trajectory, the dose, the
+  defects, the spot-check, provenance and what is not measured. Against osler_v4's final: panel +1.77, knowledge +0.54, MR
+  +0.99, MIMIC −2.92. The loop stops here; no other loop is started.
 
 - 2026-11-12T05:40Z — **Z6 DONE.** The final ran 63,304 steps (started 2026-11-09T10:50Z, crashed at step 22,317, resumed from
   20,000, finished 04:25Z on Nov 12; ~65.5 h wall including the outage) and its ten evaluations are all in the record: S rose to
