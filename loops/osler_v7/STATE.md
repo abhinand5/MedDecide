@@ -118,6 +118,10 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-12T21:05Z — T6 driver dry-run on a synthetic 25-row mix (20 v6 + 5 C1 rows) passed: the dev file partitions
+  into 14,597 fast / 7,508 CG / 829 knowledge items with 1,000 positional items, and conversion/composition work
+  before the model. The smoke files were removed. T5 labelling continues (3,072/69,967 at 5.25 items/s,
+  ETA ~3.4 h).
 - 2026-11-12T21:00Z — T5 labelling is running on the GPU (reference_batched path, 512 prompts in 95.3 s =
   5.375 items/s, 4,520 input tokens/s; ETA ~3.6 h for the 69,967 prompts). T6 code prepared while it runs: the
   trainer/config gain `kl_include_template_prefixes`, so the KL-to-base penalty applies only to the v7_c* pool;
