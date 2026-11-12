@@ -22,7 +22,15 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
 
 ## 2. Operator decisions and approvals
 - **Loop GO:** GIVEN — 2026-11-12 (operator). Unlocks T1–T3 (CPU only).
-- **GPU approvals:** NOT GIVEN. Needed before T4, T5, T6, T8, T10, T11.
+- **GPU approvals:** GIVEN — 2026-11-12 (operator, blanket): T4, T5, T6, T8, T10, T11 and the inference steps may run, one GPU
+  job at a time, detached, logs under `outputs/osler_v7/<task>/logs/`. Hard rules still apply: no panel or MIMIC held-out
+  items in training, selection or calibration; no MIMIC text to hosted services; no raw data, keys or checkpoints committed;
+  no pod or volume stop/delete.
+- **ADVISORY §0 decisions (operator, 2026-11-12, "feel free"):** §0.1 gate margins: accepted as proposed (non-inferiority
+  −0.01, audit floor 0, knowledge −0.02). §0.2 KL weight: 0.1 (0.5 only under the kill rule). §0.3 confirmation set: accepted as
+  proposed (post-2026-03-01 records, structured gold, built and manifested before any arm trains; operator reviews the
+  manifest before first use). §0.4 `peft`: declare it in `pyproject.toml` (updates `uv.lock`). §0.5 teacher: pplx-27B, local.
+  ADVISORY.md itself is unchanged; these values govern here.
 - **Open decisions (ADVISORY §0):** 1 gate limits; 2 KL weight; 3 confirmation-set source; 4 declared `peft` dependency; 5 teacher
   (proposed: pplx-27B; confirm).
 - **Bases (settled by the operator in chat, 2026-11-12):** 4B = pplx-decider-flash-v1.2; 9B = d3-flash.
@@ -66,6 +74,8 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
+- 2026-11-12 — operator gave blanket GPU approval and accepted the ADVISORY §0 proposals (§2). T2 is unblocked; T4 onward
+  may start in order when their dependencies are DONE.
 - 2026-11-12T12:52Z — **T1 DONE.** Composition and prior shift measured on CPU. Composition: the mix and anchors
   differ from the panel sharply in question type (TVD 0.332 / 0.234), option count (TVD 0.705 / 0.633; the panel's
   10- and 22-option items are rare in training) and text length (+4,177 / +2,050 mean state chars), with 0 shared
