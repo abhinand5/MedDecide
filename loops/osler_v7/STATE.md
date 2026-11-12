@@ -99,6 +99,10 @@ Loop status: IN PROGRESS — T4 started 2026-11-12T16:58Z (GPU grid on the v6 fi
 - [ ] `uv run ruff check .` and `uv run pytest`; commit and push.
 
 ## 4. Log
+- 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
+  `outputs/osler_v7/T4/logs/t4_grid.log`). Three earlier attempts were stopped before a cell completed while batching was
+  tuned (length-sorted dev order; logs `t4_grid_attempt1..3.log`); no partial results are used. T4 finishes when `grid.json`
+  exists and `scripts/osler_v7/t4_audit.py` passes.
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
 - 2026-11-12 — operator gave blanket GPU approval and accepted the ADVISORY §0 proposals (§2). T2 is unblocked; T4 onward
