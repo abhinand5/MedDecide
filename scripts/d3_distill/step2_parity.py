@@ -30,7 +30,12 @@ from transformers import AutoModel
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from meddecide.distill.d3_train import D3Student, TrainRow, batch_tensors, masked_logits  # noqa: E402
+from meddecide.distill.d3_train import (  # noqa: E402
+    D3Student,
+    TrainRow,
+    batch_tensors,
+    masked_logits,
+)
 
 POOL = REPO / "data" / "train" / "d3_distill" / "pool_200k.jsonl"
 PARITY_N = 40

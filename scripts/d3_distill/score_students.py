@@ -31,7 +31,12 @@ from transformers import AutoModel
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "src"))
 
-from meddecide.distill.d3_train import D3Student, TrainRow, render_order, render_targets  # noqa: E402
+from meddecide.distill.d3_train import (  # noqa: E402
+    D3Student,
+    TrainRow,
+    render_order,
+    render_targets,
+)
 from meddecide.eval.gate_o4 import readout_failures  # noqa: E402
 from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 
