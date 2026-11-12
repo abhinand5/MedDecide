@@ -7,9 +7,9 @@ Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in �
 | id | task | depends | approval | status |
 |---|---|---|---|---|
 | T0 | Setup: merge to dev (osler_v4–v6 fast-forward; d3_distill merge; lint fix), branch `loop/osler_v7`, AGENTS Current loop, this plan | — | operator instruction 2026-11-12 | DONE 2026-11-12 (dev at 64de99a; gate ruff clean, pytest exit 0 with data linked) |
-| T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO | PENDING |
-| T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO + confirmation-source decision (§0.3) | PENDING |
-| T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO | PENDING |
+| T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | PENDING |
+| T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | PENDING |
+| T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | PENDING |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | PENDING |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | PENDING |
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | PENDING |
@@ -21,7 +21,7 @@ Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in �
 | T12 | FINDINGS.md, SELF_AUDIT, five-claim spot-check, closure | all | — | PENDING |
 
 ## 2. Operator decisions and approvals
-- **Loop GO:** NOT GIVEN. Needed before T1–T3 start.
+- **Loop GO:** GIVEN — 2026-11-12 (operator). Unlocks T1–T3 (CPU only).
 - **GPU approvals:** NOT GIVEN. Needed before T4, T5, T6, T8, T10, T11.
 - **Open decisions (ADVISORY §0):** 1 gate limits; 2 KL weight; 3 confirmation-set source; 4 declared `peft` dependency; 5 teacher
   (proposed: pplx-27B; confirm).
@@ -39,6 +39,7 @@ Loop status: NOT STARTED (planned 2026-11-12; waiting for the operator's GO in �
 
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
+- 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
 
 ## 5. Cleanup (not done; needs the operator's decision)
 - Local-only branches with work not on GitHub: `bench/d1-2b`, `bench/d3-ultra`, `loop/knowledge_v1`, `loop/synth_v1`,
