@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 confirmation-source decision; T4+ wait on GPU approval
+Loop status: IN PROGRESS — T2 DONE 2026-11-12; T4 and T5 are next (GPU approved); T1 and T3 DONE
 
 ## 1. Task board
 
@@ -8,7 +8,7 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
 |---|---|---|---|---|
 | T0 | Setup: merge to dev (osler_v4–v6 fast-forward; d3_distill merge; lint fix), branch `loop/osler_v7`, AGENTS Current loop, this plan | — | operator instruction 2026-11-12 | DONE 2026-11-12 (dev at 64de99a; gate ruff clean, pytest exit 0 with data linked) |
 | T1 | Composition and prior-shift checks: osler_v6 mix and 385,536 anchors vs the panel's item shapes (CPU); predicted-yes and option-position bias on losing sources | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (6 of 7 panel sources lose, macro −0.024486 repeats Gate O6; yes and last-position bias measured; audit PASS, C001–C007) |
-| T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | PENDING |
+| T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | DONE 2026-11-12 (dev 22,934 rows / 7 shapes; confirmation 5,988 fresh general + 13,103+4,253 audit + 5,456 knowledge; all hashes, 0 training overlap; audit PASS 39 checks; peft declared; C014–C019) |
 | T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (parity PASS, 9 rows exact 0.0; 3 longest MIMIC forwards NOT MEASURED over the CPU timebox; d3_batch scoring helper not portable to this runtime; audit PASS, C008–C013) |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | PENDING |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | PENDING |
@@ -71,6 +71,23 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
 - [x] Aggregate-only output in `outputs/osler_v7/T3/` + logs; SELF_AUDIT.md; CLAIMS rows; no item text committed.
 - [x] `uv run ruff check .` and `uv run pytest`; commit and push.
 
+## 3d. Checklist — T2 (done)
+- [x] Format-matched dev set (§6): compose from the frozen dev assets (fastdev_v4, cg_v2, knowledge_dev_v2), dedupe,
+      exclude the code-generated / teacher-prose templates, record per-shape coverage (many-option 10–50, two-option
+      pairs, code items, 4- and 10-option MCQ, MR verdict family, MIMIC audit templates), and verify 0 item-id and
+      0 normalised-text overlap with the v6 mix and anchors; record the MIMIC patient-split provenance.
+- [x] Fresh tier-2 general component (§8): build a new post-window set (2026-10-06…2026-11-12) from ClinicalTrials,
+      openFDA and PubMed with structured gold by construction; keep the test split only; record counts, SHA, the
+      strict-slice share (≥2026-09-10) and 0 training overlap. Fallback if the build fails: the frozen v0.2 fresh
+      strict slice, recorded as a deviation.
+- [x] Confirmation audit and knowledge components: reference the frozen Y9 mr_verdict, mimic_suite and knowledge
+      files by path + SHA-256 + counts; document that MIMIC/knowledge have no post-window records and are test
+      splits never used for training or selection; the operator reviews the manifest before first use.
+- [x] Manifests (`dev_manifest.json`, `confirmation_manifest.json`, `provenance.json`) with SHA-256 and counts;
+      SELF_AUDIT.md; CLAIMS rows; no raw items committed.
+- [x] Declare `peft` in `pyproject.toml` (§0.4) and update `uv.lock`; `uv run ruff check .` and `uv run pytest`;
+      commit and push.
+
 ## 4. Log
 - 2026-11-12 — the plan written from the advisor review. No run started. Lever diagnostics and arms wait for approvals.
 - 2026-11-12 — operator recorded Loop GO (§2). T1–T3 are approved; GPU tasks still wait for their own approval lines.
@@ -95,6 +112,17 @@ Loop status: IN PROGRESS — T1 and T3 DONE 2026-11-12; T2 waits on the §0.3 co
   untruncated. Finding: `d3_batch.prepare_request`/`score_batch` target a runtime with a `states` block and a
   three-argument `probabilities`; d3-flash exposes neither, so the 9B path must use `D3Student` (as `d3_train`
   does). SELF_AUDIT PASS (24 checks); CLAIMS C008–C013.
+- 2026-11-12T16:55Z — **T2 DONE.** Frozen the format-matched dev set and the confirmation set, with manifests.
+  Dev: 22,934 rows, sha `3d6dc6f8…`, seven required shapes present (many-option 1,916; pairs 3,869; code
+  1,698; 4-option MCQ 9,940; 10-option 73; MR family 1,597; MIMIC templates 5,562); 0 overlap with the v6
+  mix/anchors. Confirmation: new fresh tier-2 general build from records 2026-10-06…2026-11-12 (CT 5,660 /
+  openFDA 2,340 / PubMed 8,254 before filtering), test split capped at 1,000/template and decontaminated
+  (530 rows/432 records whose text recurs in training), 5,988 rows, sha `bf6614a6…`, strict slice 100 %;
+  audit Y9 `mr_verdict` 13,103 + `mimic_suite` 4,253 and knowledge 5,456 referenced with SHAs, all test,
+  0 training overlap. The fresh build's only failed check (one openFDA record across dev/test) was handled by
+  excluding the record, not by editing the check; the manifest records the §8 date-rule deviation for the
+  audit/knowledge components and flags operator review before first use. SELF_AUDIT PASS (39 checks);
+  CLAIMS C014–C019. `peft>=0.21` declared; `uv.lock` updated (0.21.2).
 - 2026-11-12T13:39Z — T3 code-gate arithmetic correction: 1,185 tests collected; 2 deselected and 4 CUDA
   skipped leave 1,179 passed of 1,183 run. (The T3 commit message's '1,179 run' was the passed count, not the
   run count; the exit code was 0 either way.)
