@@ -126,6 +126,11 @@ Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training sta
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T03:05Z — T6 operational note: the arm reached step 2,525 with the CUDA allocator grown to 95.7 of 97.9 GB
+  (OOM risk). It was stopped at the step-2,500 full checkpoint and resumed with
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` (the v6 C040 precedent; an allocator setting, not a design
+  change). After the resume GPU memory was 57.3 GB and training continued from step 2,500. The first-200-step
+  dose rows are preserved; the resumed run is the statistical replica v6 accepted on the same setting.
 - 2026-11-13T00:47Z — **T5 DONE.** The 27B labelled the whole 69,967-prompt pool: 3.72 h, 5.22 items/s,
   4,602 input tokens/s, 0 errors; join max probability-sum error 1.11e-16, 8 constant rows; SELF_AUDIT PASS
   (14 checks); CLAIMS C023–C027. The v7 mix is built: 1,526,405 rows (v6 1,456,438 + C1–C4 69,967), 438,188
