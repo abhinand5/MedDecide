@@ -33,11 +33,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from meddecide.eval.composite import composite  # noqa: E402
-from meddecide.model.blend import Blend  # noqa: E402
+from meddecide.model.blend import Blend, export_blend  # noqa: E402
 from meddecide.model.pplx import PplxDecisionModel  # noqa: E402
 from meddecide.train.blocks import macro_difference, pair_by_item  # noqa: E402
+from meddecide.train.config import load_config  # noqa: E402
 from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 from meddecide.train.osler_arm import dev_prediction_rows  # noqa: E402
+from meddecide.train.trainer import Trainer  # noqa: E402
 from meddecide.utils.io import write_json  # noqa: E402
 from meddecide.utils.provenance import git_commit, utcnow  # noqa: E402
 
@@ -103,6 +105,8 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--max-batch-tokens", type=int, default=32768)
     parser.add_argument("--resume", action="store_true", help="reuse the per-scale prediction files already written")
+    parser.add_argument("--config", type=Path, default=ROOT / "configs" / "osler_v7" / "arm_4b.yaml")
+    parser.add_argument("--no-export", action="store_true", help="skip calibration and the export of the chosen blend")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "logs").mkdir(exist_ok=True)
@@ -171,8 +175,22 @@ def main() -> None:
                 "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"},
         "wall_seconds": round(time.time() - started, 1),
     }
+    chosen = result["choice"].get("chosen_scale")
+    if chosen is not None and not args.no_export:
+        # Calibrate the chosen blend on the fast-dev partition only (never on test/confirmation), then bake the scale
+        # into the weights and export a standard checkpoint for the gate (osler_v5's Blend/export_blend semantics).
+        apply_blend(model, blend, float(chosen))
+        fast_rows = [row for row in dev_rows if str(row.get("dev_origin")) == "fastdev_v4"]
+        config = load_config(args.config)
+        fits = Trainer(model, config).fit_calibration([mix_row_to_item(row) for row in fast_rows])
+        result["calibration"] = {"items": len(fast_rows),
+                                 "fits": {key: fit.to_dict() for key, fit in fits.items()}}
+        export_blend(blend, float(chosen))
+        model.save(args.out / "chosen")
+        result["chosen_checkpoint"] = str((args.out / "chosen").relative_to(ROOT))
+        result["chosen_model_meta"] = {"temperature_per_qtype": config.temperature_per_qtype}
     write_json(args.out / "selection.json", result)
-    print(json.dumps({"choice": result["choice"]}, indent=1), flush=True)
+    print(json.dumps({"choice": result["choice"], "calibration": result.get("calibration")}, indent=1), flush=True)
 
 
 if __name__ == "__main__":
