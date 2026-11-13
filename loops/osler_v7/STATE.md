@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in progress (pool built; 27B parity + labelling next); T1–T3 DONE
+Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training started 2026-11-13T00:45Z (13,992 steps, ~12 h)
 
 ## 1. Task board
 
@@ -11,8 +11,8 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
 | T2 | Build the confirmation set (ADVISORY §8) and the format-matched dev set (§6); manifests with SHA-256 and counts | T1 | GO (given) + confirmation-source decision (§0.3) | DONE 2026-11-12 (dev 22,934 rows / 7 shapes; confirmation 5,988 fresh general + 13,103+4,253 audit + 5,456 knowledge; all hashes, 0 training overlap; audit PASS 39 checks; peft declared; C014–C019) |
 | T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (parity PASS, 9 rows exact 0.0; 3 longest MIMIC forwards NOT MEASURED over the CPU timebox; d3_batch scoring helper not portable to this runtime; audit PASS, C008–C013) |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | DONE 2026-11-12 (9 cells, 9,404.4 s; base readout + trained LoRA does not recover two-letter 0.519 vs 0.651; 0.75-scale cells best macro ~0.8086; audit PASS 139 checks; C020–C022) |
-| T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | IN_PROGRESS 2026-11-12T20:43Z (C1–C4 pool built: 69,967 rows; parity + labelling next) |
-| T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | PENDING |
+| T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | DONE 2026-11-13 (pool 69,967; parity 40/40; 69,967 scored at 5.22 items/s / 4,602 tok/s; join max sum error 1.1e-16, 8 constant; audit PASS 14 checks; C023–C027) |
+| T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | IN_PROGRESS 2026-11-13T00:45Z (mix 1,526,405 rows, sha `b8b97031…`; training detached) |
 | T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | PENDING |
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | PENDING |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | PENDING |
@@ -98,16 +98,24 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
 - [x] Aggregate-only results committed (`grid.json`); per-item predictions stay gitignored; SELF_AUDIT.md; CLAIMS.
 - [x] `uv run ruff check .` and `uv run pytest`; commit and push.
 
-## 3f. Checklist — T5 (in progress)
+## 3f. Checklist — T5 (done)
 - [x] Build C1–C4 cells from the structured sources and merge the pool: C1 20,000, C2 10,000, C3 20,000,
       C4 20,000; merged 69,967 rows; 0 text overlap with the T2 dev/confirmation sets (CLAIMS pending).
-- [ ] Teacher parity: 40 CG v2 dev items through the 27B's single-request reference, batched reference and fast
+- [x] Teacher parity: 40 CG v2 dev items through the 27B's single-request reference, batched reference and fast
       path; choose the path by the Y5 rule (argmax agreement 40/40); record it.
-- [ ] Label the 69,967-prompt pool with pplx-27B (detached, resumable, logs under `outputs/osler_v7/T5/logs/`);
+- [x] Label the 69,967-prompt pool with pplx-27B (detached, resumable, logs under `outputs/osler_v7/T5/logs/`);
       measure items/s and input tokens/s; check the output completeness rather than the exit code alone.
-- [ ] Join the labels (probability length/sum checks, invalid and constant counts), write the labelled file and
+- [x] Join the labels (probability length/sum checks, invalid and constant counts), write the labelled file and
       its manifest; SELF_AUDIT.md; CLAIMS rows.
-- [ ] `uv run ruff check .` and `uv run pytest`; commit and push.
+- [x] `uv run ruff check .` and `uv run pytest`; commit and push.
+
+## 3g. Checklist — T6 (in progress)
+- [x] v7 mix built (1,526,405 rows; C1–C4 69,967; labelled 438,188) and dry-run through the arm driver.
+- [x] Arm config (`kl_to_base` 0.1 on the v7_c pool, v6-frozen distill weight 3.243598 with the 3-labelled quota,
+      per-item weighting, no double augmentation).
+- [ ] Run 13,992 steps detached, one GPU job; check completeness of the log, evaluations and checkpoints, not the
+      exit code alone; record the first-200-step distillation share.
+- [ ] SELF_AUDIT (R6), CLAIMS rows; commit and push.
 
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
@@ -118,6 +126,13 @@ Loop status: IN PROGRESS — T4 DONE 2026-11-12 (9-cell grid, audit PASS); T5 in
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T00:47Z — **T5 DONE.** The 27B labelled the whole 69,967-prompt pool: 3.72 h, 5.22 items/s,
+  4,602 input tokens/s, 0 errors; join max probability-sum error 1.11e-16, 8 constant rows; SELF_AUDIT PASS
+  (14 checks); CLAIMS C023–C027. The v7 mix is built: 1,526,405 rows (v6 1,456,438 + C1–C4 69,967), 438,188
+  labelled (28.7 %), sha `b8b97031…`; the v6 mix itself carries 22,108 duplicate rows / 5,232 ids, a pre-existing
+  property recorded and kept as trained (C028). Family shares: C0 95.4 %, C1 1.31 %, C2 0.66 %, C3 1.31 %,
+  C4 1.31 % — reported against the 25 % cap, not reweighted. The 4B arm started (13,992 steps, detached,
+  log `outputs/osler_v7/T6/logs/arm.log`).
 - 2026-11-12T21:05Z — T6 driver dry-run on a synthetic 25-row mix (20 v6 + 5 C1 rows) passed: the dev file partitions
   into 14,597 fast / 7,508 CG / 829 knowledge items with 1,000 positional items, and conversion/composition work
   before the model. The smoke files were removed. T5 labelling continues (3,072/69,967 at 5.25 items/s,

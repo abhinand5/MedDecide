@@ -81,13 +81,17 @@ def main() -> None:
     cell_rows: Counter[str] = Counter()
     labelled_rows = 0
     seen_ids: set[str] = set()
+    v6_duplicate_rows = 0
+    v6_duplicate_ids: set[str] = set()
     with args.out.open("w", encoding="utf-8") as out:
         with V6_MIX.open(encoding="utf-8") as handle:
             for line in handle:
                 row = json.loads(line)
                 item_id = str(row["item_id"])
                 if item_id in seen_ids:
-                    raise SystemExit(f"duplicate item id in the v6 mix: {item_id}")
+                    # a pre-existing property of the v6 mix (kept as trained); counted, never silently fixed here
+                    v6_duplicate_rows += 1
+                    v6_duplicate_ids.add(item_id)
                 seen_ids.add(item_id)
                 counts["v6_rows"] += 1
                 cell_rows["C0"] += 1
@@ -131,6 +135,8 @@ def main() -> None:
         "v6_rows": counts["v6_rows"],
         "c1c4_rows": counts["c1c4_rows"],
         "labelled_rows": labelled_rows,
+        "v6_duplicate_rows": v6_duplicate_rows,
+        "v6_duplicate_ids": len(v6_duplicate_ids),
         "labelled_share": round(labelled_rows / rows, 8),
         "cells": dict(sorted(cell_rows.items())),
         "family_share": family_share,
