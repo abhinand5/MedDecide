@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training started 2026-11-13T00:45Z (13,992 steps, ~12 h)
+Loop status: IN PROGRESS — T6 DONE 2026-11-13 (arm S 0.811190 at step 13,992); T7 selection running; T1–T5 DONE
 
 ## 1. Task board
 
@@ -12,8 +12,8 @@ Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training sta
 | T3 | Port check for the d3 harness: `score` items, long MIMIC notes, 255-row readout at the last prompt position (CPU where possible) | T0 | GO (given 2026-11-12) | DONE 2026-11-12 (parity PASS, 9 rows exact 0.0; 3 longest MIMIC forwards NOT MEASURED over the CPU timebox; d3_batch scoring helper not portable to this runtime; audit PASS, C008–C013) |
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | DONE 2026-11-12 (9 cells, 9,404.4 s; base readout + trained LoRA does not recover two-letter 0.519 vs 0.651; 0.75-scale cells best macro ~0.8086; audit PASS 139 checks; C020–C022) |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | DONE 2026-11-13 (pool 69,967; parity 40/40; 69,967 scored at 5.22 items/s / 4,602 tok/s; join max sum error 1.1e-16, 8 constant; audit PASS 14 checks; C023–C027) |
-| T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | IN_PROGRESS 2026-11-13T00:45Z (mix 1,526,405 rows, sha `b8b97031…`; training detached) |
-| T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | PENDING |
+| T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | DONE 2026-11-13 (13,992 steps; eval S 0.797548 → 0.811190; positional PASS; audit PASS 26 checks; C029–C031) |
+| T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | IN_PROGRESS 2026-11-13T14:48Z (base + 4 scales on the 22,934-item dev set) |
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | PENDING |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | PENDING |
 | T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | PENDING |
@@ -109,13 +109,19 @@ Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training sta
       its manifest; SELF_AUDIT.md; CLAIMS rows.
 - [x] `uv run ruff check .` and `uv run pytest`; commit and push.
 
-## 3g. Checklist — T6 (in progress)
+## 3g. Checklist — T6 (done)
 - [x] v7 mix built (1,526,405 rows; C1–C4 69,967; labelled 438,188) and dry-run through the arm driver.
 - [x] Arm config (`kl_to_base` 0.1 on the v7_c pool, v6-frozen distill weight 3.243598 with the 3-labelled quota,
       per-item weighting, no double augmentation).
-- [ ] Run 13,992 steps detached, one GPU job; check completeness of the log, evaluations and checkpoints, not the
+- [x] Run 13,992 steps detached, one GPU job; check completeness of the log, evaluations and checkpoints, not the
       exit code alone; record the first-200-step distillation share.
-- [ ] SELF_AUDIT (R6), CLAIMS rows; commit and push.
+- [x] SELF_AUDIT (R6), CLAIMS rows; commit and push.
+
+## 3h. Checklist — T7 (in progress)
+- [ ] Score the zero-shot base and the four blend scales (0.25/0.5/0.75/1.0) on the frozen dev set (GPU, detached).
+- [ ] Apply §7: paired template-macro difference vs the base (lower bound > -0.01) and choose the highest dev S among
+      eligible; calibrate the chosen blend on fast dev and export it for the gate.
+- [ ] SELF_AUDIT/CLAIMS; commit and push.
 
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
@@ -126,6 +132,13 @@ Loop status: IN PROGRESS — T4 DONE; T5 DONE 2026-11-13; T6 4B arm training sta
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T14:47Z — **T6 DONE.** The 4B arm finished 13,992 steps (14.0 h over the interrupted+resumed run; the
+  step-2,500 allocator mitigation is recorded). Dev: S 0.797548 at 6,996 and **0.811190 at 13,992** (MR 0.887582,
+  MIMIC 0.754032, CG 0.791955, knowledge 0.763571; positional PASS in all three orders). Versus osler_v6 G1s0 at the
+  same step (S 0.825891), the v7 arm is ~1.5 points lower, almost all on MR. Temperatures choice 1.206404,
+  noul 1.351652, score 1.135541. SELF_AUDIT PASS (26 checks); dose: first-200 distillation share 0.352292, KL-to-base
+  active on 40.5 % of steps (v7_c is 4.6 % of the mix), run-mean KL 0.023079. CLAIMS C029–C031. T7 selection
+  (base + four scales on the 22,934-item dev set) started at 14:50Z.
 - 2026-11-13T03:05Z — T6 operational note: the arm reached step 2,525 with the CUDA allocator grown to 95.7 of 97.9 GB
   (OOM risk). It was stopped at the step-2,500 full checkpoint and resumed with
   `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` (the v6 C040 precedent; an allocator setting, not a design

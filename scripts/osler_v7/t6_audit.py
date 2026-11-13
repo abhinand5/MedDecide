@@ -47,7 +47,8 @@ def main() -> None:
         if not match:
             problems.append(f"{name}: recorded {recorded!r} != recomputed {recomputed!r}")
 
-    log = read_jsonl(args.arm / "logs" / "train.jsonl")
+    raw_log = read_jsonl(args.arm / "logs" / "train.jsonl")
+    log = [row for row in raw_log if row.get("event") == "step"]
     steps = [int(row["step"]) for row in log]
     check("log.rows", args.steps, len(log))
     check("log.first_last", (1, args.steps), (steps[0], steps[-1]))
