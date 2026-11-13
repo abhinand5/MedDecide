@@ -38,6 +38,7 @@ import random
 
 import torch
 from torch import nn
+from torch.utils.checkpoint import checkpoint
 from transformers import AutoModel
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,6 +62,16 @@ REVISION = "67e03e1bc157961c582ee7c6a35d9b15fada3dec"
 SNAP = Path(os.environ.get("HF_HOME", "/workspace/.hf_home")) / "hub" / "models--vllm-sr--d3-flash" / "snapshots" / REVISION
 KL_PREFIX = "v7_c"
 DDX_PREFIX = "cg_v2_ddxplus"
+
+
+class _CheckpointedLayer:
+    """Wrap one PromptEncoder layer in a non-reentrant activation checkpoint (recompute in backward)."""
+
+    def __init__(self, layer: Any) -> None:
+        self.layer = layer
+
+    def __call__(self, hidden: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        return checkpoint(self.layer, hidden, use_reentrant=False, **kwargs)
 
 
 class TokenBatches:
@@ -114,9 +125,11 @@ def base_probabilities(student: D3Student, sequences: list[list[int]], counts: l
         adapter.scaling = 0.0
     runtime.readout = student.base_readout
     try:
-        with torch.inference_mode():
-            logits = runtime.logits(sequences, counts) / student.temperature
-            probs = torch.softmax(logits.float(), dim=-1)
+        # runtime.logits runs under torch.inference_mode; clone inside no_grad to escape inference tensors, which
+        # autograd refuses to save in the KL-to-base graph.
+        with torch.no_grad():
+            logits = runtime.logits(sequences, counts).clone().float() / student.temperature
+            probs = torch.softmax(logits, dim=-1)
     finally:
         for name, adapter in student.adapters.items():
             adapter.scaling = saved_scaling[name]
@@ -218,6 +231,8 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--window", type=int, default=64)  # kept for interface parity; TokenBatches has no windows
     ap.add_argument("--max-batch-tokens", type=int, default=8192)
+    ap.add_argument("--no-grad-checkpointing", action="store_false", dest="grad_checkpointing",
+                    help="disable activation checkpointing (the 8.4B backbone needs it for long batches)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lam-teacher", type=float, default=3.243598)
     ap.add_argument("--lam-kl", type=float, default=0.1)
@@ -251,6 +266,12 @@ def main() -> None:
     runtime = model.runtime
     student = D3Student(runtime, lora_r=args.lora_r, lora_alpha=args.lora_alpha).to(runtime.device)
     student.base_readout = runtime.readout.detach().clone()
+    if args.grad_checkpointing:
+        encoder = runtime.encoder
+        if encoder is None:
+            raise SystemExit("gradient checkpointing needs the PromptEncoder path (noncausal attention)")
+        encoder.stack = [(_CheckpointedLayer(layer), softmax) for layer, softmax in encoder.stack]
+        print(f"[{utcnow()}] gradient checkpointing enabled on {len(encoder.stack)} layers", flush=True)
     lora_params = list(student.lora_parameters().values())
     params = [*lora_params, student.readout]
     optimizer = torch.optim.AdamW(

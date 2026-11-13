@@ -162,6 +162,13 @@ Loop status: IN PROGRESS — T8 9B arm on d3-flash training (13,992 steps); T7 D
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T19:55Z — T8 operational notes: the first 9B attempt OOM'd at step 1 on a batch of 8 long MIMIC rows after
+  the 3,980 s preparation; batches are now capped by 8 items and 8,192 padded tokens, prepared TrainRows are
+  cached (prepared.pt, gitignored), the KL-to-base reference escapes `torch.inference_mode` tensors, and the 32
+  PromptEncoder layers run under non-reentrant activation checkpointing (peak GPU 38 GB instead of 95 GB). The
+  arm restarted from the cache at 19:50Z and is training; the token-capped batching is a memory-forced deviation
+  from the fixed batch-8 rule and is recorded as such. No results yet. (The train log contains steps from the
+  failed attempts as well; the audit will read only the final contiguous run.)
 - 2026-11-13T17:10Z — T8 started. The v7 mix and the T2 dev set were converted to the d3 harness's row format
   (d3_pool 1,526,405 rows, sha `bb826320…`, 438,188 teacher-labelled; d3_dev 22,934 rows, sha `5d8d9361…`), the
   driver (CE + teacher KL + KL-to-base on `v7_c*`, dev evaluations, checkpoints, resume) passed a 5-step smoke test,
