@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T7 DONE 2026-11-13 (blend chosen s=1.00, dev S 0.810521); T8 is next (9B arm on d3-flash)
+Loop status: IN PROGRESS — T8 9B arm on d3-flash training (13,992 steps); T7 DONE
 
 ## 1. Task board
 
@@ -14,7 +14,7 @@ Loop status: IN PROGRESS — T7 DONE 2026-11-13 (blend chosen s=1.00, dev S 0.81
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | DONE 2026-11-13 (pool 69,967; parity 40/40; 69,967 scored at 5.22 items/s / 4,602 tok/s; join max sum error 1.1e-16, 8 constant; audit PASS 14 checks; C023–C027) |
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | DONE 2026-11-13 (13,992 steps; eval S 0.797548 → 0.811190; positional PASS; audit PASS 26 checks; C029–C031) |
 | T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | DONE 2026-11-13 (all four blends eligible; chosen s=1.00, S 0.810521; positional PASS all orders at every scale; audit PASS 59 checks; C032–C035) |
-| T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | PENDING |
+| T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | IN_PROGRESS 2026-11-13T17:10Z (d3 pool 1,526,405 rows sha `bb826320…`, 438,188 labelled; dev 22,934 rows sha `5d8d9361…`; driver smoke-tested; 13,992-step run launching) |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | PENDING |
 | T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | PENDING |
 | T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | PENDING (conditional) |
@@ -145,6 +145,14 @@ Loop status: IN PROGRESS — T7 DONE 2026-11-13 (blend chosen s=1.00, dev S 0.81
   `outputs/osler_v7/T7/predictions/scale_{0,0.25,0.5,0.75,1}.jsonl` (gitignored), `outputs/osler_v7/T7/chosen/`,
   `outputs/osler_v7/T7/audit.json`, `outputs/osler_v7/T7/SELF_AUDIT.md`.
 
+## 3i. Checklist — T8 (in progress)
+- [x] Convert the v7 mix and the T2 dev set to the d3 harness's row format (d3_pool.jsonl sha `bb826320…`,
+      1,526,405 rows with 438,188 teacher-labelled; d3_dev.jsonl 22,934 rows sha `5d8d9361…`).
+- [x] Driver `t8_run_arm.py`: CE + teacher KL on labelled rows + KL-to-base on `v7_c*` rows (adapters disabled,
+      checkpoint's base readout, no gradients), dev evaluations at 6,996 and 13,992 (S, knowledge, positional
+      original order), full checkpoints, resume. Smoke-tested on 512 rows / 5 steps.
+- [ ] Run 13,992 steps detached; verify the evaluations and checkpoints; audit; commit.
+
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
   `outputs/osler_v7/T4/logs/t4_grid.log`). Three earlier attempts were stopped before a cell completed while batching was
@@ -154,6 +162,10 @@ Loop status: IN PROGRESS — T7 DONE 2026-11-13 (blend chosen s=1.00, dev S 0.81
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T17:10Z — T8 started. The v7 mix and the T2 dev set were converted to the d3 harness's row format
+  (d3_pool 1,526,405 rows, sha `bb826320…`, 438,188 teacher-labelled; d3_dev 22,934 rows, sha `5d8d9361…`), the
+  driver (CE + teacher KL + KL-to-base on `v7_c*`, dev evaluations, checkpoints, resume) passed a 5-step smoke test,
+  and the 13,992-step run is launching. No results yet.
 - 2026-11-13T16:45Z — **T7 DONE.** The blend table (operator request) is written above: all four scales are
   eligible, and s = 1.00 is chosen with dev S 0.810521 (no interpolation gain); positional health passes in all
   three orders for every scale including the base. The chosen blend is calibrated on fast dev (choice 1.206404,
