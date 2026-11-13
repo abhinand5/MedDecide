@@ -34,6 +34,8 @@ from typing import Any
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
+import random
+
 import torch
 from torch import nn
 from transformers import AutoModel
@@ -42,7 +44,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from meddecide.distill.d3_train import (  # noqa: E402
-    BatchPlan,
     D3Student,
     TrainRow,
     batch_tensors,
@@ -60,6 +61,37 @@ REVISION = "67e03e1bc157961c582ee7c6a35d9b15fada3dec"
 SNAP = Path(os.environ.get("HF_HOME", "/workspace/.hf_home")) / "hub" / "models--vllm-sr--d3-flash" / "snapshots" / REVISION
 KL_PREFIX = "v7_c"
 DDX_PREFIX = "cg_v2_ddxplus"
+
+
+class TokenBatches:
+    """Deterministic step -> batch map under both an item and a padded-token cap (the 8.4B backbone OOMs at 8 long rows).
+
+    Batches are formed over the length-sorted rows, the batch order is shuffled with the seed, and steps index the
+    shuffled list cyclically, so a resumed run sees the same batches.
+    """
+
+    def __init__(self, lengths: list[int], *, batch: int = 8, max_tokens: int = 8192, seed: int = 0):
+        if batch < 1 or max_tokens < 1:
+            raise ValueError("need batch >= 1 and max_tokens >= 1")
+        order = sorted(range(len(lengths)), key=lambda i: lengths[i])
+        batches: list[list[int]] = []
+        current: list[int] = []
+        longest = 0
+        for index in order:
+            width = max(longest, lengths[index])
+            if current and (len(current) >= batch or width * (len(current) + 1) > max_tokens):
+                batches.append(current)
+                current, longest = [], 0
+                width = lengths[index]
+            current.append(index)
+            longest = width
+        if current:
+            batches.append(current)
+        random.Random(seed).shuffle(batches)
+        self.batches = batches
+
+    def batch(self, step: int) -> list[int]:
+        return self.batches[step % len(self.batches)]
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -125,8 +157,11 @@ def step_losses(
     share = None
     if probe:
         g_ce = torch.autograd.grad(ce, params, retain_graph=True, allow_unused=True)
-        g_kl = torch.autograd.grad(lam_teacher * kl_teacher + lam_kl * kl_base, params, retain_graph=True,
-                                   allow_unused=True)
+        kl_total = lam_teacher * kl_teacher + lam_kl * kl_base
+        if kl_total.requires_grad:
+            g_kl = torch.autograd.grad(kl_total, params, retain_graph=True, allow_unused=True)
+        else:  # a batch with no labelled and no v7_c rows: the distillation terms are constant zero
+            g_kl = [None] * len(params)
         n_ce = gradient_norm(params, g_ce)
         n_kl = gradient_norm(params, g_kl)
         share = n_kl / (n_ce + n_kl) if n_ce + n_kl > 0 else float("nan")
@@ -181,7 +216,8 @@ def main() -> None:
     ap.add_argument("--steps", type=int, default=13_992)
     ap.add_argument("--eval-every", type=int, default=6_996)
     ap.add_argument("--batch", type=int, default=8)
-    ap.add_argument("--window", type=int, default=64)
+    ap.add_argument("--window", type=int, default=64)  # kept for interface parity; TokenBatches has no windows
+    ap.add_argument("--max-batch-tokens", type=int, default=8192)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--lam-teacher", type=float, default=3.243598)
     ap.add_argument("--lam-kl", type=float, default=0.1)
@@ -221,15 +257,25 @@ def main() -> None:
         [{"params": lora_params, "lr": args.lora_lr}, {"params": [student.readout], "lr": args.head_lr}],
         betas=(0.9, 0.95), weight_decay=0.0,
     )
-    print(f"[{utcnow()}] preparing {len(pool_rows)} pool rows and {len(dev_rows)} dev rows", flush=True)
-    t0 = time.time()
-    train_rows = prepare_rows(runtime, pool_rows)
     train_templates = [str(row["template_id"]) for row in pool_rows]
-    dev_prepared = prepare_rows(runtime, dev_rows)
     dev_templates = [str(row["template_id"]) for row in dev_rows]
     dev_origins = [str(row.get("dev_origin", "?")) for row in dev_rows]
-    print(f"[{utcnow()}] prepared in {time.time() - t0:.1f}s", flush=True)
-    plan = BatchPlan([row.length for row in train_rows], batch=args.batch, window=args.window, seed=args.seed)
+    cache = out / "prepared.pt"
+    if cache.exists():
+        t0 = time.time()
+        payload = torch.load(cache, map_location="cpu", weights_only=False)
+        train_rows = payload["train"]
+        dev_prepared = payload["dev"]
+        print(f"[{utcnow()}] loaded {len(train_rows)} prepared rows from {cache} in {time.time() - t0:.1f}s", flush=True)
+    else:
+        print(f"[{utcnow()}] preparing {len(pool_rows)} pool rows and {len(dev_rows)} dev rows", flush=True)
+        t0 = time.time()
+        train_rows = prepare_rows(runtime, pool_rows)
+        dev_prepared = prepare_rows(runtime, dev_rows)
+        print(f"[{utcnow()}] prepared in {time.time() - t0:.1f}s; caching", flush=True)
+        torch.save({"train": train_rows, "dev": dev_prepared}, cache)
+    plan = TokenBatches([row.length for row in train_rows], batch=args.batch, max_tokens=args.max_batch_tokens,
+                        seed=args.seed)
     start_step = 0
     if args.resume:
         existing = sorted((out / "checkpoints").glob("step_*.pt"), key=lambda p: int(p.stem.split("_")[1]))
