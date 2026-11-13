@@ -162,6 +162,14 @@ Loop status: IN PROGRESS — T8 9B arm on d3-flash training (13,992 steps); T7 D
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-14T02:40Z — T8 in-run evaluation note: the step-6,996 evaluation was written with empty composite partitions
+  because `d3_dev.jsonl` carried the raw file ids instead of the trainer's recomputed item ids and did not carry
+  `dev_origin`. The prediction file is intact; aggregating it against the T2 origin map gives (additional,
+  derived) S 0.807386, MR 0.868521, MIMIC 0.748496, CG v2 micro 0.805141, knowledge dev 0.826297, and the
+  original-order positional check two-letter 0.328657 vs single 0.792415 → **FAIL** (the threshold is half the
+  single-letter rate). The converter now writes recomputed ids and `dev_origin`; the running arm continues and its
+  final evaluation will be aggregated the same way, with all-orders positional measured before any selection. This
+  is a driver bookkeeping defect, not a change to a check.
 - 2026-11-13T19:55Z — T8 operational notes: the first 9B attempt OOM'd at step 1 on a batch of 8 long MIMIC rows after
   the 3,980 s preparation; batches are now capped by 8 items and 8,192 padded tokens, prepared TrainRows are
   cached (prepared.pt, gitignored), the KL-to-base reference escapes `torch.inference_mode` tensors, and the 32

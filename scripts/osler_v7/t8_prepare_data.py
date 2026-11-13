@@ -30,6 +30,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from meddecide.train.mix_items import mix_row_to_item  # noqa: E402
 from meddecide.utils.provenance import utcnow  # noqa: E402
 
 MIX = ROOT / "data" / "train" / "osler_v7" / "mix_v7.jsonl"
@@ -54,8 +55,9 @@ def options_of(row: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def convert(row: dict[str, Any], *, dev: bool) -> dict[str, Any]:
+    # row_id is the trainer's recomputed item id (the id every other run pairs on), not the raw file id
     return {
-        "row_id": str(row["item_id"]),
+        "row_id": mix_row_to_item(row).item_id,
         "source": str(row["source"]),
         "template_id": str(row["template_id"]),
         "qtype": str(row["qtype"]),
@@ -64,6 +66,7 @@ def convert(row: dict[str, Any], *, dev: bool) -> dict[str, Any]:
         "options": [{"key": str(o["key"]), "label": str(o["label"])} for o in options_of(row)],
         "gold": str(row["gold"]),
         "split": "dev" if dev else "train",
+        "dev_origin": str(row.get("dev_origin", "?")) if dev else None,
         "teacher_probs": [float(p) for p in row["teacher_probs"]] if not dev and row.get("teacher_probs") is not None
         else None,
     }
