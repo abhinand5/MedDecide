@@ -108,6 +108,9 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=ROOT / "configs" / "osler_v7" / "arm_4b.yaml")
     parser.add_argument("--no-export", action="store_true", help="skip calibration and the export of the chosen blend")
     args = parser.parse_args()
+    args.arm = args.arm if args.arm.is_absolute() else ROOT / args.arm
+    args.dev = args.dev if args.dev.is_absolute() else ROOT / args.dev
+    args.out = args.out if args.out.is_absolute() else ROOT / args.out
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "logs").mkdir(exist_ok=True)
     checkpoint = args.arm / "checkpoints" / f"step_{args.step:06d}"

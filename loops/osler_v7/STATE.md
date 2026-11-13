@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T6 DONE 2026-11-13 (arm S 0.811190 at step 13,992); T7 selection running; T1–T5 DONE
+Loop status: IN PROGRESS — T7 DONE 2026-11-13 (blend chosen s=1.00, dev S 0.810521); T8 is next (9B arm on d3-flash)
 
 ## 1. Task board
 
@@ -13,7 +13,7 @@ Loop status: IN PROGRESS — T6 DONE 2026-11-13 (arm S 0.811190 at step 13,992);
 | T4 | Lever-3 grid on the osler_v6 final (inference only): LoRA {0.5, 0.75, 1} × readout {0, 0.5, 1} on the dev set | T2 | **GPU approval** | DONE 2026-11-12 (9 cells, 9,404.4 s; base readout + trained LoRA does not recover two-letter 0.519 vs 0.651; 0.75-scale cells best macro ~0.8086; audit PASS 139 checks; C020–C022) |
 | T5 | Label the pool with pplx-27B (C1–C4 and the unlabelled KL pool); measure throughput; audit counts | T2 | **GPU approval** | DONE 2026-11-13 (pool 69,967; parity 40/40; 69,967 scored at 5.22 items/s / 4,602 tok/s; join max sum error 1.1e-16, 8 constant; audit PASS 14 checks; C023–C027) |
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | DONE 2026-11-13 (13,992 steps; eval S 0.797548 → 0.811190; positional PASS; audit PASS 26 checks; C029–C031) |
-| T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | IN_PROGRESS 2026-11-13T14:48Z (base + 4 scales on the 22,934-item dev set) |
+| T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | DONE 2026-11-13 (all four blends eligible; chosen s=1.00, S 0.810521; positional PASS all orders at every scale; audit PASS 59 checks; C032–C035) |
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | PENDING |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | PENDING |
 | T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | PENDING |
@@ -117,11 +117,33 @@ Loop status: IN PROGRESS — T6 DONE 2026-11-13 (arm S 0.811190 at step 13,992);
       exit code alone; record the first-200-step distillation share.
 - [x] SELF_AUDIT (R6), CLAIMS rows; commit and push.
 
-## 3h. Checklist — T7 (in progress)
-- [ ] Score the zero-shot base and the four blend scales (0.25/0.5/0.75/1.0) on the frozen dev set (GPU, detached).
-- [ ] Apply §7: paired template-macro difference vs the base (lower bound > -0.01) and choose the highest dev S among
+## 3h. Checklist — T7 (done)
+- [x] Score the zero-shot base and the four blend scales (0.25/0.5/0.75/1.0) on the frozen dev set (GPU, detached).
+- [x] Apply §7: paired template-macro difference vs the base (lower bound > -0.01) and choose the highest dev S among
       eligible; calibrate the chosen blend on fast dev and export it for the gate.
-- [ ] SELF_AUDIT/CLAIMS; commit and push.
+- [x] SELF_AUDIT/CLAIMS; commit and push.
+
+### T7 results — 4B blend table (operator-requested; frozen 22,934-item dev set)
+
+| blend s | S | MR | MIMIC | CG v2 micro | knowledge dev | positional (3 orders) | paired diff vs base (point, lower) |
+|---|---|---|---|---|---|---|---|
+| 0.00 (zero-shot base) | 0.762977 | 0.828916 | 0.672190 | 0.787826 | 0.775633 | PASS | reference |
+| 0.25 | 0.785320 | 0.855478 | 0.712923 | 0.787560 | 0.763571 | PASS | +0.018789, +0.012943 |
+| 0.50 | 0.804976 | 0.886725 | 0.736513 | 0.791689 | 0.773221 | PASS | +0.034296, +0.027109 |
+| 0.75 | 0.808884 | 0.890830 | 0.745996 | 0.789824 | 0.773221 | PASS | +0.038255, +0.029297 |
+| **1.00 (chosen)** | **0.810521** | 0.887582 | 0.752425 | 0.791556 | 0.763571 | PASS | +0.041984, +0.032131 |
+
+- Selection: all four scales are eligible (paired template-macro lower bound > -0.01); the **chosen blend is s = 1.00**
+  (no interpolation toward the base) because it has the highest dev S. Paired differences are positive at every scale, so
+  the trained arm is non-inferior to its zero-shot base on dev; interpolation does not add S here.
+- Positional health passes in all three orders for every scale, including the base (`positional.json`).
+- Calibration of the chosen blend on fast dev (14,597 items): choice 1.206404, noul 1.351652, score 1.135541; exported
+  checkpoint `outputs/osler_v7/T7/chosen/`.
+- The s = 1.00 MIMIC value here (0.752425) differs from the T6 evaluation's (0.754032) by 0.0016 because the blend path
+  reconstructs the readout in FP32 from the base snapshot; both are reported as measured.
+- Source files: `outputs/osler_v7/T7/selection.json`, `outputs/osler_v7/T7/positional.json`,
+  `outputs/osler_v7/T7/predictions/scale_{0,0.25,0.5,0.75,1}.jsonl` (gitignored), `outputs/osler_v7/T7/chosen/`,
+  `outputs/osler_v7/T7/audit.json`, `outputs/osler_v7/T7/SELF_AUDIT.md`.
 
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
@@ -132,6 +154,11 @@ Loop status: IN PROGRESS — T6 DONE 2026-11-13 (arm S 0.811190 at step 13,992);
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-13T16:45Z — **T7 DONE.** The blend table (operator request) is written above: all four scales are
+  eligible, and s = 1.00 is chosen with dev S 0.810521 (no interpolation gain); positional health passes in all
+  three orders for every scale including the base. The chosen blend is calibrated on fast dev (choice 1.206404,
+  noul 1.351652, score 1.135541) and exported to `outputs/osler_v7/T7/chosen/`. SELF_AUDIT PASS (59 checks);
+  CLAIMS C032–C035.
 - 2026-11-13T14:47Z — **T6 DONE.** The 4B arm finished 13,992 steps (14.0 h over the interrupted+resumed run; the
   step-2,500 allocator mitigation is recorded). Dev: S 0.797548 at 6,996 and **0.811190 at 13,992** (MR 0.887582,
   MIMIC 0.754032, CG 0.791955, knowledge 0.763571; positional PASS in all three orders). Versus osler_v6 G1s0 at the
