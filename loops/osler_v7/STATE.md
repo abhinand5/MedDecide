@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T8 DONE (9B arm S 0.826048, positional original PASS); T9 selection running
+Loop status: IN PROGRESS — T9 DONE 2026-11-14 (9B chosen s=1.00, dev S 0.826048); T10 gate is next
 
 ## 1. Task board
 
@@ -15,7 +15,7 @@ Loop status: IN PROGRESS — T8 DONE (9B arm S 0.826048, positional original PAS
 | T6 | 4B arm on pplx-flash: v6 mix + C1–C4 + KL to base (λ_KL §0.2), 13,992 steps; selection on dev (§7) | T4, T5 | **GPU approval**; §0.1–0.4 settled | DONE 2026-11-13 (13,992 steps; eval S 0.797548 → 0.811190; positional PASS; audit PASS 26 checks; C029–C031) |
 | T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | DONE 2026-11-13 (all four blends eligible; chosen s=1.00, S 0.810521; positional PASS all orders at every scale; audit PASS 59 checks; C032–C035) |
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | DONE 2026-11-14 (13,992 steps; dev S 0.826048, MR 0.891392, MIMIC 0.767228, CG 0.819526, knowledge 0.834741; positional original PASS; audit PASS 12 checks; C036–C039) |
-| T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | IN_PROGRESS 2026-11-14T01:20Z (five scales + all-orders positional on the 22,934-item dev set) |
+| T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | DONE 2026-11-14 (chosen s=1.00, S 0.826048; 0.25/0.5 fail positional; audit PASS 36 checks; C040–C043) |
 | T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | PENDING |
 | T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | PENDING (conditional) |
 | T12 | FINDINGS.md, SELF_AUDIT, five-claim spot-check, closure | all | — | PENDING |
@@ -153,10 +153,26 @@ Loop status: IN PROGRESS — T8 DONE (9B arm S 0.826048, positional original PAS
       original order), full checkpoints, resume. Smoke-tested on 512 rows / 5 steps.
 - [x] Run 13,992 steps detached; verify the evaluations and checkpoints; audit; commit.
 
-## 3j. Checklist — T9 (in progress)
-- [ ] Score the s=0 base and four blend scales on the frozen dev set with all-orders positional health; apply §7
+## 3j. Checklist — T9 (done)
+- [x] Score the s=0 base and four blend scales on the frozen dev set with all-orders positional health; apply §7
       (paired lower bound > -0.01) and §9 (positional health) and choose the highest S among qualifying scales.
-- [ ] SELF_AUDIT/CLAIMS; commit and push.
+- [x] SELF_AUDIT/CLAIMS; commit and push.
+
+### T9 results — 9B blend table
+
+| blend s | S | MR | MIMIC | CG v2 micro | knowledge dev | positional (3 orders) |
+|---|---|---|---|---|---|---|
+| 0.00 (zero-shot base) | 0.773865 | 0.822521 | 0.675020 | 0.824054 | 0.840772 | PASS |
+| 0.25 | 0.801226 | 0.853582 | 0.726307 | 0.823788 | 0.844391 | **FAIL** |
+| 0.50 | 0.816205 | 0.873768 | 0.752923 | 0.821923 | 0.846803 | **FAIL** |
+| 0.75 | 0.822998 | 0.883768 | 0.763835 | 0.821391 | 0.838359 | PASS |
+| **1.00 (chosen)** | **0.826048** | 0.891392 | 0.767228 | 0.819526 | 0.834741 | PASS |
+
+- Every scale is non-inferior to the base on the paired template-macro difference; the 0.25 and 0.50 blends
+  fail the all-orders positional check (§9), so they cannot be chosen. Among the qualifying scales (0, 0.75, 1.0)
+  the highest S is **1.0** — as with the 4B arm, interpolation adds nothing; the trained model is best.
+- Source files: `outputs/osler_v7/T9/selection.json`, `outputs/osler_v7/T9/predictions/scale_*.jsonl`
+  (gitignored), `outputs/osler_v7/T9/audit.json`, `outputs/osler_v7/T9/SELF_AUDIT.md`.
 
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
@@ -167,6 +183,11 @@ Loop status: IN PROGRESS — T8 DONE (9B arm S 0.826048, positional original PAS
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-14T03:55Z — **T9 DONE.** The 9B blend table is written above: s=1.0 is chosen (S 0.826048); 0.25 and
+  0.50 fail all-orders positional health (the base and 0.75/1.0 pass). The first T9 run completed every scale but
+  crashed on a relative-path check before writing `selection.json`; the rerun reused the five prediction files
+  (`--reuse`) and reproduced the same S values, with positional re-measured. SELF_AUDIT PASS (36 checks);
+  CLAIMS C040–C043. T10 gate next.
 - 2026-11-14T01:20Z — **T8 DONE.** The 9B arm finished 13,992 steps (19,299.7 s wall incl. evaluations). Dev:
   S 0.80738608 at 6,996 and **0.82604843 at 13,992** (MR 0.89139175, MIMIC 0.76722770, CG 0.81952584, knowledge
   0.83474065); original-order positional at 13,992 PASSES (two-letter 0.45691383 vs single 0.82435130; it failed at

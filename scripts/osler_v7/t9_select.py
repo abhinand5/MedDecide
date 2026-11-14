@@ -120,7 +120,11 @@ def main() -> None:
     parser.add_argument("--lora-r", type=int, default=32)
     parser.add_argument("--lora-alpha", type=int, default=32)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--reuse", action="store_true",
+                        help="reuse prediction files already written; recompute metrics and positional health only")
     args = parser.parse_args()
+    args.checkpoint = args.checkpoint if args.checkpoint.is_absolute() else ROOT / args.checkpoint
+    args.dev = args.dev if args.dev.is_absolute() else ROOT / args.dev
     out = args.out if args.out.is_absolute() else ROOT / args.out
     out.mkdir(parents=True, exist_ok=True)
     (out / "logs").mkdir(exist_ok=True)
@@ -147,10 +151,14 @@ def main() -> None:
     candidates: list[dict[str, Any]] = []
     for scale in SCALES:
         apply_blend(student, base_readout, base_scaling, scale)
-        rows = predictions(student, prepared, templates, batch_size=args.batch)
-        with (predictions_dir / f"scale_{scale:g}.jsonl").open("w", encoding="utf-8") as handle:
-            for row in rows:
-                handle.write(json.dumps(row) + "\n")
+        path = predictions_dir / f"scale_{scale:g}.jsonl"
+        if args.reuse and path.exists():
+            rows = read_jsonl(path)
+        else:
+            rows = predictions(student, prepared, templates, batch_size=args.batch)
+            with path.open("w", encoding="utf-8") as handle:
+                for row in rows:
+                    handle.write(json.dumps(row) + "\n")
         if base_rows is None:
             base_rows = rows
         pos = positional_all_orders(student, ddx_rows, batch_size=args.batch)
