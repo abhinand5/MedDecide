@@ -211,6 +211,10 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-14T11:55Z — T11 interim evaluation (step 13,992 of 63,304, i.e. 22 % of the final schedule): S 0.8067
+  (MR 0.8861, MIMIC 0.7356, CG 0.7983), knowledge 0.808203, original-order positional **False**. This is behind
+  the 13,992-step arm's endpoint (S 0.826048) as expected mid-schedule, and the positional check fails at this
+  intermediate point; the final evaluation at 63,304 decides the run. Training continues.
 - 2026-11-14T07:00Z — **T10 DONE.** Gate v7: **9B PASS** (G-a lower -0.00626864, G-b +0.09266438, G-c
   -0.01764212); **4B NOT MEASURED** (G-a -0.00852918, G-b +0.06206641, G-c -0.01686213 on 5,435/5,456; the pplx
   base path skips 21 knowledge rows with repeated option labels, and a partial check does not pass). Every
