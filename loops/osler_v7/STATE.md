@@ -211,6 +211,9 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-14T16:45Z — T11 second interim evaluation (step 27,984 of 63,304): **S 0.8292** (MR 0.9109, MIMIC
+  0.7669, CG 0.8097), knowledge 0.835947, original-order positional **True**. It is now above the 13,992-step arm's
+  endpoint (S 0.826048) and the positional check recovered; training continues toward 63,304.
 - 2026-11-14T11:55Z — T11 interim evaluation (step 13,992 of 63,304, i.e. 22 % of the final schedule): S 0.8067
   (MR 0.8861, MIMIC 0.7356, CG 0.7983), knowledge 0.808203, original-order positional **False**. This is behind
   the 13,992-step arm's endpoint (S 0.826048) as expected mid-schedule, and the positional check fails at this
