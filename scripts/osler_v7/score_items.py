@@ -52,6 +52,9 @@ def main() -> None:
     parser.add_argument("--max-batch-tokens", type=int, default=32768)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
+    args.checkpoint = args.checkpoint if args.checkpoint.is_absolute() else ROOT / args.checkpoint
+    args.items = args.items if args.items.is_absolute() else ROOT / args.items
+    args.out = args.out if args.out.is_absolute() else ROOT / args.out
     rows = read_items(args.items)
     if args.limit:
         rows = rows[: args.limit]

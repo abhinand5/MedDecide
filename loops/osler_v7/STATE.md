@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T9 DONE 2026-11-14 (9B chosen s=1.00, dev S 0.826048); T10 gate is next
+Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on base coverage); T11 9B final started
 
 ## 1. Task board
 
@@ -16,8 +16,8 @@ Loop status: IN PROGRESS — T9 DONE 2026-11-14 (9B chosen s=1.00, dev S 0.82604
 | T7 | Interpolation and selection for the 4B arm (§4, §7); calibrate | T6 | GPU approval (inference) | DONE 2026-11-13 (all four blends eligible; chosen s=1.00, S 0.810521; positional PASS all orders at every scale; audit PASS 59 checks; C032–C035) |
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | DONE 2026-11-14 (13,992 steps; dev S 0.826048, MR 0.891392, MIMIC 0.767228, CG 0.819526, knowledge 0.834741; positional original PASS; audit PASS 12 checks; C036–C039) |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | DONE 2026-11-14 (chosen s=1.00, S 0.826048; 0.25/0.5 fail positional; audit PASS 36 checks; C040–C043) |
-| T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | PENDING |
-| T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | PENDING (conditional) |
+| T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | DONE 2026-11-14 (9B **PASS**; 4B **NOT MEASURED** — pplx base skipped 21/5,456 knowledge rows for repeated labels, all intersection checks pass; audit PASS 16 checks; C044–C047) |
+| T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | IN_PROGRESS 2026-11-14T07:00Z (9B final, 63,304 steps; ~20-24 h at the measured rate) |
 | T12 | FINDINGS.md, SELF_AUDIT, five-claim spot-check, closure | all | — | PENDING |
 
 ## 2. Operator decisions and approvals
@@ -174,6 +174,34 @@ Loop status: IN PROGRESS — T9 DONE 2026-11-14 (9B chosen s=1.00, dev S 0.82604
 - Source files: `outputs/osler_v7/T9/selection.json`, `outputs/osler_v7/T9/predictions/scale_*.jsonl`
   (gitignored), `outputs/osler_v7/T9/audit.json`, `outputs/osler_v7/T9/SELF_AUDIT.md`.
 
+## 3k. Checklist — T10 (done)
+- [x] Score general (confirm/general), MR verdict, MIMIC suite and knowledge for the 4B chosen model and the pplx
+      zero-shot base, and for the 9B chosen model and the d3 zero-shot base (one GPU job at a time).
+- [x] Gate G-a/G-b/G-c with paired template-macro lower bounds (-0.01 / 0 / -0.02); report NOT MEASURED where a
+      check is absent; SELF_AUDIT/CLAIMS; commit.
+
+### T10 results — Gate v7
+
+| model | G-a general (ci_lo) | G-b audit (ci_lo) | G-c knowledge (ci_lo) | verdict |
+|---|---|---|---|---|
+| 4B (T7/chosen) | +0.00815204 (-0.00852918) PASS | +0.07146405 (+0.06206641) PASS | -0.00806770 (-0.01686213) PASS on 5,435/5,456 | **NOT MEASURED** (base coverage) |
+| 9B (T9 s=1.00) | +0.00645928 (-0.00626864) PASS | +0.10225832 (+0.09266438) PASS | -0.00993867 (-0.01764212) PASS | **PASS** |
+
+- The pplx authors' zero-shot path refuses 21 knowledge rows with repeated option labels (`repeated_label`), so
+  the 4B's G-c cannot be measured on the full frozen set; per ADVISORY §7 a check with partial coverage does not
+  pass, hence the 4B verdict is NOT MEASURED even though every intersection bound clears its margin (question for
+  the operator below).
+- Source files: `outputs/osler_v7/T10/gate.json`, `outputs/osler_v7/T10/audit.json`,
+  `outputs/osler_v7/T10/SELF_AUDIT.md`, per-model prediction dirs under `outputs/osler_v7/T10/` (gitignored).
+
+## 3l. Checklist — T11 (in progress)
+- [ ] 63,304-step final for the passing arm (9B), same recipe and memory settings as T8, evaluations at 13,992-step
+      intervals; verify the final evaluation, positional health and checkpoint; audit; commit.
+
+
+## 5b. Questions raised by T10 (for the operator)
+- **4B gate coverage.** The 4B's G-c was measured on 5,435 of 5,456 knowledge items because the pplx authors' zero-shot path refuses 21 items with repeated option labels. All three checks clear their margins on the measured items (G-a/G-b on the full sets). Options: (a) keep the strict NOT MEASURED verdict (current), or (b) accept the intersection-based G-c as evidence and record the 4B as a PASS with a coverage note. I applied (a) because ADVISORY §7 says a partially measured check does not pass.
+
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
   `outputs/osler_v7/T4/logs/t4_grid.log`). Three earlier attempts were stopped before a cell completed while batching was
@@ -183,6 +211,14 @@ Loop status: IN PROGRESS — T9 DONE 2026-11-14 (9B chosen s=1.00, dev S 0.82604
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-14T07:00Z — **T10 DONE.** Gate v7: **9B PASS** (G-a lower -0.00626864, G-b +0.09266438, G-c
+  -0.01764212); **4B NOT MEASURED** (G-a -0.00852918, G-b +0.06206641, G-c -0.01686213 on 5,435/5,456; the pplx
+  base path skips 21 knowledge rows with repeated option labels, and a partial check does not pass). Every
+  measured bound clears its margin. SELF_AUDIT PASS (16 checks); CLAIMS C044–C047. The 4B coverage question is in
+  §5b. T11 (63,304-step final) starts for the 9B, the one passing arm.
+- 2026-11-14T04:05Z — T10 started: the gate sets are confirm/general (5,988), y9 mr_verdict (13,103), y9 mimic_suite
+  (4,253) and y9 knowledge (5,456). Scoring runs for the 4B chosen model (T7/chosen) and the pplx zero-shot base,
+  and for the 9B chosen checkpoint and the d3 zero-shot base, one job at a time.
 - 2026-11-14T03:55Z — **T9 DONE.** The 9B blend table is written above: s=1.0 is chosen (S 0.826048); 0.25 and
   0.50 fail all-orders positional health (the base and 0.75/1.0 pass). The first T9 run completed every scale but
   crashed on a relative-path check before writing `selection.json`; the rerun reused the five prediction files
