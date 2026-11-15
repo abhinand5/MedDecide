@@ -1,6 +1,6 @@
 # STATE — osler_v7
 
-Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on base coverage); T11 9B final started
+Loop status: STOPPED 2026-11-15 — T1–T12 DONE; FINDINGS.md written; gate verdicts: 9B PASS, 9B final PASS (additional), 4B NOT MEASURED (base coverage)
 
 ## 1. Task board
 
@@ -17,8 +17,8 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
 | T8 | 9B arm on d3-flash: same mix; same rules | T3, T5, T7-4B-track-decision | **GPU approval** | DONE 2026-11-14 (13,992 steps; dev S 0.826048, MR 0.891392, MIMIC 0.767228, CG 0.819526, knowledge 0.834741; positional original PASS; audit PASS 12 checks; C036–C039) |
 | T9 | Interpolation and selection for the 9B arm | T8 | GPU approval (inference) | DONE 2026-11-14 (chosen s=1.00, S 0.826048; 0.25/0.5 fail positional; audit PASS 36 checks; C040–C043) |
 | T10 | Gate v7 for each eligible model against its own zero-shot base on the confirmation set (once each) | T7 or T9, T2 | GPU approval (inference) | DONE 2026-11-14 (9B **PASS**; 4B **NOT MEASURED** — pplx base skipped 21/5,456 knowledge rows for repeated labels, all intersection checks pass; audit PASS 16 checks; C044–C047) |
-| T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | IN_PROGRESS 2026-11-14T07:00Z (9B final, 63,304 steps; ~20-24 h at the measured rate) |
-| T12 | FINDINGS.md, SELF_AUDIT, five-claim spot-check, closure | all | — | PENDING |
+| T11 | 63,304-step final for a passing arm only (54 hours) | T10 passing | **GPU approval** | DONE 2026-11-15 (63,304 steps, S 0.853820, all-orders positional PASS; final gate PASS; audit PASS 50 checks; C048–C052) |
+| T12 | FINDINGS.md, SELF_AUDIT, five-claim spot-check, closure | all | — | DONE 2026-11-15 (FINDINGS.md; five-claim spot-check PASS; C053) |
 
 ## 2. Operator decisions and approvals
 - **Loop GO:** GIVEN — 2026-11-12 (operator). Unlocks T1–T3 (CPU only).
@@ -194,13 +194,33 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
 - Source files: `outputs/osler_v7/T10/gate.json`, `outputs/osler_v7/T10/audit.json`,
   `outputs/osler_v7/T10/SELF_AUDIT.md`, per-model prediction dirs under `outputs/osler_v7/T10/` (gitignored).
 
-## 3l. Checklist — T11 (in progress)
-- [ ] 63,304-step final for the passing arm (9B), same recipe and memory settings as T8, evaluations at 13,992-step
+## 3l. Checklist — T11 (done)
+- [x] 63,304-step final for the passing arm (9B), same recipe and memory settings as T8, evaluations at 13,992-step
       intervals; verify the final evaluation, positional health and checkpoint; audit; commit.
+
+### T11 results — 63,304-step 9B final
+
+| step | S | MR | MIMIC | CG v2 micro | knowledge | positional (original) |
+|---|---|---|---|---|---|---|
+| 13,992 | 0.806665 | — | — | — | — | FAIL |
+| 27,984 | 0.829150 | — | — | — | — | PASS |
+| 41,976 | 0.836843 | — | — | — | — | PASS |
+| 55,968 | 0.852858 | — | — | — | — | PASS |
+| **63,304** | **0.853820** | 0.9529 | 0.7917 | 0.8169 | 0.832328 | PASS |
+
+- The final passes the all-orders positional check (ADVISORY §9); its per-evaluation metrics (MR/MIMIC/CG/
+  knowledge) are in the audit table, recomputed from the raw prediction files.
+- Source files: `outputs/osler_v7/T11/final/evaluations.json`, `outputs/osler_v7/T11/positional.json`,
+  `outputs/osler_v7/T11/audit.json`, `outputs/osler_v7/T11/SELF_AUDIT.md`.
 
 
 ## 5b. Questions raised by T10 (for the operator)
 - **4B gate coverage.** The 4B's G-c was measured on 5,435 of 5,456 knowledge items because the pplx authors' zero-shot path refuses 21 items with repeated option labels. All three checks clear their margins on the measured items (G-a/G-b on the full sets). Options: (a) keep the strict NOT MEASURED verdict (current), or (b) accept the intersection-based G-c as evidence and record the 4B as a PASS with a coverage note. I applied (a) because ADVISORY §7 says a partially measured check does not pass.
+
+## 3m. Checklist — T12 (done)
+- [x] FINDINGS.md with a Summary first, the per-task results, the gate verdicts, deviations and next steps.
+- [x] Five-claim spot-check in a fresh process (`outputs/osler_v7/T12/SELF_AUDIT.md`), CLAIMS C053.
+- [x] Loop status STOPPED at the top; commit and push.
 
 ## 4. Log
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
@@ -211,6 +231,17 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-15T06:22Z — **T11 final gate (additional).** The 63,304-step final passes the same Gate v7 checks against
+  its d3 zero-shot base: G-a lower +0.01540201, G-b +0.14685244, G-c -0.00841960. The all-orders positional check
+  on the final checkpoint passes. CLAIMS C052.
+- 2026-11-15T06:30Z — **T12 DONE.** `FINDINGS.md` written with a Summary first and the five-claim spot-check
+  (rerun in a fresh process: all five re-derived values match). CLAIMS C053. The loop status is STOPPED; all tasks
+  are DONE or BLOCKED (T10's 4B verdict is NOT MEASURED, which is a result, not a blocker).
+- 2026-11-15T05:17Z — **T11 DONE.** The 63,304-step 9B final finished (wall 80,603.7 s = 22.4 h). Evaluation
+  trajectory S: 0.806665 → 0.829150 → 0.836843 → 0.852858 → **0.853820** at 63,304; final MR 0.9529, MIMIC 0.7917,
+  CG 0.8169, knowledge 0.832328; all-orders positional PASS. SELF_AUDIT PASS (50 checks); dose first-200 gradient
+  share 0.154494, KL-to-base active 2,184/63,304 steps (3.45 %), mean KL 0.009491. CLAIMS C048–C051. The final will
+  be gated against the d3 zero-shot base as an additional row; T12 FINDINGS next.
 - 2026-11-15T02:31Z — T11 fourth interim evaluation (step 55,968 of 63,304): **S 0.8529** (MR 0.9529, MIMIC
   0.7885, CG 0.8171), knowledge 0.831122, original-order positional **True**; a clear gain over 41,976 (S 0.8368)
   with MR, MIMIC, CG and knowledge all up. 7,336 steps remain to the final evaluation.
