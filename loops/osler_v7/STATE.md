@@ -211,6 +211,9 @@ Loop status: IN PROGRESS — T10 DONE 2026-11-14 (9B PASS; 4B NOT MEASURED on ba
   two-letter 0.6750, 1,038.8 s); the remaining eight cells run in the same detached job. While the GPU job runs,
   the T5 pool builders were prepared and run on CPU: C1 20,000 rows (sha `a27a26f4…`), C3 20,000 rows
   (sha `5e2e50ab…`), C4 20,000 rows (sha `fcde88fa…`); C2 and the pplx-27B labelling are still to come.
+- 2026-11-15T02:31Z — T11 fourth interim evaluation (step 55,968 of 63,304): **S 0.8529** (MR 0.9529, MIMIC
+  0.7885, CG 0.8171), knowledge 0.831122, original-order positional **True**; a clear gain over 41,976 (S 0.8368)
+  with MR, MIMIC, CG and knowledge all up. 7,336 steps remain to the final evaluation.
 - 2026-11-14T21:36Z — T11 third interim evaluation (step 41,976 of 63,304): **S 0.8368** (MR 0.9315, MIMIC
   0.7855, CG 0.7936), knowledge 0.820265, original-order positional **True**. S and MR/MIMIC keep improving (S
   0.8292 → 0.8368); CG and knowledge dipped slightly from the previous checkpoint.
