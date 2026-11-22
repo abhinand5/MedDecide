@@ -268,3 +268,39 @@ def load_any(path: str | Path, **kwargs: Any) -> MedDecideModel:
     if meta.get("backbone") == "pplx":
         return PplxDecisionModel.load(path, **kwargs)
     return MedDecideModel.load(path, **kwargs)
+
+
+class PplxPromptEncoder:
+    """pplx's prompt and item encoding **without the backbone weights** (osler_v7 4B full run).
+
+    The training pool is encoded once and cached (``meddecide.train.prepared``), which needs the tokeniser and the prompt
+    but not the 4B forward pass. This class borrows ``PplxDecisionModel.prompt_text`` and ``PplxDecisionModel.encode_item``
+    unbound, so the tokenisation is the model's own code path byte for byte — not a reimplementation — while only the
+    tokeniser and ``decision_config.json`` are loaded. The model then loads the same snapshot directory, so a cached row
+    and a live encoding cannot diverge through a different checkpoint.
+    """
+
+    _escape = PplxDecisionModel._escape
+    prompt_text = PplxDecisionModel.prompt_text
+    encode_item = PplxDecisionModel.encode_item
+
+    def __init__(self, checkpoint: str | Path = REPO, *, revision: str | None = None,
+                 max_prompt_tokens: int = 16384) -> None:
+        from transformers import AutoTokenizer
+
+        ckpt = checkpoint_dir(checkpoint, revision)
+        self.checkpoint_path = ckpt
+        self.base_model_id = REPO if str(checkpoint) == REPO else str(checkpoint)
+        self.device = "cpu"
+        self.max_prompt_tokens = int(max_prompt_tokens)
+        self.tokenizer = AutoTokenizer.from_pretrained(str(ckpt))
+        self.tokenizer.padding_side = "left"
+        config = json.loads((ckpt / "decision_config.json").read_text(encoding="utf-8"))
+        self.optcode_names = list(config["codes"])
+        ids = self.tokenizer.encode(MARKER, add_special_tokens=False)
+        if len(ids) != 1:
+            raise ValueError("the readout marker must be one token")
+        self.marker_id = int(ids[0])
+
+    def describe(self) -> str:
+        return f"pplx prompt encoder ({self.base_model_id}, no weights, max_prompt_tokens={self.max_prompt_tokens})"

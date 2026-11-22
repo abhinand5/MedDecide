@@ -54,7 +54,7 @@ from meddecide.train.resume import (
 from meddecide.train.temperature import TemperatureFit, fit_per_qtype, fit_temperature
 
 if TYPE_CHECKING:
-    from meddecide.model.meddecide_model import ScoredItems
+    from meddecide.model.meddecide_model import EncodedItem, ScoredItems
 
 
 def git_commit() -> str:
@@ -417,6 +417,8 @@ class Trainer:
         full_checkpoint_every: int = 0,
         resume_from: str | Path | None = None,
         full_checkpoint_keep_last: int = 0,
+        batch_plan: Sequence[Sequence[int]] | None = None,
+        encoded: Sequence[EncodedItem] | None = None,
     ) -> TrainResult:
         """Run the optimiser. ``steps`` caps the total across epochs (None = all epochs).
 
@@ -428,8 +430,24 @@ class Trainer:
         ``full_checkpoint_every`` > 0 with ``full_checkpoint_dir`` writes a full checkpoint (the trainable tensors, the optimizer,
         the run state and the RNG states) every that many steps; ``resume_from`` continues from one with the same data order and
         LR schedule (meddecide.train.resume). Both default off, and the run is then the same as before.
+
+        ``batch_plan`` (osler_v7 4B full run) replaces the sampler with an explicit step -> batch map over ``encoded`` rows
+        (``meddecide.train.token_plan``): the plan is one epoch of pre-encoded batches, and every step takes the plan's next
+        batch instead of forming one from ``items``. Because the plan carries its own composition, the D57 quota sampler is not
+        used and ``distill_min_labelled_per_batch`` must be 0 (a silent quota would contradict the plan). Resume, the eval
+        grid, the LR schedule, the per-item weighting and the full checkpoints work unchanged: the plan is a pure function of
+        the mix, so a resumed run skips the batches its checkpoint already took.
         """
         config = self.config
+        plan_mode = batch_plan is not None
+        if plan_mode:
+            if encoded is None or len(encoded) == 0:
+                raise ValueError("batch_plan needs the prepared encoded rows")
+            if len(batch_plan) == 0:
+                raise ValueError("the batch plan is empty")
+            if config.distill_min_labelled_per_batch > 0:
+                raise ValueError("a batch plan carries its own composition: set distill_min_labelled_per_batch to 0 "
+                                 "(the plan's own statistics are the dose record)")
         if config.device.startswith("cuda") and torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
         self.model.train_mode()
@@ -490,7 +508,16 @@ class Trainer:
         ):
             if skip_in_epoch == 0:
                 epoch_start_step = total_steps
-            if dosing_stats is not None:
+            if plan_mode:
+                # osler_v7 4B full run: the explicit token-capped plan is the batch source; its rows are pre-encoded and the
+                # step order is the plan's, so no sampler re-forms a batch (see meddecide.train.token_plan)
+                plan_batches = batch_plan
+                plan_rows = encoded
+                if plan_batches is None or plan_rows is None:  # narrowed at entry; kept for the type checker
+                    raise ValueError("batch_plan needs the prepared encoded rows")
+                batch_stream = ((index, [plan_rows[position] for position in batch])
+                                for index, batch in enumerate(plan_batches))
+            elif dosing_stats is not None:
                 batch_stream = dosed_batches(
                     self.model,
                     items,

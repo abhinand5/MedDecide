@@ -2,6 +2,8 @@
 
 Loop status: STOPPED 2026-11-15 — T1–T12 DONE; FINDINGS.md written; gate verdicts: 9B PASS, 9B final PASS (additional), 4B NOT MEASURED (base coverage)
 
+Operator-requested follow-up (outside T1–T12): **4B full run**, `loops/osler_v7/4B_FULL_RUN.md`. **Step 1 DONE 2026-11-22** (batching port + 500-step parity); Step 2 not started, awaiting the operator's decision on the D57 quota (§3n).
+
 ## 1. Task board
 
 | id | task | depends | approval | status |
@@ -222,7 +224,74 @@ Loop status: STOPPED 2026-11-15 — T1–T12 DONE; FINDINGS.md written; gate ver
 - [x] Five-claim spot-check in a fresh process (`outputs/osler_v7/T12/SELF_AUDIT.md`), CLAIMS C053.
 - [x] Loop status STOPPED at the top; commit and push.
 
+## 3n. Checklist — 4B full run (operator-requested; outside T1–T12)
+Instruction: `loops/osler_v7/4B_FULL_RUN.md`. This task is the 63,304-step 4B run matched to the 9B final (T11); **only
+Step 1** (batching port + 500-step parity) is done, and Step 2 waits for the operator's approval.
+- [x] Ported to the 4B path: `meddecide.train.token_plan` (the 9B plan; batch-for-batch equal to `t8_run_arm.TokenBatches`
+  at `chunk=1`), `meddecide.train.prepared` (1,526,405 rows / 2,100,632,536 tokens encoded once, 8.6 GB, gitignored),
+  `Trainer.train(batch_plan=..., encoded=...)`, driver `scripts/osler_v7/4b_full_run.py` (`--batching old|token`,
+  `--prepare-only`, `--verify-cache`, `--resume`). The mix, `arm_4b.yaml`, λ_teacher 3.243598, KL 0.1 on `v7_c*`, the
+  cosine schedule and the LoRA settings are unchanged.
+- [x] Parity: two 500-step runs, seed 0, same mix, no dev/test/panel read, one GPU job at a time; both finished without
+  OOM (peak 57.8 GB old / 57.3 GB token on the 97.8 GB card).
+- [x] Report `outputs/osler_v7/4B_FULL/parity/parity.md` + `parity.json`; fresh-process self-audit `SELF_AUDIT.md`
+  (**30/30 checks**, including that the token run's item counts follow the plan file and that the measured KL share
+  matches the plan's dose within 4 binomial sd).
+- [ ] **Step 2 (63,304 steps) not started** — awaiting the decision below.
+
+### Step 1 results — 500-step batching parity (same arm, same mix, seed 0)
+| metric | old batching (T6 path, quota 3) | token-capped plan (9B batching, quota 0) |
+|---|---|---|
+| steps completed | 500 | 500 |
+| items / step (mean; min–max) | 5.86; 3–8 | 3.70; 1–8 |
+| real tokens / step | 5,486 | 5,054 |
+| padded tokens / step (mean; max) | 14,097; 52,224 | 5,158; 15,680 |
+| padding ratio (padded ÷ real) | 2.57 | **1.02** |
+| **KL-to-base active steps** | 182/500 = **36.40 %** | 21/500 = **4.20 %** |
+| mean KL, all steps / active steps | 0.02371 / 0.06515 | 0.00939 / 0.22361 |
+| distillation active steps; teacher rows/step | 100 %; 3.00 | 32.0 %; 1.08 |
+| mean CE (all; first 200 → last 200) | 0.710; 0.816 → 0.602 | 1.088; 1.271 → 0.975 |
+| seconds / step (mean; median; p95) | 3.66; 2.78; 10.71 | **0.72; 0.66; 1.70** |
+| items / second | 1.60 | **5.13** |
+| peak GPU (GB) | 57.8 | 57.3 |
+| distillation gradient share (first 200) | 0.3888 | 0.4409 |
+
+The plan's own statistics (whole mix, 407,250 batches): mean 3.75 items and 5,268 padded tokens per step, KL-to-base on
+**3.63 %** of steps (14,764 batches hold a `v7_c` row) and distillation on 32.64 % — the 9B final's dose (3.36 % over
+13,992 steps, 3.45 % over 63,304), not T6's 40.5 %. The measured 4.20 % is within sampling noise of 3.63 %
+(4 sd = 3.34 pp at 500 steps). Mean CE is **not** a cross-run quality comparison: the quota gives the old run 3.00
+labelled (replay-family, short) anchors of its 5.86 item slots, the plan 1.08 of 3.70 — the old batches are easier,
+not better trained.
+
+**Why the KL share moves — the quota, not the batching.** T6's full 13,992-step log: KL active on 40.51 % of steps,
+0.479 `v7_c` (`n_anchor`) rows per step, exactly 3.00 teacher rows per step. The mix has 69,967 `v7_c` rows — 4.58 % of
+all rows but **15.97 % of the 438,188-row labelled stratum** the quota draws its three anchors from, so a three-anchor
+quota puts a `v7_c` row in 1 − (1 − 0.1597)³ = **40.66 %** of batches, matching T6's 40.51 % and 3 × 0.1597 = 0.479.
+Removing the quota returns the pool rows to their natural share, and the length-sorted plan concentrates them into their
+own length bands: 3.63 % of steps.
+
+**Decision needed before Step 2 (the one open question).**
+- **A. Run the token plan as measured** (the 9B's batching, no D57 quota): KL 4.20 % of steps, distillation 32.0 %, and
+  63,304 steps projected at **11.6 h** by the median step (0.66 s; 12.7 h by the mean). The 4B/9B panel comparison is then
+  like-for-like in steps, batch composition and KL dose. Cost: the distillation term runs on 32 % of steps with ~1.08
+  anchors instead of every step with 3.00 — the token plan's dose equals the 9B final's, not T6's.
+- **B. Keep T6's batching and quota** (KL 36–40 %, distillation every step, ~49 h projected): the panel comparison keeps
+  exactly the dose mismatch Step 1 was asked to remove.
+- **C. Keep the quota on the token plan**: any quota draws anchors uniformly rather than by length, so batches mix lengths,
+  the 1.02 padding ratio and the memory bound are lost, and the `v7_c` over-sampling returns unless the pool rows are
+  excluded from the anchor stratum — a sampler change that is neither built nor measured. Not recommended without a new
+  instruction.
+My reading of the instruction ("the same batching as the 9B final") is **A**; B and C are recorded so the choice is explicit.
+
 ## 4. Log
+- 2026-11-22T13:30Z — **4B full run Step 1 DONE** (operator-requested, outside T1–T12). The 9B final's token-capped
+  batching is ported to the 4B path (`meddecide.train.token_plan`, `meddecide.train.prepared`, a `batch_plan` mode in
+  `Trainer.train`, driver `scripts/osler_v7/4b_full_run.py`), and the 500-step parity ran twice on the same mix and seed:
+  old batching KL-to-base active on 36.40 % of steps, token plan on 4.20 % (plan predicts 3.63 %; 9B final 3.36/3.45 %),
+  padded tokens per step 14,097 → 5,158 and step time 2.78 → 0.66 s at the median. The cause is measured: the D57 quota
+  draws three anchors from a labelled stratum in which `v7_c` is 15.97 %, which alone predicts 40.66 % of batches with a
+  `v7_c` row (T6 measured 40.51 %). Report `outputs/osler_v7/4B_FULL/parity/parity.md`; self-audit 30/30 checks. CLAIMS
+  C054–C058. **Step 2 not started** — awaiting the operator's A/B/C decision in §3n.
 - 2026-11-12T17:38Z — T4 grid launched as one detached GPU job (9 cells, batch 32 / 32,768 padded tokens, log
   `outputs/osler_v7/T4/logs/t4_grid.log`). Three earlier attempts were stopped before a cell completed while batching was
   tuned (length-sorted dev order; logs `t4_grid_attempt1..3.log`); no partial results are used. T4 finishes when `grid.json`
@@ -379,6 +448,10 @@ Loop status: STOPPED 2026-11-15 — T1–T12 DONE; FINDINGS.md written; gate ver
   run count; the exit code was 0 either way.)
 
 ## 5. Questions for the operator
+- **4B full run Step 2 — the D57 quota (2026-11-22).** The 9B-matched batching reaches the 3–4 % KL-to-base dose only by
+  dropping the frozen 3-labelled quota (KL 4.20 % vs 36.40 %; §3n). Options A (run the token plan as measured, 11.6 h),
+  B (keep T6's batching and quota, ~49 h, dose mismatch with the 9B kept), C (quota on the token plan; loses the padding
+  and memory bound, needs a new sampler). I recommend A for the like-for-like panel comparison; no Step 2 work has started.
 - **T6 distillation weight:** ADVISORY §3 writes the loss as CE + λ_KL·KL-to-base only, while §2 attaches pplx-27B
   teacher labels to C1–C4. The v7 arm config reuses osler_v6's frozen distillation weight 3.243598 with the
   3-labelled quota (the "v6 mix + C1–C4" reading). If another teacher weight is intended, it must be named
