@@ -1,14 +1,14 @@
 # STATE — osler_rc0
 
-Loop status: IN_PROGRESS — R0 DONE; R1 training (started 2026-11-24T06:50Z)
+Loop status: IN_PROGRESS — R0, R1 DONE; R2 scoring (started 2026-11-24T21:33Z)
 
 ## 1. Task board
 
 | id | task | depends | approval | status |
 |---|---|---|---|---|
 | R0 | Preflight, SHA-256 hashes, pplx snapshot identity check, `medconceptsqa` overlap check, on-disk prediction inventory, baseline commit (CPU) | — | **Loop GO** | DONE 2026-11-24T07:05Z |
-| R1 | Train `Osler-4B-rc0` (63,304 steps, Option A token-capped plan, `4b_full_run.py`, ~12–14 h GPU) | R0 | **GPU approval** | IN_PROGRESS 2026-11-24T06:50Z |
-| R2 | Dev-only calibration for `Osler-9B-rc0` + score `Osler-9B-rc0` & `d3-flash` base with full `probs` on all missing/prob-less sets (~1.5 h GPU) | R0 | **GPU approval** | PENDING |
+| R1 | Train `Osler-4B-rc0` (63,304 steps, Option A token-capped plan, `4b_full_run.py`, ~12–14 h GPU) | R0 | **GPU approval** | DONE 2026-11-24T21:32Z (S 0.839238, positional PASS) |
+| R2 | Dev-only calibration for `Osler-9B-rc0` + score `Osler-9B-rc0` & `d3-flash` base with full `probs` on all missing/prob-less sets (~1.5 h GPU) | R0 | **GPU approval** | IN_PROGRESS 2026-11-24T21:33Z |
 | R3 | Score frozen `Osler-4B-rc0` on all 9 frozen sets with full `probs` (~1 h GPU) | R1 | **GPU approval** | PENDING |
 | R4 | Score fresh tier-2 `confirm/general.jsonl` on competitors (`pplx-27B`, `MedDecider-9B`, `MedDecider-4B`, `Clef-Flash`, optional `JEV-9B` 30-min cap; ~1.5 h GPU) | R0 | **GPU approval** | PENDING |
 | R5 | Standardized latency, throughput & VRAM benchmark (500-item stratified sample, batch 1 & 16; ~20 min GPU) | R1, R2 | **GPU approval** | PENDING |
@@ -25,22 +25,15 @@ Loop status: IN_PROGRESS — R0 DONE; R1 training (started 2026-11-24T06:50Z)
 - **Release upload policy:** **FORBIDDEN** in this loop. R8 stages locally under gitignored `outputs/osler_rc0/R8/release_staging/` only; never upload to Hugging Face or make external posts.
 - **Autonomous fault recovery:** If R1 is interrupted or OOMs, resume cleanly with `--resume` from the latest 2,500-step full checkpoint. If any optional secondary competitor check (`JEV-9B` on `confirm_general` or a competitor latency wrapper) fails past its 30-min timebox, record `NOT MEASURED — <reason>` and proceed without stopping. Never stop to ask the operator unless a hard guardrail triggers (e.g., projected R1 > 72 h, missing required data/disk space that cannot be safely cleared in `/workspace/tmp`, or unexpected data-rule violation).
 
-## 3. Active checklist — R1 (in progress)
+## 3. Active checklist — R2 (in progress)
 
-- [x] Launch exactly the ADVISORY §4 R1 command (detached, `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `--batching token --steps 63304 --eval-steps 13992,27984,41976,55968,63304`), log `outputs/osler_rc0/R1/arm/logs/arm.log`; launched 2026-11-24T06:50:12Z, provenance `outputs/osler_rc0/R1/arm/run_provenance.json` (checkpoint `pplx-decider-flash-v1.2@9ff7cf98…`, mix sha `b8b97031…`, plan 407,250 batches, KL dose 3.63 %, distillation 32.64 % — matches the parity report).
-- [x] Step-500 wall-clock guard: median 0.655 s/step at steps 900 and 2,500 → ~11.1 h optimiser time remaining, projected total ≈ 11.5 h + evals (guard limit 72 h) — PASS 2026-11-24T07:23Z.
-- [ ] `arm_result.json`: `steps == 63304`, `stopped_early == false`, 0 non-finite losses in `logs/train.jsonl`.
-- [~] Dev evaluations: 13,992 → S 0.8016 (positional PASS); 27,984 → S 0.7919 (FAIL); 41,976 → S 0.8350 (FAIL; 9B at same step 0.8368); 55,968 → **S 0.8380** (MR 0.9503, MIMIC 0.7805, CG 0.7833), knowledge 0.7708, **positional PASS**. Final checkpoint 63,304 is the last evaluation and the release candidate.
-- [ ] D52b positional health at 63,304: `positional_passes_all_orders == true`; record honestly if false (no checkpoint swap without operator approval).
-- [ ] Dev temperature fits (`choice`, `noul`, `score`) saved inside `checkpoints/final_step_063304`; record SHA-256 of the checkpoint files.
-- [ ] `outputs/osler_rc0/R1/SELF_AUDIT.md`, CLAIMS rows, commit `loop(osler_rc0): R1 DONE — <headline>`.
-
-### Notes carried from R0
-
-- Pytest: the only failure is the pre-existing strict-xfail `tests/test_padding_trained.py::test_trained_checkpoint_logits_are_padding_invariant`; the test is not modified (KICKOFF §5). 1,223 tests were collected in the R0 run; the two files added afterwards (`tests/test_calibration.py`) pass separately (7/7).
-- The `medconceptsqa` question-text match is a generic prompt string, not overlap; item-level checks are 0/1,000 on both exact state+question and 13-grams.
+- [x] R1 DONE: all five dev evaluations, final S 0.839238, positional all-orders PASS, dev temperatures saved in `final_step_063304`; self-audit `outputs/osler_rc0/R1/SELF_AUDIT.md`; CLAIMS C006–C009.
+- [x] R2 launched 2026-11-24T21:33:00Z (detached chain `scripts/osler_rc0/r2_score_chain.sh`): fastdev_v4 scoring for the 9B fit, then 8 sets × {9B rc0, d3 base}, then the fit, then calibrated copies of all 9 sets.
+- [ ] R2 acceptance: fastdev extraction 14,597 rows (verified); `9b_calibration.json` with three temperatures, dev pre/post NLL/Brier/ECE and 0 argmax changes; 8 sets × 2 models scored with finite normalised probs; calibrated copies have 0 argmax flips and identical accuracy to the pre-existing T10 files on knowledge, mr_verdict, mimic_suite, confirm_general.
+- [ ] `verify_predictions.py --task r2` PASS; `outputs/osler_rc0/R2/SELF_AUDIT.md`; CLAIMS rows; commit `loop(osler_rc0): R2 DONE — <headline>`.
 
 ## 4. Log
+- 2026-11-24T21:33Z — **R1 DONE.** `Osler-4B-rc0` frozen at step 63,304: dev **S 0.839238** (MR 0.946701, MIMIC 0.783854, CG v2 micro 0.787160), knowledge 0.762364, **all-orders positional PASS** (two-letter 0.488978 vs single-letter 0.852295, n=499/501; both permuted seeds pass). Trajectory 0.8016 → 0.7919 → 0.8350 → 0.8380 → 0.8392 (the 9B final at the same steps: 0.8067 / 0.8292 / 0.8368 / 0.8529 / 0.8538). Wall clock 14.07 h, 0 non-finite losses, 0 tripwires, GPU peak 57.1 GB. Dev temperatures saved in the checkpoint (choice 1.522233, noul 2.374354, score 1.538844). Self-audit + CLAIMS C006–C009. R2 chain launched immediately (21:33Z).
 - 2026-11-24T19:12Z — R1 interim: step 55,968 dev evaluation: **S 0.8380** (MR 0.9503, MIMIC 0.7805, CG v2 micro 0.7833), knowledge dev 0.7708, positional all-orders **PASS** (its second PASS of the run). The 9B final at the same step scored S 0.852858, so the 4B trails the 9B by ~0.015 at 88 % of training. Remaining: the final 63,304 evaluation and save (~1.5 h).
 - 2026-11-24T16:07Z — R1 interim: step 41,976 dev evaluation: **S 0.8350** (MR 0.9488, MIMIC 0.7771, CG v2 micro 0.7792), knowledge dev 0.7768; positional all-orders FAIL at this checkpoint (third eval: PASS at 13,992, FAIL at 27,984 and 41,976). At matched steps the 9B final scored S 0.836843, so the 4B is within 0.002 of the 9B here. Honest-recording rule applies; the final 63,304 checkpoint stays frozen.
 - 2026-11-24T13:02Z — R1 interim: step 27,984 dev evaluation: S 0.7919 (MR 0.9035, MIMIC 0.7408, CG v2 micro 0.7316), knowledge 0.7394, positional all-orders **FAIL** at this intermediate checkpoint (13,992 passed). The CG-v2 micro part moved 0.7656 → 0.7316 while MR/MIMIC held, so the dip is the general CG partition. The final checkpoint is frozen at 63,304 and will be reported as measured; no checkpoint swap.
