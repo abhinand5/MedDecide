@@ -17,18 +17,15 @@
 
 ## Current loop
 
-- **Loop:** `osler_v7` (data-engineered recipe for the Pareto frontier: format-matched training cells, KL-to-base, scale
-  interpolation; 4B on pplx-decider-flash-v1.2, 9B on d3-flash)
-- **Mission:** the pre-registered plan in `loops/osler_v7/ADVISORY.md`. Measure each lever on non-panel dev first, then train
-  one arm per base, then gate each model against its own zero-shot base. Report the frontier only with a fresh confirmation set.
-- **Branch:** `loop/osler_v7` (never commit to `main`, `dev` or any other loop branch)
-- **Artifacts:** `loops/osler_v7/` (GOAL.md, ADVISORY.md, STATE.md, KICKOFF.md, CLAIMS.md, FINDINGS.md)
-- **Run state:** `loops/osler_v7/STATE.md`
-- **Outputs:** `outputs/osler_v7/<task-id>/` (gitignored)
-- **Claims:** `loops/osler_v7/CLAIMS.md`
-- **Style:** autonomous, with GPU steps gated by the operator (see STATE.md §2)
-- **Status:** `PLANNED — not started`. Tasks with no GPU use may start after the operator's GO; GPU steps need the operator's
-  explicit approval.
+- **Loop:** `osler_rc0` (Release Candidate 0: matched 63,304-step Osler-4B + frozen Osler-9B, 12-model Pareto frontier across 9 frozen sets with full calibration & latency, mandatory MIMIC PHI/memorisation audit, and release packaging/model cards — no public upload)
+- **Mission:** the pre-registered plan in `loops/osler_rc0/ADVISORY.md`. Train Osler-4B like-for-like with Osler-9B (Option A token-capped plan), complete full-probability evaluation and dev-only calibration on both release candidates and the 12-model comparison ladder, run the mandatory local MIMIC memorisation/PHI audit (D28), and stage verified release artifacts + model cards.
+- **Branch:** `loop/osler_rc0` (never commit to `main`, `dev` or any other loop branch)
+- **Artifacts:** `loops/osler_rc0/` (GOAL.md, ADVISORY.md, STATE.md, KICKOFF.md, CLAIMS.md, FINDINGS.md, LEADERBOARD.md, PER_CATEGORY.md, PARETO.md, AUDIT.md, MODEL_CARD_9B.md, MODEL_CARD_4B.md)
+- **Run state:** `loops/osler_rc0/STATE.md`
+- **Outputs:** `outputs/osler_rc0/<task-id>/` (gitignored)
+- **Claims:** `loops/osler_rc0/CLAIMS.md`
+- **Style:** autonomous end-to-end once approved in STATE.md §2
+- **Status:** `APPROVED — autonomous execution R0–R9 (blanket GO + GPU approval recorded in STATE.md §2)`.
 
 ---
 
@@ -217,6 +214,8 @@ it under "Deviations from the plan".
 
 | loop | outcome | findings |
 |---|---|---|
+| `osler_v7` | Format-matched C1–C4 cells (69,967 rows labelled by local pplx-27B), KL-to-base, WiSE-FT scale check (s=1.00 won both sizes). 63,304-step Osler-9B (`d3-flash` base) reached dev S 0.8538, passed all confirmation-set checks against its base (general +0.0154, audit +0.1469, knowledge −0.0084 lower bounds), and held full parity on the external panel (0.5927 vs 0.5899 base) and knowledge (0.7322 vs 0.7335 base) while beating pplx-27B on MR (0.9016 vs 0.8093) and MIMIC (0.7733 vs 0.6729). 13,992-step 4B arm tied pplx-flash on panel (0.5610 vs 0.5615); Step 1 parity ported 9B token-capped batching to 4B (0.66 s/step median, ~11.6 h projected). | `loops/osler_v7/FINDINGS.md`; `docs/leaderboard.md` |
+| `osler_v6` | D57-dosed pplx-27B distillation (385,536 anchors, λ=3.243598, 63,304-step Osler-4B final). Restored knowledge to parity (−0.0013 vs base) and kept MR (+0.149) and MIMIC (+0.136), but failed external panel (−0.0245 [−0.0384, −0.0115]). | `loops/osler_v6/FINDINGS.md` |
 | `osler_v5` | Fix-and-max loop on osler_v4's mix. Per-item loss weighting, option augmentation (positional health), corrected mix (155 `fda_route_choice_v1` rows dropped). Corrected arms at 13,992 steps: F2 passes positional health (two-letter 0.539 vs F0 0.365) but fails the knowledge and MIMIC bounds against F0; no arm qualified under D56c, so no final (outcome 4). Osler_v4's final remains the best audit model measured; the general-skill gap is not closed. Additional Z8: F2 at 63,304 steps (operator-approved). | `loops/osler_v5/FINDINGS.md`; evidence `docs/paper/EVIDENCE.md` |
 | `osler_v4` | MIMIC-IV payer-audit templates (13 + MedNLI; labels from database fields), 10,125 Nemotron-edited minimal pairs, the frozen MIMIC audit suite v1 (4,253 items). Stage A chose the control (KL + replay and 27B distillation did not beat it on CG v2); Stage B kept no block, B1–B3 entered under an operator ruling. 63,304-step final. **Gate O4 FAIL** vs zero-shot pplx on the external panel (−0.042 [−0.058, −0.027]); MR verdict +0.139, MIMIC suite +0.165, knowledge −0.007 pass; vs MedDecider-4B the panel is NOT MEASURED (10-letter prompt). MIMIC suite 0.800, above pplx-27B (0.682) and every model ≤ 10B. Membership AUC 0.504. Advisor diagnosis (after the loop, dev only): readout collapse on two-letter option codes (DDXPlus 2 of 499), per-step loss averaging gave MIMIC ~60 % of the gradient for 36 % of items, selection ignored CG. | `loops/osler_v4/FINDINGS.md` |
 | `osler_v3` | Stage A (control, KL-to-base 0.1 and 0.5, broad replay; 13,992 steps each) chose the control on the clinical-general dev proxy, where all runs sat within 0.003. Stage B kept no block: RAGTruth + DrugProt (+0.151 on its own templates), restyle pages and indicator charts each failed the keep rule's MR-gain check (−0.004 to −0.010). X9 skipped (the kept mix equals osler_v2's); no Gate O3 verdict. Additional rows: KL 0.1 and broad replay narrowed the panel gap against pplx from −0.025 to about −0.011 (intervals reach zero) at no MR cost; every short run is 0.018–0.025 below osler_v2's 42,200-step model on MR (run length, untested). | `loops/osler_v3/FINDINGS.md` |
