@@ -99,7 +99,8 @@ def main() -> None:
         best = max(range(len(values)), key=values.__getitem__)
         out_rows.append({"item_id": row.row_id, "template_id": converted[index]["template_id"],
                          "source": row.source, "n_options": row.count, "gold_index": row.gold,
-                         "predicted_index": best, "correct": best == row.gold})
+                         "predicted_index": best, "correct": best == row.gold,
+                         "probs": [float(v) for v in values]})
     out_dir = args.out / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     write_jsonl(out_dir / "predictions.jsonl", out_rows)

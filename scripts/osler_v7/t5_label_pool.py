@@ -161,7 +161,7 @@ def cmd_parity(_: argparse.Namespace) -> None:
     comparisons = {name: sl.compare_scorings(single, results[name]) for name in ("reference_batched", "fast_batched")}
     chosen = "reference_single"
     for name in ("reference_batched", "fast_batched"):
-        if comparisons[name]["argmax_agreement"] == PARITY_ITEMS:
+        if comparisons[name]["argmax_agree"] == PARITY_ITEMS:
             chosen = name
             break
     write_json(PARITY, {"teacher": sl.TEACHER, "items": PARITY_ITEMS, "timings_s": timings,

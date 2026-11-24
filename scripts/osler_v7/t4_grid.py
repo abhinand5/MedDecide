@@ -138,10 +138,11 @@ def main() -> None:
     (args.out_dir / "logs").mkdir(exist_ok=True)
     with args.dev.open(encoding="utf-8") as handle:
         dev_rows = [json.loads(line) for line in handle if line.strip()]
-    meta = {str(row["item_id"]): {"dev_origin": str(row["dev_origin"])} for row in dev_rows}
     items = [mix_row_to_item(row) for row in dev_rows]
     if len({item.item_id for item in items}) != len(items):
         raise SystemExit("the dev file has duplicate item ids")
+    # `mix_row_to_item` recomputes the item id; the dev file's own id is not the id the scoring path writes.
+    meta = {item.item_id: {"dev_origin": str(row["dev_origin"])} for item, row in zip(items, dev_rows, strict=True)}
     # Batch padding dominates otherwise: the dev file mixes 30-token MCQ rows with multi-thousand-token MIMIC
     # notes. Sorting by prompt-length proxy before scoring keeps each batch's rows similar in length; the metrics
     # join on item_id, so scoring order does not matter.
