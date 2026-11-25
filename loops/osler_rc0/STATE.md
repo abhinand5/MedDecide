@@ -1,6 +1,6 @@
 # STATE — osler_rc0
 
-Loop status: IN_PROGRESS — R0–R7 DONE; R8 release staging/verification (started 2026-11-25T04:28Z)
+Loop status: STOPPED — R0–R9 DONE (2026-11-25T05:35Z); both release candidates staged and verified locally, nothing uploaded. Release readiness for operator sign-off: see FINDINGS.md.
 
 ## 1. Task board
 
@@ -14,8 +14,8 @@ Loop status: IN_PROGRESS — R0–R7 DONE; R8 release staging/verification (star
 | R5 | Standardized latency, throughput & VRAM benchmark (500-item stratified sample, batch 1 & 16; ~20 min GPU) | R1, R2 | **GPU approval** | DONE 2026-11-25T02:35Z (5 models; 3 NOT MEASURED) |
 | R6 | Mandatory local MIMIC PHI & memorisation audit (D28): visited-member + Y10 membership AUC for 9B & 4B; 4B verbatim probe; 9B non-generative check (~1 h GPU) | R1, R2 | **GPU approval** | DONE 2026-11-25T04:14Z (ΔAUC +0.0468/+0.0248, verbatim 0/300, CLEAR) |
 | R7 | Unified 12-model leaderboard (`rc0_leaderboard.py` + unit tests), `raw↔recomp` ID join, Brier/ECE, paired CIs, per-category tables, formal Pareto frontier (CPU) | R2, R3, R4, R5 | Loop GO | DONE 2026-11-25T04:28Z (9B on 2-axis front; dominates <=10B) |
-| R8 | Release staging verification (offline reload parity <1e-4, 4B base generation byte-identity, 9B no-`lm_head` check) + honest model cards (NO upload) | R6, R7 | GPU approval (short) | IN_PROGRESS 2026-11-25T04:28Z |
-| R9 | Final lint/test check, 5-claim fresh-process spot-check, `FINDINGS.md`, `Loop status: STOPPED`, commit (CPU) | R8 | Loop GO | PENDING |
+| R8 | Release staging verification (offline reload parity <1e-4, 4B base generation byte-identity, 9B no-`lm_head` check) + honest model cards (NO upload) | R6, R7 | GPU approval (short) | DONE 2026-11-25T05:29Z (0 drift, 20/20 byte-identity, no lm_head) |
+| R9 | Final lint/test check, 5-claim fresh-process spot-check, `FINDINGS.md`, `Loop status: STOPPED`, commit (CPU) | R8 | Loop GO | DONE 2026-11-25T05:35Z (5/5 claims PASS) |
 
 ## 2. Operator decisions and approvals
 - **Loop GO:** **GIVEN — 2026-11-24** (operator: full autonomous end-to-end execution of R0–R9 without intervention).
@@ -25,15 +25,17 @@ Loop status: IN_PROGRESS — R0–R7 DONE; R8 release staging/verification (star
 - **Release upload policy:** **FORBIDDEN** in this loop. R8 stages locally under gitignored `outputs/osler_rc0/R8/release_staging/` only; never upload to Hugging Face or make external posts.
 - **Autonomous fault recovery:** If R1 is interrupted or OOMs, resume cleanly with `--resume` from the latest 2,500-step full checkpoint. If any optional secondary competitor check (`JEV-9B` on `confirm_general` or a competitor latency wrapper) fails past its 30-min timebox, record `NOT MEASURED — <reason>` and proceed without stopping. Never stop to ask the operator unless a hard guardrail triggers (e.g., projected R1 > 72 h, missing required data/disk space that cannot be safely cleared in `/workspace/tmp`, or unexpected data-rule violation).
 
-## 3. Active checklist — R8 (in progress)
+## 3. Final checklist — R9 (done)
 
-- [x] R6 DONE: visited-member AUC 9B 0.5876 (control 0.5408, Δ+0.0468), 4B 0.5644 (control 0.5396, Δ+0.0248) — both clear rule (a); Y10 0.5018/0.5033 (near-null, only 35/2,000 Y10 members visited); verbatim 0/300 matches ≥50 tokens (control 0/300); 9B no `lm_head`; **CLEAR for release discussion**. Committed `loops/osler_rc0/AUDIT.md`; self-audit `outputs/osler_rc0/R6/SELF_AUDIT.md`; CLAIMS C021–C024.
-- [x] R7 DONE: 12 models × 9 sets, zero unmapped ids; 2-axis front = **Osler-9B-rc0 + pplx-27B**; 9B dominates every comparable ≤10B model on all 5 headline sets; 4B undominated in the ≤4B tier (with pplx-flash); held-out `synthea_indicator_evidence_v1` flagged READOUT_FAIL for both RCs (below chance) while their bases pass — reported as a held-out transfer failure. Reports `LEADERBOARD.md`, `PER_CATEGORY.md`, `PARETO.md`, `docs/leaderboard.md`; self-audit `outputs/osler_rc0/R7/SELF_AUDIT.md`; CLAIMS C025–C027; unit tests 14.
-- [x] R8 stage done (`outputs/osler_rc0/R8/release_staging/{osler-9b-rc0,osler-4b-rc0}`: weights, readout, calibration, provenance manifests with SHA-256 of every file).
-- [ ] R8 verify: staged-vs-original probability parity (max |Δp| < 1e-4, 20/20 argmax on 20 fixed dev items) for both models; 4B adapter-disabled generation byte-identity vs untouched pplx-flash on 20 fixed prompts (adapter-on control must differ); 9B staged weights have no `lm_head`.
-- [ ] R8 model cards `MODEL_CARD_9B.md` / `MODEL_CARD_4B.md`; `outputs/osler_rc0/R8/SELF_AUDIT.md`; CLAIMS; commit.
+- [x] `uv run ruff check .` clean; full `pytest` run 2026-11-25 (1,238 collected; only the documented strict-xfail failure, test untouched; 1 skip).
+- [x] Five-claim fresh-process spot-check: **5/5 PASS** (`outputs/osler_rc0/R9/SELF_AUDIT.md`, `spotcheck.json`).
+- [x] `FINDINGS.md` written (Summary first, 12-model table, Pareto verdict, PHI audit summary, 5-claim table, deviations/NOT MEASURED, release-readiness checklist).
+- [x] `Loop status: STOPPED` at the top of this file.
+- [x] Committed on `loop/osler_rc0` and pushed.
 
 ## 4. Log
+- 2026-11-25T05:29Z — **R8 DONE.** Staged trees under `outputs/osler_rc0/R8/release_staging/{osler-9b-rc0,osler-4b-rc0}` with weights, readout, calibration and SHA-256 provenance manifests (no training data, no MIMIC text). Offline verification: staged-vs-original max |Δp| **0.0** with 20/20 argmax for both models; 4B adapter-disabled generation **20/20 token-identical** to the untouched base (adapter-on control differs 20/20); 9B staged weights carry no `lm_head`. Model cards written with the measured limitations (held-out below-chance cell, fresh-set calibration transfer, 4B OOD regression). The base-generation check needed four harness fixes; the diagnostic that exposed the last one (a randomly initialised reference from the custom pplx architecture) is at `outputs/osler_rc0/R8/logs/diag.log`.
+- 2026-11-25T05:35Z — **R9 DONE; LOOP STOPPED.** Ruff clean; full pytest run completed with only the documented strict-xfail failure; five-claim fresh-process spot-check **5/5 PASS**; `FINDINGS.md` written; `Loop status: STOPPED`; committed and pushed. No uploads.
 - 2026-11-25T04:14Z — **R6 DONE.** Visited-member membership inference (members = rows visited by both runs, 2,000 + 2,000 late-anchor non-members with 0 content-hash overlap): Osler-9B-rc0 AUC 0.5876 (control d3-flash 0.5408, **Δ +0.0468** [+0.0316, +0.0626]); Osler-4B-rc0 0.5644 (control pplx-flash 0.5396, **Δ +0.0248** [+0.0097, +0.0397]) — both clear the ≤0.05 rule. Y10 compatibility 0.5018 / 0.5033 (only 35 of 2,000 Y10 members were visited by both, so it is a near-null check; v4 reference 0.5042). Verbatim probe: **0/300** matches ≥50 tokens (control 0/300; truth NLL 8.56 vs 2.72). 9B has no `lm_head`. **CLEAR for release discussion** → `AUDIT.md`. R6 chain launched 02:37Z, finished 04:14Z.
 - 2026-11-25T04:28Z — **R7 DONE.** 12 models × 9 frozen sets, all cells loaded through the raw↔recomp bijection with zero unmapped ids. **2-axis Pareto front (OOD vs Clinical Audit): Osler-9B-rc0 (0.7419, 0.8375) and pplx-27B (0.7725, 0.7411).** Exact ≤10B dominance: Osler-9B-rc0 dominates every comparable ≤10B model on all five headline sets; undominated on all five = Osler-9B-rc0 and d3-flash. ≤4B tier: Osler-4B-rc0 and pplx-flash undominated, both dominating MedDecider-4B. Readout-health flag: `synthea_indicator_evidence_v1` (held-out) below chance for both RCs (0.356 / 0.245) while both bases pass — reported as a held-out transfer failure. Reports + pointer written; 14 unit tests.
 - 2026-11-25T02:37Z — **R5 DONE.** Fixed sample (250 panel + 250 mr_verdict, seed 0), 10 warm-up excluded, batch 1 and 16. Batch-1 p50 ms/item: Osler-4B-rc0 26.543, pplx-flash 25.510, Osler-9B-rc0 33.714, d3-flash 33.799, pplx-27B 90.957; peak VRAM 9.6 / 9.6 / 17.3 / 17.3 / 52.9 GB; params 4.55B / 4.54B / 8.40B / 8.40B / 26.1B. Batch 16 is *slower* than batch 1 for every model (non-causal full attention + padding) — reported, not hidden. MedDecider-4B/9B and Clef-Flash recorded NOT MEASURED (authors' single-item runners, timebox). First pass crashed the two D3-backend models on a harness bug; fixed, re-measured, merged. R6 launched (02:37Z).
