@@ -376,6 +376,7 @@ tags:
 - **Non-generative by architecture:** Carries no `lm_head` (`Qwen3_5Model` + 255-way option-code readout); cannot generate free text.
 - **Dev-only per-type calibration built in:** `choice: 1.5274`, `noul: 2.3185`, `score: 1.7035` (applied automatically by `AutoModel.from_pretrained(..., trust_remote_code=True)`).
 - **Base model:** [`vllm-sr/d3-flash`](https://huggingface.co/vllm-sr/d3-flash) (revision `67e03e1bc157961c582ee7c6a35d9b15fada3dec`, Apache-2.0, built on `Qwen/Qwen3.5-9B`).
+- **Source & benchmark repository:** [github.com/abhinand5/MedDecide](https://github.com/abhinand5/MedDecide)
 - **License:** Apache-2.0 (`LICENSE` and `NOTICE` included).
 
 ---
@@ -526,6 +527,7 @@ tags:
 - **Standalone merged weights:** Full BF16 `Qwen3_5Model` safetensors shards (attention LoRA `r=32` merged) + `[255, 2560]` option-code readout + bundled `modeling_osler.py` and `pplx_decider` runtime.
 - **Dev-only per-type calibration built in:** `choice: 1.5222`, `noul: 2.3744`, `score: 1.5388` (applied automatically by both `AutoModel` and `Decider`).
 - **Base model:** [`perplexity-ai/pplx-decider-flash-v1.2`](https://huggingface.co/perplexity-ai/pplx-decider-flash-v1.2) (revision `9ff7cf9838e59df461c276b7699d56b244d2af58`, Apache-2.0, built on `Qwen/Qwen3.5-4B`).
+- **Source & benchmark repository:** [github.com/abhinand5/MedDecide](https://github.com/abhinand5/MedDecide)
 - **License:** Apache-2.0 (`LICENSE` and `NOTICE` included).
 
 ---
