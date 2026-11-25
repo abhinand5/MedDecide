@@ -213,7 +213,15 @@ def _compare(name: str, a: list[list[float]], b: list[list[float]]) -> dict[str,
             "passed": max_delta < 1e-4 and agree == len(a)}
 
 
-def _causal_from_pplx(staged: Path, *, adapter_scale: float) -> Any:
+def _causal_from_pplx(source: Path, *, adapter_scale: float | None) -> Any:
+    """A causal LM carrying the pplx base backbone, built through the decision-model loader.
+
+    ``source`` is either the untouched base snapshot (no adapter; ``adapter_scale=None``) or a saved checkpoint directory
+    (adapter attached; the adapter's scaling is set explicitly before merging). Both sides of the byte-identity check
+    therefore come from the SAME loader and the SAME weight-copy path, which is what isolates the adapter: the checkpoint
+    is a custom pplx architecture, so a plain ``AutoModelForCausalLM.from_pretrained`` on the snapshot would miss every
+    backbone key and compare against a randomly initialised model (observed and rejected during this audit).
+    """
     import gc
 
     sys.path.insert(0, str(ROOT / "scripts/osler_v4"))
@@ -222,14 +230,19 @@ def _causal_from_pplx(staged: Path, *, adapter_scale: float) -> Any:
 
     from meddecide.model.pplx import PplxDecisionModel
 
-    model = PplxDecisionModel.load(staged, device="cuda:0", dtype="bfloat16")
-    for module in model.peft_model.modules():
-        scaling = getattr(module, "scaling", None)
-        if isinstance(scaling, dict):
-            module.scaling = dict.fromkeys(scaling, adapter_scale)
-        elif isinstance(scaling, float):
-            module.scaling = float(adapter_scale)
-    merged = model.peft_model.merge_and_unload().eval()
+    if (source / "model.json").is_file():
+        model = PplxDecisionModel.load(source, device="cuda:0", dtype="bfloat16")
+        if adapter_scale is not None:
+            for module in model.peft_model.modules():
+                scaling = getattr(module, "scaling", None)
+                if isinstance(scaling, dict):
+                    module.scaling = dict.fromkeys(scaling, float(adapter_scale))
+                elif isinstance(scaling, float):
+                    module.scaling = float(adapter_scale)
+        merged = model.peft_model.merge_and_unload().eval()
+    else:
+        model = PplxDecisionModel(source, dtype="bfloat16", device="cuda:0")
+        merged = model.base.eval()
     del model
     gc.collect()
     torch.cuda.empty_cache()
@@ -269,19 +282,15 @@ def step_verify() -> None:
     result["four"] = _compare("4b staged vs original", _pplx_probs(PPLX4, items),
                               _pplx_probs(four / "weights", items))
     # 4B base generation byte-identity, with the adapter on as a non-vacuity control
-    adapter_off = _generate(_causal_from_pplx(four / "weights", adapter_scale=0.0), GEN_PROMPTS)
-    torch.cuda.empty_cache()
     import gc
 
-    gc.collect()
-    adapter_on = _generate(_causal_from_pplx(PPLX4, adapter_scale=1.0), GEN_PROMPTS)
+    adapter_off = _generate(_causal_from_pplx(four / "weights", adapter_scale=0.0), GEN_PROMPTS)
     gc.collect()
     torch.cuda.empty_cache()
-    from transformers import AutoModelForCausalLM
-
-    reference = AutoModelForCausalLM.from_pretrained(PPLX_BASE, dtype=torch.bfloat16, device_map="cuda").eval()
-    untouched = _generate(reference, GEN_PROMPTS)
-    del reference
+    adapter_on = _generate(_causal_from_pplx(four / "weights", adapter_scale=1.0), GEN_PROMPTS)
+    gc.collect()
+    torch.cuda.empty_cache()
+    untouched = _generate(_causal_from_pplx(Path(PPLX_BASE), adapter_scale=None), GEN_PROMPTS)
     gc.collect()
     torch.cuda.empty_cache()
     identical = sum(1 for a, b in zip(adapter_off, untouched, strict=True) if a == b)
@@ -322,6 +331,8 @@ def step_cards() -> None:
     latency = json.loads((ROOT / "outputs/osler_rc0/R5/latency.json").read_text()) if (
         ROOT / "outputs/osler_rc0/R5/latency.json").is_file() else {"models": {}}
     audit = json.loads((ROOT / "outputs/osler_rc0/R6/membership_auc.json").read_text())
+    sample_summary = json.loads((ROOT / "outputs/osler_rc0/R6/sample_summary.json").read_text())
+    visited_summary = json.loads((ROOT / "outputs/osler_rc0/R6/visited_summary.json").read_text())
     y10 = json.loads((ROOT / "outputs/osler_rc0/R6/y10_membership.json").read_text())
     verification = json.loads((OUT / "release_verification.json").read_text())
     calibration9 = json.loads(CALIB9.read_text())["temperatures"]
@@ -401,7 +412,7 @@ def step_cards() -> None:
                   f"- Batch-1 p50 latency: {_fmt(latency_entry.get('batch1', {}).get('p50_ms_per_item'))} ms/item "
                   f"(p95 {_fmt(latency_entry.get('batch1', {}).get('p95_ms_per_item'))} ms/item)",
                   f"- Batch-16 throughput: {_fmt(latency_entry.get('batch16', {}).get('items_per_s'))} items/s",
-                  f"- Peak allocated VRAM: {_fmt(latency_entry.get('peak_vram_gb'))} GB", "",
+                  f"- Peak allocated VRAM (batch 1): {_fmt(latency_entry.get('batch1', {}).get('peak_vram_gb'))} GB", "",
                   "## MIMIC PHI / memorisation audit (D28; local only)", ""]
         entry = audit["models"].get(model, {})
         lines += [f"- Visited-member membership AUC (members visited by both release candidates vs late-anchor "
@@ -412,12 +423,36 @@ def step_cards() -> None:
                   f"{_fmt((entry.get('auc_difference_ci95') or ['-', '-'])[1])}].",
                   f"- Y10 historical compatibility set AUC: {_fmt(y10['models'].get(model, {}).get('auc'))} "
                   f"(osler_v4 reference 0.5042).",
-                  f"- {audit['members']} members sampled from {audit.get('mix_mimic_rows_visited_both', 0):,} MIMIC rows "
-                  f"visited by both runs (5,398,07 MIMIC rows are 35.4 % of the training mix)."]
+                  f"- {sample_summary['members']:,} members sampled from "
+                  f"{sample_summary['mix_mimic_rows_visited_both']:,} MIMIC rows visited by both runs; the training mix has "
+                  f"{visited_summary['mix_mimic_rows']:,} MIMIC-derived rows "
+                  f"({100 * visited_summary['mix_mimic_rows'] / visited_summary['mix_rows']:.1f} % of "
+                  f"{visited_summary['mix_rows']:,})."]
         lines += extra_probes
+        paired = board["paired"].get(model, {}).get(base, {})
+        def _delta(set_name: str) -> str:
+            diff = paired.get(set_name)
+            if not diff or diff.get("n", 0) == 0:
+                return "NOT MEASURED"
+            return f"{diff['accuracy_diff']:+.4f} [{diff['accuracy_diff_ci95'][0]:+.4f}, {diff['accuracy_diff_ci95'][1]:+.4f}]"
+        held_out_flag = (
+            "**Held-out failure, reported:** on `mr_heldout_test` / `synthea_indicator_evidence_v1` (n=514, a template "
+            "excluded from training) both release candidates read below chance (9B accuracy 0.356, CI upper 0.3988; 4B "
+            "0.2451, upper 0.2821; chance 0.5) while their bases pass the same cell (d3-flash 0.4591, pplx-flash 0.5973). "
+            "The cell is flagged `READOUT_FAIL` and is not quoted as an accuracy anywhere in this card.")
+        calibration_note = (
+            "Dev-only calibration does not transfer to the fresh post-cutoff set: mean confidence on `confirm_general` "
+            "is 0.8137 (9B) / 0.8005 (4B) against accuracies 0.9008 / 0.8883, so the ECE there is 0.0900 / 0.0940 versus "
+            "0.0192 on the dev fit set (the models are under-confident on the fresh distribution). No test-set "
+            "temperature was fitted.")
         lines += ["", "## Honest limitations", "",
-                  "- Ties its own zero-shot base on general out-of-distribution QA (see the `panel` and `knowledge` rows); "
-                  "the release bar is parity or better against its own base, not a win.",
+                  f"- General OOD QA versus its own zero-shot base: `panel` {_delta('panel')}, `knowledge` "
+                  f"{_delta('knowledge')} — "
+                  + ("parity (both intervals include zero), not a win." if model.startswith("Osler-9B")
+                     else "**below the base by about one point, both intervals excluding zero**; the model trades "
+                          "general-OOD accuracy for clinical-audit gains and better Brier on four of five headline sets."),
+                  "- " + held_out_flag,
+                  "- " + calibration_note,
                   "- The 27B comparison model is stronger on hard multi-step medical QA (for example MedXpertQA); the "
                   "release candidate is not claimed to beat it.",
                   "- Held-out transfer (`mimic_heldout`, `mr_heldout_test`, `mednli_test`, `pairs_test`) is reported as "
