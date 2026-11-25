@@ -74,6 +74,8 @@ _TOP_LEVEL_KEYS = {
     "distill_min_labelled_per_batch",
     "distill_probe",
     "distill_probe_steps",
+    "distill_calibration_steps",
+    "distill_calibration_target",
     "loss_weighting",
     "option_augment_probability",
     "option_augment_templates",
@@ -171,6 +173,10 @@ class StudentConfig:
     distill_probe: bool = False
     # osler_v6 D57: measure the probe on the first N steps only (0 = every step; the 200-step calibration run uses 0, the arms 200)
     distill_probe_steps: int = 0
+    # distill_v0 (ADVISORY §3): over the first N steps the run measures the CE and KL gradient norms at lambda = 1.0 and
+    # freezes lambda so that the predicted share of the distillation term is the target (0.40 pre-registered). 0 = off
+    distill_calibration_steps: int = 0
+    distill_calibration_target: float = 0.40
     # osler_v5 (D51): "per_step" (the osler_v4 behaviour: the loss is a mean over the batch's items) or "per_item" (after clipping,
     # the gradients are multiplied by n_items / batch_size; KL and distillation are sums over the masked items divided by batch_size)
     loss_weighting: str = "per_step"
@@ -260,14 +266,20 @@ class StudentConfig:
             raise ValueError("distill_probe measures the CE term against the distillation term; it needs kl_to_base 0")
         if cfg.distill_probe_steps < 0:
             raise ValueError("distill_probe_steps must be >= 0")
+        if cfg.distill_calibration_steps < 0:
+            raise ValueError("distill_calibration_steps must be >= 0")
+        if not 0.0 < cfg.distill_calibration_target < 1.0:
+            raise ValueError("distill_calibration_target must be in (0, 1)")
+        if cfg.distill_calibration_steps and abs(cfg.distill_weight - 1.0) > 1e-12:
+            raise ValueError("the distillation calibration is pre-registered at distill_weight 1.0")
         if cfg.loss_weighting not in ("per_step", "per_item"):
             raise ValueError(f"loss_weighting must be 'per_step' or 'per_item', got {cfg.loss_weighting!r}")
         if not 0.0 <= cfg.option_augment_probability <= 1.0:
             raise ValueError("option_augment_probability must be in [0, 1]")
         if (cfg.option_augment_probability > 0) != bool(cfg.option_augment_templates):
             raise ValueError("option augmentation needs both a probability above 0 and at least one closed-list template")
-        if cfg.backbone not in ("qwen", "pplx"):
-            raise ValueError(f"backbone must be 'qwen' or 'pplx', got {cfg.backbone!r}")
+        if cfg.backbone not in ("qwen", "pplx", "clef"):
+            raise ValueError(f"backbone must be 'qwen', 'pplx' or 'clef', got {cfg.backbone!r}")
         if cfg.backbone == "pplx" and (cfg.readout != "option_code" or cfg.bidirectional_full_attention):
             raise ValueError("the pplx backbone uses its own readout (readout: option_code) and its own attention mask")
         if cfg.selection_metric not in ("macro_accuracy", "template_macro_accuracy"):

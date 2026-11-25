@@ -411,6 +411,8 @@ class MedDecideModel:
         readout: str = "pointer",
         bidirectional_full_attention: bool = False,
         code_count: int = OPTION_CODES,
+        base_override: nn.Module | None = None,
+        backbone: str = "qwen",
     ) -> None:
         from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -423,6 +425,7 @@ class MedDecideModel:
         self.optcode_token_ids: list[int] = []
 
         self.base_model_id = base_model_id
+        self.backbone = backbone
         self.revision = revision
         self.dtype_name = dtype
         self.device = device
@@ -441,13 +444,17 @@ class MedDecideModel:
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        self.base = AutoModelForCausalLM.from_pretrained(
-            base_model_id,
-            revision=revision,
-            dtype=self.torch_dtype,
-            device_map=device,
-            trust_remote_code=trust_remote_code,
-        )
+        if base_override is not None:
+            # a caller-built causal-LM-shaped backbone (distill_v0 D3: the Clef text tower, loaded in memory)
+            self.base = base_override
+        else:
+            self.base = AutoModelForCausalLM.from_pretrained(
+                base_model_id,
+                revision=revision,
+                dtype=self.torch_dtype,
+                device_map=device,
+                trust_remote_code=trust_remote_code,
+            )
         self.peft_model = None
         self._gradient_checkpointing = False
         if lora is not None:
@@ -1068,6 +1075,7 @@ class MedDecideModel:
             "code_count": self.optcode.k if self.optcode is not None else None,
             "code_names": self.optcode_names,
             "base_model_id": self.base_model_id,
+            "backbone": self.backbone,
             "revision": self.revision,
             "dtype": self.dtype_name,
             "variant": self.variant,
@@ -1099,6 +1107,12 @@ class MedDecideModel:
         src = Path(path)
         meta = json.loads((src / "model.json").read_text(encoding="utf-8"))
         lora = LoraSettings.from_dict(meta["lora"]) if meta.get("lora") else None
+        backbone = str(meta.get("backbone", "qwen"))
+        base_override = None
+        if backbone == "clef":
+            from meddecide.model.clef import load_clef_text_backbone
+
+            base_override, _ = load_clef_text_backbone(dtype=dtype or meta.get("dtype", "bfloat16"), device=device)
         adapter_dir = src / "adapter"
         model = cls(
             meta["base_model_id"],
@@ -1113,6 +1127,8 @@ class MedDecideModel:
             calibration=meta.get("calibration") or {},
             bidirectional_full_attention=bool(meta.get("bidirectional_full_attention", False)),
             code_count=int(meta.get("code_count") or OPTION_CODES),
+            base_override=base_override,
+            backbone=backbone,
             **overrides,
         )
         model.lora = lora
@@ -1139,6 +1155,7 @@ class MedDecideModel:
     def describe(self) -> dict[str, Any]:
         return {
             "base_model_id": self.base_model_id,
+            "backbone": self.backbone,
             "revision": self.revision,
             "dtype": self.dtype_name,
             "device": self.device,

@@ -106,3 +106,39 @@ def test_a_mix_row_with_a_teacher_becomes_a_soft_item_and_one_without_stays_plai
     assert isinstance(soft, SoftItem)
     assert soft.teacher_probs == [0.2, 0.7, 0.1] and soft.teacher == "t"
     assert [o.key for o in soft.options] == ["A", "B", "C"] and soft.gold == "B"
+
+
+def test_lambda_for_target_solves_the_pre_registered_share_equation():
+    from meddecide.train.trainer import distill_lambda_for_target
+
+    # means: CE 3.0, KL 2.0; the share is lambda*2/(3 + lambda*2)
+    weight = distill_lambda_for_target([2.0, 4.0], [1.0, 3.0], 0.40)
+    assert weight == pytest.approx(1.0)
+    share = weight * 2.0 / (3.0 + weight * 2.0)
+    assert share == pytest.approx(0.40)
+    assert distill_lambda_for_target([1.0], [1.0], 0.5) == pytest.approx(1.0)
+
+
+def test_lambda_for_target_refuses_degenerate_inputs():
+    from meddecide.train.trainer import distill_lambda_for_target
+
+    with pytest.raises(ValueError):
+        distill_lambda_for_target([1.0], [1.0], 0.0)
+    with pytest.raises(ValueError):
+        distill_lambda_for_target([], [], 0.4)
+    with pytest.raises(ValueError):
+        distill_lambda_for_target([1.0, 2.0], [1.0], 0.4)
+    with pytest.raises(ValueError):
+        distill_lambda_for_target([0.0], [1.0], 0.4)
+
+
+def test_config_refuses_calibration_outside_the_pre_registered_hand():
+    from meddecide.train.config import StudentConfig
+
+    with pytest.raises(ValueError, match=r"pre-registered at distill_weight 1\.0"):
+        StudentConfig.from_dict({"distill_weight": 0.5, "distill_calibration_steps": 200})
+    with pytest.raises(ValueError, match="target"):
+        StudentConfig.from_dict({"distill_weight": 1.0, "distill_calibration_steps": 200,
+                                 "distill_calibration_target": 1.0})
+    config = StudentConfig.from_dict({"distill_weight": 1.0, "distill_calibration_steps": 200})
+    assert config.distill_calibration_target == 0.40
