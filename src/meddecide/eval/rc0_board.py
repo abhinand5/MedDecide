@@ -139,6 +139,7 @@ class Cell:
     index: np.ndarray
     predicted: np.ndarray
     correct: np.ndarray
+    gold: np.ndarray
     probs: list[list[float]] | None
     label_mass: np.ndarray | None
     skipped: int
@@ -188,8 +189,10 @@ def load_cell(model: str, frozen: FrozenSet, path: Path) -> Cell | None:
     index = np.empty(len(scored_rows), dtype=np.int64)
     predicted = np.empty(len(scored_rows), dtype=np.int64)
     correct = np.empty(len(scored_rows), dtype=bool)
+    gold_array = np.empty(len(scored_rows), dtype=np.int64)
     probs: list[list[float]] = []
-    masses: list[float] | None = []
+    masses: list[float] = []
+    masses_available = schema == "C"
     has_probs = True
     for position, row in enumerate(scored_rows):
         idx = universe[str(row["item_id"])]
@@ -197,9 +200,18 @@ def load_cell(model: str, frozen: FrozenSet, path: Path) -> Cell | None:
         gold_index = item.gold_index
         if schema == "A":
             declared = int(row["gold_index"])
-            if declared != gold_index:
-                raise ValueError(f"{model}/{frozen.name}: item {row['item_id']} gold_index {declared} != frozen "
-                                 f"{gold_index}")
+            if not 0 <= declared < item.n_options:
+                raise ValueError(f"{model}/{frozen.name}: item {row['item_id']} gold_index {declared} out of range")
+            # the d3 path renders noul as (no, yes) whatever the row stores (d3_train.render_order), so its gold
+            # index is the frozen one or its swap; every other qtype renders in the row's order. All reported
+            # metrics (accuracy, Brier, ECE) are invariant to a per-item option permutation.
+            allowed = {gold_index}
+            if item.qtype == "noul" and item.option_keys == ("yes", "no"):
+                allowed = {gold_index, 1 - gold_index}
+            if declared not in allowed:
+                raise ValueError(f"{model}/{frozen.name}: item {row['item_id']} gold_index {declared} is not a "
+                                 f"permutation of the frozen gold index {gold_index}")
+            gold_index = declared
             probs_row = row.get("probs")
             if isinstance(probs_row, list) and len(probs_row) == item.n_options:
                 array = np.asarray(probs_row, dtype=np.float64)
@@ -242,17 +254,19 @@ def load_cell(model: str, frozen: FrozenSet, path: Path) -> Cell | None:
             if "label_mass" in extras:
                 masses.append(float(extras["label_mass"]))
             else:
-                masses = None
+                masses_available = False
         index[position] = idx
         predicted[position] = predicted_index
+        gold_array[position] = gold_index
         correct[position] = predicted_index == gold_index
     if not has_probs:
         probs = None
-        masses = None
+        masses_available = False
     return Cell(model=model, set_name=frozen.name, scheme=scheme, schema=schema, n_universe=len(frozen),
-                index=index, predicted=predicted, correct=correct,
+                index=index, predicted=predicted, correct=correct, gold=gold_array,
                 probs=probs if has_probs else None,
-                label_mass=(np.asarray(masses, dtype=np.float64) if masses is not None and has_probs else None),
+                label_mass=(np.asarray(masses, dtype=np.float64)
+                            if masses_available and masses and has_probs else None),
                 skipped=skipped, path=str(path))
 
 
@@ -403,11 +417,15 @@ def cell_metrics(frozen: FrozenSet, cell: Cell, *, n_resamples: int = 2000, seed
         out["brier"] = "NOT MEASURED — no probs in prediction file"
         out["ece"] = "NOT MEASURED — no probs in prediction file"
     else:
-        gold = np.asarray([frozen.items[i].gold_index for i in cell.index], dtype=np.int64)
-        onehot = np.zeros_like(np.asarray(cell.probs, dtype=np.float64))
-        onehot[np.arange(len(gold)), gold] = 1.0
-        brier_items = ((np.asarray(cell.probs, dtype=np.float64) - onehot) ** 2).sum(axis=1)
-        confidence = np.asarray(cell.probs, dtype=np.float64).max(axis=1)
+        gold = cell.gold.astype(np.int64, copy=False)
+        # option counts differ inside a set (e.g. 3-option and 5-option score items), so the rows are ragged:
+        # the Brier score is computed item by item and the top-label confidence is the row maximum.
+        brier_items = np.empty(len(gold), dtype=np.float64)
+        confidence = np.empty(len(gold), dtype=np.float64)
+        for position, (probs_row, gold_index) in enumerate(zip(cell.probs, gold.tolist(), strict=True)):
+            row = np.asarray(probs_row, dtype=np.float64)
+            brier_items[position] = float(((row - np.eye(row.size)[gold_index]) ** 2).sum())
+            confidence[position] = float(row.max())
         out["brier"] = round(float(brier_items.mean()), 6)
         out["brier_ci95"] = [round(v, 6) for v in bootstrap_ci(brier_items, n_resamples=n_resamples, seed=seed)]
         out["ece"] = round(float(ece_from_confidence(confidence, cell.correct, n_bins=15)), 6)
@@ -428,13 +446,14 @@ def paired_difference(frozen: FrozenSet, a: Cell, b: Cell, *, n_resamples: int =
     acc_ci = bootstrap_ci(acc_diff, n_resamples=n_resamples, seed=seed)
     out: dict[str, Any] = {"n": int(common.size), "accuracy_diff": round(float(acc_diff.mean()), 6),
                            "accuracy_diff_ci95": [round(v, 6) for v in acc_ci]}
-    gold = np.asarray([frozen.items[int(idx)].gold_index for idx in common], dtype=np.int64)
     if a.probs is not None and b.probs is not None:
         def item_brier(cell: Cell, positions: np.ndarray) -> np.ndarray:
-            matrix = np.asarray([cell.probs[int(p)] for p in positions], dtype=np.float64)
-            onehot = np.zeros_like(matrix)
-            onehot[np.arange(len(gold)), gold] = 1.0
-            return ((matrix - onehot) ** 2).sum(axis=1)
+            out = np.empty(len(positions), dtype=np.float64)
+            gold = cell.gold[np.asarray(positions, dtype=np.int64)]
+            for k, (p, gold_index) in enumerate(zip(positions, gold.tolist(), strict=True)):
+                row = np.asarray(cell.probs[int(p)], dtype=np.float64)
+                out[k] = float(((row - np.eye(row.size)[gold_index]) ** 2).sum())
+            return out
 
         brier_diff = item_brier(a, ia) - item_brier(b, ib)
         brier_ci = bootstrap_ci(brier_diff, n_resamples=n_resamples, seed=seed)
@@ -451,6 +470,7 @@ def restricted_to_n_options(cell: Cell, frozen: FrozenSet, max_options: int) -> 
     return Cell(model=cell.model, set_name=cell.set_name, scheme=cell.scheme, schema=cell.schema,
                 n_universe=sum(1 for item in frozen.items if item.n_options <= max_options),
                 index=cell.index[keep], predicted=cell.predicted[keep], correct=cell.correct[keep],
+                gold=cell.gold[keep],
                 probs=[p for p, k in zip(cell.probs or [], keep.tolist(), strict=True) if k] if cell.probs is not None else None,
                 label_mass=cell.label_mass[keep] if cell.label_mass is not None else None,
                 skipped=cell.skipped, path=cell.path)
@@ -484,6 +504,8 @@ def mean_of(values: Iterable[float | None]) -> float | None:
 
 def fmt(value: Any, digits: int = 4) -> str:
     """Markdown cell: numbers to ``digits`` places, NOT MEASURED strings passed through verbatim."""
+    if value is None:
+        return "NOT MEASURED"
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, int):

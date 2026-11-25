@@ -98,8 +98,8 @@ def cmd_fit(args: argparse.Namespace) -> None:
         probs = [row["probs"] for row, _ in group]
         temperature = fit_temperature(probs, gold)
         calibrated = apply_temperature(probs, temperature)
-        argmax_before = np.asarray(probs, dtype=np.float64).argmax(axis=1)
-        argmax_after = np.asarray(calibrated).argmax(axis=1)
+        argmax_before = np.asarray([np.asarray(row, dtype=np.float64).argmax() for row in probs], dtype=np.int64)
+        argmax_after = np.asarray([np.asarray(row, dtype=np.float64).argmax() for row in calibrated], dtype=np.int64)
         if not np.array_equal(argmax_before, argmax_after):
             raise SystemExit(f"{qtype}: calibration changed an argmax on dev: stop")
         temperatures[qtype] = temperature

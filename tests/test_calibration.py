@@ -77,3 +77,26 @@ def test_rejects_invalid_probabilities() -> None:
         apply_temperature(np.array([[0.5, 0.5]]), 0.0)
     with pytest.raises(ValueError):
         negative_log_likelihood(np.array([[1.0, 0.0]]), [2])
+
+
+def test_ragged_rows_are_supported() -> None:
+    """A qtype mixes 2- and 5-option items; the fit and the metrics must accept ragged rows."""
+    rng = np.random.default_rng(4)
+    rows = []
+    gold = []
+    for n_options in (2, 5, 3, 4, 2):
+        z = rng.normal(size=n_options) * 2
+        p = _softmax(z[None, :])[0]
+        rows.append(p.tolist())
+        gold.append(int(rng.integers(0, n_options)))
+    temperature = fit_temperature(rows, gold)
+    assert 0.02 <= temperature <= 100.0
+    calibrated = apply_temperature(rows, temperature)
+    assert len(calibrated) == len(rows)
+    for before, after in zip(rows, calibrated, strict=True):
+        assert np.allclose(after.sum(), 1.0)
+        assert int(np.argmax(after)) == int(np.argmax(before))
+    metrics = summary(rows, gold)
+    assert metrics["n_items"] == len(rows)
+    assert 0.0 <= metrics["accuracy"] <= 1.0
+    assert metrics["brier"] >= 0.0
