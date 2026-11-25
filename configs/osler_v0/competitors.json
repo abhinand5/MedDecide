@@ -1,0 +1,20 @@
+{
+  "_about": "osler_v0 model registry (O0). Revisions are the Hub commit shas observed on 2026-10-09 and pinned here; o0_fetch.py refuses to proceed if the Hub reports a different sha. Weights stay in HF_HOME (never committed).",
+  "_disk_budget_gb": 450,
+  "models": [
+    {"id": "md4b", "repo": "lion-ai/MedDecider-4B", "revision": "570b37090c379ad722186a79a3432a31be463fc9", "kind": "adapter", "base_repo": "Qwen/Qwen3.5-4B", "licence": "cc-by-nc-4.0", "role": "competitor", "gate_o1": "4B baseline", "code": "meddecider_infer.py (in repo)"},
+    {"id": "md9b", "repo": "lion-ai/MedDecider-9B", "revision": "ec8a69da2cd96b2ddd2ff4e314ba9a40b71936c3", "kind": "adapter", "base_repo": "Qwen/Qwen3.5-9B", "licence": "cc-by-nc-4.0", "role": "competitor", "gate_o1": "9B baseline", "code": "meddecider_infer.py (in repo)"},
+    {"id": "md27b", "repo": "lion-ai/MedDecider-27B", "revision": "c30e188118471138300c79f2f963cbdac530e658", "kind": "adapter", "base_repo": "Qwen/Qwen3.8-27B", "licence": "cc-by-nc-4.0", "role": "competitor", "gate_o1": "additional", "code": "meddecider_infer.py (in repo)"},
+    {"id": "md31b", "repo": "lion-ai/MedDecider-31B", "revision": "035f4543edf46202347515cda8201f1457b1d5fb", "kind": "adapter", "base_repo": "google/gemma-4-31b-it", "licence": "cc-by-nc-4.0", "role": "competitor", "gate_o1": "additional", "code": "meddecider_infer.py (in repo)"},
+    {"id": "pplx27b", "repo": "perplexity-ai/pplx-decider-v1.1-27b", "revision": "5cd25e3f8ae59ba65d1ebea74d8a06fa4a5f60fd", "kind": "full", "base_repo": "Qwen/Qwen3.8-27B", "licence": "apache-2.0", "role": "competitor", "gate_o1": "additional", "code": "repo README / custom code (to read in O0)"},
+    {"id": "jev27b", "repo": "autotrust/JEV-27B", "revision": "51740a8891c2a8baefd969237fd44187b3e3a115", "kind": "full", "base_repo": "Qwen3.5-27B family (see card)", "licence": "apache-2.0", "role": "competitor", "gate_o1": "additional", "code": "repo README (to read in O0)"},
+    {"id": "jev9b", "repo": "autotrust/JEV-9B", "revision": "b63f651ce8ed64481d3f5e73ecdb05f740042f01", "kind": "full", "base_repo": "Qwen/Qwen3.5-9B", "licence": "apache-2.0", "role": "competitor", "gate_o1": "9B baseline", "code": "repo README (to read in O0)"},
+    {"id": "clef", "repo": "Cloudflare/clef", "revision": "ed3eed331870db2eff4b0db01237128ede8a00ce", "kind": "full", "base_repo": "Qwen3.5 family (see card)", "licence": "apache-2.0", "role": "competitor", "gate_o1": "additional", "code": "joint_schema_model.py (in repo; review before running)"},
+    {"id": "clef_flash", "repo": "Cloudflare/clef-flash", "revision": "fde727a287004204b7518dcc983fe64379776712", "kind": "full", "base_repo": "Qwen3.5 family (see card)", "licence": "apache-2.0", "role": "competitor", "gate_o1": "additional", "code": "joint_schema_model.py (in repo; review before running)"},
+    {"id": "qwen08b", "repo": "Qwen/Qwen3.5-0.8B", "revision": "2fc06364715b967f1860aea9cf38778875588b17", "kind": "base", "licence": "apache-2.0", "role": "base and zero-shot", "gate_o1": "-"},
+    {"id": "qwen4b", "repo": "Qwen/Qwen3.5-4B", "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a", "kind": "base", "licence": "apache-2.0", "role": "base and zero-shot", "gate_o1": "4B baseline (zero-shot)"},
+    {"id": "qwen9b", "repo": "Qwen/Qwen3.5-9B", "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a", "kind": "base", "licence": "apache-2.0", "role": "base and zero-shot", "gate_o1": "-"},
+    {"id": "qwen27b_base", "repo": "Qwen/Qwen3.8-27B", "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0", "kind": "base", "licence": "apache-2.0", "role": "base of md27b and pplx27b (not an O2 row)", "gate_o1": "-"},
+    {"id": "gemma31b_base", "repo": "google/gemma-4-31b-it", "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475", "kind": "base", "licence": "apache-2.0", "role": "base of md31b (not an O2 row)", "gate_o1": "-"}
+  ]
+}

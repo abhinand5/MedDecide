@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MedDecide-Bench v0 — operator audit</title>
+<style>
+  :root{--bg:#0f1116;--panel:#171a21;--panel2:#1e222b;--fg:#e8eaf0;--dim:#9aa3b2;
+        --accent:#6ea8fe;--ok:#41c98a;--bad:#ff6b6b;--warn:#ffc861;--line:#2a2f3a}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--fg)}
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+         padding:10px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:15px;margin:0;font-weight:600}
+  .grow{flex:1}
+  button{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:6px;
+         padding:6px 10px;cursor:pointer;font:inherit}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:#233457;border-color:#33507f}
+  button.ok{background:#14361f;border-color:#2b6b41}
+  button.bad{background:#3a1a1a;border-color:#7a3333}
+  .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden;flex-basis:100%}
+  .bar > i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+  main{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px}
+  @media (max-width:1100px){main{grid-template-columns:1fr}}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;
+          max-height:calc(100vh - 150px);overflow:auto}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 8px}
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:4px 10px;font-size:13px}
+  .kv dt{color:var(--dim)}
+  .kv dd{margin:0;word-break:break-word}
+  .state{white-space:pre-wrap;background:var(--panel2);border:1px solid var(--line);border-radius:6px;
+         padding:10px;margin:8px 0;max-height:45vh;overflow:auto}
+  ol.options{list-style:none;padding:0;margin:0}
+  ol.options li{border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin:6px 0;
+                background:var(--panel2)}
+  ol.options li.gold{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
+  .gold-tag{color:var(--ok);font-weight:600}
+  .kbd{font:12px ui-monospace,monospace;background:var(--panel2);border:1px solid var(--line);
+       border-radius:4px;padding:1px 5px}
+  .status{font-size:12px;color:var(--dim)}
+  .badge{border-radius:999px;padding:1px 8px;font-size:12px;border:1px solid var(--line)}
+  .badge.accept{color:var(--ok);border-color:var(--ok)}
+  .badge.reject{color:var(--bad);border-color:var(--bad)}
+  .badge.note{color:var(--warn);border-color:var(--warn)}
+  textarea{width:100%;min-height:70px;background:var(--panel2);color:var(--fg);
+           border:1px solid var(--line);border-radius:6px;padding:8px;font:inherit}
+  .empty{padding:40px;text-align:center;color:var(--dim)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  code{background:var(--panel2);padding:1px 4px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>MedDecide-Bench v0 — operator audit</h1>
+  <span class="status" id="status">load a sample file to begin</span>
+  <span class="grow"></span>
+  <button id="loadBtn">Load sample JSONL…</button>
+  <input id="file" type="file" accept=".jsonl,.json,text/plain" style="display:none">
+  <button id="exportBtn" class="primary">Export audit JSONL</button>
+  <button id="resetBtn" title="clear this file's verdicts from localStorage">Reset</button>
+  <div class="bar"><i id="progress"></i></div>
+</header>
+
+<main>
+  <section id="left">
+    <h2>Source record</h2>
+    <div id="sourceEmpty" class="empty">No item loaded.</div>
+    <dl class="kv" id="meta" hidden></dl>
+    <h2 style="margin-top:14px">What the gold was derived from</h2>
+    <pre class="state" id="provenance"></pre>
+  </section>
+
+  <section id="right">
+    <h2>Item under audit</h2>
+    <div id="itemEmpty" class="empty">No item loaded.</div>
+    <div id="item" hidden>
+      <div class="row" style="justify-content:space-between">
+        <span class="status" id="counter"></span>
+        <span id="verdictBadges"></span>
+      </div>
+      <h2 style="margin-top:12px">State</h2>
+      <div class="state" id="stateText"></div>
+      <h2>Question</h2>
+      <div id="questionText"></div>
+      <h2 style="margin-top:12px">Options (gold highlighted)</h2>
+      <ol class="options" id="optionsList"></ol>
+      <h2 style="margin-top:12px">Note (<span class="kbd">N</span> to focus)</h2>
+      <textarea id="note" placeholder="optional: what is wrong with this item?"></textarea>
+      <div class="row" style="margin-top:10px">
+        <button class="ok" id="acceptBtn">Accept <span class="kbd">A</span></button>
+        <button class="bad" id="rejectBtn">Reject <span class="kbd">R</span></button>
+        <button id="nextBtn">Next <span class="kbd">→</span></button>
+        <button id="prevBtn"><span class="kbd">←</span> Previous</button>
+        <span class="grow"></span>
+        <span class="status" id="saveStatus"></span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------ *
+ * Pure helpers (unit-tested with node in tests/test_audit_page.mjs)
+ * ------------------------------------------------------------------ */
+
+/** Parse a JSONL string into rows, skipping blank lines. Throws on the first bad line. */
+function parseJsonl(text) {
+  const rows = [];
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    try {
+      rows.push(JSON.parse(line));
+    } catch (err) {
+      throw new Error("line " + (i + 1) + ": " + err.message);
+    }
+  }
+  return rows;
+}
+
+/** Stable identity of a sample file: count + sorted item ids, so autosaves do not collide. */
+function sampleKey(rows) {
+  const ids = rows.map((r) => String(r.item_id)).sort();
+  let hash = 2166136261;
+  const text = ids.join(",");
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return "meddecide_audit_" + rows.length + "_" + (hash >>> 0).toString(16);
+}
+
+/** Export rows: one JSON object per reviewed item, in sample order. */
+function buildExport(rows, verdicts, notes, nowIso) {
+  const out = [];
+  rows.forEach((row, index) => {
+    const id = String(row.item_id);
+    const verdict = verdicts[id];
+    if (!verdict) return;
+    out.push({
+      item_id: id,
+      verdict: verdict,
+      note: (notes[id] || "").trim(),
+      template_id: row.template_id,
+      source: row.source,
+      index_in_sample: index,
+      timestamp: nowIso,
+    });
+  });
+  return out;
+}
+
+function toJsonl(rows) {
+  return rows.map((r) => JSON.stringify(r)).join("\n") + (rows.length ? "\n" : "");
+}
+
+function summarise(rows, verdicts) {
+  let accept = 0, reject = 0, reviewed = 0;
+  rows.forEach((row) => {
+    const v = verdicts[String(row.item_id)];
+    if (v === "accept") { accept++; reviewed++; }
+    else if (v === "reject") { reject++; reviewed++; }
+  });
+  return { total: rows.length, reviewed, accept, reject, remaining: rows.length - reviewed };
+}
+
+/* ------------------------------------------------------------------ *
+ * Page wiring
+ * ------------------------------------------------------------------ */
+const els = {
+  status: document.getElementById("status"),
+  file: document.getElementById("file"),
+  loadBtn: document.getElementById("loadBtn"),
+  exportBtn: document.getElementById("exportBtn"),
+  resetBtn: document.getElementById("resetBtn"),
+  progress: document.getElementById("progress"),
+  meta: document.getElementById("meta"),
+  provenance: document.getElementById("provenance"),
+  sourceEmpty: document.getElementById("sourceEmpty"),
+  item: document.getElementById("item"),
+  itemEmpty: document.getElementById("itemEmpty"),
+  counter: document.getElementById("counter"),
+  verdictBadges: document.getElementById("verdictBadges"),
+  stateText: document.getElementById("stateText"),
+  questionText: document.getElementById("questionText"),
+  optionsList: document.getElementById("optionsList"),
+  note: document.getElementById("note"),
+  acceptBtn: document.getElementById("acceptBtn"),
+  rejectBtn: document.getElementById("rejectBtn"),
+  nextBtn: document.getElementById("nextBtn"),
+  prevBtn: document.getElementById("prevBtn"),
+  saveStatus: document.getElementById("saveStatus")
+};
+
+let rows = [];
+let index = 0;
+let verdicts = {};
+let notes = {};
+let storageKey = null;
+
+function save() {
+  if (!storageKey) return;
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({ verdicts, notes, savedAt: new Date().toISOString() }));
+    els.saveStatus.textContent = "saved locally";
+  } catch (err) {
+    els.saveStatus.textContent = "localStorage unavailable: " + err.message;
+  }
+}
+
+function load() {
+  if (!storageKey) return;
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const data = JSON.parse(raw);
+      verdicts = data.verdicts || {};
+      notes = data.notes || {};
+    }
+  } catch (err) {
+    els.status.textContent = "could not read localStorage: " + err.message;
+  }
+}
+
+function esc(text) {
+  return String(text == null ? "" : text)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderMeta(row) {
+  const fields = [
+    ["item_id", row.item_id],
+    ["template", row.template_id],
+    ["source", row.source + " / " + (row.source_record_id || "")],
+    ["qtype", row.qtype],
+    ["skill", row.skill],
+    ["record date", row.record_date],
+    ["url", row.source_url]
+  ];
+  els.meta.innerHTML = fields
+    .map(([k, v]) => "<dt>" + esc(k) + "</dt><dd>" + esc(v) + "</dd>")
+    .join("");
+  els.meta.hidden = false;
+  els.sourceEmpty.hidden = true;
+}
+
+function render(row) {
+  if (!row) {
+    els.item.hidden = true;
+    els.itemEmpty.hidden = false;
+    return;
+  }
+  renderMeta(row);
+  els.item.hidden = false;
+  els.itemEmpty.hidden = true;
+  const s = summarise(rows, verdicts);
+  els.counter.textContent =
+    "item " + (index + 1) + " of " + rows.length +
+    "   (reviewed " + s.reviewed + ": " + s.accept + " accept / " + s.reject + " reject, " +
+    s.remaining + " left)";
+  els.progress.style.width = (s.total ? (100 * s.reviewed) / s.total : 0) + "%";
+  els.stateText.textContent = row.state;
+  els.questionText.textContent = row.question;
+  els.optionsList.innerHTML = (row.options || [])
+    .map((o) => {
+      const isGold = o.key === row.gold;
+      return "<li class='" + (isGold ? "gold" : "") + "'>" +
+        "<b>" + esc(o.key) + ".</b> " + esc(o.label) +
+        (o.description ? " <span class='status'>— " + esc(o.description) + "</span>" : "") +
+        (isGold ? " <span class='gold-tag'>(gold)</span>" : "") +
+        "</li>";
+    })
+    .join("");
+  els.provenance.textContent = JSON.stringify(row.gold_provenance || {}, null, 2);
+  els.note.value = notes[String(row.item_id)] || "";
+  const badge = verdicts[String(row.item_id)];
+  els.verdictBadges.innerHTML = badge
+    ? "<span class='badge " + badge + "'>" + badge + "</span>"
+    : "<span class='badge'>unreviewed</span>";
+  document.title = "audit " + (index + 1) + "/" + rows.length + " — MedDecide-Bench v0";
+}
+
+function setVerdict(value) {
+  const row = rows[index];
+  if (!row) return;
+  const id = String(row.item_id);
+  verdicts[id] = value;
+  save();
+  const s = summarise(rows, verdicts);
+  els.progress.style.width = (s.total ? (100 * s.reviewed) / s.total : 0) + "%";
+  render(row);
+  if (value === "accept" || value === "reject") go(1);
+}
+
+function go(delta) {
+  if (!rows.length) return;
+  index = Math.min(rows.length - 1, Math.max(0, index + delta));
+  render(rows[index]);
+}
+
+els.loadBtn.addEventListener("click", () => els.file.click());
+els.file.addEventListener("change", async (event) => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    rows = parseJsonl(text);
+    if (!rows.length) throw new Error("no rows in file");
+    storageKey = sampleKey(rows);
+    verdicts = {};
+    notes = {};
+    load();
+    index = 0;
+    els.status.textContent = file.name + " — " + rows.length + " items";
+    render(rows[0]);
+  } catch (err) {
+    els.status.textContent = "could not load: " + err.message;
+  }
+});
+els.exportBtn.addEventListener("click", () => {
+  if (!rows.length) { els.status.textContent = "load a sample first"; return; }
+  const payload = buildExport(rows, verdicts, notes, new Date().toISOString());
+  const blob = new Blob([toJsonl(payload)], { type: "application/x-ndjson" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "audit_v0.jsonl";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  els.status.textContent = "exported " + payload.length + " verdicts";
+});
+els.resetBtn.addEventListener("click", () => {
+  if (!storageKey) return;
+  if (!confirm("Clear all verdicts for this sample file?")) return;
+  localStorage.removeItem(storageKey);
+  verdicts = {};
+  notes = {};
+  render(rows[index]);
+});
+els.acceptBtn.addEventListener("click", () => setVerdict("accept"));
+els.rejectBtn.addEventListener("click", () => setVerdict("reject"));
+els.nextBtn.addEventListener("click", () => go(1));
+els.prevBtn.addEventListener("click", () => go(-1));
+document.addEventListener("keydown", (event) => {
+  const typing = document.activeElement && document.activeElement.tagName === "TEXTAREA";
+  if (typing && event.key.toLowerCase() !== "escape") {
+    if (event.key === "Escape") document.activeElement.blur();
+    return;
+  }
+  const k = event.key.toLowerCase();
+  if (k === "a") { event.preventDefault(); setVerdict("accept"); }
+  else if (k === "r") { event.preventDefault(); setVerdict("reject"); }
+  else if (k === "n") { event.preventDefault(); els.note.focus(); }
+  else if (event.key === "ArrowRight") { event.preventDefault(); go(1); }
+  else if (event.key === "ArrowLeft") { event.preventDefault(); go(-1); }
+});
+els.note.addEventListener("input", () => {
+  const row = rows[index];
+  if (!row) return;
+  notes[String(row.item_id)] = els.note.value;
+  save();
+});
+
+/* expose for the node-based logic test (no-op in a browser) */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { parseJsonl, sampleKey, buildExport, toJsonl, summarise };
+}
+</script>
+</body>
+</html>

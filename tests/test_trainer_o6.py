@@ -1,0 +1,286 @@
+"""O6 trainer additions: the cosine floor, the two divergence tripwires and the evaluation hook (CPU, tiny model).
+
+The student path keeps its defaults (floor 0, no tripwires, no hook); these tests cover the new options only.
+"""
+
+from __future__ import annotations
+
+import math
+import os
+import sys
+from pathlib import Path
+
+os.environ.setdefault("USE_HUB_KERNELS", "NO")
+sys.modules["causal_conv1d"] = None
+sys.modules["fla"] = None
+
+import pytest  # noqa: E402
+import torch  # noqa: E402
+
+from meddecide.bench.schema import Item, SoftItem  # noqa: E402
+from meddecide.model.meddecide_model import LoraSettings, MedDecideModel  # noqa: E402
+from meddecide.model.readout_checks import synthetic_choice_item  # noqa: E402
+from meddecide.train.config import StudentConfig  # noqa: E402
+from meddecide.train.trainer import Trainer  # noqa: E402
+
+REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+HUB = Path(os.environ.get("HF_HOME", "/workspace/.hf_home")) / "hub"
+SNAPSHOT = HUB / "models--Qwen--Qwen3.5-4B" / "snapshots" / REVISION
+
+
+def test_cosine_floor_keeps_the_rate_at_the_floor_at_the_end_and_is_one_at_the_peak() -> None:
+    peak = Trainer.lr_factor(3, total_steps=100, warmup_steps=3, floor=0.1)
+    end = Trainer.lr_factor(100, total_steps=100, warmup_steps=3, floor=0.1)
+    assert peak == pytest.approx(1.0)
+    assert end == pytest.approx(0.1)
+    assert Trainer.lr_factor(100, total_steps=100, warmup_steps=3) == pytest.approx(0.0)  # the student default
+    middle = Trainer.lr_factor(51, total_steps=100, warmup_steps=3, floor=0.1)
+    assert 0.1 < middle < 1.0
+
+
+@pytest.fixture(scope="module")
+def tiny_dir(tmp_path_factory) -> Path:
+    from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+    if not SNAPSHOT.exists():
+        pytest.skip(f"the pinned Qwen3.5-4B snapshot is not in the cache: {SNAPSHOT}")
+    cfg = AutoConfig.from_pretrained(str(SNAPSHOT))
+    text = cfg.text_config
+    text.hidden_size = 64
+    text.intermediate_size = 128
+    text.num_hidden_layers = 4
+    text.layer_types = ["linear_attention", "linear_attention", "linear_attention", "full_attention"]
+    text.num_attention_heads = 4
+    text.num_key_value_heads = 2
+    text.head_dim = 16
+    text.linear_num_key_heads = 2
+    text.linear_num_value_heads = 4
+    text.linear_key_head_dim = 16
+    text.linear_value_head_dim = 16
+    cfg.vision_config.depth = 1
+    torch.manual_seed(0)
+    out = tmp_path_factory.mktemp("tiny_trainer")
+    AutoModelForCausalLM.from_config(cfg, dtype=torch.float32).save_pretrained(out)
+    AutoTokenizer.from_pretrained(str(SNAPSHOT)).save_pretrained(out)
+    return out
+
+
+def _trainer(tiny_dir: Path, **config_overrides) -> tuple[Trainer, MedDecideModel, StudentConfig]:
+    model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                           readout="option_code")
+    config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=1, log_every=0, lr=1e-2,
+                           lora_lr=1e-2, **config_overrides)
+    return Trainer(model, config), model, config
+
+
+def test_gradient_norm_tripwire_stops_before_the_optimizer_step(tiny_dir) -> None:
+    trainer, model, _ = _trainer(tiny_dir, tripwire_grad_norm=0.0)
+    before = model.optcode.weight.detach().clone()
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=5)
+    assert result.steps == 0
+    assert result.stopped_early is not None and result.stopped_early.startswith("gradient-norm tripwire")
+    assert torch.equal(model.optcode.weight.detach(), before)  # no update was applied on the tripped step
+
+
+def test_dev_macro_tripwire_stops_after_consecutive_low_evaluations(tiny_dir, monkeypatch) -> None:
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2)
+    monkeypatch.setattr(trainer, "evaluate", lambda items, batch_size=None: {"macro_accuracy": 0.3, "brier": 0.5})
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=10, eval_items=items[:2])
+    assert result.steps == 2
+    assert result.stopped_early is not None and result.stopped_early.startswith("dev-macro tripwire")
+
+
+def test_dev_macro_tripwire_resets_on_a_good_evaluation(tiny_dir, monkeypatch) -> None:
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2)
+    values = iter([0.3, 0.9, 0.3, 0.9, 0.3, 0.9])
+    monkeypatch.setattr(trainer, "evaluate", lambda items, batch_size=None: {"macro_accuracy": next(values),
+                                                                             "brier": 0.5})
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=6, eval_items=items[:2])
+    assert result.steps == 6 and result.stopped_early is None
+
+
+def test_eval_hook_observes_every_evaluation(tiny_dir, monkeypatch) -> None:
+    trainer, _, _ = _trainer(tiny_dir)
+    seen: list[tuple[int, float]] = []
+    trainer.eval_hook = lambda step, metrics: seen.append((step, float(metrics["macro_accuracy"])))
+    monkeypatch.setattr(trainer, "evaluate", lambda items, batch_size=None: {"macro_accuracy": 0.6, "brier": 0.4})
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    trainer.train(items, steps=2, eval_items=items[:2])
+    assert seen == [(1, 0.6), (2, 0.6)]
+
+
+def test_selection_metric_template_macro_drives_selection_and_tripwire(tiny_dir, monkeypatch) -> None:
+    # osler_v0 Q20: with selection_metric = template_macro_accuracy, a falling per-gold-key macro neither trips the
+    # dev tripwire nor decides the selected step
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2,
+                             selection_metric="template_macro_accuracy")
+    values = iter([(0.70, 0.60), (0.45, 0.70), (0.40, 0.80), (0.35, 0.75)])
+
+    def fake(items, batch_size=None):
+        macro, template_macro = next(values)
+        return {"macro_accuracy": macro, "template_macro_accuracy": template_macro, "brier": 0.5}
+
+    monkeypatch.setattr(trainer, "evaluate", fake)
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=4, eval_items=items[:2])
+    assert result.stopped_early is None and result.steps == 4
+    assert result.best_step == 3
+
+
+def test_selection_metric_template_macro_trips_on_its_own_statistic(tiny_dir, monkeypatch) -> None:
+    trainer, _, _ = _trainer(tiny_dir, tripwire_macro_floor=0.5, tripwire_consecutive_evals=2,
+                             selection_metric="template_macro_accuracy")
+    monkeypatch.setattr(trainer, "evaluate", lambda items, batch_size=None: {
+        "macro_accuracy": 0.9, "template_macro_accuracy": 0.3, "brier": 0.5})
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5])]
+    result = trainer.train(items, steps=10, eval_items=items[:2])
+    assert result.steps == 2
+    assert result.stopped_early is not None and "template_macro_accuracy" in result.stopped_early
+
+
+def test_checkpoint_above_tokens_changes_speed_not_numbers(tiny_dir) -> None:
+    # osler_v2: recomputation only for batches above a token threshold; the trained weights must not depend on it
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([2, 4, 3, 5, 2, 3])]
+    finals = []
+    for threshold in (None, 1, 10**9):
+        torch.manual_seed(0)
+        model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                               readout="option_code")
+        model.enable_gradient_checkpointing()
+        config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=0, log_every=0, lr=1e-2,
+                               lora_lr=1e-2, gradient_checkpointing=True, checkpoint_above_tokens=threshold,
+                               shuffle_options=False)
+        calls: list[bool] = []
+        original = model.checkpoint_this_batch
+        model.checkpoint_this_batch = lambda flag, _o=original, _c=calls: (_c.append(flag), _o(flag))[1]
+        Trainer(model, config).train(items, steps=3)
+        finals.append(model.optcode.weight.detach().clone())
+        # the switch is applied on every training step when a threshold is set, and never otherwise
+        assert calls == ([] if threshold is None else [threshold == 1] * 3)
+    assert torch.allclose(finals[0], finals[1], atol=1e-6) and torch.allclose(finals[0], finals[2], atol=1e-6)
+
+
+def test_checkpoint_above_tokens_needs_checkpointing() -> None:
+    with pytest.raises(ValueError, match="checkpoint_above_tokens"):
+        StudentConfig.from_dict({"checkpoint_above_tokens": 8192})
+
+
+# ---- osler_v3 KL-to-base (D41) ------------------------------------------------------------------------------------------
+
+def test_kl_to_reference_math() -> None:
+    from meddecide.train.losses import kl_to_reference
+
+    p = torch.tensor([0.5, 0.5, 0.2, 0.8])
+    idx = torch.tensor([0, 0, 1, 1])
+    same = kl_to_reference(p, p.clone(), idx, 2, torch.tensor([True, True]))
+    assert float(same) == pytest.approx(0.0, abs=1e-7)
+    ref = torch.tensor([0.9, 0.1, 0.2, 0.8])
+    first_only = kl_to_reference(p, ref, idx, 2, torch.tensor([True, False]))
+    expected = 0.9 * math.log(0.9 / 0.5) + 0.1 * math.log(0.1 / 0.5)
+    assert float(first_only) == pytest.approx(expected, rel=1e-5)
+    assert float(kl_to_reference(p, ref, idx, 2, torch.tensor([False, False]))) == 0.0
+
+
+def _kl_trainer(tiny_dir, **overrides):
+    torch.manual_seed(0)
+    model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                           readout="option_code")
+    config = StudentConfig(device="cpu", dtype="float32", batch_size=2, eval_every=0, log_every=0, lr=5e-2,
+                           lora_lr=5e-2, shuffle_options=False, **overrides)
+    return Trainer(model, config), model
+
+
+def test_reference_probs_equal_the_untrained_model(tiny_dir) -> None:
+    _, model = _kl_trainer(tiny_dir)
+    model.eval_mode()
+    enc = [model.encode_item(synthetic_choice_item(n, s)) for s, n in enumerate([3, 4])]
+    batch = model.collate(enc)
+    with torch.no_grad():
+        _, probs = model.batch_logits(batch)
+    ref = model.reference_option_probs(batch)
+    assert torch.allclose(probs, ref, atol=1e-5)  # LoRA starts at zero and the readout is unchanged
+
+
+def test_kl_to_base_holds_anchor_items_near_the_base(tiny_dir) -> None:
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([3, 4, 3, 5, 4, 3])]
+
+    def drift(lam: float) -> float:
+        trainer, model = _kl_trainer(tiny_dir, kl_to_base=lam)
+        trainer.train(items, steps=6)
+        model.eval_mode()
+        batch = model.collate([model.encode_item(it) for it in items[:4]])
+        with torch.no_grad():
+            _, probs = model.batch_logits(batch)
+        ref = model.reference_option_probs(batch)
+        return float((probs - ref).abs().sum())
+
+    assert drift(50.0) < drift(0.0)
+
+
+def test_kl_exclusion_prefixes_select_the_anchors(tiny_dir) -> None:
+    items = [synthetic_choice_item(n, seed) for seed, n in enumerate([3, 4])]
+    prefix = str(items[0].template_id)[:3]
+    trainer, _ = _kl_trainer(tiny_dir, kl_to_base=1.0, kl_exclude_template_prefixes=(prefix,))
+    trainer.train(items, steps=1)
+    assert trainer.history[-1].n_anchor == 0 and trainer.history[-1].kl == 0.0
+    trainer2, _ = _kl_trainer(tiny_dir, kl_to_base=1.0)
+    trainer2.train(items, steps=1)
+    assert trainer2.history[-1].n_anchor == 2
+
+# --------------------------------------------------------------------------- osler_v6 D57 dosing and probe
+def _teacher_item(n_options: int, seed: int) -> SoftItem:
+    item = synthetic_choice_item(n_options, seed)
+    n = len(item.options)
+    return SoftItem.model_validate({**item.model_dump(), "teacher_probs": [1.0 / n] * n, "teacher": "test"})
+
+
+def _dosing_trainer(tiny_dir: Path, **overrides) -> tuple[Trainer, MedDecideModel]:
+    model = MedDecideModel(str(tiny_dir), lora=LoraSettings(r=4, alpha=8), device="cpu", dtype="float32",
+                           readout="option_code")
+    settings = {"device": "cpu", "dtype": "float32", "batch_size": 4, "log_every": 0, "lr": 1e-2,
+                "lora_lr": 1e-2, "distill_weight": 1.0, "distill_min_labelled_per_batch": 2,
+                "distill_probe": True, "max_batch_tokens": 100_000, "max_prompt_tokens": 4096}
+    settings.update(overrides)
+    return Trainer(model, StudentConfig(**settings)), model
+
+
+def _dosing_items() -> list[SoftItem | Item]:
+    return [_teacher_item(3, i) for i in range(8)] + [synthetic_choice_item(3, 100 + i) for i in range(8)]
+
+
+def test_d57_dosing_gives_every_step_the_quota_and_the_probe_logs_the_pre_clip_share(tiny_dir) -> None:
+    trainer, _ = _dosing_trainer(tiny_dir)
+    result = trainer.train(_dosing_items(), steps=3)
+    assert result.steps == 3
+    assert [record.n_teacher for record in result.history] == [2, 2, 2]
+    assert result.dosing is not None
+    assert result.dosing["batches_meeting_minimum"] == result.dosing["batches"]
+    assert result.dosing["share_batches_meeting_minimum"] == 1.0
+    for record in result.history:
+        assert record.grad_ce > 0 and record.grad_kl > 0
+        assert record.grad_share == pytest.approx(record.grad_kl / (record.grad_ce + record.grad_kl))
+        assert 0.0 < record.grad_share < 1.0
+
+
+def test_the_probe_step_limit_stops_the_measurement(tiny_dir) -> None:
+    trainer, _ = _dosing_trainer(tiny_dir, distill_probe_steps=2)
+    result = trainer.train(_dosing_items(), steps=4)
+    assert [record.grad_share > 0 for record in result.history] == [True, True, False, False]
+    assert all(record.n_teacher >= 2 for record in result.history)
+
+
+def test_the_probe_measures_without_changing_the_first_step(tiny_dir) -> None:
+    """The probe assembles the same total gradient (CE + λ·KL) as ``total_loss.backward()``; only the summation order differs."""
+    items = _dosing_items()
+    torch.manual_seed(0)
+    plain, _ = _dosing_trainer(tiny_dir, distill_probe=False)
+    plain.train(items, steps=1)
+    torch.manual_seed(0)
+    probed, _ = _dosing_trainer(tiny_dir, distill_probe=True)
+    result = probed.train(items, steps=1)
+    assert result.history[0].loss == pytest.approx(plain.history[0].loss, rel=1e-6)
+    assert result.history[0].grad_norm == pytest.approx(plain.history[0].grad_norm, rel=1e-5)
+    assert result.history[0].grad_share > 0.0

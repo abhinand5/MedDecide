@@ -1,0 +1,55 @@
+# Arm F2s1 (ADVISORY §8.3, D56b): F2 at seed 1, on the corrected mix.
+# Augmentation probability 1.0: the maximum; the 20-per-row expectation is met at final length and not at arm length (see
+# loops/osler_v5/STATE.md §7, Z0 deviation). The closed list is fixed by code (meddecide.train.option_augment.CLOSED_LIST).
+# osler_v5 (ADVISORY Z2; D51–D52): the osler_v3 block recipe (configs/osler_v3/block_arm.yaml, D33 attention-only LoRA,
+# D40 speed recipe) on osler_v4's exact mix (composition 9d25e30f…, composed in memory by the driver; train_path is a label).
+# The steps (13,992 for the arms, 63,304 for the final), the evaluation grid and the paths are set by the driver.
+kl_to_base: 0.0
+kl_exclude_template_prefixes: [mr_, synthea_, chart_, codiesp_, mtsamples_, mimic_, ehr_rel_, pmc_, ragtruth_, drugprot_, multicare_, clinclaim_, restyle_]
+loss_weighting: per_item
+option_augment_probability: 1.0
+option_augment_templates: [mimic_principal_dx_v1, mimic_msdrg_v1]
+output_dir: outputs/osler_v5/Z2/F2s1
+readout: option_code
+bidirectional_full_attention: false
+base_model: Qwen/Qwen3.5-4B
+revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+train_path: composed-in-memory:osler_v4_final_mix
+dev_path: data/bench/osler_v2/fastdev_v2.jsonl
+seed: 1
+dtype: bfloat16
+device: cuda:0
+variant: bare
+lora:
+  r: 32
+  alpha: 32
+  dropout: 0.0
+  target_modules: [q_proj, k_proj, v_proj, o_proj]  # D33: attention only
+lambda_brier: 1.0
+lr: 0.001
+lora_lr: 0.0001
+weight_decay: 0.0
+grad_clip: 1.0
+batch_size: 8
+max_batch_tokens: 8192
+max_prompt_tokens: 16384
+epochs: 1
+shuffle_options: true
+eval_every: 3500
+eval_items: 12000
+eval_batch_size: 32
+log_every: 50
+lr_schedule: cosine
+warmup_fraction: 0.03
+lr_floor: 0.1
+fit_temperature: true
+temperature_per_qtype: true
+tripwire_grad_norm: 5000.0
+tripwire_macro_floor: 0.5
+tripwire_consecutive_evals: 2
+selection_metric: template_macro_accuracy
+gradient_checkpointing: true
+checkpoint_above_tokens: 8192  # D40: checkpoint only batches above 8,192 padded tokens
+backbone: pplx  # the Stage A and B runs are on pplx-decider-flash-v1.2 (D39; osler_v2's choice)
+# osler_v5 D56a/D56b: the corrected mix (every fda_route_choice_v1 row dropped whole; the hash is checked by the driver)
+drop_mix_templates: [fda_route_choice_v1]

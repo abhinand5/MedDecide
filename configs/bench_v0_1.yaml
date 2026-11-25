@@ -1,0 +1,83 @@
+# MedDecide-Bench v0.1 configuration (loop bench_v0_fix0)
+#
+# Differences from configs/bench_v0.yaml (which stays as it was, R9):
+#   * fresh window starts 2026-03-01 (D11: bounded by the ladder models, not the teacher)
+#   * every fresh item carries meta.strict_post_teacher (first date >= 2026-09-10)
+#   * class balancing per template and split, with the per-class cap K recorded
+#   * outputs go to data/bench/v0.1/ (v0 stays in data/bench/{tier1,fresh}/ untouched)
+
+seed: 0
+
+paths:
+  data_root: data/bench/v0.1
+  outputs_root: outputs/bench_v0_fix0
+  hf_home: ${HF_HOME}
+
+caps:
+  tier1_max_test_items_per_source: 5000
+  tier1_max_dev_items_per_source: 2000
+  fresh_dev_fraction: 0.2
+  fresh_target_items_per_template: 1000   # per-class target after balancing, where the window allows
+  fresh_balance_min_class: 200            # below this a template is dropped (F3 rule)
+  contamination_probe_items_per_source: 500
+  teacher_dev_items: 2000
+  teacher_thinking_items: 200
+  option_shuffle_samples: 500
+  candidate_counts: [2, 4, 8, 16]
+
+eval:
+  bootstrap_resamples: 1000
+  bootstrap_alpha: 0.05
+  ece_bins: 15
+  max_state_tokens:
+    clinicaltrials: 8192
+    openfda: 8192
+    pubmed: 16384
+  max_batch_tokens: 16384
+  max_prompt_tokens: 16384
+
+fresh_window:
+  # D11: latest ladder-model date is 2026-02-28 (Qwen3.5 repo creation), so v0.1 starts the
+  # next day. The teacher never labels benchmark items, so its cutoff does not bound gold.
+  start: 2026-03-01
+  end: null
+  strict_slice_start: 2026-09-10   # after the teacher and the 27B baselines
+
+readout:
+  # D12 readout-health gate thresholds (ADVISORY §3)
+  min_median_label_mass: 0.5
+  min_greedy_agreement: 0.9
+  greedy_sample_items: 50
+
+models:
+  ladder:
+    - id: LiquidAI/LFM2.5-350M
+      revision: null
+    - id: Qwen/Qwen3.5-0.8B
+      revision: null
+    - id: Qwen/Qwen3.5-0.8B-Base
+      revision: null
+    - id: google/medgemma-1.5-4b-it
+      revision: null
+    - id: Qwen/Qwen3.5-4B
+      revision: null
+    - id: Qwen/Qwen3.5-9B
+      revision: null
+
+teacher:
+  model_id: deepseek-ai/DeepSeek-V4.1-Flash
+  base_url_env: TEACHER_BASE_URL
+  api_key_env: TEACHER_API_KEY
+  top_logprobs: 20
+
+screen:
+  regex_drop_macro_threshold: 0.90
+  bow_drop_macro_threshold: 0.90
+  gold_in_state_flag_accuracy: 0.80
+  gold_in_state_margin_over_majority: 0.30
+  min_test_items_per_template: 200
+  min_classes_per_split: 2
+  regex_time_budget_minutes: 30
+
+harness_validation:
+  tolerance_accuracy_points: 2.0

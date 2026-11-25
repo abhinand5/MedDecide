@@ -1,0 +1,198 @@
+# Hand-written regex baselines for the fresh-tier screen (T8).
+#
+# Rules of engagement (ADVISORY T8):
+#   * one entry per template, written BEFORE looking at any model's results on the template;
+#   * a template is dropped when its regex baseline (or the bag-of-words baseline) reaches the
+#     threshold in configs/bench_v0.yaml (0.95) on the TEST split;
+#   * patterns are matched case-insensitively against `state + question`;
+#   * the FIRST matching key wins, so the order of keys encodes priority (most specific first);
+#   * unmatched items count as wrong, never as abstentions.
+#
+# Keys are option keys. For `noul` templates the keys are `yes` / `no`. For `score` templates
+# they are `1` / `2` / `3` (Not relevant / Relevant / Highly relevant).
+#
+# These are deliberately generous-but-naive surface cues: what a paper's reviewer would try in
+# five minutes. If a template cannot survive them, it is not measuring medicine.
+
+pubmed_pubtype_choice_v1:
+  # study design stated in the title/abstract
+  B:  # Systematic review
+    - "\\bsystematic review\\b"
+    - "\\bPRISMA\\b"
+  C:  # Meta-analysis
+    - "\\bmeta-?analys[ei]s\\b"
+    - "\\bpooled analysis\\b"
+  A:  # Randomized controlled trial
+    - "\\brandomi[sz]ed (controlled )?(trial|study)\\b"
+    - "\\brandomly assigned\\b"
+    - "\\bdouble-?blind(ed)?\\b"
+    - "\\bplacebo-controlled\\b"
+  D:  # Case report
+    - "\\bcase report\\b"
+    - "\\bwe (report|describe) (a|an|the) (case|patient)\\b"
+  E:  # Observational study
+    - "\\bobservational (study|cohort|analysis)\\b"
+    - "\\bcohort study\\b"
+    - "\\bcross-?sectional\\b"
+    - "\\bcase-?control\\b"
+    - "\\bretrospective\\b"
+    - "\\bprospective cohort\\b"
+
+pubmed_humans_noul_v1:
+  no:  # animals-only records usually say so
+    - "\\bin (mice|rats|murine|zebrafish|drosophila)\\b"
+    - "\\banimal model\\b"
+    - "\\bC57BL\\b"
+  yes:
+    - "\\bpatients?\\b"
+    - "\\bparticipants?\\b"
+    - "\\bhuman\\b"
+
+pubmed_mesh_major_choice_v1:
+  # No regex: the major MeSH topic is not stated in the abstract. An empty mapping means the
+  # baseline always abstains and therefore scores 0, which is the honest baseline for this
+  # template. (Recorded explicitly rather than omitted so the screen table has a row.)
+  __no_patterns__: []
+
+pubmed_observational_noul_v1:
+  no:
+    - "\\brandomi[sz]ed (controlled )?(trial|study)\\b"
+    - "\\brandomly assigned\\b"
+    - "\\bsystematic review\\b"
+    - "\\bmeta-?analys[ei]s\\b"
+    - "\\bcase report\\b"
+    - "\\bwe (report|describe) (a|an|the) (case|patient)\\b"
+  yes:
+    - "\\bobservational (study|cohort|analysis)\\b"
+    - "\\bcohort study\\b"
+    - "\\bcross-?sectional\\b"
+    - "\\bcase-?control\\b"
+    - "\\bretrospective\\b"
+    - "\\bregistry\\b"
+
+ct_phase_choice_v1:
+  # trial phase stated in the summary
+  A:
+    - "\\bphase\\s*(0|i\\b|1\\b)\\b"
+    - "\\bearly[- ]phase\\b"
+    - "\\bfirst-in-human\\b"
+  D:
+    - "\\bphase\\s*(ii\\b|2\\b)\\b"
+  F:
+    - "\\bphase\\s*(iii\\b|3\\b)\\b"
+  G:
+    - "\\bphase\\s*(iv\\b|4\\b)\\b"
+  C:
+    - "\\bphase\\s*(i/ii|1/2)\\b"
+  E:
+    - "\\bphase\\s*(ii/iii|2/3)\\b"
+
+ct_randomised_noul_v1:
+  yes:
+    - "\\brandomi[sz]ed\\b"
+    - "\\brandomly (assigned|allocated)\\b"
+    - "\\brandomisation\\b"
+    - "\\brandomization\\b"
+    - "\\bplacebo-controlled\\b"
+  no:
+    - "\\bsingle[- ]arm\\b"
+    - "\\bnon-?randomi[sz]ed\\b"
+    - "\\bobservational\\b"
+
+ct_primary_purpose_choice_v1:
+  A:  # Treatment
+    - "\\btreat(ment|ing)\\b"
+    - "\\btherap(y|eutic)\\b"
+    - "\\befficacy of\\b"
+  B:  # Prevention
+    - "\\bprevent(ion|ing)\\b"
+    - "\\bprophyla(xis|ctic)\\b"
+    - "\\bvaccin(e|ation)\\b"
+  C:  # Diagnostic
+    - "\\bdiagnos(t?ic|is)\\b"
+    - "\\bdetect(ion)? of\\b"
+  E:  # Screening
+    - "\\bscreen(ing)\\b"
+  D:  # Supportive care
+    - "\\bsupportive care\\b"
+    - "\\bpalliative\\b"
+    - "\\bquality of life\\b"
+
+ct_intervention_type_choice_v1:
+  A:  # Drug
+    - "\\b(drug|dose|dosing|oral|tablet|capsule|mg\\b|injection of)\\b"
+    - "\\bpharmacokinetic"
+  B:  # Biological
+    - "\\b(antibody|vaccine|cell therapy|biologic)\\b"
+  C:  # Device
+    - "\\b(device|stent|catheter|implant|prosthesis)\\b"
+  D:  # Procedure
+    - "\\b(surgery|surgical|operation|procedure)\\b"
+  E:  # Behavioral
+    - "\\b(behavio(u)?ral|psychotherapy|counseling|education program|exercise program)\\b"
+  F:  # Genetic
+    - "\\b(gene therapy|genetic|CRISPR|vector)\\b"
+  G:  # Dietary supplement
+    - "\\b(supplement|vitamin|nutraceutical|probiotic)\\b"
+  J:  # Diagnostic test
+    - "\\b(diagnostic test|assay|imaging|MRI|CT scan|ultrasound)\\b"
+  I:  # Radiation
+    - "\\b(radiotherapy|radiation therapy|brachytherapy)\\b"
+
+ct_healthy_volunteers_noul_v1:
+  yes:
+    - "\\bhealthy volunteers?\\b"
+    - "\\bhealthy (adult )?(participants|subjects)\\b"
+  no:
+    - "\\bpatients? with\\b"
+    - "\\bdiagnos(is|ed) with\\b"
+
+fda_boxed_warning_noul_v1:
+  # The boxed-warning section is removed from the state by the builder, so a surface cue would
+  # have to come from elsewhere in the label: "boxed warning" mentions are a weak, deliberately
+  # naive cue.
+  yes:
+    - "\\bboxed warning\\b"
+    - "\\bblack box warning\\b"
+  no:
+    - "\\bno boxed warning\\b"
+
+fda_class_choice_v1:
+  # The pharmacologic class is not stated in the label body sections used for the state; the
+  # class name appears in the option labels, not the state. Empty mapping = always abstain = 0.
+  __no_patterns__: []
+
+fda_route_choice_v1:
+  A:  # ORAL
+    - "\\b(oral(ly)?|by mouth|tablets?|capsules?)\\b"
+  B:  # INTRAVENOUS
+    - "\\bintravenous(ly)?\\b"
+    - "\\bIV\\b"
+  C:  # INTRAMUSCULAR
+    - "\\bintramuscular(ly)?\\b"
+  D:  # SUBCUTANEOUS
+    - "\\bsubcutaneous(ly)?\\b"
+  E:  # TOPICAL
+    - "\\btopical(ly)?\\b"
+    - "\\bapply (to|on) the skin\\b"
+  F:  # TRANSDERMAL
+    - "\\btransdermal\\b"
+    - "\\bpatch\\b"
+  G:  # INHALATION
+    - "\\binhal(e|ation|ed)\\b"
+    - "\\bnebuliz"
+  H:  # NASAL
+    - "\\bnasal(ly)?\\b"
+  I:  # OPHTHALMIC
+    - "\\bophthalmic\\b"
+    - "\\beye drops?\\b"
+  J:  # OTIC
+    - "\\botic\\b"
+    - "\\bear drops?\\b"
+  K:  # RECTAL
+    - "\\brectal(ly)?\\b"
+    - "\\bsuppositor"
+  L:  # VAGINAL
+    - "\\bvagin(al|ally)\\b"
+  M:  # SUBLINGUAL
+    - "\\bsublingual(ly)?\\b"

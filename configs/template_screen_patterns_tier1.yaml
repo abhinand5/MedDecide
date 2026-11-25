@@ -1,0 +1,41 @@
+# Hand-written regex baselines for the TIER-1 templates.
+#
+# Written AFTER the T9 baseline numbers existed (the fresh-tier patterns were written before any
+# model ran; this file does not carry that guarantee). It is therefore an *additional analysis*
+# used to explain a suspicious result, not a pre-registered screen. Every number it produces is
+# labelled as additional in the report.
+#
+# The trigger: `medquad_routing_v1` scored 0.926 (Qwen3.5-0.8B) and 0.943 (Base) against a 0.255
+# majority baseline. MedQuAD questions are literally "What is (are) X ?" and the question types
+# include `information`, so the answer word can be the interrogative itself.
+
+medquad_routing_v1:
+  # option labels for this template are question types, so the cue is the interrogative
+  "information":
+    - "^\\s*what (is|are)\\b"
+    - "^\\s*who (is|are)\\b"
+    - "^\\s*which\\b"
+  "symptoms":
+    - "\\bsymptoms?\\b"
+    - "\\bsigns? of\\b"
+  "treatment":
+    - "\\btreat(ment)?\\b"
+    - "\\btherap(y|ies)\\b"
+  "diagnosis":
+    - "\\bdiagnos(is|e|ed)\\b"
+  "prevention":
+    - "\\bprevent(ion)?\\b"
+  "exams and tests":
+    - "\\btests?\\b"
+    - "\\bexams?\\b"
+  "susceptibility":
+    - "\\bsusceptib\\w+\\b"
+  "genetic changes":
+    - "\\bgenetic\\b"
+    - "\\bmutation\\b"
+  "outlook":
+    - "\\bprognosis\\b"
+    - "\\boutlook\\b"
+  "research":
+    - "\\bresearch\\b"
+    - "\\bclinical trial\\b"

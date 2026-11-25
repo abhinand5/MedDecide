@@ -1,0 +1,123 @@
+"""osler_v3 helpers: the KL-to-base anchor rule (D41, ADVISORY §3.2) and the timing summary of a training run.
+
+Pure functions; the scripts do the reading and writing. The domain prefixes are fixed for the whole loop and are the same in
+every run. An anchor is a training item whose template starts with none of them: the KL-to-base penalty applies to anchors
+only, so the domain templates may move while the general skill stays near the base.
+"""
+
+from __future__ import annotations
+
+import math
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any
+
+import numpy as np
+
+TEMPLATE_CAP = 0.08  # ADVISORY osler_v3 X2 / osler_v1 V7: no template above 8 % of a block
+
+# ADVISORY osler_v3 §3.2, fixed before any osler_v3 run; a new template family must take one of these or be an anchor
+DOMAIN_PREFIXES: tuple[str, ...] = (
+    "mr_",
+    "synthea_",
+    "chart_",
+    "codiesp_",
+    "mtsamples_",
+    "mimic_",
+    "ehr_rel_",
+    "pmc_",
+    "ragtruth_",
+    "drugprot_",
+    "multicare_",
+    "clinclaim_",
+    "restyle_",
+)
+
+
+def is_anchor(template_id: str, prefixes: Sequence[str] = DOMAIN_PREFIXES) -> bool:
+    """True when the item is a KL-to-base anchor: its template starts with none of ``prefixes``.
+
+    With no prefixes every item is an anchor, which is the trainer's rule (``kl_exclude_template_prefixes`` empty).
+    """
+    return not str(template_id).startswith(tuple(prefixes))
+
+
+def anchor_share(template_ids: Iterable[str], prefixes: Sequence[str] = DOMAIN_PREFIXES) -> dict[str, Any]:
+    """Counts of anchor and domain items, and the anchor share over all items (the denominator is stated)."""
+    total = 0
+    anchors = 0
+    for template_id in template_ids:
+        total += 1
+        anchors += int(is_anchor(template_id, prefixes))
+    if total == 0:
+        raise ValueError("no items to count")
+    return {"items": total, "anchors": anchors, "domain": total - anchors, "anchor_share": anchors / total}
+
+
+def timing_summary(records: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Step time, anchor share, peak memory and the KL value of a run, from its per-step records (``StepRecord.to_dict``).
+
+    The first step carries the CUDA warm-up, so the step-time means leave it out; the median is over all steps. The KL mean
+    is over the steps that had at least one anchor. Non-finite losses are counted, not dropped.
+    """
+    if len(records) < 2:
+        raise ValueError("a timing summary needs at least two steps (the first is warm-up)")
+    elapsed = np.array([float(r["elapsed_s"]) for r in records])
+    steady = elapsed[1:]
+    items = sum(int(r["n_items"]) for r in records)
+    anchors = sum(int(r["n_anchor"]) for r in records)
+    kl_steps = [float(r["kl"]) for r in records if int(r["n_anchor"]) > 0]
+    losses = [float(r["loss"]) for r in records]
+    return {
+        "steps": len(records),
+        "s_per_step_mean_excl_first": float(steady.mean()),
+        "s_per_step_median": float(np.median(elapsed)),
+        "s_per_step_first": float(elapsed[0]),
+        "items": items,
+        "anchor_items": anchors,
+        "anchor_share": anchors / items if items else math.nan,
+        "gpu_peak_gb_max": max(float(r["gpu_peak_gb"]) for r in records),
+        "kl_mean_over_anchor_steps": float(np.mean(kl_steps)) if kl_steps else math.nan,
+        "kl_steps_with_anchors": len(kl_steps),
+        "nonfinite_losses": sum(1 for x in losses if not math.isfinite(x)),
+    }
+
+
+def capped_sizes(fixed_total: int, sizes: Mapping[str, int], cap: float = TEMPLATE_CAP) -> tuple[int, dict[str, int]]:
+    """The final block size N and the rows kept per template, when no template may exceed ``cap`` of the block (ADVISORY §3).
+
+    ``fixed_total`` is the number of rows of every template that is not capped (the C1 rows and the uncapped replay rows); ``sizes``
+    are the candidate rows of each capped template. A template keeps min(its size, cap * N), and N is the fixed point of
+    N = fixed_total + sum of the kept rows (solved by iteration). The kept count is rounded down, so the cap always holds.
+    """
+    if not 0 < cap < 1:
+        raise ValueError("cap must be in (0, 1)")
+    total = fixed_total + sum(sizes.values())
+    for _ in range(1000):
+        kept = {t: min(n, math.floor(cap * total)) for t, n in sizes.items()}
+        new_total = fixed_total + sum(kept.values())
+        if new_total == total:
+            break
+        total = new_total
+    kept = {t: min(n, math.floor(cap * total)) for t, n in sizes.items()}
+    total = fixed_total + sum(kept.values())
+    if any(v > cap * total + 1e-9 for v in kept.values()):
+        raise ValueError("the cap does not hold at the fixed point")
+    return total, kept
+
+
+STAGE_A_TIE = 0.002  # ADVISORY X7: a difference under 0.002 from the control is a tie, and the control wins it
+
+
+def choose_recipe(scores: Mapping[str, float | None], qualifying: Sequence[str], control: str = "A0") -> tuple[str, bool]:
+    """The Stage A choice (ADVISORY X7, pre-registered): the qualifying run with the highest CG score (its CG accuracy minus zero-shot
+    pplx's), except that a run within STAGE_A_TIE of the control's score does not replace the control. Returns (choice, tie rule
+    applied). The control always qualifies and must have a score."""
+    if scores.get(control) is None:
+        raise ValueError(f"the control {control} has no CG score")
+    candidates = {a: float(scores[a]) for a in qualifying if a == control or scores.get(a) is not None}
+    if control not in candidates:
+        raise ValueError("the control must be among the qualifying runs")
+    best = max(candidates, key=lambda a: candidates[a])
+    if best != control and candidates[best] - candidates[control] < STAGE_A_TIE:
+        return control, True
+    return best, False

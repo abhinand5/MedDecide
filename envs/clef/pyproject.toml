@@ -1,0 +1,27 @@
+# Env for Cloudflare Clef / Clef-Flash (O0 smoke and O2 scoreboard).
+# Pins follow the card's tested stack ("torch 2.11 and transformers 5.10.2 on a single H200", plus
+# pillow for image processing). Torch comes from the cu130 index, as in the root project, because
+# the pod's GPU is an RTX PRO 6000 Blackwell (sm_120). This env is for the competitor only.
+[project]
+name = "clef-env"
+version = "0.0.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "torch==2.11.0",
+  "torchvision==0.26.0",
+  "transformers==5.10.2",
+  "pillow>=11",
+  "accelerate>=1.0",
+  "safetensors>=0.5",
+  "huggingface-hub>=0.34",
+  "numpy>=2.0",
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu130" }
+torchvision = { index = "pytorch-cu130" }

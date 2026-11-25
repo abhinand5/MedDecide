@@ -1,0 +1,74 @@
+# MedDecide-Bench v0.2 configuration (loop student_v0, task S1)
+#
+# v0.2 = v0.1 with three defective templates replaced by `_v2` versions (see
+# scripts/bench/build_v0_2.py). Seeds and caps are identical to configs/bench_v0_1.yaml so
+# that a carried item is bit-for-bit the v0.1 item; only the data root changes.
+
+seed: 0
+
+paths:
+  data_root: data/bench/v0.2
+  outputs_root: outputs/student_v0
+  hf_home: ${HF_HOME}
+
+caps:
+  tier1_max_test_items_per_source: 5000
+  tier1_max_dev_items_per_source: 2000
+  fresh_dev_fraction: 0.2
+  fresh_target_items_per_template: 1000
+  fresh_balance_min_class: 200
+  contamination_probe_items_per_source: 500
+  teacher_dev_items: 2000
+  teacher_thinking_items: 200
+  option_shuffle_samples: 500
+  candidate_counts: [2, 4, 8, 16]
+  fda_class_pool_size: 800
+
+eval:
+  bootstrap_resamples: 1000
+  bootstrap_alpha: 0.05
+  ece_bins: 15
+  max_state_tokens:
+    clinicaltrials: 8192
+    openfda: 8192
+    pubmed: 16384
+  max_batch_tokens: 16384
+  max_prompt_tokens: 16384
+
+fresh_window:
+  start: 2026-03-01
+  end: null
+  strict_slice_start: 2026-09-10
+
+readout:
+  # D12 thresholds. The constant-answer ceiling is new in S1 and is a *report-side* check:
+  # a cell fails as degenerate only when the template itself is not dominated.
+  min_median_label_mass: 0.5
+  min_greedy_agreement: 0.9
+  max_modal_share: 0.90
+  degenerate_majority_ceiling: 0.60
+  greedy_sample_items: 50
+
+screen:
+  regex_drop_macro_threshold: 0.90
+  bow_drop_macro_threshold: 0.90
+  gold_in_state_flag_accuracy: 0.80
+  gold_in_state_margin_over_majority: 0.30
+  min_test_items_per_template: 200
+  min_classes_per_split: 2
+  regex_time_budget_minutes: 30
+
+models:
+  ladder:
+    - id: LiquidAI/LFM2.5-350M
+      revision: null
+    - id: Qwen/Qwen3.5-0.8B
+      revision: null
+    - id: Qwen/Qwen3.5-0.8B-Base
+      revision: null
+    - id: google/medgemma-1.5-4b-it
+      revision: null
+    - id: Qwen/Qwen3.5-4B
+      revision: null
+    - id: Qwen/Qwen3.5-9B
+      revision: null
