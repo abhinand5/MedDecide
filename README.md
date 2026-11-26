@@ -38,5 +38,6 @@ For production HTTP serving of **Osler-9B**, use **vLLM Semantic Router** (`vllm
 - `scripts/` — Training, evaluation, calibration, latency, PHI audit, and release scripts
 - `configs/` — Experiment and model configurations
 - `tests/` — Unit test suite
+- `docs/examples.md` — Real-world clinical decision examples across `noul`, `choice`, and `score`
 - `docs/leaderboard.md` — 12-model × 9-frozen-set evaluation leaderboard
 - `docs/benchmark/` — MedDecide-Bench item schema and dataset documentation
