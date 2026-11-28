@@ -1,0 +1,6253 @@
+{
+  "generated_utc": "2026-11-28T16:13:39Z",
+  "links": {
+    "github": "https://github.com/abhinand5/MedDecide",
+    "landing_page": "https://abhinand5.github.io/MedDecide",
+    "hf_osler_9b": "https://huggingface.co/abhinand/Osler-9B",
+    "hf_osler_4b": "https://huggingface.co/abhinand/Osler-4B",
+    "hf_bench": "https://huggingface.co/datasets/abhinand/MedDecide-Bench",
+    "hf_space": "https://huggingface.co/spaces/abhinand/MedDecide-Leaderboard",
+    "hf_collection": "https://huggingface.co/collections/abhinand/osler-calibrated-medical-decision-models-6b0af4d7e2e7a5eed75e3619",
+    "private_eval_issue": "https://github.com/abhinand5/MedDecide/issues/new?template=private_eval_request.yml"
+  },
+  "eval_sets": [
+    {
+      "id": "confirm_general",
+      "role": "Headline Fresh Tier-2",
+      "is_headline": true,
+      "is_public_tier": true,
+      "n_items": 5988,
+      "n_templates": 12,
+      "sha256_prefix": "bf6614a60af32e85",
+      "description": "Post-cutoff Oct-Nov 2026 structured-gold decisions (CT.gov, openFDA, PubMed)"
+    },
+    {
+      "id": "knowledge",
+      "role": "Headline OOD",
+      "is_headline": true,
+      "is_public_tier": true,
+      "n_items": 5456,
+      "n_templates": 2,
+      "sha256_prefix": "aa3eb27d637a40df",
+      "description": "Frozen medical exam knowledge: MedQA (1,273) + MedMCQA val (4,183)"
+    },
+    {
+      "id": "mimic_suite",
+      "role": "Headline In-Domain Audit",
+      "is_headline": true,
+      "is_public_tier": false,
+      "n_items": 4253,
+      "n_templates": 9,
+      "sha256_prefix": "657831b971ecd746",
+      "description": "MIMIC-IV payer-audit suite v1 (9 templates, late-anchor patients >=2014)"
+    },
+    {
+      "id": "mr_verdict",
+      "role": "Headline In-Domain Audit",
+      "is_headline": true,
+      "is_public_tier": false,
+      "n_items": 13103,
+      "n_templates": 7,
+      "sha256_prefix": "dbb178c64cd1515b",
+      "description": "Medical-record audit verdict suite v1 (7 templates: CodiEsp, mkurman, PMC, MTSamples, Synthea, MR)"
+    },
+    {
+      "id": "panel",
+      "role": "Headline OOD",
+      "is_headline": true,
+      "is_public_tier": true,
+      "n_items": 4353,
+      "n_templates": 7,
+      "sha256_prefix": "84836287043543c8",
+      "description": "External clinical panel: 7 public datasets never trained on"
+    },
+    {
+      "id": "mednli_test",
+      "role": "Additional Clinical NLI",
+      "is_headline": false,
+      "is_public_tier": false,
+      "n_items": 1422,
+      "n_templates": 1,
+      "sha256_prefix": "7ec0e94ce17bde02",
+      "description": "MedNLI official test split (3-class clinical entailment)"
+    },
+    {
+      "id": "mimic_heldout",
+      "role": "Additional Held-Out",
+      "is_headline": false,
+      "is_public_tier": false,
+      "n_items": 110,
+      "n_templates": 3,
+      "sha256_prefix": "27d0ae46fbdb585d",
+      "description": "Held-out MIMIC ICD family (heart failure, excluded from training)"
+    },
+    {
+      "id": "mr_heldout_test",
+      "role": "Additional Held-Out",
+      "is_headline": false,
+      "is_public_tier": false,
+      "n_items": 584,
+      "n_templates": 3,
+      "sha256_prefix": "98522a9d9daaa48e",
+      "description": "Held-out MR audit templates (AKI indicator + held-out families)"
+    },
+    {
+      "id": "pairs_test",
+      "role": "Additional Minimal Pairs",
+      "is_headline": false,
+      "is_public_tier": false,
+      "n_items": 500,
+      "n_templates": 1,
+      "sha256_prefix": "94b9e6e63678fdda",
+      "description": "Nemotron-edited clinical documentation minimal pairs"
+    }
+  ],
+  "models": [
+    {
+      "id": "Osler-9B",
+      "raw_id": "Osler-9B-rc0",
+      "is_osler": true,
+      "verification_tier": "verified_full",
+      "params_b": 8.39,
+      "size_tier": "<=10B",
+      "role": "Release Candidate (9B)",
+      "base_repo": "vllm-sr/d3-flash",
+      "hf_repo": "abhinand/Osler-9B",
+      "hf_url": "https://huggingface.co/abhinand/Osler-9B",
+      "readout_type": "option_code_255_last_pos",
+      "non_generative": true,
+      "license": "Apache-2.0",
+      "p50_ms_b1": 33.71,
+      "peak_vram_gb": 17.32,
+      "general_medical_avg": 0.7419,
+      "ehr_docs_avg": 0.8375,
+      "five_set_macro": 0.7801,
+      "on_pareto_front": true,
+      "undominated_le10b": true,
+      "undominated_le4b": false,
+      "latency": {
+        "b1": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        },
+        "b16": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        }
+      },
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.9008,
+          "ci_lo": 0.8933,
+          "ci_hi": 0.9083,
+          "macro": 0.8153,
+          "brier": 0.1673,
+          "ece": 0.09,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.7322,
+          "ci_lo": 0.7209,
+          "ci_hi": 0.7438,
+          "macro": 0.7535,
+          "brier": 0.3587,
+          "ece": 0.0441,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8917,
+          "ci_lo": 0.8748,
+          "ci_hi": 0.9079,
+          "macro": 0.8917,
+          "brier": 0.1564,
+          "ece": 0.0271,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.7,
+          "ci_lo": 0.6091,
+          "ci_hi": 0.7818,
+          "macro": 0.6912,
+          "brier": 0.4795,
+          "ece": 0.1712,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.7733,
+          "ci_lo": 0.7606,
+          "ci_hi": 0.7863,
+          "macro": 0.7797,
+          "brier": 0.3373,
+          "ece": 0.0687,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.4298,
+          "ci_lo": 0.3904,
+          "ci_hi": 0.4709,
+          "macro": 0.7576,
+          "brier": 0.8451,
+          "ece": 0.4204,
+          "readout_health": "READOUT_FAIL \u2014 1 of 3 templates"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.9016,
+          "ci_lo": 0.8966,
+          "ci_hi": 0.9065,
+          "macro": 0.8654,
+          "brier": 0.1421,
+          "ece": 0.022,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.962,
+          "ci_lo": 0.946,
+          "ci_hi": 0.978,
+          "macro": 0.962,
+          "brier": 0.0631,
+          "ece": 0.0352,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5927,
+          "ci_lo": 0.5785,
+          "ci_hi": 0.6076,
+          "macro": 0.665,
+          "brier": 0.5223,
+          "ece": 0.0229,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "pplx-27B",
+      "raw_id": "pplx-27B",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 26.09,
+      "size_tier": ">10B Ceiling",
+      "role": "Out-of-Tier 27B Ceiling",
+      "base_repo": "perplexity-ai/pplx-decider-v1.2-27b",
+      "hf_repo": "perplexity-ai/pplx-decider-v1.2-27b",
+      "hf_url": "https://huggingface.co/perplexity-ai/pplx-decider-v1.2-27b",
+      "readout_type": "option_code_255_marker",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": 90.96,
+      "peak_vram_gb": 52.92,
+      "general_medical_avg": 0.7725,
+      "ehr_docs_avg": 0.7411,
+      "five_set_macro": 0.76,
+      "on_pareto_front": true,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {
+        "b1": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        },
+        "b16": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        }
+      },
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.8843,
+          "ci_lo": 0.8761,
+          "ci_hi": 0.8923,
+          "macro": 0.8097,
+          "brier": 0.1659,
+          "ece": 0.0448,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5435,
+          "coverage": 0.9962,
+          "accuracy": 0.7823,
+          "ci_lo": 0.7713,
+          "ci_hi": 0.793,
+          "macro": 0.8173,
+          "brier": 0.3038,
+          "ece": 0.0507,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8748,
+          "ci_lo": 0.8579,
+          "ci_hi": 0.8924,
+          "macro": 0.8748,
+          "brier": 0.1891,
+          "ece": 0.0169,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.7818,
+          "ci_lo": 0.7,
+          "ci_hi": 0.8545,
+          "macro": 0.7718,
+          "brier": 0.3431,
+          "ece": 0.1266,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6729,
+          "ci_lo": 0.6588,
+          "ci_hi": 0.6866,
+          "macro": 0.6819,
+          "brier": 0.4371,
+          "ece": 0.0592,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.899,
+          "ci_lo": 0.8733,
+          "ci_hi": 0.9229,
+          "macro": 0.8296,
+          "brier": 0.1404,
+          "ece": 0.0396,
+          "readout_health": "PASS"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.8093,
+          "ci_lo": 0.8025,
+          "ci_hi": 0.8156,
+          "macro": 0.7745,
+          "brier": 0.2775,
+          "ece": 0.0501,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.94,
+          "ci_lo": 0.92,
+          "ci_hi": 0.96,
+          "macro": 0.94,
+          "brier": 0.0937,
+          "ece": 0.0308,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.651,
+          "ci_lo": 0.6363,
+          "ci_hi": 0.6653,
+          "macro": 0.7203,
+          "brier": 0.4796,
+          "ece": 0.1131,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "Osler-4B",
+      "raw_id": "Osler-4B-rc0",
+      "is_osler": true,
+      "verification_tier": "verified_full",
+      "params_b": 4.55,
+      "size_tier": "<=4B",
+      "role": "Release Candidate (4B)",
+      "base_repo": "perplexity-ai/pplx-decider-flash-v1.2",
+      "hf_repo": "abhinand/Osler-4B",
+      "hf_url": "https://huggingface.co/abhinand/Osler-4B",
+      "readout_type": "option_code_255_marker",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": 26.54,
+      "peak_vram_gb": 9.6,
+      "general_medical_avg": 0.7038,
+      "ehr_docs_avg": 0.8269,
+      "five_set_macro": 0.753,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": true,
+      "latency": {
+        "b1": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        },
+        "b16": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        }
+      },
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.8883,
+          "ci_lo": 0.8806,
+          "ci_hi": 0.8963,
+          "macro": 0.803,
+          "brier": 0.1792,
+          "ece": 0.094,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.6728,
+          "ci_lo": 0.66,
+          "ci_hi": 0.6848,
+          "macro": 0.6995,
+          "brier": 0.425,
+          "ece": 0.0194,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.891,
+          "ci_lo": 0.8741,
+          "ci_hi": 0.9072,
+          "macro": 0.891,
+          "brier": 0.1589,
+          "ece": 0.0375,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6727,
+          "ci_lo": 0.5818,
+          "ci_hi": 0.7545,
+          "macro": 0.7074,
+          "brier": 0.5339,
+          "ece": 0.2208,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.7597,
+          "ci_lo": 0.747,
+          "ci_hi": 0.7722,
+          "macro": 0.766,
+          "brier": 0.3684,
+          "ece": 0.0818,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.3339,
+          "ci_lo": 0.2962,
+          "ci_hi": 0.3733,
+          "macro": 0.7345,
+          "brier": 0.7636,
+          "ece": 0.4615,
+          "readout_health": "READOUT_FAIL \u2014 1 of 3 templates"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.8941,
+          "ci_lo": 0.889,
+          "ci_hi": 0.8997,
+          "macro": 0.8499,
+          "brier": 0.1514,
+          "ece": 0.0314,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.958,
+          "ci_lo": 0.94,
+          "ci_hi": 0.974,
+          "macro": 0.958,
+          "brier": 0.0704,
+          "ece": 0.0262,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5502,
+          "ci_lo": 0.5353,
+          "ci_hi": 0.5642,
+          "macro": 0.6205,
+          "brier": 0.5643,
+          "ece": 0.0374,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "d3-flash",
+      "raw_id": "d3-flash",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 8.39,
+      "size_tier": "<=10B",
+      "role": "Direct Zero-Shot Base (9B)",
+      "base_repo": "vllm-sr/d3-flash",
+      "hf_repo": "vllm-sr/d3-flash",
+      "hf_url": "https://huggingface.co/vllm-sr/d3-flash",
+      "readout_type": "option_code_255_last_pos",
+      "non_generative": true,
+      "license": "Apache-2.0",
+      "p50_ms_b1": 33.8,
+      "peak_vram_gb": 17.32,
+      "general_medical_avg": 0.7336,
+      "ehr_docs_avg": 0.6826,
+      "five_set_macro": 0.7132,
+      "on_pareto_front": false,
+      "undominated_le10b": true,
+      "undominated_le4b": false,
+      "latency": {
+        "b1": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        },
+        "b16": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        }
+      },
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.8774,
+          "ci_lo": 0.8691,
+          "ci_hi": 0.8856,
+          "macro": 0.7881,
+          "brier": 0.1702,
+          "ece": 0.0363,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.7335,
+          "ci_lo": 0.722,
+          "ci_hi": 0.7458,
+          "macro": 0.7535,
+          "brier": 0.3519,
+          "ece": 0.0253,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8629,
+          "ci_lo": 0.8453,
+          "ci_hi": 0.8804,
+          "macro": 0.8629,
+          "brier": 0.2148,
+          "ece": 0.0326,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6818,
+          "ci_lo": 0.5909,
+          "ci_hi": 0.7636,
+          "macro": 0.7495,
+          "brier": 0.505,
+          "ece": 0.2243,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6301,
+          "ci_lo": 0.6163,
+          "ci_hi": 0.6454,
+          "macro": 0.6389,
+          "brier": 0.4815,
+          "ece": 0.0611,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.4914,
+          "ci_lo": 0.4521,
+          "ci_hi": 0.5308,
+          "macro": 0.6422,
+          "brier": 0.6686,
+          "ece": 0.3048,
+          "readout_health": "PASS"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.7351,
+          "ci_lo": 0.7272,
+          "ci_hi": 0.7427,
+          "macro": 0.6876,
+          "brier": 0.3715,
+          "ece": 0.1042,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.94,
+          "ci_lo": 0.918,
+          "ci_hi": 0.96,
+          "macro": 0.94,
+          "brier": 0.1181,
+          "ece": 0.0896,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5899,
+          "ci_lo": 0.5745,
+          "ci_hi": 0.6046,
+          "macro": 0.6594,
+          "brier": 0.5387,
+          "ece": 0.1176,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "pplx-flash",
+      "raw_id": "pplx-flash",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 4.54,
+      "size_tier": "<=4B",
+      "role": "Direct Zero-Shot Base (4B)",
+      "base_repo": "perplexity-ai/pplx-decider-flash-v1.2",
+      "hf_repo": "perplexity-ai/pplx-decider-flash-v1.2",
+      "hf_url": "https://huggingface.co/perplexity-ai/pplx-decider-flash-v1.2",
+      "readout_type": "option_code_255_marker",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": 25.51,
+      "peak_vram_gb": 9.58,
+      "general_medical_avg": 0.7113,
+      "ehr_docs_avg": 0.6853,
+      "five_set_macro": 0.7009,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": true,
+      "latency": {
+        "b1": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        },
+        "b16": {
+          "p50_ms": null,
+          "p95_ms": null,
+          "items_per_s": null,
+          "peak_vram_gb": null
+        }
+      },
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.8889,
+          "ci_lo": 0.8808,
+          "ci_hi": 0.8966,
+          "macro": 0.7907,
+          "brier": 0.1652,
+          "ece": 0.0234,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5435,
+          "coverage": 0.9962,
+          "accuracy": 0.6835,
+          "ci_lo": 0.6712,
+          "ci_hi": 0.6962,
+          "macro": 0.7097,
+          "brier": 0.467,
+          "ece": 0.1569,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.872,
+          "ci_lo": 0.8544,
+          "ci_hi": 0.8896,
+          "macro": 0.872,
+          "brier": 0.1985,
+          "ece": 0.0332,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.624,
+          "ci_lo": 0.6085,
+          "ci_hi": 0.6388,
+          "macro": 0.6341,
+          "brier": 0.4961,
+          "ece": 0.0811,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.613,
+          "ci_lo": 0.5736,
+          "ci_hi": 0.6524,
+          "macro": 0.6949,
+          "brier": 0.4632,
+          "ece": 0.1281,
+          "readout_health": "PASS"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.7466,
+          "ci_lo": 0.739,
+          "ci_hi": 0.7537,
+          "macro": 0.7044,
+          "brier": 0.3775,
+          "ece": 0.1067,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.874,
+          "ci_lo": 0.846,
+          "ci_hi": 0.902,
+          "macro": 0.874,
+          "brier": 0.1776,
+          "ece": 0.0412,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5615,
+          "ci_lo": 0.5465,
+          "ci_hi": 0.5762,
+          "macro": 0.639,
+          "brier": 0.6416,
+          "ece": 0.2285,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "Clef-Flash",
+      "raw_id": "Clef-Flash",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 9.0,
+      "size_tier": "<=10B",
+      "role": "General System-One Competitor (9B)",
+      "base_repo": "Cloudflare/clef-flash",
+      "hf_repo": "Cloudflare/clef-flash",
+      "hf_url": "https://huggingface.co/Cloudflare/clef-flash",
+      "readout_type": "joint_schema_head",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.7169,
+      "ehr_docs_avg": 0.6568,
+      "five_set_macro": 0.6929,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5988,
+          "coverage": 1.0,
+          "accuracy": 0.8933,
+          "ci_lo": 0.8851,
+          "ci_hi": 0.9013,
+          "macro": 0.8086,
+          "brier": 0.1661,
+          "ece": 0.0298,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.6864,
+          "ci_lo": 0.6738,
+          "ci_hi": 0.6983,
+          "macro": 0.7105,
+          "brier": 0.426,
+          "ece": 0.0572,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8636,
+          "ci_lo": 0.846,
+          "ci_hi": 0.8812,
+          "macro": 0.8636,
+          "brier": 0.2137,
+          "ece": 0.0368,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.7182,
+          "ci_lo": 0.6364,
+          "ci_hi": 0.8,
+          "macro": 0.6954,
+          "brier": 0.4285,
+          "ece": 0.1141,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6306,
+          "ci_lo": 0.6167,
+          "ci_hi": 0.645,
+          "macro": 0.6391,
+          "brier": 0.4958,
+          "ece": 0.0615,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "NOT MEASURED \u2014 prediction file absent",
+          "n": 584,
+          "scored": 0,
+          "coverage": null,
+          "accuracy": null,
+          "ci_lo": null,
+          "ci_hi": null,
+          "macro": null,
+          "brier": null,
+          "ece": null,
+          "readout_health": null
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.6831,
+          "ci_lo": 0.6751,
+          "ci_hi": 0.6908,
+          "macro": 0.683,
+          "brier": 0.45,
+          "ece": 0.129,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5711,
+          "ci_lo": 0.5562,
+          "ci_hi": 0.586,
+          "macro": 0.6502,
+          "brier": 0.5828,
+          "ece": 0.1333,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "MedDecider-9B",
+      "raw_id": "MedDecider-9B",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 9.0,
+      "size_tier": "<=10B",
+      "role": "Open Medical Competitor (9B)",
+      "base_repo": "lion-ai/MedDecider-9B",
+      "hf_repo": "lion-ai/MedDecider-9B",
+      "hf_url": "https://huggingface.co/lion-ai/MedDecider-9B",
+      "readout_type": "verbalizer_10opt",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.7142,
+      "ehr_docs_avg": 0.6421,
+      "five_set_macro": 0.6853,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5838,
+          "coverage": 0.9749,
+          "accuracy": 0.8825,
+          "ci_lo": 0.8738,
+          "ci_hi": 0.8905,
+          "macro": 0.7965,
+          "brier": 0.1735,
+          "ece": 0.0382,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5435,
+          "coverage": 0.9962,
+          "accuracy": 0.6997,
+          "ci_lo": 0.687,
+          "ci_hi": 0.7122,
+          "macro": 0.7265,
+          "brier": 0.3897,
+          "ece": 0.0385,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8425,
+          "ci_lo": 0.8235,
+          "ci_hi": 0.8608,
+          "macro": 0.8425,
+          "brier": 0.2548,
+          "ece": 0.0747,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6455,
+          "ci_lo": 0.5545,
+          "ci_hi": 0.7273,
+          "macro": 0.6713,
+          "brier": 0.5055,
+          "ece": 0.1668,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6189,
+          "ci_lo": 0.6045,
+          "ci_hi": 0.6341,
+          "macro": 0.6278,
+          "brier": 0.5034,
+          "ece": 0.0715,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.4024,
+          "ci_lo": 0.363,
+          "ci_hi": 0.4418,
+          "macro": 0.5424,
+          "brier": 0.656,
+          "ece": 0.324,
+          "readout_health": "READOUT_FAIL \u2014 1 of 3 templates"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 12992,
+          "coverage": 0.9915,
+          "accuracy": 0.6653,
+          "ci_lo": 0.6574,
+          "ci_hi": 0.674,
+          "macro": 0.6223,
+          "brier": 0.4864,
+          "ece": 0.1792,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.788,
+          "ci_lo": 0.75,
+          "ci_hi": 0.822,
+          "macro": 0.788,
+          "brier": 0.3261,
+          "ece": 0.1331,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4141,
+          "coverage": 0.9513,
+          "accuracy": 0.5603,
+          "ci_lo": 0.5455,
+          "ci_hi": 0.5757,
+          "macro": 0.6301,
+          "brier": 0.5484,
+          "ece": 0.0461,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "MedDecider-4B",
+      "raw_id": "MedDecider-4B",
+      "is_osler": false,
+      "verification_tier": "verified_full",
+      "params_b": 4.0,
+      "size_tier": "<=4B",
+      "role": "Open Medical Competitor (4B)",
+      "base_repo": "lion-ai/MedDecider-4B",
+      "hf_repo": "lion-ai/MedDecider-4B",
+      "hf_url": "https://huggingface.co/lion-ai/MedDecider-4B",
+      "readout_type": "verbalizer_10opt",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.6986,
+      "ehr_docs_avg": 0.635,
+      "five_set_macro": 0.6732,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "confirm_general": {
+          "status": "MEASURED",
+          "n": 5988,
+          "scored": 5838,
+          "coverage": 0.9749,
+          "accuracy": 0.882,
+          "ci_lo": 0.8738,
+          "ci_hi": 0.89,
+          "macro": 0.7922,
+          "brier": 0.1782,
+          "ece": 0.0406,
+          "readout_health": "PASS"
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5435,
+          "coverage": 0.9962,
+          "accuracy": 0.6703,
+          "ci_lo": 0.6576,
+          "ci_hi": 0.6833,
+          "macro": 0.6969,
+          "brier": 0.4245,
+          "ece": 0.0234,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8488,
+          "ci_lo": 0.8305,
+          "ci_hi": 0.8671,
+          "macro": 0.8488,
+          "brier": 0.2299,
+          "ece": 0.039,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6636,
+          "ci_lo": 0.5727,
+          "ci_hi": 0.7455,
+          "macro": 0.7176,
+          "brier": 0.5006,
+          "ece": 0.1654,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6019,
+          "ci_lo": 0.5878,
+          "ci_hi": 0.6163,
+          "macro": 0.6115,
+          "brier": 0.5179,
+          "ece": 0.0752,
+          "readout_health": "READOUT_FAIL \u2014 1 of 9 templates"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.5205,
+          "ci_lo": 0.4795,
+          "ci_hi": 0.56,
+          "macro": 0.5937,
+          "brier": 0.4929,
+          "ece": 0.1713,
+          "readout_health": "PASS"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 12992,
+          "coverage": 0.9915,
+          "accuracy": 0.6681,
+          "ci_lo": 0.6599,
+          "ci_hi": 0.6765,
+          "macro": 0.6051,
+          "brier": 0.4565,
+          "ece": 0.1546,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.692,
+          "ci_lo": 0.652,
+          "ci_hi": 0.732,
+          "macro": 0.692,
+          "brier": 0.3639,
+          "ece": 0.1432,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4141,
+          "coverage": 0.9513,
+          "accuracy": 0.5436,
+          "ci_lo": 0.5279,
+          "ci_hi": 0.5586,
+          "macro": 0.6159,
+          "brier": 0.5763,
+          "ece": 0.0644,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "Qwen3.5-9B",
+      "raw_id": "Qwen3.5-9B",
+      "is_osler": false,
+      "verification_tier": "verified_partial",
+      "params_b": 9.0,
+      "size_tier": "<=10B",
+      "role": "Raw Zero-Shot LLM Backbone (9B)",
+      "base_repo": "Qwen/Qwen3.5-9B",
+      "hf_repo": "Qwen/Qwen3.5-9B",
+      "hf_url": "https://huggingface.co/Qwen/Qwen3.5-9B",
+      "readout_type": "letter_verbalizer",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.6097,
+      "ehr_docs_avg": 0.6172,
+      "five_set_macro": null,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.6774,
+          "ci_lo": 0.6651,
+          "ci_hi": 0.6901,
+          "macro": 0.7038,
+          "brier": 0.4485,
+          "ece": 0.1096,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8361,
+          "ci_lo": 0.8165,
+          "ci_hi": 0.8559,
+          "macro": 0.8361,
+          "brier": 0.2433,
+          "ece": 0.0471,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6727,
+          "ci_lo": 0.5818,
+          "ci_hi": 0.7545,
+          "macro": 0.7218,
+          "brier": 0.5264,
+          "ece": 0.2338,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.6029,
+          "ci_lo": 0.5874,
+          "ci_hi": 0.6177,
+          "macro": 0.6116,
+          "brier": 0.5514,
+          "ece": 0.1462,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "NOT MEASURED \u2014 prediction file absent",
+          "n": 584,
+          "scored": 0,
+          "coverage": null,
+          "accuracy": null,
+          "ci_lo": null,
+          "ci_hi": null,
+          "macro": null,
+          "brier": null,
+          "ece": null,
+          "readout_health": null
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.6315,
+          "ci_lo": 0.6229,
+          "ci_hi": 0.6396,
+          "macro": 0.5953,
+          "brier": 0.5789,
+          "ece": 0.2366,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.5419,
+          "ci_lo": 0.5265,
+          "ci_hi": 0.5557,
+          "macro": 0.6225,
+          "brier": 0.6546,
+          "ece": 0.2229,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "JEV-9B",
+      "raw_id": "JEV-9B",
+      "is_osler": false,
+      "verification_tier": "verified_partial",
+      "params_b": 9.0,
+      "size_tier": "<=10B",
+      "role": "General System-One Competitor (9B)",
+      "base_repo": "autotrust/JEV-9B",
+      "hf_repo": "autotrust/JEV-9B",
+      "hf_url": "https://huggingface.co/autotrust/JEV-9B",
+      "readout_type": "decision_head_16opt",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.5787,
+      "ehr_docs_avg": 0.6094,
+      "five_set_macro": null,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "confirm_general": {
+          "status": "NOT MEASURED \u2014 prediction file absent",
+          "n": 5988,
+          "scored": 0,
+          "coverage": null,
+          "accuracy": null,
+          "ci_lo": null,
+          "ci_hi": null,
+          "macro": null,
+          "brier": null,
+          "ece": null,
+          "readout_health": null
+        },
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.6448,
+          "ci_lo": 0.6318,
+          "ci_hi": 0.6573,
+          "macro": 0.6692,
+          "brier": 0.4576,
+          "ece": 0.0125,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.8221,
+          "ci_lo": 0.8024,
+          "ci_hi": 0.8425,
+          "macro": 0.8221,
+          "brier": 0.2643,
+          "ece": 0.0316,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.7,
+          "ci_lo": 0.6091,
+          "ci_hi": 0.7818,
+          "macro": 0.7343,
+          "brier": 0.4221,
+          "ece": 0.1145,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.5885,
+          "ci_lo": 0.5742,
+          "ci_hi": 0.6033,
+          "macro": 0.5992,
+          "brier": 0.5401,
+          "ece": 0.1046,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "MEASURED",
+          "n": 584,
+          "scored": 584,
+          "coverage": 1.0,
+          "accuracy": 0.4041,
+          "ci_lo": 0.3664,
+          "ci_hi": 0.4452,
+          "macro": 0.563,
+          "brier": 0.5959,
+          "ece": 0.3103,
+          "readout_health": "READOUT_FAIL \u2014 1 of 3 templates"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.6303,
+          "ci_lo": 0.6218,
+          "ci_hi": 0.6383,
+          "macro": 0.6583,
+          "brier": 0.4934,
+          "ece": 0.1741,
+          "readout_health": "PASS"
+        },
+        "pairs_test": {
+          "status": "MEASURED",
+          "n": 500,
+          "scored": 500,
+          "coverage": 1.0,
+          "accuracy": 0.892,
+          "ci_lo": 0.864,
+          "ci_hi": 0.918,
+          "macro": 0.892,
+          "brier": 0.1661,
+          "ece": 0.0567,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4141,
+          "coverage": 0.9513,
+          "accuracy": 0.5127,
+          "ci_lo": 0.4977,
+          "ci_hi": 0.5274,
+          "macro": 0.584,
+          "brier": 0.6207,
+          "ece": 0.1206,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "Qwen3.5-4B",
+      "raw_id": "Qwen3.5-4B",
+      "is_osler": false,
+      "verification_tier": "verified_partial",
+      "params_b": 4.0,
+      "size_tier": "<=4B",
+      "role": "Raw Zero-Shot LLM Backbone (4B)",
+      "base_repo": "Qwen/Qwen3.5-4B",
+      "hf_repo": "Qwen/Qwen3.5-4B",
+      "hf_url": "https://huggingface.co/Qwen/Qwen3.5-4B",
+      "readout_type": "letter_verbalizer",
+      "non_generative": false,
+      "license": "Apache-2.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.5497,
+      "ehr_docs_avg": 0.5889,
+      "five_set_macro": null,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.6162,
+          "ci_lo": 0.6034,
+          "ci_hi": 0.6288,
+          "macro": 0.6451,
+          "brier": 0.5102,
+          "ece": 0.0842,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.7862,
+          "ci_lo": 0.7644,
+          "ci_hi": 0.8066,
+          "macro": 0.7862,
+          "brier": 0.3225,
+          "ece": 0.0722,
+          "readout_health": "PASS"
+        },
+        "mimic_heldout": {
+          "status": "MEASURED",
+          "n": 110,
+          "scored": 110,
+          "coverage": 1.0,
+          "accuracy": 0.6364,
+          "ci_lo": 0.5455,
+          "ci_hi": 0.7184,
+          "macro": 0.6958,
+          "brier": 0.6011,
+          "ece": 0.2402,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.5603,
+          "ci_lo": 0.5455,
+          "ci_hi": 0.5751,
+          "macro": 0.5697,
+          "brier": 0.5914,
+          "ece": 0.1592,
+          "readout_health": "PASS"
+        },
+        "mr_heldout_test": {
+          "status": "NOT MEASURED \u2014 prediction file absent",
+          "n": 584,
+          "scored": 0,
+          "coverage": null,
+          "accuracy": null,
+          "ci_lo": null,
+          "ci_hi": null,
+          "macro": null,
+          "brier": null,
+          "ece": null,
+          "readout_health": null
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.6176,
+          "ci_lo": 0.6089,
+          "ci_hi": 0.626,
+          "macro": 0.5574,
+          "brier": 0.5532,
+          "ece": 0.1981,
+          "readout_health": "READOUT_FAIL \u2014 1 of 7 templates"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.4831,
+          "ci_lo": 0.4689,
+          "ci_hi": 0.498,
+          "macro": 0.5483,
+          "brier": 0.6985,
+          "ece": 0.222,
+          "readout_health": "PASS"
+        }
+      }
+    },
+    {
+      "id": "d1-2B",
+      "raw_id": "d1-2B",
+      "is_osler": false,
+      "verification_tier": "verified_partial",
+      "params_b": 2.0,
+      "size_tier": "<=4B",
+      "role": "Sub-4B Edge Competitor (2B)",
+      "base_repo": "LiquidAI/d1-2B",
+      "hf_repo": "LiquidAI/d1-2B",
+      "hf_url": "https://huggingface.co/LiquidAI/d1-2B",
+      "readout_type": "system_one",
+      "non_generative": false,
+      "license": "LFM-Open-1.0",
+      "p50_ms_b1": null,
+      "peak_vram_gb": null,
+      "general_medical_avg": 0.4407,
+      "ehr_docs_avg": 0.6328,
+      "five_set_macro": null,
+      "on_pareto_front": false,
+      "undominated_le10b": false,
+      "undominated_le4b": false,
+      "latency": {},
+      "sets": {
+        "knowledge": {
+          "status": "MEASURED",
+          "n": 5456,
+          "scored": 5456,
+          "coverage": 1.0,
+          "accuracy": 0.4555,
+          "ci_lo": 0.4423,
+          "ci_hi": 0.4687,
+          "macro": 0.4705,
+          "brier": 0.6635,
+          "ece": 0.0546,
+          "readout_health": "PASS"
+        },
+        "mednli_test": {
+          "status": "MEASURED",
+          "n": 1422,
+          "scored": 1422,
+          "coverage": 1.0,
+          "accuracy": 0.808,
+          "ci_lo": 0.7869,
+          "ci_hi": 0.8284,
+          "macro": 0.808,
+          "brier": 0.2928,
+          "ece": 0.0711,
+          "readout_health": "PASS"
+        },
+        "mimic_suite": {
+          "status": "MEASURED",
+          "n": 4253,
+          "scored": 4253,
+          "coverage": 1.0,
+          "accuracy": 0.5587,
+          "ci_lo": 0.5439,
+          "ci_hi": 0.5735,
+          "macro": 0.5704,
+          "brier": 0.5602,
+          "ece": 0.0722,
+          "readout_health": "READOUT_FAIL \u2014 1 of 9 templates"
+        },
+        "mr_verdict": {
+          "status": "MEASURED",
+          "n": 13103,
+          "scored": 13103,
+          "coverage": 1.0,
+          "accuracy": 0.7069,
+          "ci_lo": 0.6991,
+          "ci_hi": 0.7146,
+          "macro": 0.6085,
+          "brier": 0.3939,
+          "ece": 0.0654,
+          "readout_health": "PASS"
+        },
+        "panel": {
+          "status": "MEASURED",
+          "n": 4353,
+          "scored": 4353,
+          "coverage": 1.0,
+          "accuracy": 0.4259,
+          "ci_lo": 0.4112,
+          "ci_hi": 0.4411,
+          "macro": 0.481,
+          "brier": 0.6806,
+          "ece": 0.0584,
+          "readout_health": "PASS"
+        }
+      }
+    }
+  ],
+  "per_source": {
+    "confirm_general": {
+      "clinicaltrials": {
+        "n": 2486,
+        "models": {
+          "Clef-Flash": {
+            "accuracy": 0.887,
+            "brier": 0.153,
+            "ece": 0.0292
+          },
+          "pplx-flash": {
+            "accuracy": 0.8773,
+            "brier": 0.1842,
+            "ece": 0.0418
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.8647,
+            "brier": 0.1867,
+            "ece": 0.0326
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.8626,
+            "brier": 0.1858,
+            "ece": 0.017
+          },
+          "pplx-27B": {
+            "accuracy": 0.8588,
+            "brier": 0.1933,
+            "ece": 0.0253
+          },
+          "Osler-9B": {
+            "accuracy": 0.8584,
+            "brier": 0.2411,
+            "ece": 0.1404
+          },
+          "d3-flash": {
+            "accuracy": 0.8471,
+            "brier": 0.2097,
+            "ece": 0.0255
+          },
+          "Osler-4B": {
+            "accuracy": 0.8278,
+            "brier": 0.2659,
+            "ece": 0.1365
+          }
+        }
+      },
+      "openfda": {
+        "n": 1304,
+        "models": {
+          "Osler-4B": {
+            "accuracy": 0.9333,
+            "brier": 0.1371,
+            "ece": 0.0846
+          },
+          "Osler-9B": {
+            "accuracy": 0.9248,
+            "brier": 0.1465,
+            "ece": 0.0921
+          },
+          "Clef-Flash": {
+            "accuracy": 0.8482,
+            "brier": 0.253,
+            "ece": 0.0884
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.8447,
+            "brier": 0.2457,
+            "ece": 0.0984
+          },
+          "pplx-flash": {
+            "accuracy": 0.8443,
+            "brier": 0.2166,
+            "ece": 0.0679
+          },
+          "pplx-27B": {
+            "accuracy": 0.842,
+            "brier": 0.2241,
+            "ece": 0.099
+          },
+          "d3-flash": {
+            "accuracy": 0.8405,
+            "brier": 0.1913,
+            "ece": 0.0574
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.8227,
+            "brier": 0.2946,
+            "ece": 0.1299
+          }
+        }
+      },
+      "pubmed": {
+        "n": 2198,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.9381,
+            "brier": 0.1003,
+            "ece": 0.04
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.9349,
+            "brier": 0.1015,
+            "ece": 0.0271
+          },
+          "Osler-9B": {
+            "accuracy": 0.9345,
+            "brier": 0.0962,
+            "ece": 0.0443
+          },
+          "d3-flash": {
+            "accuracy": 0.9336,
+            "brier": 0.113,
+            "ece": 0.0455
+          },
+          "Osler-4B": {
+            "accuracy": 0.9299,
+            "brier": 0.1062,
+            "ece": 0.0665
+          },
+          "pplx-flash": {
+            "accuracy": 0.9286,
+            "brier": 0.1132,
+            "ece": 0.0374
+          },
+          "Clef-Flash": {
+            "accuracy": 0.9272,
+            "brier": 0.1295,
+            "ece": 0.0314
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.9258,
+            "brier": 0.1183,
+            "ece": 0.0446
+          }
+        }
+      }
+    },
+    "knowledge": {
+      "medmcqa": {
+        "n": 4162,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.7516,
+            "brier": 0.3447,
+            "ece": 0.0582
+          },
+          "d3-flash": {
+            "accuracy": 0.716,
+            "brier": 0.3714,
+            "ece": 0.0262
+          },
+          "Osler-9B": {
+            "accuracy": 0.7136,
+            "brier": 0.3793,
+            "ece": 0.0471
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.6761,
+            "brier": 0.4194,
+            "ece": 0.0368
+          },
+          "Clef-Flash": {
+            "accuracy": 0.6653,
+            "brier": 0.4516,
+            "ece": 0.0638
+          },
+          "pplx-flash": {
+            "accuracy": 0.6605,
+            "brier": 0.4921,
+            "ece": 0.158
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.6543,
+            "brier": 0.4791,
+            "ece": 0.1212
+          },
+          "Osler-4B": {
+            "accuracy": 0.6495,
+            "brier": 0.4501,
+            "ece": 0.0269
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.6468,
+            "brier": 0.4531,
+            "ece": 0.0235
+          },
+          "JEV-9B": {
+            "accuracy": 0.6235,
+            "brier": 0.4799,
+            "ece": 0.0172
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.591,
+            "brier": 0.5364,
+            "ece": 0.105
+          },
+          "d1-2B": {
+            "accuracy": 0.4423,
+            "brier": 0.6769,
+            "ece": 0.0625
+          }
+        }
+      },
+      "medqa": {
+        "n": 1273,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.883,
+            "brier": 0.1698,
+            "ece": 0.032
+          },
+          "Osler-9B": {
+            "accuracy": 0.7934,
+            "brier": 0.2911,
+            "ece": 0.0423
+          },
+          "d3-flash": {
+            "accuracy": 0.791,
+            "brier": 0.288,
+            "ece": 0.0322
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.7769,
+            "brier": 0.2927,
+            "ece": 0.0538
+          },
+          "pplx-flash": {
+            "accuracy": 0.7588,
+            "brier": 0.3853,
+            "ece": 0.1556
+          },
+          "Clef-Flash": {
+            "accuracy": 0.7557,
+            "brier": 0.3422,
+            "ece": 0.042
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.7533,
+            "brier": 0.3477,
+            "ece": 0.0742
+          },
+          "Osler-4B": {
+            "accuracy": 0.7494,
+            "brier": 0.3424,
+            "ece": 0.0491
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.7471,
+            "brier": 0.331,
+            "ece": 0.0355
+          },
+          "JEV-9B": {
+            "accuracy": 0.7148,
+            "brier": 0.3841,
+            "ece": 0.0294
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.6991,
+            "brier": 0.4241,
+            "ece": 0.0417
+          },
+          "d1-2B": {
+            "accuracy": 0.4988,
+            "brier": 0.6196,
+            "ece": 0.0535
+          }
+        }
+      }
+    },
+    "panel": {
+      "medconceptsqa_all": {
+        "n": 1000,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.53,
+            "brier": 0.5878,
+            "ece": 0.092
+          },
+          "Osler-9B": {
+            "accuracy": 0.5,
+            "brier": 0.5888,
+            "ece": 0.0669
+          },
+          "d3-flash": {
+            "accuracy": 0.459,
+            "brier": 0.6335,
+            "ece": 0.1083
+          },
+          "Osler-4B": {
+            "accuracy": 0.447,
+            "brier": 0.6271,
+            "ece": 0.0657
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.416,
+            "brier": 0.6636,
+            "ece": 0.0487
+          },
+          "pplx-flash": {
+            "accuracy": 0.408,
+            "brier": 0.773,
+            "ece": 0.2689
+          },
+          "Clef-Flash": {
+            "accuracy": 0.407,
+            "brier": 0.7158,
+            "ece": 0.1427
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.399,
+            "brier": 0.6961,
+            "ece": 0.0356
+          },
+          "JEV-9B": {
+            "accuracy": 0.382,
+            "brier": 0.6892,
+            "ece": 0.0877
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.376,
+            "brier": 0.8452,
+            "ece": 0.3013
+          },
+          "d1-2B": {
+            "accuracy": 0.324,
+            "brier": 0.7408,
+            "ece": 0.0583
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.32,
+            "brier": 0.8544,
+            "ece": 0.2737
+          }
+        }
+      },
+      "medexpqa_en": {
+        "n": 125,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.896,
+            "brier": 0.1968,
+            "ece": 0.1149
+          },
+          "Osler-9B": {
+            "accuracy": 0.808,
+            "brier": 0.3024,
+            "ece": 0.0772
+          },
+          "d3-flash": {
+            "accuracy": 0.808,
+            "brier": 0.2929,
+            "ece": 0.0867
+          },
+          "Clef-Flash": {
+            "accuracy": 0.784,
+            "brier": 0.3336,
+            "ece": 0.0706
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.752,
+            "brier": 0.3724,
+            "ece": 0.117
+          },
+          "Osler-4B": {
+            "accuracy": 0.744,
+            "brier": 0.3531,
+            "ece": 0.1025
+          },
+          "pplx-flash": {
+            "accuracy": 0.736,
+            "brier": 0.3943,
+            "ece": 0.1533
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.736,
+            "brier": 0.3537,
+            "ece": 0.0939
+          },
+          "JEV-9B": {
+            "accuracy": 0.72,
+            "brier": 0.4029,
+            "ece": 0.0973
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.688,
+            "brier": 0.4149,
+            "ece": 0.1085
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.64,
+            "brier": 0.4801,
+            "ece": 0.118
+          },
+          "d1-2B": {
+            "accuracy": 0.464,
+            "brier": 0.6692,
+            "ece": 0.0908
+          }
+        }
+      },
+      "medexqa_test": {
+        "n": 940,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.8394,
+            "brier": 0.266,
+            "ece": 0.0955
+          },
+          "d3-flash": {
+            "accuracy": 0.8277,
+            "brier": 0.2856,
+            "ece": 0.0864
+          },
+          "Osler-9B": {
+            "accuracy": 0.8181,
+            "brier": 0.2845,
+            "ece": 0.0568
+          },
+          "JEV-9B": {
+            "accuracy": 0.8021,
+            "brier": 0.3032,
+            "ece": 0.0595
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.7989,
+            "brier": 0.2916,
+            "ece": 0.0579
+          },
+          "Clef-Flash": {
+            "accuracy": 0.7979,
+            "brier": 0.3136,
+            "ece": 0.0757
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.7926,
+            "brier": 0.3276,
+            "ece": 0.1098
+          },
+          "pplx-flash": {
+            "accuracy": 0.7851,
+            "brier": 0.3506,
+            "ece": 0.1394
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.7809,
+            "brier": 0.3137,
+            "ece": 0.0395
+          },
+          "Osler-4B": {
+            "accuracy": 0.7745,
+            "brier": 0.3186,
+            "ece": 0.0589
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.7596,
+            "brier": 0.3549,
+            "ece": 0.1058
+          },
+          "d1-2B": {
+            "accuracy": 0.6819,
+            "brier": 0.4321,
+            "ece": 0.0381
+          }
+        }
+      },
+      "medical_question_pairs": {
+        "n": 295,
+        "models": {
+          "pplx-flash": {
+            "accuracy": 0.9322,
+            "brier": 0.1378,
+            "ece": 0.0923
+          },
+          "pplx-27B": {
+            "accuracy": 0.9322,
+            "brier": 0.1103,
+            "ece": 0.0451
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.922,
+            "brier": 0.1353,
+            "ece": 0.0537
+          },
+          "Clef-Flash": {
+            "accuracy": 0.8949,
+            "brier": 0.1729,
+            "ece": 0.0653
+          },
+          "Osler-9B": {
+            "accuracy": 0.8847,
+            "brier": 0.1925,
+            "ece": 0.1332
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.878,
+            "brier": 0.1926,
+            "ece": 0.0635
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.8746,
+            "brier": 0.1736,
+            "ece": 0.0331
+          },
+          "Osler-4B": {
+            "accuracy": 0.861,
+            "brier": 0.211,
+            "ece": 0.0798
+          },
+          "d3-flash": {
+            "accuracy": 0.8475,
+            "brier": 0.2155,
+            "ece": 0.0427
+          },
+          "d1-2B": {
+            "accuracy": 0.8441,
+            "brier": 0.2301,
+            "ece": 0.0437
+          },
+          "JEV-9B": {
+            "accuracy": 0.7966,
+            "brier": 0.2787,
+            "ece": 0.0487
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.6881,
+            "brier": 0.4666,
+            "ece": 0.2004
+          }
+        }
+      },
+      "medxpertqa_text": {
+        "n": 1000,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.375,
+            "brier": 0.8383,
+            "ece": 0.263
+          },
+          "d3-flash": {
+            "accuracy": 0.282,
+            "brier": 0.9337,
+            "ece": 0.2725
+          },
+          "pplx-flash": {
+            "accuracy": 0.269,
+            "brier": 1.1092,
+            "ece": 0.4535
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.26,
+            "brier": 0.9047,
+            "ece": 0.1749
+          },
+          "Osler-9B": {
+            "accuracy": 0.258,
+            "brier": 0.8892,
+            "ece": 0.1709
+          },
+          "Osler-4B": {
+            "accuracy": 0.244,
+            "brier": 0.9353,
+            "ece": 0.2254
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.241,
+            "brier": 0.9445,
+            "ece": 0.2274
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.222,
+            "brier": 1.1103,
+            "ece": 0.4132
+          },
+          "Clef-Flash": {
+            "accuracy": 0.197,
+            "brier": 1.1051,
+            "ece": 0.4068
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.179,
+            "brier": 1.1056,
+            "ece": 0.4043
+          },
+          "d1-2B": {
+            "accuracy": 0.165,
+            "brier": 0.9502,
+            "ece": 0.1844
+          },
+          "JEV-9B": {
+            "accuracy": 0.158,
+            "brier": 1.0838,
+            "ece": 0.357
+          }
+        }
+      },
+      "mmlu_pro_health": {
+        "n": 781,
+        "models": {
+          "Clef-Flash": {
+            "accuracy": 0.8054,
+            "brier": 0.2928,
+            "ece": 0.0585
+          },
+          "pplx-27B": {
+            "accuracy": 0.7759,
+            "brier": 0.3384,
+            "ece": 0.0699
+          },
+          "d3-flash": {
+            "accuracy": 0.7081,
+            "brier": 0.4025,
+            "ece": 0.0586
+          },
+          "Osler-9B": {
+            "accuracy": 0.6978,
+            "brier": 0.4294,
+            "ece": 0.0952
+          },
+          "MedDecider-9B": {
+            "accuracy": 0.6953,
+            "brier": 0.4264,
+            "ece": 0.0617
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.6671,
+            "brier": 0.4782,
+            "ece": 0.1258
+          },
+          "MedDecider-4B": {
+            "accuracy": 0.6645,
+            "brier": 0.4599,
+            "ece": 0.0481
+          },
+          "pplx-flash": {
+            "accuracy": 0.6633,
+            "brier": 0.4989,
+            "ece": 0.1711
+          },
+          "JEV-9B": {
+            "accuracy": 0.6453,
+            "brier": 0.4862,
+            "ece": 0.0563
+          },
+          "Osler-4B": {
+            "accuracy": 0.6312,
+            "brier": 0.4906,
+            "ece": 0.0479
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.6005,
+            "brier": 0.5552,
+            "ece": 0.1188
+          },
+          "d1-2B": {
+            "accuracy": 0.402,
+            "brier": 0.7283,
+            "ece": 0.0584
+          }
+        }
+      },
+      "symptom_to_diagnosis": {
+        "n": 212,
+        "models": {
+          "pplx-27B": {
+            "accuracy": 0.6934,
+            "brier": 0.4246,
+            "ece": 0.0804
+          },
+          "Osler-9B": {
+            "accuracy": 0.6887,
+            "brier": 0.4636,
+            "ece": 0.1582
+          },
+          "d3-flash": {
+            "accuracy": 0.684,
+            "brier": 0.4472,
+            "ece": 0.096
+          },
+          "pplx-flash": {
+            "accuracy": 0.6792,
+            "brier": 0.4796,
+            "ece": 0.1529
+          },
+          "Qwen3.5-9B": {
+            "accuracy": 0.6698,
+            "brier": 0.515,
+            "ece": 0.147
+          },
+          "Clef-Flash": {
+            "accuracy": 0.6651,
+            "brier": 0.4711,
+            "ece": 0.0716
+          },
+          "Qwen3.5-4B": {
+            "accuracy": 0.6509,
+            "brier": 0.545,
+            "ece": 0.1903
+          },
+          "Osler-4B": {
+            "accuracy": 0.6415,
+            "brier": 0.4959,
+            "ece": 0.1338
+          },
+          "d1-2B": {
+            "accuracy": 0.4858,
+            "brier": 0.6844,
+            "ece": 0.1195
+          }
+        }
+      }
+    }
+  },
+  "reliability": {
+    "confirm_general": {
+      "Osler-4B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 2,
+          "conf": 0.1743,
+          "acc": 0.5
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 48,
+          "conf": 0.2457,
+          "acc": 0.1042
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 85,
+          "conf": 0.302,
+          "acc": 0.2235
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 99,
+          "conf": 0.366,
+          "acc": 0.3131
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 75,
+          "conf": 0.4326,
+          "acc": 0.6
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 197,
+          "conf": 0.5098,
+          "acc": 0.5533
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 267,
+          "conf": 0.567,
+          "acc": 0.6367
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 340,
+          "conf": 0.6328,
+          "acc": 0.7647
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 520,
+          "conf": 0.7023,
+          "acc": 0.8596
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 813,
+          "conf": 0.7682,
+          "acc": 0.9299
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 1007,
+          "conf": 0.8335,
+          "acc": 0.9633
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 1068,
+          "conf": 0.9002,
+          "acc": 0.9766
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1467,
+          "conf": 0.9744,
+          "acc": 0.9973
+        }
+      ],
+      "Osler-4B (raw)": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 1,
+          "conf": 0.174,
+          "acc": 0.0
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 3,
+          "conf": 0.2395,
+          "acc": 0.3333
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 49,
+          "conf": 0.3017,
+          "acc": 0.102
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 59,
+          "conf": 0.3677,
+          "acc": 0.2203
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 63,
+          "conf": 0.4354,
+          "acc": 0.2381
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 135,
+          "conf": 0.5052,
+          "acc": 0.4519
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 162,
+          "conf": 0.5682,
+          "acc": 0.5494
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 137,
+          "conf": 0.6353,
+          "acc": 0.6642
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 167,
+          "conf": 0.7016,
+          "acc": 0.6766
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 195,
+          "conf": 0.7665,
+          "acc": 0.7436
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 284,
+          "conf": 0.8365,
+          "acc": 0.8169
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 615,
+          "conf": 0.9046,
+          "acc": 0.878
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 4118,
+          "conf": 0.9844,
+          "acc": 0.9747
+        }
+      ],
+      "Osler-9B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 4,
+          "conf": 0.1869,
+          "acc": 0.0
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 34,
+          "conf": 0.2409,
+          "acc": 0.2059
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 85,
+          "conf": 0.3026,
+          "acc": 0.2235
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 91,
+          "conf": 0.367,
+          "acc": 0.3736
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 70,
+          "conf": 0.4335,
+          "acc": 0.5714
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 138,
+          "conf": 0.5066,
+          "acc": 0.587
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 263,
+          "conf": 0.5695,
+          "acc": 0.6996
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 333,
+          "conf": 0.6345,
+          "acc": 0.7748
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 529,
+          "conf": 0.7029,
+          "acc": 0.8412
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 743,
+          "conf": 0.7687,
+          "acc": 0.9381
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 840,
+          "conf": 0.8343,
+          "acc": 0.9476
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 1216,
+          "conf": 0.9029,
+          "acc": 0.9827
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1642,
+          "conf": 0.9751,
+          "acc": 0.9976
+        }
+      ],
+      "Osler-9B (raw)": [
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 12,
+          "conf": 0.2397,
+          "acc": 0.1667
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 28,
+          "conf": 0.3045,
+          "acc": 0.1071
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 55,
+          "conf": 0.3739,
+          "acc": 0.2545
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 62,
+          "conf": 0.4319,
+          "acc": 0.3226
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 102,
+          "conf": 0.5026,
+          "acc": 0.451
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 122,
+          "conf": 0.5686,
+          "acc": 0.6066
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 139,
+          "conf": 0.636,
+          "acc": 0.6259
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 157,
+          "conf": 0.7011,
+          "acc": 0.7134
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 215,
+          "conf": 0.7676,
+          "acc": 0.7953
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 316,
+          "conf": 0.8386,
+          "acc": 0.788
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 620,
+          "conf": 0.9052,
+          "acc": 0.8919
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 4160,
+          "conf": 0.9862,
+          "acc": 0.9767
+        }
+      ],
+      "d3-flash": [
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 4,
+          "conf": 0.2343,
+          "acc": 0.0
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 22,
+          "conf": 0.3141,
+          "acc": 0.0909
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 46,
+          "conf": 0.3744,
+          "acc": 0.1522
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 47,
+          "conf": 0.4303,
+          "acc": 0.2128
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 114,
+          "conf": 0.5077,
+          "acc": 0.4561
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 171,
+          "conf": 0.5658,
+          "acc": 0.4737
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 176,
+          "conf": 0.6321,
+          "acc": 0.4489
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 193,
+          "conf": 0.7012,
+          "acc": 0.5337
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 215,
+          "conf": 0.7678,
+          "acc": 0.7488
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 248,
+          "conf": 0.8352,
+          "acc": 0.7702
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 501,
+          "conf": 0.903,
+          "acc": 0.8483
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 4251,
+          "conf": 0.988,
+          "acc": 0.9746
+        }
+      ],
+      "pplx-27B": [
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 3,
+          "conf": 0.2426,
+          "acc": 0.0
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 20,
+          "conf": 0.3139,
+          "acc": 0.15
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 55,
+          "conf": 0.3679,
+          "acc": 0.2182
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 57,
+          "conf": 0.432,
+          "acc": 0.3333
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 78,
+          "conf": 0.5058,
+          "acc": 0.4231
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 121,
+          "conf": 0.5621,
+          "acc": 0.562
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 123,
+          "conf": 0.6315,
+          "acc": 0.4472
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 163,
+          "conf": 0.7026,
+          "acc": 0.6012
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 176,
+          "conf": 0.7638,
+          "acc": 0.5682
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 206,
+          "conf": 0.8339,
+          "acc": 0.6553
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 349,
+          "conf": 0.9053,
+          "acc": 0.7163
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 4637,
+          "conf": 0.9898,
+          "acc": 0.9752
+        }
+      ],
+      "pplx-flash": [
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 2,
+          "conf": 0.2127,
+          "acc": 0.0
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 13,
+          "conf": 0.3138,
+          "acc": 0.1538
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 33,
+          "conf": 0.3646,
+          "acc": 0.303
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 60,
+          "conf": 0.4375,
+          "acc": 0.25
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 112,
+          "conf": 0.5071,
+          "acc": 0.4196
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 134,
+          "conf": 0.5684,
+          "acc": 0.4701
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 123,
+          "conf": 0.6344,
+          "acc": 0.5447
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 167,
+          "conf": 0.7041,
+          "acc": 0.6048
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 191,
+          "conf": 0.7693,
+          "acc": 0.7173
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 339,
+          "conf": 0.8379,
+          "acc": 0.7581
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 778,
+          "conf": 0.9055,
+          "acc": 0.8753
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 4036,
+          "conf": 0.9802,
+          "acc": 0.977
+        }
+      ]
+    },
+    "mr_verdict": {
+      "Osler-4B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 4,
+          "conf": 0.1876,
+          "acc": 0.25
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 44,
+          "conf": 0.2389,
+          "acc": 0.3409
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 96,
+          "conf": 0.3035,
+          "acc": 0.2188
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 178,
+          "conf": 0.3705,
+          "acc": 0.3876
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 226,
+          "conf": 0.434,
+          "acc": 0.3982
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 282,
+          "conf": 0.4996,
+          "acc": 0.4894
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 314,
+          "conf": 0.5682,
+          "acc": 0.4809
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 321,
+          "conf": 0.6344,
+          "acc": 0.6075
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 372,
+          "conf": 0.7014,
+          "acc": 0.5699
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 407,
+          "conf": 0.7676,
+          "acc": 0.6757
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 593,
+          "conf": 0.8345,
+          "acc": 0.7757
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 846,
+          "conf": 0.9034,
+          "acc": 0.8664
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 9420,
+          "conf": 0.9723,
+          "acc": 0.9931
+        }
+      ],
+      "Osler-4B (raw)": [
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 11,
+          "conf": 0.2436,
+          "acc": 0.2727
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 31,
+          "conf": 0.3063,
+          "acc": 0.4839
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 51,
+          "conf": 0.3661,
+          "acc": 0.1373
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 112,
+          "conf": 0.438,
+          "acc": 0.25
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 148,
+          "conf": 0.5038,
+          "acc": 0.4189
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 197,
+          "conf": 0.5655,
+          "acc": 0.401
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 181,
+          "conf": 0.6375,
+          "acc": 0.5083
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 205,
+          "conf": 0.7015,
+          "acc": 0.4927
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 255,
+          "conf": 0.7689,
+          "acc": 0.5333
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 331,
+          "conf": 0.8355,
+          "acc": 0.5559
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 538,
+          "conf": 0.9024,
+          "acc": 0.6134
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 11043,
+          "conf": 0.9961,
+          "acc": 0.9669
+        }
+      ],
+      "Osler-9B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 26,
+          "conf": 0.184,
+          "acc": 0.1538
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 150,
+          "conf": 0.2387,
+          "acc": 0.2933
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 272,
+          "conf": 0.3034,
+          "acc": 0.4081
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 289,
+          "conf": 0.3693,
+          "acc": 0.474
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 313,
+          "conf": 0.4347,
+          "acc": 0.4824
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 317,
+          "conf": 0.4997,
+          "acc": 0.5678
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 285,
+          "conf": 0.5673,
+          "acc": 0.6175
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 241,
+          "conf": 0.6319,
+          "acc": 0.6556
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 288,
+          "conf": 0.7017,
+          "acc": 0.7257
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 332,
+          "conf": 0.7689,
+          "acc": 0.7861
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 472,
+          "conf": 0.837,
+          "acc": 0.8665
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 834,
+          "conf": 0.9046,
+          "acc": 0.9053
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 9284,
+          "conf": 0.9783,
+          "acc": 0.993
+        }
+      ],
+      "Osler-9B (raw)": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 6,
+          "conf": 0.1873,
+          "acc": 0.0
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 35,
+          "conf": 0.2441,
+          "acc": 0.2286
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 111,
+          "conf": 0.3038,
+          "acc": 0.3063
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 154,
+          "conf": 0.372,
+          "acc": 0.3961
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 203,
+          "conf": 0.4352,
+          "acc": 0.4089
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 225,
+          "conf": 0.4995,
+          "acc": 0.44
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 227,
+          "conf": 0.5664,
+          "acc": 0.5022
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 215,
+          "conf": 0.6362,
+          "acc": 0.5116
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 239,
+          "conf": 0.6984,
+          "acc": 0.6067
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 255,
+          "conf": 0.7648,
+          "acc": 0.6078
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 262,
+          "conf": 0.8347,
+          "acc": 0.6603
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 401,
+          "conf": 0.9039,
+          "acc": 0.7406
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 10770,
+          "conf": 0.9966,
+          "acc": 0.9782
+        }
+      ],
+      "d3-flash": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 2,
+          "conf": 0.1836,
+          "acc": 0.5
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 35,
+          "conf": 0.2472,
+          "acc": 0.2
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 144,
+          "conf": 0.303,
+          "acc": 0.2083
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 259,
+          "conf": 0.3691,
+          "acc": 0.2934
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 328,
+          "conf": 0.434,
+          "acc": 0.2896
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 560,
+          "conf": 0.5056,
+          "acc": 0.3554
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 762,
+          "conf": 0.5662,
+          "acc": 0.4619
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 693,
+          "conf": 0.6326,
+          "acc": 0.4747
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 739,
+          "conf": 0.6991,
+          "acc": 0.5737
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 844,
+          "conf": 0.767,
+          "acc": 0.6043
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 941,
+          "conf": 0.8342,
+          "acc": 0.6833
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 1277,
+          "conf": 0.9027,
+          "acc": 0.7439
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 6519,
+          "conf": 0.9895,
+          "acc": 0.9228
+        }
+      ],
+      "pplx-27B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 5,
+          "conf": 0.1878,
+          "acc": 0.0
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 31,
+          "conf": 0.2387,
+          "acc": 0.2258
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 163,
+          "conf": 0.3051,
+          "acc": 0.319
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 254,
+          "conf": 0.368,
+          "acc": 0.3228
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 284,
+          "conf": 0.4326,
+          "acc": 0.4155
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 438,
+          "conf": 0.5047,
+          "acc": 0.4886
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 584,
+          "conf": 0.5645,
+          "acc": 0.5377
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 619,
+          "conf": 0.6328,
+          "acc": 0.5703
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 642,
+          "conf": 0.7012,
+          "acc": 0.6168
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 682,
+          "conf": 0.7682,
+          "acc": 0.6979
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 849,
+          "conf": 0.8344,
+          "acc": 0.7715
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 1190,
+          "conf": 0.9032,
+          "acc": 0.8143
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 7362,
+          "conf": 0.9892,
+          "acc": 0.9465
+        }
+      ],
+      "pplx-flash": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 2,
+          "conf": 0.1781,
+          "acc": 0.5
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 38,
+          "conf": 0.244,
+          "acc": 0.1842
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 99,
+          "conf": 0.3063,
+          "acc": 0.3636
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 194,
+          "conf": 0.369,
+          "acc": 0.2732
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 265,
+          "conf": 0.4353,
+          "acc": 0.3358
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 513,
+          "conf": 0.5075,
+          "acc": 0.4444
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 652,
+          "conf": 0.5684,
+          "acc": 0.4709
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 641,
+          "conf": 0.6349,
+          "acc": 0.5164
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 683,
+          "conf": 0.7027,
+          "acc": 0.6135
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 832,
+          "conf": 0.7679,
+          "acc": 0.6442
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 1010,
+          "conf": 0.8357,
+          "acc": 0.7208
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 1473,
+          "conf": 0.9019,
+          "acc": 0.7441
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 6701,
+          "conf": 0.9868,
+          "acc": 0.8882
+        }
+      ]
+    },
+    "panel": {
+      "Osler-4B": [
+        {
+          "bin": 1,
+          "mid": 0.1,
+          "n": 4,
+          "conf": 0.1221,
+          "acc": 0.0
+        },
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 82,
+          "conf": 0.1731,
+          "acc": 0.2073
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 180,
+          "conf": 0.238,
+          "acc": 0.1389
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 606,
+          "conf": 0.3033,
+          "acc": 0.2838
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 573,
+          "conf": 0.3653,
+          "acc": 0.3176
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 372,
+          "conf": 0.4318,
+          "acc": 0.422
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 300,
+          "conf": 0.4994,
+          "acc": 0.4967
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 267,
+          "conf": 0.5654,
+          "acc": 0.5094
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 256,
+          "conf": 0.6321,
+          "acc": 0.5781
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 233,
+          "conf": 0.6989,
+          "acc": 0.6137
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 261,
+          "conf": 0.768,
+          "acc": 0.7165
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 314,
+          "conf": 0.8347,
+          "acc": 0.8121
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 359,
+          "conf": 0.9027,
+          "acc": 0.883
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 546,
+          "conf": 0.9684,
+          "acc": 0.9286
+        }
+      ],
+      "Osler-4B (raw)": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 24,
+          "conf": 0.1748,
+          "acc": 0.2083
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 67,
+          "conf": 0.2314,
+          "acc": 0.1791
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 298,
+          "conf": 0.3063,
+          "acc": 0.2148
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 432,
+          "conf": 0.3679,
+          "acc": 0.25
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 382,
+          "conf": 0.4335,
+          "acc": 0.3246
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 312,
+          "conf": 0.4976,
+          "acc": 0.3974
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 253,
+          "conf": 0.5666,
+          "acc": 0.4111
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 206,
+          "conf": 0.6327,
+          "acc": 0.4806
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 227,
+          "conf": 0.7005,
+          "acc": 0.5154
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 221,
+          "conf": 0.7682,
+          "acc": 0.5204
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 239,
+          "conf": 0.8332,
+          "acc": 0.5732
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 366,
+          "conf": 0.9018,
+          "acc": 0.6393
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1326,
+          "conf": 0.9821,
+          "acc": 0.8688
+        }
+      ],
+      "Osler-9B": [
+        {
+          "bin": 1,
+          "mid": 0.1,
+          "n": 1,
+          "conf": 0.1326,
+          "acc": 0.0
+        },
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 107,
+          "conf": 0.1786,
+          "acc": 0.1308
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 250,
+          "conf": 0.235,
+          "acc": 0.224
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 523,
+          "conf": 0.3026,
+          "acc": 0.3098
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 527,
+          "conf": 0.3654,
+          "acc": 0.3719
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 361,
+          "conf": 0.431,
+          "acc": 0.4377
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 278,
+          "conf": 0.4997,
+          "acc": 0.4712
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 250,
+          "conf": 0.5658,
+          "acc": 0.524
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 248,
+          "conf": 0.6349,
+          "acc": 0.6492
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 217,
+          "conf": 0.7002,
+          "acc": 0.7143
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 266,
+          "conf": 0.7695,
+          "acc": 0.8083
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 328,
+          "conf": 0.8353,
+          "acc": 0.8841
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 376,
+          "conf": 0.9014,
+          "acc": 0.883
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 621,
+          "conf": 0.9712,
+          "acc": 0.9324
+        }
+      ],
+      "Osler-9B (raw)": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 23,
+          "conf": 0.1859,
+          "acc": 0.1304
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 107,
+          "conf": 0.2378,
+          "acc": 0.1589
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 307,
+          "conf": 0.3061,
+          "acc": 0.2508
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 398,
+          "conf": 0.3653,
+          "acc": 0.3317
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 370,
+          "conf": 0.4332,
+          "acc": 0.3378
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 276,
+          "conf": 0.4988,
+          "acc": 0.3913
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 240,
+          "conf": 0.5648,
+          "acc": 0.4333
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 203,
+          "conf": 0.6328,
+          "acc": 0.4975
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 201,
+          "conf": 0.7033,
+          "acc": 0.5522
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 205,
+          "conf": 0.7656,
+          "acc": 0.5512
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 265,
+          "conf": 0.8351,
+          "acc": 0.566
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 321,
+          "conf": 0.9042,
+          "acc": 0.7757
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1437,
+          "conf": 0.9821,
+          "acc": 0.8977
+        }
+      ],
+      "d3-flash": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 33,
+          "conf": 0.1696,
+          "acc": 0.1515
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 86,
+          "conf": 0.2355,
+          "acc": 0.1744
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 184,
+          "conf": 0.3052,
+          "acc": 0.2065
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 346,
+          "conf": 0.3671,
+          "acc": 0.2746
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 343,
+          "conf": 0.434,
+          "acc": 0.3265
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 347,
+          "conf": 0.5024,
+          "acc": 0.3429
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 322,
+          "conf": 0.5662,
+          "acc": 0.4534
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 264,
+          "conf": 0.6308,
+          "acc": 0.4432
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 246,
+          "conf": 0.6993,
+          "acc": 0.5366
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 233,
+          "conf": 0.7683,
+          "acc": 0.618
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 276,
+          "conf": 0.8372,
+          "acc": 0.6486
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 338,
+          "conf": 0.904,
+          "acc": 0.7249
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1335,
+          "conf": 0.982,
+          "acc": 0.9146
+        }
+      ],
+      "pplx-27B": [
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 23,
+          "conf": 0.171,
+          "acc": 0.2174
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 54,
+          "conf": 0.2382,
+          "acc": 0.2037
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 131,
+          "conf": 0.3052,
+          "acc": 0.2061
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 202,
+          "conf": 0.3683,
+          "acc": 0.297
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 284,
+          "conf": 0.4347,
+          "acc": 0.3345
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 288,
+          "conf": 0.5025,
+          "acc": 0.4201
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 304,
+          "conf": 0.5652,
+          "acc": 0.4342
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 255,
+          "conf": 0.6329,
+          "acc": 0.4941
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 214,
+          "conf": 0.7007,
+          "acc": 0.5467
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 240,
+          "conf": 0.7687,
+          "acc": 0.5958
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 277,
+          "conf": 0.8343,
+          "acc": 0.6679
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 327,
+          "conf": 0.9026,
+          "acc": 0.7156
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1754,
+          "conf": 0.9868,
+          "acc": 0.8997
+        }
+      ],
+      "pplx-flash": [
+        {
+          "bin": 1,
+          "mid": 0.1,
+          "n": 1,
+          "conf": 0.1221,
+          "acc": 0.0
+        },
+        {
+          "bin": 2,
+          "mid": 0.167,
+          "n": 12,
+          "conf": 0.1811,
+          "acc": 0.0833
+        },
+        {
+          "bin": 3,
+          "mid": 0.233,
+          "n": 35,
+          "conf": 0.2474,
+          "acc": 0.0571
+        },
+        {
+          "bin": 4,
+          "mid": 0.3,
+          "n": 81,
+          "conf": 0.3021,
+          "acc": 0.2716
+        },
+        {
+          "bin": 5,
+          "mid": 0.367,
+          "n": 139,
+          "conf": 0.3714,
+          "acc": 0.1799
+        },
+        {
+          "bin": 6,
+          "mid": 0.433,
+          "n": 214,
+          "conf": 0.4326,
+          "acc": 0.2757
+        },
+        {
+          "bin": 7,
+          "mid": 0.5,
+          "n": 267,
+          "conf": 0.5007,
+          "acc": 0.2959
+        },
+        {
+          "bin": 8,
+          "mid": 0.567,
+          "n": 252,
+          "conf": 0.5666,
+          "acc": 0.3373
+        },
+        {
+          "bin": 9,
+          "mid": 0.633,
+          "n": 243,
+          "conf": 0.6313,
+          "acc": 0.3827
+        },
+        {
+          "bin": 10,
+          "mid": 0.7,
+          "n": 241,
+          "conf": 0.7007,
+          "acc": 0.4149
+        },
+        {
+          "bin": 11,
+          "mid": 0.767,
+          "n": 299,
+          "conf": 0.7689,
+          "acc": 0.4548
+        },
+        {
+          "bin": 12,
+          "mid": 0.833,
+          "n": 358,
+          "conf": 0.8336,
+          "acc": 0.4693
+        },
+        {
+          "bin": 13,
+          "mid": 0.9,
+          "n": 467,
+          "conf": 0.9015,
+          "acc": 0.576
+        },
+        {
+          "bin": 14,
+          "mid": 0.967,
+          "n": 1744,
+          "conf": 0.9809,
+          "acc": 0.8056
+        }
+      ]
+    }
+  },
+  "selective_prediction": {
+    "mimic_suite": {
+      "MedDecider-9B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.8662,
+          "error": 0.1338,
+          "min_conf": 0.9966
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.8261,
+          "error": 0.1739,
+          "min_conf": 0.9639
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.819,
+          "error": 0.181,
+          "min_conf": 0.8708
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8067,
+          "error": 0.1933,
+          "min_conf": 0.7591
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7837,
+          "error": 0.2163,
+          "min_conf": 0.6541
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.7473,
+          "error": 0.2527,
+          "min_conf": 0.5768
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7126,
+          "error": 0.2874,
+          "min_conf": 0.5165
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6776,
+          "error": 0.3224,
+          "min_conf": 0.46
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.6473,
+          "error": 0.3527,
+          "min_conf": 0.4031
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.6345,
+          "error": 0.3655,
+          "min_conf": 0.3644
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.6189,
+          "error": 0.3811,
+          "min_conf": 0.2112
+        }
+      ],
+      "Osler-4B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9648,
+          "error": 0.0352,
+          "min_conf": 0.9922
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9436,
+          "error": 0.0564,
+          "min_conf": 0.9841
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9255,
+          "error": 0.0745,
+          "min_conf": 0.9717
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8984,
+          "error": 0.1016,
+          "min_conf": 0.947
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.8787,
+          "error": 0.1213,
+          "min_conf": 0.9099
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.855,
+          "error": 0.145,
+          "min_conf": 0.8549
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.8348,
+          "error": 0.1652,
+          "min_conf": 0.7646
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.811,
+          "error": 0.189,
+          "min_conf": 0.6526
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.7897,
+          "error": 0.2103,
+          "min_conf": 0.5442
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.776,
+          "error": 0.224,
+          "min_conf": 0.4868
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.7597,
+          "error": 0.2403,
+          "min_conf": 0.2004
+        }
+      ],
+      "Osler-9B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9859,
+          "error": 0.0141,
+          "min_conf": 0.9909
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9659,
+          "error": 0.0341,
+          "min_conf": 0.9829
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9514,
+          "error": 0.0486,
+          "min_conf": 0.9699
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.923,
+          "error": 0.077,
+          "min_conf": 0.9422
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.9031,
+          "error": 0.0969,
+          "min_conf": 0.903
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.8781,
+          "error": 0.1219,
+          "min_conf": 0.8434
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.8546,
+          "error": 0.1454,
+          "min_conf": 0.7474
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.8281,
+          "error": 0.1719,
+          "min_conf": 0.6339
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.8072,
+          "error": 0.1928,
+          "min_conf": 0.5279
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.7939,
+          "error": 0.2061,
+          "min_conf": 0.4793
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.7733,
+          "error": 0.2267,
+          "min_conf": 0.2293
+        }
+      ],
+      "d3-flash": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9413,
+          "error": 0.0587,
+          "min_conf": 0.9838
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.8778,
+          "error": 0.1222,
+          "min_conf": 0.922
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.8542,
+          "error": 0.1458,
+          "min_conf": 0.8472
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8243,
+          "error": 0.1757,
+          "min_conf": 0.7621
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7969,
+          "error": 0.2031,
+          "min_conf": 0.671
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.759,
+          "error": 0.241,
+          "min_conf": 0.5922
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7193,
+          "error": 0.2807,
+          "min_conf": 0.5274
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6856,
+          "error": 0.3144,
+          "min_conf": 0.462
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.6586,
+          "error": 0.3414,
+          "min_conf": 0.4
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.6469,
+          "error": 0.3531,
+          "min_conf": 0.353
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.6301,
+          "error": 0.3699,
+          "min_conf": 0.219
+        }
+      ],
+      "pplx-27B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9765,
+          "error": 0.0235,
+          "min_conf": 0.9964
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9389,
+          "error": 0.0611,
+          "min_conf": 0.9688
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.8942,
+          "error": 0.1058,
+          "min_conf": 0.9076
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8649,
+          "error": 0.1351,
+          "min_conf": 0.8254
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.8354,
+          "error": 0.1646,
+          "min_conf": 0.7391
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.8025,
+          "error": 0.1975,
+          "min_conf": 0.6431
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7656,
+          "error": 0.2344,
+          "min_conf": 0.5553
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.7373,
+          "error": 0.2627,
+          "min_conf": 0.4906
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.7051,
+          "error": 0.2949,
+          "min_conf": 0.4313
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.6909,
+          "error": 0.3091,
+          "min_conf": 0.3944
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.6729,
+          "error": 0.3271,
+          "min_conf": 0.2174
+        }
+      ],
+      "pplx-flash": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9718,
+          "error": 0.0282,
+          "min_conf": 0.988
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.8966,
+          "error": 0.1034,
+          "min_conf": 0.9292
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.8472,
+          "error": 0.1528,
+          "min_conf": 0.8551
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8149,
+          "error": 0.1851,
+          "min_conf": 0.7814
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7903,
+          "error": 0.2097,
+          "min_conf": 0.7025
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.7649,
+          "error": 0.2351,
+          "min_conf": 0.6259
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.723,
+          "error": 0.277,
+          "min_conf": 0.5472
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6844,
+          "error": 0.3156,
+          "min_conf": 0.481
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.6486,
+          "error": 0.3514,
+          "min_conf": 0.4189
+        },
+        {
+          "coverage": 0.9502,
+          "accuracy": 0.6367,
+          "error": 0.3633,
+          "min_conf": 0.3837
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.624,
+          "error": 0.376,
+          "min_conf": 0.1468
+        }
+      ]
+    },
+    "mr_verdict": {
+      "MedDecider-9B": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 0.9792,
+          "error": 0.0208,
+          "min_conf": 0.999
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 0.9823,
+          "error": 0.0177,
+          "min_conf": 0.9984
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9777,
+          "error": 0.0223,
+          "min_conf": 0.9966
+        },
+        {
+          "coverage": 0.4,
+          "accuracy": 0.9178,
+          "error": 0.0822,
+          "min_conf": 0.98
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.8548,
+          "error": 0.1452,
+          "min_conf": 0.9399
+        },
+        {
+          "coverage": 0.6001,
+          "accuracy": 0.8112,
+          "error": 0.1888,
+          "min_conf": 0.8802
+        },
+        {
+          "coverage": 0.7,
+          "accuracy": 0.7712,
+          "error": 0.2288,
+          "min_conf": 0.7766
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.7377,
+          "error": 0.2623,
+          "min_conf": 0.6514
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.7035,
+          "error": 0.2965,
+          "min_conf": 0.5328
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.6882,
+          "error": 0.3118,
+          "min_conf": 0.4571
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.6653,
+          "error": 0.3347,
+          "min_conf": 0.2026
+        }
+      ],
+      "Osler-4B": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 1.0,
+          "error": 0.0,
+          "min_conf": 0.9829
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 1.0,
+          "error": 0.0,
+          "min_conf": 0.9799
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 1.0,
+          "error": 0.0,
+          "min_conf": 0.976
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.9994,
+          "error": 0.0006,
+          "min_conf": 0.9724
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.9976,
+          "error": 0.0024,
+          "min_conf": 0.9684
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.9969,
+          "error": 0.0031,
+          "min_conf": 0.9624
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.9944,
+          "error": 0.0056,
+          "min_conf": 0.9435
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.9793,
+          "error": 0.0207,
+          "min_conf": 0.8441
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.9431,
+          "error": 0.0569,
+          "min_conf": 0.6355
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.9214,
+          "error": 0.0786,
+          "min_conf": 0.4907
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.8941,
+          "error": 0.1059,
+          "min_conf": 0.1863
+        }
+      ],
+      "Osler-9B": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 0.9985,
+          "error": 0.0015,
+          "min_conf": 0.9879
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 0.9985,
+          "error": 0.0015,
+          "min_conf": 0.986
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.998,
+          "error": 0.002,
+          "min_conf": 0.9839
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.9979,
+          "error": 0.0021,
+          "min_conf": 0.9811
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.9977,
+          "error": 0.0023,
+          "min_conf": 0.9765
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.9967,
+          "error": 0.0033,
+          "min_conf": 0.9673
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.9934,
+          "error": 0.0066,
+          "min_conf": 0.9377
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.9822,
+          "error": 0.0178,
+          "min_conf": 0.819
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.9516,
+          "error": 0.0484,
+          "min_conf": 0.5217
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.9279,
+          "error": 0.0721,
+          "min_conf": 0.3828
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.9016,
+          "error": 0.0984,
+          "min_conf": 0.1543
+        }
+      ],
+      "d3-flash": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 0.9931,
+          "error": 0.0069,
+          "min_conf": 0.9993
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 0.9924,
+          "error": 0.0076,
+          "min_conf": 0.999
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9908,
+          "error": 0.0092,
+          "min_conf": 0.9978
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.9607,
+          "error": 0.0393,
+          "min_conf": 0.9783
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.922,
+          "error": 0.078,
+          "min_conf": 0.9318
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.8914,
+          "error": 0.1086,
+          "min_conf": 0.8627
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.8589,
+          "error": 0.1411,
+          "min_conf": 0.766
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.8218,
+          "error": 0.1782,
+          "min_conf": 0.6505
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.7827,
+          "error": 0.2173,
+          "min_conf": 0.5314
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.7597,
+          "error": 0.2403,
+          "min_conf": 0.446
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.7351,
+          "error": 0.2649,
+          "min_conf": 0.1713
+        }
+      ],
+      "pplx-27B": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 0.9939,
+          "error": 0.0061,
+          "min_conf": 0.9994
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 0.9943,
+          "error": 0.0057,
+          "min_conf": 0.9992
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9906,
+          "error": 0.0094,
+          "min_conf": 0.9985
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.9784,
+          "error": 0.0216,
+          "min_conf": 0.991
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.9586,
+          "error": 0.0414,
+          "min_conf": 0.961
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.9393,
+          "error": 0.0607,
+          "min_conf": 0.9094
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.9185,
+          "error": 0.0815,
+          "min_conf": 0.8208
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.8896,
+          "error": 0.1104,
+          "min_conf": 0.6929
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.8535,
+          "error": 0.1465,
+          "min_conf": 0.5454
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.8337,
+          "error": 0.1663,
+          "min_conf": 0.4486
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.8093,
+          "error": 0.1907,
+          "min_conf": 0.1794
+        }
+      ],
+      "pplx-flash": [
+        {
+          "coverage": 0.1001,
+          "accuracy": 0.9916,
+          "error": 0.0084,
+          "min_conf": 0.9972
+        },
+        {
+          "coverage": 0.2,
+          "accuracy": 0.9886,
+          "error": 0.0114,
+          "min_conf": 0.9963
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9837,
+          "error": 0.0163,
+          "min_conf": 0.9942
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.9424,
+          "error": 0.0576,
+          "min_conf": 0.9802
+        },
+        {
+          "coverage": 0.5,
+          "accuracy": 0.8919,
+          "error": 0.1081,
+          "min_conf": 0.9391
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.868,
+          "error": 0.132,
+          "min_conf": 0.882
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.8469,
+          "error": 0.1531,
+          "min_conf": 0.8034
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.8205,
+          "error": 0.1795,
+          "min_conf": 0.6909
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.7862,
+          "error": 0.2138,
+          "min_conf": 0.5554
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.7694,
+          "error": 0.2306,
+          "min_conf": 0.4816
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.7466,
+          "error": 0.2534,
+          "min_conf": 0.1587
+        }
+      ]
+    },
+    "panel": {
+      "MedDecider-9B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9518,
+          "error": 0.0482,
+          "min_conf": 0.9818
+        },
+        {
+          "coverage": 0.2002,
+          "accuracy": 0.9397,
+          "error": 0.0603,
+          "min_conf": 0.937
+        },
+        {
+          "coverage": 0.3002,
+          "accuracy": 0.9131,
+          "error": 0.0869,
+          "min_conf": 0.83
+        },
+        {
+          "coverage": 0.4001,
+          "accuracy": 0.8606,
+          "error": 0.1394,
+          "min_conf": 0.6763
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7953,
+          "error": 0.2047,
+          "min_conf": 0.5486
+        },
+        {
+          "coverage": 0.6001,
+          "accuracy": 0.7312,
+          "error": 0.2688,
+          "min_conf": 0.4624
+        },
+        {
+          "coverage": 0.7001,
+          "accuracy": 0.6833,
+          "error": 0.3167,
+          "min_conf": 0.3984
+        },
+        {
+          "coverage": 0.8,
+          "accuracy": 0.6363,
+          "error": 0.3637,
+          "min_conf": 0.3442
+        },
+        {
+          "coverage": 0.9,
+          "accuracy": 0.5959,
+          "error": 0.4041,
+          "min_conf": 0.2929
+        },
+        {
+          "coverage": 0.95,
+          "accuracy": 0.5803,
+          "error": 0.4197,
+          "min_conf": 0.2467
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.5603,
+          "error": 0.4397,
+          "min_conf": 0.1344
+        }
+      ],
+      "Osler-4B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.945,
+          "error": 0.055,
+          "min_conf": 0.9485
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9104,
+          "error": 0.0896,
+          "min_conf": 0.8748
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.8813,
+          "error": 0.1187,
+          "min_conf": 0.7796
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8169,
+          "error": 0.1831,
+          "min_conf": 0.6584
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7662,
+          "error": 0.2338,
+          "min_conf": 0.5467
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.7178,
+          "error": 0.2822,
+          "min_conf": 0.4525
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.6726,
+          "error": 0.3274,
+          "min_conf": 0.3819
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6265,
+          "error": 0.3735,
+          "min_conf": 0.3332
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.5898,
+          "error": 0.4102,
+          "min_conf": 0.2904
+        },
+        {
+          "coverage": 0.9501,
+          "accuracy": 0.5701,
+          "error": 0.4299,
+          "min_conf": 0.255
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.5502,
+          "error": 0.4498,
+          "min_conf": 0.1035
+        }
+      ],
+      "Osler-9B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.945,
+          "error": 0.055,
+          "min_conf": 0.9614
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9231,
+          "error": 0.0769,
+          "min_conf": 0.891
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9096,
+          "error": 0.0904,
+          "min_conf": 0.8048
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8783,
+          "error": 0.1217,
+          "min_conf": 0.6883
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.8218,
+          "error": 0.1782,
+          "min_conf": 0.5671
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.7691,
+          "error": 0.2309,
+          "min_conf": 0.4605
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7195,
+          "error": 0.2805,
+          "min_conf": 0.3856
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6747,
+          "error": 0.3253,
+          "min_conf": 0.3321
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.635,
+          "error": 0.365,
+          "min_conf": 0.2818
+        },
+        {
+          "coverage": 0.9501,
+          "accuracy": 0.6146,
+          "error": 0.3854,
+          "min_conf": 0.2337
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.5927,
+          "error": 0.4073,
+          "min_conf": 0.1326
+        }
+      ],
+      "d3-flash": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9472,
+          "error": 0.0528,
+          "min_conf": 0.9953
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.938,
+          "error": 0.062,
+          "min_conf": 0.9808
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9188,
+          "error": 0.0812,
+          "min_conf": 0.937
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.8731,
+          "error": 0.1269,
+          "min_conf": 0.8545
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.8199,
+          "error": 0.1801,
+          "min_conf": 0.7358
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.768,
+          "error": 0.232,
+          "min_conf": 0.6162
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7188,
+          "error": 0.2812,
+          "min_conf": 0.5284
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6733,
+          "error": 0.3267,
+          "min_conf": 0.443
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.6322,
+          "error": 0.3678,
+          "min_conf": 0.361
+        },
+        {
+          "coverage": 0.9501,
+          "accuracy": 0.6117,
+          "error": 0.3883,
+          "min_conf": 0.3094
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.5899,
+          "error": 0.4101,
+          "min_conf": 0.1362
+        }
+      ],
+      "pplx-27B": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9518,
+          "error": 0.0482,
+          "min_conf": 0.9989
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.9437,
+          "error": 0.0563,
+          "min_conf": 0.9951
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.9311,
+          "error": 0.0689,
+          "min_conf": 0.9808
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.899,
+          "error": 0.101,
+          "min_conf": 0.9356
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.8636,
+          "error": 0.1364,
+          "min_conf": 0.8441
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.822,
+          "error": 0.178,
+          "min_conf": 0.7295
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.7795,
+          "error": 0.2205,
+          "min_conf": 0.6038
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.7367,
+          "error": 0.2633,
+          "min_conf": 0.5113
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.695,
+          "error": 0.305,
+          "min_conf": 0.4063
+        },
+        {
+          "coverage": 0.9501,
+          "accuracy": 0.6746,
+          "error": 0.3254,
+          "min_conf": 0.3355
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.651,
+          "error": 0.349,
+          "min_conf": 0.1339
+        }
+      ],
+      "pplx-flash": [
+        {
+          "coverage": 0.1002,
+          "accuracy": 0.9358,
+          "error": 0.0642,
+          "min_conf": 0.9955
+        },
+        {
+          "coverage": 0.2001,
+          "accuracy": 0.907,
+          "error": 0.093,
+          "min_conf": 0.9884
+        },
+        {
+          "coverage": 0.3,
+          "accuracy": 0.8599,
+          "error": 0.1401,
+          "min_conf": 0.9704
+        },
+        {
+          "coverage": 0.4002,
+          "accuracy": 0.806,
+          "error": 0.194,
+          "min_conf": 0.9338
+        },
+        {
+          "coverage": 0.5001,
+          "accuracy": 0.7621,
+          "error": 0.2379,
+          "min_conf": 0.8721
+        },
+        {
+          "coverage": 0.6,
+          "accuracy": 0.7129,
+          "error": 0.2871,
+          "min_conf": 0.7926
+        },
+        {
+          "coverage": 0.7002,
+          "accuracy": 0.6742,
+          "error": 0.3258,
+          "min_conf": 0.6841
+        },
+        {
+          "coverage": 0.8001,
+          "accuracy": 0.6368,
+          "error": 0.3632,
+          "min_conf": 0.5654
+        },
+        {
+          "coverage": 0.9001,
+          "accuracy": 0.6006,
+          "error": 0.3994,
+          "min_conf": 0.4527
+        },
+        {
+          "coverage": 0.9501,
+          "accuracy": 0.5805,
+          "error": 0.4195,
+          "min_conf": 0.3813
+        },
+        {
+          "coverage": 1.0,
+          "accuracy": 0.5615,
+          "error": 0.4385,
+          "min_conf": 0.1221
+        }
+      ]
+    }
+  },
+  "option_scaling": {
+    "mimic_suite": {
+      "2": {
+        "n": 956,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.7699,
+            "brier": 0.4006
+          },
+          "Osler-4B": {
+            "accuracy": 0.8661,
+            "brier": 0.2092
+          },
+          "Osler-9B": {
+            "accuracy": 0.8724,
+            "brier": 0.1974
+          },
+          "d3-flash": {
+            "accuracy": 0.7259,
+            "brier": 0.3995
+          },
+          "pplx-27B": {
+            "accuracy": 0.75,
+            "brier": 0.3664
+          },
+          "pplx-flash": {
+            "accuracy": 0.7563,
+            "brier": 0.3686
+          }
+        }
+      },
+      "3-4": {
+        "n": 1173,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.5669,
+            "brier": 0.5375
+          },
+          "Osler-4B": {
+            "accuracy": 0.7425,
+            "brier": 0.3784
+          },
+          "Osler-9B": {
+            "accuracy": 0.7477,
+            "brier": 0.3663
+          },
+          "d3-flash": {
+            "accuracy": 0.6044,
+            "brier": 0.5071
+          },
+          "pplx-27B": {
+            "accuracy": 0.659,
+            "brier": 0.4556
+          },
+          "pplx-flash": {
+            "accuracy": 0.6095,
+            "brier": 0.5026
+          }
+        }
+      },
+      "5-10": {
+        "n": 2124,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.5796,
+            "brier": 0.5308
+          },
+          "Osler-4B": {
+            "accuracy": 0.7213,
+            "brier": 0.4345
+          },
+          "Osler-9B": {
+            "accuracy": 0.7429,
+            "brier": 0.3842
+          },
+          "d3-flash": {
+            "accuracy": 0.6012,
+            "brier": 0.5042
+          },
+          "pplx-27B": {
+            "accuracy": 0.646,
+            "brier": 0.4587
+          },
+          "pplx-flash": {
+            "accuracy": 0.5725,
+            "brier": 0.5499
+          }
+        }
+      }
+    },
+    "mr_verdict": {
+      "11-26": {
+        "n": 111,
+        "models": {
+          "Osler-4B": {
+            "accuracy": 0.7748,
+            "brier": 0.3207
+          },
+          "Osler-9B": {
+            "accuracy": 0.8108,
+            "brier": 0.2716
+          },
+          "d3-flash": {
+            "accuracy": 0.6757,
+            "brier": 0.489
+          },
+          "pplx-27B": {
+            "accuracy": 0.7297,
+            "brier": 0.4294
+          },
+          "pplx-flash": {
+            "accuracy": 0.6847,
+            "brier": 0.4867
+          }
+        }
+      },
+      "2": {
+        "n": 9426,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.7782,
+            "brier": 0.3362
+          },
+          "Osler-4B": {
+            "accuracy": 0.9794,
+            "brier": 0.0331
+          },
+          "Osler-9B": {
+            "accuracy": 0.983,
+            "brier": 0.0303
+          },
+          "d3-flash": {
+            "accuracy": 0.8526,
+            "brier": 0.2145
+          },
+          "pplx-27B": {
+            "accuracy": 0.899,
+            "brier": 0.1534
+          },
+          "pplx-flash": {
+            "accuracy": 0.8502,
+            "brier": 0.2305
+          }
+        }
+      },
+      "3-4": {
+        "n": 381,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.4147,
+            "brier": 0.9116
+          },
+          "Osler-4B": {
+            "accuracy": 0.79,
+            "brier": 0.2917
+          },
+          "Osler-9B": {
+            "accuracy": 0.6929,
+            "brier": 0.3945
+          },
+          "d3-flash": {
+            "accuracy": 0.3963,
+            "brier": 0.9107
+          },
+          "pplx-27B": {
+            "accuracy": 0.5774,
+            "brier": 0.6696
+          },
+          "pplx-flash": {
+            "accuracy": 0.4672,
+            "brier": 0.8067
+          }
+        }
+      },
+      "5-10": {
+        "n": 3185,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.3614,
+            "brier": 0.88
+          },
+          "Osler-4B": {
+            "accuracy": 0.6581,
+            "brier": 0.4789
+          },
+          "Osler-9B": {
+            "accuracy": 0.6889,
+            "brier": 0.4383
+          },
+          "d3-flash": {
+            "accuracy": 0.4298,
+            "brier": 0.7676
+          },
+          "pplx-27B": {
+            "accuracy": 0.5743,
+            "brier": 0.5927
+          },
+          "pplx-flash": {
+            "accuracy": 0.4757,
+            "brier": 0.7572
+          }
+        }
+      }
+    },
+    "panel": {
+      "11-26": {
+        "n": 212,
+        "models": {
+          "Osler-4B": {
+            "accuracy": 0.6415,
+            "brier": 0.4959
+          },
+          "Osler-9B": {
+            "accuracy": 0.6887,
+            "brier": 0.4636
+          },
+          "d3-flash": {
+            "accuracy": 0.684,
+            "brier": 0.4472
+          },
+          "pplx-27B": {
+            "accuracy": 0.6934,
+            "brier": 0.4246
+          },
+          "pplx-flash": {
+            "accuracy": 0.6792,
+            "brier": 0.4796
+          }
+        }
+      },
+      "2": {
+        "n": 295,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.8746,
+            "brier": 0.1736
+          },
+          "Osler-4B": {
+            "accuracy": 0.861,
+            "brier": 0.211
+          },
+          "Osler-9B": {
+            "accuracy": 0.8847,
+            "brier": 0.1925
+          },
+          "d3-flash": {
+            "accuracy": 0.8475,
+            "brier": 0.2155
+          },
+          "pplx-27B": {
+            "accuracy": 0.9322,
+            "brier": 0.1103
+          },
+          "pplx-flash": {
+            "accuracy": 0.9322,
+            "brier": 0.1378
+          }
+        }
+      },
+      "3-4": {
+        "n": 1978,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.6031,
+            "brier": 0.4832
+          },
+          "Osler-4B": {
+            "accuracy": 0.6057,
+            "brier": 0.4781
+          },
+          "Osler-9B": {
+            "accuracy": 0.6557,
+            "brier": 0.4401
+          },
+          "d3-flash": {
+            "accuracy": 0.64,
+            "brier": 0.4636
+          },
+          "pplx-27B": {
+            "accuracy": 0.6815,
+            "brier": 0.4316
+          },
+          "pplx-flash": {
+            "accuracy": 0.591,
+            "brier": 0.5694
+          }
+        }
+      },
+      "5-10": {
+        "n": 1868,
+        "models": {
+          "MedDecider-9B": {
+            "accuracy": 0.4652,
+            "brier": 0.6767
+          },
+          "Osler-4B": {
+            "accuracy": 0.432,
+            "brier": 0.7191
+          },
+          "Osler-9B": {
+            "accuracy": 0.469,
+            "brier": 0.6681
+          },
+          "d3-flash": {
+            "accuracy": 0.4855,
+            "brier": 0.6797
+          },
+          "pplx-27B": {
+            "accuracy": 0.5696,
+            "brier": 0.595
+          },
+          "pplx-flash": {
+            "accuracy": 0.4582,
+            "brier": 0.8161
+          }
+        }
+      }
+    }
+  },
+  "phi_audit": [
+    {
+      "model": "Osler-9B",
+      "auc": 0.5876,
+      "ci_lo": 0.5703,
+      "ci_hi": 0.6051,
+      "control": "d3-flash",
+      "control_auc": 0.5408,
+      "delta_auc": 0.0468,
+      "clear": true
+    },
+    {
+      "model": "Osler-4B",
+      "auc": 0.5644,
+      "ci_lo": 0.5466,
+      "ci_hi": 0.5813,
+      "control": "pplx-flash",
+      "control_auc": 0.5396,
+      "delta_auc": 0.0248,
+      "clear": true
+    }
+  ],
+  "clinical_examples": [
+    {
+      "id": "negation_pe",
+      "tag": "Negation & Ruled-Out Dx",
+      "title": "Chest Pain \u2014 Ruled-Out PE vs. GERD",
+      "state": "54yo F presented to ED with substernal burning chest discomfort after dinner. Given recent 6-hour flight, CTA chest was obtained and showed NO pulmonary embolism and no aortic dissection. High-sensitivity troponin T was <6 ng/L at 0h and 3h; ECG normal sinus rhythm. Symptoms resolved completely after viscous lidocaine and IV pantoprazole. Discharged on daily omeprazole.",
+      "questions": [
+        {
+          "id": "pe_confirmed",
+          "type": "noul",
+          "prompt": "Does this note confirm a diagnosis of pulmonary embolism?",
+          "expected": "No",
+          "osler_9b": {
+            "yes": 0.0426,
+            "no": 0.9574
+          },
+          "osler_4b": {
+            "yes": 0.0272,
+            "no": 0.9728
+          }
+        },
+        {
+          "id": "primary_dx",
+          "type": "choice",
+          "prompt": "Most likely final diagnosis explaining this visit?",
+          "expected": "GERD / Esophagitis",
+          "options": [
+            {
+              "key": "gerd",
+              "label": "GERD / Esophagitis",
+              "p9b": 0.993,
+              "p4b": 0.991
+            },
+            {
+              "key": "pneumothorax",
+              "label": "Spontaneous pneumothorax",
+              "p9b": 0.003,
+              "p4b": 0.003
+            },
+            {
+              "key": "nstemi",
+              "label": "NSTEMI",
+              "p9b": 0.002,
+              "p4b": 0.004
+            },
+            {
+              "key": "pe",
+              "label": "Acute pulmonary embolism",
+              "p9b": 0.002,
+              "p4b": 0.002
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ehr_hfref",
+      "tag": "Messy EHR Distractor",
+      "title": "Cardiac Asthma vs. Decompensated HFrEF",
+      "state": "71yo M with childhood asthma (no inhaler use in 15 yrs), HTN, and ischemic cardiomyopathy (EF 25%) admitted for 4 days of worsening orthopnea, 3-pillow sleep, and 4 kg weight gain. Exam: JVP 14 cm, bibasilar crackles, 2+ pitting edema to knees; mild expiratory wheeze ('cardiac asthma'). Two albuterol nebulizers in ED gave no relief. BNP 2,650 pg/mL. CXR: vascular congestion and Kerley B lines.",
+      "questions": [
+        {
+          "id": "cause",
+          "type": "choice",
+          "prompt": "Primary driver of this patient's acute dyspnea?",
+          "expected": "Acute decompensated HFrEF",
+          "options": [
+            {
+              "key": "hfref_exacerbation",
+              "label": "Acute decompensated HFrEF",
+              "p9b": 0.997,
+              "p4b": 0.992
+            },
+            {
+              "key": "asthma",
+              "label": "Acute asthma exacerbation",
+              "p9b": 0.001,
+              "p4b": 0.003
+            },
+            {
+              "key": "copd",
+              "label": "COPD exacerbation",
+              "p9b": 0.001,
+              "p4b": 0.002
+            },
+            {
+              "key": "pneumonia",
+              "label": "Bacterial pneumonia",
+              "p9b": 0.0,
+              "p4b": 0.002
+            }
+          ]
+        },
+        {
+          "id": "diuresis_needed",
+          "type": "noul",
+          "prompt": "Is IV loop diuretic therapy clinically indicated?",
+          "expected": "Yes",
+          "osler_9b": {
+            "yes": 0.9558,
+            "no": 0.0442
+          },
+          "osler_4b": {
+            "yes": 0.9527,
+            "no": 0.0473
+          }
+        }
+      ]
+    },
+    {
+      "id": "metabolic_mala",
+      "tag": "Metabolic Differential",
+      "title": "Metformin-Associated Lactic Acidosis vs. DKA",
+      "state": "66yo F with T2DM on metformin 1000 mg BID and CKD3b had 3 days of gastroenteritis with poor PO intake. Labs: Na 138, K 5.4, Cl 98, HCO3 10, BUN 58, Cr 4.1 (baseline 1.5), glucose 114 mg/dL, beta-hydroxybutyrate 0.3 mmol/L (normal), venous pH 7.16, serum lactate 10.2 mmol/L. Urine ketones negative.",
+      "questions": [
+        {
+          "id": "syndrome",
+          "type": "choice",
+          "prompt": "Which metabolic emergency best explains these labs?",
+          "expected": "Metformin-associated lactic acidosis (MALA)",
+          "options": [
+            {
+              "key": "mala",
+              "label": "Metformin-associated lactic acidosis (MALA)",
+              "p9b": 0.985,
+              "p4b": 0.991
+            },
+            {
+              "key": "salicylate",
+              "label": "Salicylate toxicity",
+              "p9b": 0.008,
+              "p4b": 0.002
+            },
+            {
+              "key": "hhs",
+              "label": "Hyperosmolar hyperglycemic state (HHS)",
+              "p9b": 0.005,
+              "p4b": 0.001
+            },
+            {
+              "key": "dka",
+              "label": "Diabetic ketoacidosis (DKA)",
+              "p9b": 0.003,
+              "p4b": 0.006
+            }
+          ]
+        },
+        {
+          "id": "dka",
+          "type": "noul",
+          "prompt": "Do the laboratory values support diabetic ketoacidosis?",
+          "expected": "No",
+          "osler_9b": {
+            "yes": 0.0855,
+            "no": 0.9145
+          },
+          "osler_4b": {
+            "yes": 0.0888,
+            "no": 0.9112
+          }
+        }
+      ]
+    },
+    {
+      "id": "abstention_nodule",
+      "tag": "Honest Abstention",
+      "title": "Unbiopsied Pulmonary Nodule \u2014 Refusing to Guess Stage",
+      "state": "59yo M with 35 pack-year smoking history had a screening low-dose chest CT showing a 1.8 cm spiculated right upper lobe nodule. Pulmonology referral placed for PET-CT and biopsy. No pathology or mediastinal lymph node sampling has been performed yet.",
+      "questions": [
+        {
+          "id": "staging",
+          "type": "choice",
+          "prompt": "What is the confirmed TNM stage of lung cancer based on this note?",
+          "expected": "Insufficient information",
+          "options": [
+            {
+              "key": "insufficient_info",
+              "label": "Insufficient information (no tissue/staging yet)",
+              "p9b": 0.968,
+              "p4b": 0.99
+            },
+            {
+              "key": "stage_i",
+              "label": "Confirmed Stage I NSCLC",
+              "p9b": 0.026,
+              "p4b": 0.006
+            },
+            {
+              "key": "stage_iii",
+              "label": "Confirmed Stage III NSCLC",
+              "p9b": 0.004,
+              "p4b": 0.002
+            },
+            {
+              "key": "stage_iv",
+              "label": "Confirmed Stage IV metastatic NSCLC",
+              "p9b": 0.002,
+              "p4b": 0.002
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "minimal_pair_sepsis",
+      "tag": "Minimal-Pair Grounding",
+      "title": "Sepsis-3 Septic Shock \u2014 Single-Sentence Flip",
+      "state": "Case A (Positive): 64yo F with E. coli bacteremia. Despite 30 mL/kg IV crystalloid, MAP remains 56 mmHg requiring norepinephrine at 12 mcg/min. Repeat lactate is 4.6 mmol/L.\nCase B (Negative): Same patient \u2014 following 30 mL/kg crystalloid, MAP improved to 78 mmHg with no vasopressors required. Repeat lactate normalized to 1.2 mmol/L.",
+      "questions": [
+        {
+          "id": "sepsis_pos",
+          "type": "noul",
+          "prompt": "Case A \u2014 Meets Sepsis-3 septic shock criteria (vasopressor + lactate > 2)?",
+          "expected": "Yes",
+          "osler_9b": {
+            "yes": 0.9732,
+            "no": 0.0268
+          },
+          "osler_4b": {
+            "yes": 0.9731,
+            "no": 0.0269
+          }
+        },
+        {
+          "id": "sepsis_neg",
+          "type": "noul",
+          "prompt": "Case B \u2014 Meets Sepsis-3 septic shock criteria (vasopressor + lactate > 2)?",
+          "expected": "No",
+          "osler_9b": {
+            "yes": 0.0415,
+            "no": 0.9585
+          },
+          "osler_4b": {
+            "yes": 0.0369,
+            "no": 0.9631
+          }
+        }
+      ]
+    },
+    {
+      "id": "trial_exclusion",
+      "tag": "Trial Eligibility",
+      "title": "Multi-Clause Clinical Trial Exclusion Trap",
+      "state": "Trial Criteria: Adults >=18y with symptomatic HFrEF (LVEF <=40%) on stable GDMT. Exclusions: eGFR <30 mL/min/1.73m2, active malignancy receiving chemotherapy, or pregnancy.\nPatient: 69yo M with NYHA III HFrEF (LVEF 30%) on carvedilol and sacubitril-valsartan, currently undergoing FOLFOX chemotherapy for stage III colon cancer, eGFR 28 mL/min/1.73m2.",
+      "questions": [
+        {
+          "id": "eligible",
+          "type": "noul",
+          "prompt": "Is this patient eligible to enroll in the clinical trial?",
+          "expected": "No",
+          "osler_9b": {
+            "yes": 0.0188,
+            "no": 0.9812
+          },
+          "osler_4b": {
+            "yes": 0.0242,
+            "no": 0.9758
+          }
+        }
+      ]
+    }
+  ]
+}
