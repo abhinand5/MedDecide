@@ -1,0 +1,93 @@
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-600.css';
+@import '@fontsource/inter/latin-700.css';
+@import '@fontsource/instrument-serif/latin-400.css';
+@import '@fontsource/instrument-serif/latin-400-italic.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --canvas: 250 249 246;   /* #FAF9F6 */
+    --card: 255 255 255;
+    --line: 226 232 240;     /* #E2E8F0 */
+    --ink: 15 23 42;         /* #0F172A */
+    --muted: 71 85 105;      /* slate-600 */
+    --subtle: 241 245 249;   /* slate-100 */
+    --accent: 13 148 136;    /* #0D9488 */
+    --accent2: 5 150 105;    /* #059669 */
+    --warn: 180 115 20;      /* muted amber */
+    --bad: 190 60 60;
+    --c-base: 100 116 139;   /* slate-500 */
+    --c-27b: 124 92 196;     /* muted violet */
+    --c-other: 148 163 184;
+    color-scheme: light;
+  }
+  .dark {
+    --canvas: 11 17 32;      /* #0B1120 */
+    --card: 17 24 39;        /* #111827 */
+    --line: 30 41 59;        /* #1E293B */
+    --ink: 248 250 252;      /* #F8FAFC */
+    --muted: 148 163 184;
+    --subtle: 22 32 50;
+    --accent: 45 212 191;    /* #2DD4BF */
+    --accent2: 52 211 153;
+    --warn: 245 180 80;
+    --bad: 248 113 113;
+    --c-base: 148 163 184;
+    --c-27b: 167 139 250;
+    --c-other: 100 116 139;
+    color-scheme: dark;
+  }
+  html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: rgb(var(--accent) / 0.2); }
+}
+
+@layer components {
+  .card { @apply bg-card border border-line rounded-2xl; }
+  .num { @apply font-mono; font-variant-numeric: tabular-nums; }
+  .eyebrow { @apply font-mono text-[11px] uppercase tracking-[0.14em] text-muted; }
+  .h-display { @apply font-serif font-normal tracking-tight text-ink; }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[13px] font-medium text-muted transition-colors;
+  }
+  .pill:hover { @apply text-ink border-ink/30; }
+  .pill-on { @apply bg-ink text-canvas border-ink; }
+  .pill-on:hover { @apply text-canvas; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-3.5 py-2 text-[13.5px] font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50;
+  }
+  .btn-primary { @apply btn bg-ink text-canvas hover:opacity-90; }
+  .btn-ghost { @apply btn border border-line bg-card text-ink hover:border-ink/40; }
+  .badge { @apply inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-medium leading-none tracking-wide; }
+  .section { @apply mx-auto max-w-page px-5 sm:px-8; }
+  .hairline { @apply border-t border-line; }
+  .link { @apply text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent; }
+}
+
+.chart-axis text { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 10.5px; fill: rgb(var(--muted)); font-variant-numeric: tabular-nums; }
+.chart-grid { stroke: rgb(var(--line)); stroke-width: 1; }
+
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.bar-grow { transform-origin: left center; animation: grow 700ms cubic-bezier(.2,.8,.2,1) both; }
+@keyframes fadeup { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fadeup 420ms ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-grow, .fade-up { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+:root { --c-4b: 2 132 199; --c-pf: 150 112 78; --c-md: 176 92 138; }
+.dark { --c-4b: 56 189 248; --c-pf: 196 160 122; --c-md: 226 138 184; }

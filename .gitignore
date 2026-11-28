@@ -166,8 +166,7 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# mkdocs/Zensical documentation
-/site
+# mkdocs/Zensical documentation (note: /site is the tracked Vite landing page & leaderboard)
 
 # mypy
 .mypy_cache/

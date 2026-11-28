@@ -32,8 +32,17 @@ For production HTTP serving of **Osler-9B**, use **vLLM Semantic Router** (`vllm
 - **Privacy & safety:** Both models cleared a local MIMIC-IV PHI/memorisation audit (visited-member ΔAUC `+0.0468` 9B / `+0.0248` 4B vs. zero-shot controls, `0/300` 4B verbatim matches). **Osler-9B** carries no `lm_head` (architecturally non-generative).
 - **Honest limitations:** `Osler-9B` ties its `d3-flash` base on OOD `panel` and `knowledge` and trails `pplx-27B` on hard multi-step QA; `Osler-4B` trades ~1 pt on OOD `panel`/`knowledge` for large EHR and clinical documentation gains; dev-fitted temperatures leave both models under-confident on fresh `confirm_general`; and both models fail a held-out synthetic indicator template (`synthea_indicator_evidence_v1`).
 
+## Links & Ecosystem
+
+- **Project Page & Interactive Explorer:** [abhinand5.github.io/MedDecide](https://abhinand5.github.io/MedDecide)
+- **Live Hugging Face Leaderboard Space:** [abhinand/MedDecide-Leaderboard](https://huggingface.co/spaces/abhinand/MedDecide-Leaderboard)
+- **Public Benchmark Dataset (`confirm_general`, 5,988 fresh items):** [abhinand/MedDecide-Bench](https://huggingface.co/datasets/abhinand/MedDecide-Bench)
+- **Hugging Face Collection:** [Osler — Calibrated Medical Decision Models](https://huggingface.co/collections/abhinand/osler-calibrated-medical-decision-models-6b0af4d7e2e7a5eed75e3619)
+- **Real-World Clinical Decision Examples:** [docs/examples.md](docs/examples.md)
+
 ## Repository Layout
 
+- `site/` — Landing page & interactive two-tier leaderboard (GitHub Pages + HF Static Space)
 - `src/meddecide/` — Core schema, model adapters, trainer, calibration, evaluation, and synthetic data modules
 - `scripts/` — Training, evaluation, calibration, latency, PHI audit, and release scripts
 - `configs/` — Experiment and model configurations

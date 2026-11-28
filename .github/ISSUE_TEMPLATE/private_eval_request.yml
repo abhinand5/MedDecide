@@ -1,0 +1,68 @@
+name: Request Private EHR Evaluation
+description: Request maintainer-run local evaluation on the private EHR & clinical documentation suite (MIMIC-IV + MR Verdict) for an open-weight model.
+title: "[Private Eval Request] <org/model-name>"
+labels: ["leaderboard", "private-eval-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### PhysioNet DUA Compliance Rule
+        - **Open-weight models** (loadable and runnable locally on PhysioNet-authorized hardware) are eligible for evaluation on the **Private EHR Suite** (`mimic_suite` + `mr_verdict`). Zero patient data ever leaves local hardware.
+        - **Closed / hosted API models** are eligible for the **Public Tier only** (`abhinand/MedDecide-Bench` `confirm_general`, `panel`, `knowledge`) — MIMIC data is never sent to third-party APIs.
+        - Please first verify your model on the public `confirm_general` set (5,988 items) via `scripts/bench/eval_public_bench.py` and `scripts/bench/verify_submission.py`.
+
+  - type: input
+    id: model_repo
+    attributes:
+      label: Hugging Face Model Repo ID
+      description: Public open-weight Hugging Face repository ID.
+      placeholder: "org/model-name"
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Pinned Revision (Commit SHA)
+      description: Exact HF commit hash to guarantee reproducibility.
+      placeholder: "e.g. 1fba04eaa8fdcaa151373fd901b2d15aa5449907"
+    validations:
+      required: true
+
+  - type: input
+    id: params_and_license
+    attributes:
+      label: Parameter Count & License
+      placeholder: "e.g. 8.39B, Apache-2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: runner
+    attributes:
+      label: Inference Interface / Runner
+      options:
+        - "Hugging Face AutoModel (trust_remote_code=True, system_one API)"
+        - "Standard AutoModelForCausalLM (letter verbalizer)"
+        - "pplx_decider / Decider API"
+        - "Custom (provide snippet below)"
+    validations:
+      required: true
+
+  - type: input
+    id: public_score
+    attributes:
+      label: Public `confirm_general` Score & Submission PR Link
+      description: Link to your public PR (or verified accuracy / Brier / ECE from verify_submission.py).
+      placeholder: "e.g. Acc 0.8910, ECE 0.041 — PR #12"
+    validations:
+      required: true
+
+  - type: textarea
+    id: snippet
+    attributes:
+      label: Minimal Local Inference Snippet & Notes
+      description: Exact Python snippet to score one (state, question, options) item locally in bf16 on a single GPU.
+      render: python
+    validations:
+      required: true
