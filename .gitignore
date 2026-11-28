@@ -234,3 +234,7 @@ tmp/
 
 # Unsloth runtime compile cache (written into CWD when UNSLOTH_COMPILE_LOCATION is unset)
 unsloth_compiled_cache/
+
+# Track aggregate leaderboard JSON for the static site
+!/site/data/
+!/site/data/leaderboard.json
